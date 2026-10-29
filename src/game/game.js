@@ -337,7 +337,8 @@ export class Game {
   _exchangeHtml() {
     const view = hub.view();
     const pending = view.pending;
-    const max = maxExchangeTickets(save.data.tickets);
+    const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+    const max = maxExchangeTickets(spendable);
     if (!pending) {
       if (max < TICKETS_PER_VERSE) this.exAmount = 0;
       else this.exAmount = Math.min(max, Math.max(TICKETS_PER_VERSE, this.exAmount));
@@ -345,7 +346,7 @@ export class Game {
     const shown = pending ? pending.tickets : this.exAmount;
     const verse = Math.floor(shown / TICKETS_PER_VERSE);
     const locked = !!pending || this.exBusy;
-    const can = !locked && view.reach === 'ready' && view.inSession && shown >= TICKETS_PER_VERSE && shown <= max;
+    const can = !locked && view.reach === 'ready' && view.inSession && shown >= TICKETS_PER_VERSE && shown % TICKETS_PER_VERSE === 0 && shown <= max;
     const cap = view.verseCapLeft == null ? '' : `<div class="hint">Verse left today: ${view.verseCapLeft}</div>`;
     let status = view.pending ? 'Exchange pending' : view.status;
     if (!status && view.reach === 'pending') status = 'Connecting to the hub…';
@@ -354,7 +355,7 @@ export class Game {
     return `<div class="exchange-panel">
       <div class="sub-title">EXCHANGE</div>
       <div class="hint">${TICKETS_PER_VERSE} Tickets = 1 Verse</div>
-      <div class="hint">Tickets: ${save.data.tickets}</div>
+      <div class="hint">Tickets: ${spendable}</div>
       <div class="ex-step">
         ${nudge(`-${TICKETS_PER_VERSE}`, locked || shown <= TICKETS_PER_VERSE)}
         <div class="ex-amt">${shown}</div>
@@ -372,7 +373,9 @@ export class Game {
     const pending = hub.view().pending;
     if (pending) this.exAmount = pending.tickets;
     else {
-      const max = maxExchangeTickets(save.data.tickets);
+      const view = hub.view();
+      const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+      const max = maxExchangeTickets(spendable);
       this.exAmount = max >= TICKETS_PER_VERSE ? TICKETS_PER_VERSE : 0;
     }
     this.exchangeOpen = true;
@@ -389,7 +392,8 @@ export class Game {
     }
     const view = hub.view();
     if (view.pending || this.exBusy) return;
-    const max = maxExchangeTickets(save.data.tickets);
+    const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+    const max = maxExchangeTickets(spendable);
     if (input.pressed('left') || input.pressed('down')) {
       if (this.exAmount > TICKETS_PER_VERSE) {
         this.exAmount -= TICKETS_PER_VERSE;
@@ -404,7 +408,7 @@ export class Game {
         this._drawMap();
       }
     }
-    if ((input.confirmPressed() || input.pressed('bite')) && this.exAmount >= TICKETS_PER_VERSE && this.exAmount <= max && view.reach === 'ready' && view.inSession) {
+    if ((input.confirmPressed() || input.pressed('bite')) && this.exAmount >= TICKETS_PER_VERSE && this.exAmount % TICKETS_PER_VERSE === 0 && this.exAmount <= max && view.reach === 'ready' && view.inSession) {
       audio.play('select');
       this._confirmExchange();
     }
@@ -412,9 +416,15 @@ export class Game {
 
   async _confirmExchange() {
     if (this.exBusy) return;
+    const view = hub.view();
+    const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+    const max = maxExchangeTickets(spendable);
+    const amount = Math.floor(Number(this.exAmount) || 0);
+    // 10 Tickets = 1 Verse. Under 10, or any amount that is not a step of 10, sends nothing.
+    if (view.reach !== 'ready' || !view.inSession || amount < TICKETS_PER_VERSE || amount % TICKETS_PER_VERSE !== 0 || amount > max) return;
     this.exBusy = true;
     this._drawMap();
-    try { await hub.exchange(this.exAmount); }
+    try { await hub.exchange(amount); }
     finally { this.exBusy = false; }
     if (this.exchangeOpen && this.state === 'map') this._drawMap();
   }

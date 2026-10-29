@@ -7,6 +7,9 @@ import { CARRY_MAX, LEVEL_END_MAX_AMOUNT } from '../config/tickets.js';
 
 const GAME_ID = 'nobu';
 const EARN_REASON = 'level_end';
+// A carry is its own earnTickets call, never added to a level clear's amount.
+// Each call stays at or under LEVEL_END_MAX_AMOUNT because the server rejects
+// the whole call when level_end is over 110.
 const STORAGE_KEY = 'nobu-hub-writes-v1';
 const SESSION_KEY = 'hub:nobu:session';
 const LOCK_NAME = 'nobu-hub-writes';
@@ -62,7 +65,11 @@ function sanitize(parsed) {
   const store = emptyStore();
   if (!parsed || typeof parsed !== 'object') return store;
   for (const [id, rec] of Object.entries(asRecord(parsed.attempts))) {
-    if (rec && (typeof rec.level === 'string' || typeof rec.level === 'number')) store.attempts[id] = { level: String(rec.level) };
+    if (rec && (typeof rec.level === 'string' || typeof rec.level === 'number')) {
+      const attempt = { level: String(rec.level) };
+      if (rec.settled) attempt.settled = true;
+      store.attempts[id] = attempt;
+    }
   }
   for (const [id, rec] of Object.entries(asRecord(parsed.earns))) {
     if (!rec || !Number.isFinite(Number(rec.amount))) continue;
@@ -100,16 +107,27 @@ function readStore() {
   }
 }
 
+function mergeAttempts(disk = {}, ours = {}) {
+  const out = {};
+  for (const id of new Set([...Object.keys(disk), ...Object.keys(ours)])) {
+    const left = disk[id];
+    const right = ours[id];
+    const level = left?.level ?? right?.level;
+    if (level == null || level === '') continue;
+    const attempt = { level: String(level) };
+    if (left?.settled || right?.settled) attempt.settled = true;
+    out[id] = attempt;
+  }
+  return out;
+}
+
 function mergeEarns(disk = {}, ours = {}) {
   const out = {};
   for (const id of new Set([...Object.keys(disk), ...Object.keys(ours)])) {
     const left = disk[id];
     const right = ours[id];
     const covers = [...new Set([...(left?.covers || []), ...(right?.covers || [])])];
-    if (left?.dropped && right && !right.dropped && Number.isFinite(right.amount)) {
-      out[id] = { amount: right.amount, acked: !!right.acked, dropped: false, covers };
-      continue;
-    }
+    // A dropped row stays dropped. A later write must not replace it.
     const amount = left && Number.isFinite(left.amount) ? left.amount : right?.amount;
     if (!Number.isFinite(amount)) continue;
     const dropped = !!(left?.dropped || right?.dropped);
@@ -158,7 +176,8 @@ function mergeExchange(disk, ours) {
 }
 
 function mergeCarry(disk, ours, diskClearedKey, oursClearedKey) {
-  const live = (carry) => (carry && carry.key && carry.amount > 0 && carry.day === utcDay() ? carry : null);
+  // Day expiry is applied only when a server day is known. The device clock must not drop a carry here.
+  const live = (carry) => (carry && carry.key && carry.amount > 0 ? carry : null);
   const left = live(disk);
   const right = live(ours);
   if (oursClearedKey && (!left || left.key === oursClearedKey)) return right && right.key !== oursClearedKey ? right : null;
@@ -169,8 +188,20 @@ function mergeCarry(disk, ours, diskClearedKey, oursClearedKey) {
   return left;
 }
 
-function utcDay(now = Date.now()) {
-  return new Date(now).toISOString().slice(0, 10);
+// Hub #12 adds serverTime (epoch milliseconds) on InitResult and TicketBalanceResult.
+// SDK 0.2.0 does not send it. Absent means the server day is unknown, so expiry stays off.
+function serverDayFrom(source) {
+  if (!source || typeof source !== 'object' || source.serverTime == null || source.serverTime === '') return null;
+  const value = source.serverTime;
+  let ms = null;
+  // 0 is the SDK's "no clock" sentinel (standalone getTicketBalance). It is not 1970-01-01.
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) ms = value;
+  else if (typeof value === 'string' && /^\d+$/.test(value) && Number(value) > 0) ms = Number(value);
+  else if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  if (ms == null) return null;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
 }
 
 function mergeStore(disk, ours) {
@@ -178,7 +209,7 @@ function mergeStore(disk, ours) {
   const right = sanitize(ours);
   return {
     v: 1,
-    attempts: { ...left.attempts, ...right.attempts },
+    attempts: mergeAttempts(left.attempts, right.attempts),
     earns: mergeEarns(left.earns, right.earns),
     held: mergeHeld(left.held, right.held),
     carry: mergeCarry(left.carry, right.carry, left.carryClearedKey, right.carryClearedKey),
@@ -215,17 +246,18 @@ function pendingExchange() {
   return ex;
 }
 
+function isCarryEarn(id) {
+  if (!id) return false;
+  const store = readStore();
+  return !store.attempts[id] && !!store.earns[id];
+}
+
 function hasSession() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return false;
     const parsed = JSON.parse(raw);
-    return !!parsed
-      && parsed.game === GAME_ID
-      && !!parsed.token
-      && !!parsed.playerId
-      && !!parsed.sid
-      && typeof parsed.ranked === 'boolean';
+    return !!(parsed && parsed.token && parsed.playerId);
   } catch {
     return false;
   }
@@ -287,7 +319,16 @@ async function readTicketAccount(sdk, payload, { query = true } = {}) {
   const capsFromHook = hooked != null && (
     namedNumber(hooked, 'sessionCapLeft') != null || namedNumber(hooked, 'dailyCapLeft') != null
   );
-  return { balance, sessionCapLeft, dailyCapLeft, capLeft, allowance: caps.length ? Math.min(...caps) : null, capsFromHook };
+  const serverTime = hooked?.serverTime ?? payload?.serverTime ?? parsed?.serverTime ?? null;
+  return {
+    balance,
+    sessionCapLeft,
+    dailyCapLeft,
+    capLeft,
+    allowance: caps.length ? Math.min(...caps) : null,
+    capsFromHook,
+    serverTime,
+  };
 }
 
 function errorInfo(err) {
@@ -298,7 +339,7 @@ function errorInfo(err) {
 
 function isTerminal(code) {
   if (typeof code !== 'string' || code === 'rpc_failed' || code === 'rejected') return false;
-  return code === 'idempotency_mismatch' || code === 'amount_over_rule' || code.endsWith('_cap');
+  return code === 'idempotency_mismatch' || code === 'amount_over_rule' || code === 'zero_value' || code.endsWith('_cap');
 }
 
 async function openWrites(mode) {
@@ -362,20 +403,25 @@ async function forgetOutbox(key) {
   }
 }
 
-function normalizeExchange(result, requested) {
+function normalizeExchange(result) {
   const receiptId = result && typeof result.receiptId === 'string' ? result.receiptId : '';
+  let wallet = null;
+  if (result && Number.isFinite(Number(result.balance))) wallet = Math.max(0, Math.floor(Number(result.balance)));
+  else if (result && Number.isFinite(Number(result.ticketsLeft))) wallet = Math.max(0, Math.floor(Number(result.ticketsLeft)));
   let debited = null;
+  if (result && Number.isFinite(Number(result.ticketsDebited))) debited = Math.max(0, Math.floor(Number(result.ticketsDebited)));
   let verseCredited = null;
-  if (result && Number.isFinite(Number(result.ticketsDebited))) debited = Math.floor(Number(result.ticketsDebited));
   if (result && Number.isFinite(Number(result.verseCredited))) verseCredited = Number(result.verseCredited);
-  if (debited == null && verseCredited != null) debited = Math.floor(verseCredited) * TICKETS_PER_VERSE;
-  if (debited == null && receiptId && receiptId !== 'noop') debited = requested;
+  // No floor(verseCredited) * 10. A Verse credit converts at 10 Tickets, including fractions.
+  if (wallet == null && debited == null && verseCredited != null) {
+    debited = Math.max(0, Math.round(verseCredited * TICKETS_PER_VERSE));
+  }
   let verseCapLeft = null;
   if (result && Object.prototype.hasOwnProperty.call(result, 'verseCapLeft') && result.verseCapLeft != null && result.verseCapLeft !== '') {
     const n = Number(result.verseCapLeft);
     if (Number.isFinite(n)) verseCapLeft = n;
   }
-  return { receiptId, debited, verseCredited, verseCapLeft };
+  return { receiptId, debited, wallet, verseCredited, verseCapLeft };
 }
 
 class HubBridge {
@@ -387,6 +433,9 @@ class HubBridge {
     this.sessionCapLeft = null;
     this.dailyCapLeft = null;
     this.rejectionRemaining = null;
+    this.sessionAllowance = null;
+    this.serverBalance = null;
+    this.serverDay = null;
     this.status = '';
     this._sdk = null;
     this._initing = null;
@@ -405,10 +454,33 @@ class HubBridge {
     return this._initing;
   }
 
+  _noteServerDay(source) {
+    const day = serverDayFrom(source);
+    if (day) this.serverDay = day;
+    return this.serverDay;
+  }
+
+  // Re-read getTicketBalance().serverTime so a carry expires at 00:00 UTC on the server clock.
+  async _refreshServerDay() {
+    if (!(this.reach === 'ready' && this.inSession) || typeof this._sdk?.getTicketBalance !== 'function') {
+      return this.serverDay;
+    }
+    try {
+      this._noteServerDay(await this._sdk.getTicketBalance());
+    } catch { /* keep the last server day */ }
+    return this.serverDay;
+  }
+
   async _doInit() {
+    this.sessionCapLeft = null;
+    this.dailyCapLeft = null;
+    this.rejectionRemaining = null;
+    this.serverBalance = null;
+    this.serverDay = null;
     for (let i = 0; i < 16; i++) {
       try {
         this.profile = await this.sdk.init(GAME_ID);
+        this._noteServerDay(this.profile);
         this.reach = 'ready';
         this.inSession = hasSession();
         break;
@@ -416,6 +488,12 @@ class HubBridge {
         const info = errorInfo(err);
         if (isTerminal(info.code)) {
           const key = await firstOutboxKey();
+          // A carry the session cap refused stays local and is tried again later.
+          if (info.code === 'session_ticket_cap' && isCarryEarn(key)) {
+            console.warn('[hub] carry kept after session cap', key || '', info.message);
+            await forgetOutbox(key);
+            continue;
+          }
           console.warn('[hub] terminal error, dropping write', info.code, key || '', info.message);
           if (!key) { this.reach = 'offline'; break; }
           await this._dropKey(key);
@@ -441,15 +519,26 @@ class HubBridge {
   async _syncTicketAccount(payload, { applyBalance = true } = {}) {
     const live = this.reach === 'ready' && this.inSession;
     const account = await readTicketAccount(live ? this._sdk : null, payload, { query: live });
+    this._noteServerDay(account);
+    this._noteServerDay(payload);
     if (account.capsFromHook) this.rejectionRemaining = null;
     if (account.sessionCapLeft != null) this.sessionCapLeft = account.sessionCapLeft;
     if (account.dailyCapLeft != null) this.dailyCapLeft = account.dailyCapLeft;
     if (account.allowance != null && !account.capsFromHook) this.rejectionRemaining = account.allowance;
+    if (live && account.balance != null) this.serverBalance = account.balance;
     if (applyBalance && live && account.balance != null) {
       save.data.tickets = account.balance;
       save.write();
     }
     return account;
+  }
+
+  // In a hub session the exchangeable amount is the server wallet only.
+  // Unbanked local Tickets, including a quit haul, are not spendable.
+  exchangeableTickets() {
+    if (!this.inSession) return Math.max(0, Math.floor(Number(save.data.tickets) || 0));
+    if (this.serverBalance == null) return 0;
+    return Math.max(0, Math.floor(this.serverBalance));
   }
 
   view() {
@@ -479,29 +568,85 @@ class HubBridge {
   async bank(attemptId, amount, durable) {
     const earned = Math.floor(Number(amount)) || 0;
     if (!attemptId || earned <= 0) return;
-    if (!durable || !readStore().attempts[attemptId]) {
+    const attempt = readStore().attempts[attemptId];
+    if (!durable || !attempt) {
       console.warn('[hub] earn not sent; attempt id was not saved');
       return;
     }
+    // Settled once the row was terminally dropped or its remainder moved to the carry.
+    if (attempt.settled) return;
+    const existing = readStore().earns[attemptId];
+    if (existing?.dropped) {
+      // The earn was refused. Park the haul before settling, or the tickets are lost.
+      await this._addCarry(earned, attemptId);
+      return;
+    }
+    if (existing && !existing.dropped) {
+      let accepted = existing.acked ? existing.amount : 0;
+      if (!existing.acked) {
+        const sent = await this._bankAmount(attemptId, existing.amount);
+        accepted = sent.accepted ?? 0;
+      }
+      const rest = earned - accepted;
+      if (rest > 0) await this._addCarry(rest, attemptId);
+      else if (readStore().earns[attemptId]?.dropped) await this._settleAttempt(attemptId);
+      return;
+    }
     const { accepted } = await this._bankAmount(attemptId, earned);
-    await this._addCarry(earned - accepted);
+    // Allowance 0 writes no earn row. The whole haul still has to reach the carry.
+    const rest = earned - (accepted || 0);
+    if (rest > 0) await this._addCarry(rest, attemptId);
+    else if (readStore().earns[attemptId]?.dropped) await this._settleAttempt(attemptId);
+  }
+
+  _settleAttempt(id) {
+    return writeMerged((s) => {
+      if (s.attempts[id]) s.attempts[id].settled = true;
+      return s;
+    });
   }
 
   // Carry from an earlier clear banks before this attempt's own tickets.
+  // Its body is only the carry, under the carry's own key, capped at 110.
   async bankCarry() {
     await this._expireCarry();
-    const carry = readStore().carry;
+    let carry = readStore().carry;
     if (!carry || !(carry.amount > 0)) return;
+    const prior = readStore().earns[carry.key];
+    if (prior?.dropped) {
+      // That key can never be earned again. The amount stays, under a new key.
+      await this._replaceCarry(carry.amount, carry.day);
+      carry = readStore().carry;
+      if (!carry || !(carry.amount > 0)) return;
+    }
     const { accepted, code } = await this._bankAmount(carry.key, carry.amount);
-    if (accepted <= 0 && code && code !== 'session_ticket_cap' && isTerminal(code)) {
+    // Session cap rejects the whole call. Keep the amount locally. The refused
+    // key is dropped so the next try is a new earn of at most 110, not a retry
+    // of the over-cap body and not a sum with a level clear.
+    if (code === 'session_ticket_cap') {
+      const row = readStore().earns[carry.key];
+      if (row && !row.dropped) {
+        await this._dropKey(carry.key);
+        await forgetOutbox(carry.key);
+        const latest = readStore().carry;
+        if (latest?.key === carry.key && latest.amount > 0) {
+          await this._replaceCarry(latest.amount, latest.day);
+        }
+      }
+      return;
+    }
+    if (accepted <= 0 && code && isTerminal(code)) {
       console.warn('[hub] carry dropped', code, carry.key);
       await this._clearCarry(carry.key);
       return;
     }
     if (accepted <= 0) return;
     const rest = carry.amount - accepted;
-    if (rest <= 0) await this._clearCarry(carry.key);
-    else await this._replaceCarry(rest, carry.day);
+    if (rest > 0) await this._replaceCarry(rest, carry.day);
+    // Without a server day, leave the row. Deleting it here is indistinguishable
+    // from the device clock expiring a carry the server day still allows.
+    // The earn is acked, so a later bankCarry does not credit it again.
+    else if (this.serverDay) await this._clearCarry(carry.key);
   }
 
   async reportCone(attemptId, durable) {
@@ -598,7 +743,8 @@ class HubBridge {
       if (!rec.acked && !rec.dropped && rec.amount > 0) {
         const sent = await this._sendEarn(id);
         const accepted = sent.ok || sent.queued ? (sent.accepted ?? rec.amount) : 0;
-        if (accepted < rec.amount) await this._addCarry(rec.amount - accepted);
+        // A carry earn is already the carry. Do not add its unsent amount on again.
+        if (accepted < rec.amount && !isCarryEarn(id)) await this._addCarry(rec.amount - accepted, id);
       }
     }
     for (const [id, rec] of Object.entries(store.relics)) {
@@ -610,8 +756,12 @@ class HubBridge {
 
   _knownAllowance() {
     const caps = [this.sessionCapLeft, this.dailyCapLeft, this.rejectionRemaining].filter((n) => n != null);
-    if (!caps.length) return null;
-    return Math.min(...caps);
+    if (caps.length) return Math.min(...caps);
+    if (this.sessionAllowance != null && this.sessionAllowance !== '') {
+      const n = Number(this.sessionAllowance);
+      if (Number.isFinite(n)) return Math.max(0, Math.floor(n));
+    }
+    return null;
   }
 
   _spendAllowance(amount) {
@@ -633,20 +783,31 @@ class HubBridge {
     if (!(planned > 0)) return { accepted: 0 };
     const committed = await this._commitEarn(key, planned);
     if (!committed) return { accepted: 0, code: 'persist' };
-    if (committed.acked && !committed.dropped) return { accepted: committed.amount };
+    if (committed.dropped) return { accepted: 0, code: 'dropped' };
+    if (committed.acked) return { accepted: committed.amount };
     if (this.reach !== 'ready' || !this.inSession) return { accepted: committed.amount, queued: true };
     const sent = await this._sendEarn(key);
     if (sent.ok || sent.queued) return { accepted: sent.accepted ?? committed.amount, queued: !!sent.queued, code: sent.code };
     return { accepted: 0, code: sent.code };
   }
 
-  async _addCarry(amount) {
+  _carryStamp() {
+    if (this.serverDay) return this.serverDay;
+    // serverTime is absent. This label is stored once and is not compared to the device clock.
+    return new Date(Date.now()).toISOString().slice(0, 10);
+  }
+
+  async _addCarry(amount, settleAttemptId) {
     const add = Math.floor(Number(amount));
-    if (!(add > 0)) return;
+    if (!(add > 0)) return false;
+    await this._refreshServerDay();
     let discarded = 0;
-    await writeMerged((s) => {
-      const today = utcDay();
-      const cur = s.carry && s.carry.day === today ? s.carry : null;
+    let parked = false;
+    const today = this.serverDay;
+    const wrote = await writeMerged((s) => {
+      const previous = s.carry;
+      const cur = previous && previous.amount > 0 && (today == null || previous.day === today) ? previous : null;
+      if (previous && !cur && previous.key) s.carryClearedKey = previous.key;
       const earn = cur ? s.earns[cur.key] : null;
       const inFlight = earn && !earn.acked && !earn.dropped;
       if (inFlight) {
@@ -659,15 +820,27 @@ class HubBridge {
       const accepted = Math.min(Math.max(0, CARRY_MAX - base), add);
       discarded = add - accepted;
       if (!(accepted > 0)) return s;
-      s.carry = { key, amount: base + accepted, day: today };
+      s.carry = { key, amount: base + accepted, day: cur?.day || today || this._carryStamp() };
+      // Settle only in the same write as the carry, so a failed persist can be retried.
+      if (settleAttemptId && s.attempts[settleAttemptId]) s.attempts[settleAttemptId].settled = true;
+      parked = true;
       return s;
     });
     if (discarded > 0) console.warn('[hub] discarded tickets above carry cap', discarded);
+    if (!wrote || !parked) return false;
+    const stored = readStore();
+    return !!(stored.carry && stored.carry.amount > 0);
   }
 
   async _expireCarry() {
+    await this._refreshServerDay();
+    const today = this.serverDay;
+    if (!today) return;
     await writeMerged((s) => {
-      if (s.carry && s.carry.day !== utcDay()) s.carry = null;
+      if (s.carry && s.carry.day && s.carry.day !== today) {
+        s.carryClearedKey = s.carry.key;
+        s.carry = null;
+      }
       return s;
     });
   }
@@ -695,7 +868,7 @@ class HubBridge {
   async _commitEarn(id, amount) {
     const wrote = await writeMerged((s) => {
       const existing = s.earns[id];
-      if (existing && Number.isFinite(existing.amount) && !existing.dropped) return s;
+      if (existing && Number.isFinite(existing.amount)) return s;
       s.earns[id] = { amount, acked: false, dropped: false, covers: existing?.covers || [] };
       return s;
     });
@@ -718,7 +891,7 @@ class HubBridge {
     return rec;
   }
 
-  async _sendEarn(id, shrink = true) {
+  async _sendEarn(id) {
     const rec = readStore().earns[id];
     if (!rec || !(rec.amount > 0)) return { ok: false, accepted: 0 };
     if (rec.acked && !rec.dropped) return { ok: true, accepted: rec.amount };
@@ -743,19 +916,23 @@ class HubBridge {
       if (typeof info.code === 'string' && info.code.endsWith('_cap')) {
         const live = this.reach === 'ready' && this.inSession;
         const account = await readTicketAccount(live ? this._sdk : null, err, { query: live });
-        const allowance = account.allowance == null ? 0 : account.allowance;
+        this._noteServerDay(err);
         if (account.sessionCapLeft != null) this.sessionCapLeft = account.sessionCapLeft;
         if (account.dailyCapLeft != null) this.dailyCapLeft = account.dailyCapLeft;
-        if (info.code === 'session_ticket_cap' && this.sessionCapLeft == null) this.sessionCapLeft = allowance;
-        if (info.code === 'daily_ticket_cap' && this.dailyCapLeft == null) this.dailyCapLeft = allowance;
-        this.rejectionRemaining = allowance;
+        const ticketCap = info.code === 'session_ticket_cap' || info.code === 'daily_ticket_cap';
+        if (ticketCap) {
+          const allowance = account.allowance == null ? 0 : account.allowance;
+          if (info.code === 'session_ticket_cap' && this.sessionCapLeft == null) this.sessionCapLeft = allowance;
+          if (info.code === 'daily_ticket_cap' && this.dailyCapLeft == null) this.dailyCapLeft = allowance;
+          this.rejectionRemaining = allowance;
+        }
+        // The session cap rejected this carry outright. Leave the row unacked
+        // so a later session can earn the same local amount. Do not drop it.
+        if (info.code === 'session_ticket_cap' && isCarryEarn(id)) {
+          return { ok: false, accepted: 0, code: info.code };
+        }
         await this._failWrite(err, id);
-        if (!shrink || !(allowance > 0) || allowance >= rec.amount) return { ok: false, accepted: 0, code: info.code };
-        const replaced = await this._commitEarn(id, allowance);
-        if (!replaced || replaced.amount !== allowance) return { ok: false, accepted: 0, code: info.code };
-        const second = await this._sendEarn(id, false);
-        if (second.ok || second.queued) return { ...second, accepted: allowance, code: info.code };
-        return { ok: false, accepted: 0, code: second.code || info.code };
+        return { ok: false, accepted: 0, code: info.code };
       }
       if (isTerminal(info.code)) {
         await this._failWrite(err, id);
@@ -817,8 +994,14 @@ class HubBridge {
     });
     if (!wrote) return;
     if (first) {
-      const debited = Math.max(0, Math.floor(Number(norm.debited) || 0));
-      save.data.tickets = Math.max(0, save.data.tickets - debited);
+      if (norm.wallet != null) {
+        save.data.tickets = norm.wallet;
+        this.serverBalance = norm.wallet;
+      } else if (norm.debited != null) {
+        const debited = Math.max(0, Math.floor(Number(norm.debited) || 0));
+        save.data.tickets = Math.max(0, save.data.tickets - debited);
+        if (this.serverBalance != null) this.serverBalance = Math.max(0, this.serverBalance - debited);
+      }
       save.write();
     }
     this.status = Number.isFinite(norm.verseCredited) ? `Verse +${norm.verseCredited}` : 'Exchanged';
