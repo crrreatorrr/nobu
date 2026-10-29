@@ -1,5 +1,6 @@
 // Hats and collars parented to Nobu's sockets. Authored in metres at his 1.5 m size.
 // A missing GLB always falls back to these procedural meshes.
+// Neck holds one mesh: Golden Collar or Clown-Nose Collar.
 
 import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
@@ -37,6 +38,23 @@ function buildGoldenCollar() {
   coin.rotation.x = Math.PI / 2;
   g.add(band, coin);
   g.userData.kind = 'golden';
+  return g;
+}
+
+function buildClownCollar() {
+  const g = new THREE.Group();
+  const ruff = new THREE.Mesh(
+    new THREE.TorusGeometry(0.18, 0.045, 8, 18),
+    new THREE.MeshLambertMaterial({ color: 0xfff6ee, emissive: 0x665544 }),
+  );
+  ruff.rotation.x = Math.PI / 2;
+  const nose = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 12, 10),
+    new THREE.MeshLambertMaterial({ color: 0xe0232a, emissive: 0x6a1014 }),
+  );
+  nose.position.set(0, 0.02, 0.2);
+  g.add(ruff, nose);
+  g.userData.kind = 'clown';
   return g;
 }
 
@@ -94,6 +112,13 @@ export function dressNobuModel(model, loadout) {
       lift: 0,
       key: 'gearCollar',
     });
+  } else if (show.neck === 'nobu_clown_collar' && model.neckSocket) {
+    attach(model, model.neckSocket, takeMesh('nobu_clown_collar', 0.22, buildClownCollar), {
+      lift: 0,
+      key: 'gearCollar',
+    });
+  }
+  if (show.neck) {
     for (const mesh of model.bandana || []) mesh.visible = false;
   }
 }

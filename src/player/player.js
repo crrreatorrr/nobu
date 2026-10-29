@@ -107,6 +107,8 @@ export class Player {
     this.flopT = 0;
     this.invulnT = 0;
     this.guardCharges = 0;
+    this.dashCharges = 0;
+    this.airDashT = 0;
     this.deathType = null;
     this.deathT = 0;
     this.landT = 1;
@@ -150,10 +152,10 @@ export class Player {
   get god() { return !!save.data.godMode; }
   // Equipped Relic params. Empty in Ranked, and empty until init has reported ownership.
   get gear() { return this.game.loadout?.effects || {}; }
-  // Boss moves, plus Mega Bark while the Wizard Hat is equipped. Never writes beaten.
+  // Boss moves, plus Mega Bark from the hat and an air dash from the clown collar. Never writes beaten.
   get abilities() {
     const b = save.data.beaten || [];
-    return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] || !!this.gear.spell_bark };
+    return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] || !!this.gear.spell_bark, airDash: !!this.gear.air_dash };
   }
   get canDouble() { return this.airJumps > 0; }
   set canDouble(v) { this.airJumps = v ? (this.god ? 3 : 1) : 0; }
@@ -191,7 +193,10 @@ export class Player {
     if (this.mode === 'normal' && !this.ride) {
       if (input.pressed('bark') && this.abilities.bark && this.barkCool <= 0) this._bark();
       if (input.pressed('bite') && this.biteCooldown <= 0 && this.biteT < 0) this._startBite();
-      if (input.pressed('slide')) {
+      // LT is also slide. In the air, with a charge, it dashes and does not flop.
+      const wantDash = !grounded && input.pressed('dash') && this.abilities.airDash && this.dashCharges > 0;
+      if (wantDash) this._startAirDash();
+      if (input.pressed('slide') && !wantDash) {
         if (grounded) this._startSlide(mag > 0.2 ? Math.atan2(dx, dz) : this.facing);
         else this._startFlop();
       }
@@ -199,7 +204,12 @@ export class Player {
 
     // ---- horizontal movement ----
     let rideF = null;
-    if (this.mode === 'normal' && this.ride && stage.track) {
+    if (this.mode === 'normal' && this.airDashT > 0) {
+      this.airDashT = Math.max(0, this.airDashT - dt);
+      this.vel.x = this.dashVX;
+      this.vel.z = this.dashVZ;
+      this.vel.y = 0;
+    } else if (this.mode === 'normal' && this.ride && stage.track) {
       // vacuum ride: it drives itself along the track; left / right steers, jump hops the whole thing
       const R = this.ride;
       rideF = stage.track.tangent(this.body.s ?? 0, this._rideF ||= new THREE.Vector3());
@@ -279,6 +289,8 @@ export class Player {
         }
       } else if (this.canDouble && this.mode === 'normal') {
         this.airJumps--;
+        this.airDashT = 0;
+        this._refillAirDash();
         this.jumpBuffer = 0;
         this.vel.y = T.DOUBLE_JUMP;
         this.jumpCut = false;
@@ -301,11 +313,12 @@ export class Player {
     }
 
     // ---- gravity (with a little hang time at the apex while jump is held) ----
-    if (this.mode !== 'flop') {
+    if (this.mode !== 'flop' && !(this.airDashT > 0)) {
       let g = T.GRAVITY * (this.vel.y < 0 ? T.FALL_MULT : 1);
       if (!grounded && input.held('jump') && Math.abs(this.vel.y) < 2.2 && !this.jumpCut) g *= 0.55;
       this.vel.y = Math.max(-T.MAX_FALL, this.vel.y - g * dt);
     }
+    if (this.airDashT > 0) this.vel.y = 0;
     if (grounded || this.mode !== 'normal' || !input.held('jump')) this.glideOn = false;
     this.gliding = !!this.glideOn && this.vel.y < 0;
     if (this.gliding) {
@@ -386,6 +399,8 @@ export class Player {
   }
 
   _jump(v) {
+    this.airDashT = 0;
+    this._refillAirDash();
     this.vel.y = v;
     this.jumpBuffer = 0;
     this.coyote = 0;
@@ -470,6 +485,27 @@ export class Player {
     }
   }
 
+  _refillAirDash() {
+    const spec = this.gear.air_dash;
+    this.dashCharges = spec ? spec.charges_per_jump : 0;
+  }
+
+  // One horizontal burst. vel.y stays 0 until the timer ends, or until a jump or landing cancels it.
+  _startAirDash() {
+    const spec = this.gear.air_dash;
+    if (!spec || this.dashCharges <= 0 || this.body.grounded || this.airDashT > 0) return;
+    this.dashCharges -= 1;
+    this.airDashT = spec.dash_time_s;
+    const speed = spec.distance_m / Math.max(0.05, spec.dash_time_s);
+    const f = this.forward;
+    this.dashVX = f.x * speed;
+    this.dashVZ = f.z * speed;
+    this.vel.x = this.dashVX;
+    this.vel.z = this.dashVZ;
+    this.vel.y = 0;
+    audio.play('whoosh');
+  }
+
   _startFlop() {
     this.mode = 'flop';
     this.flopPhase = 'wind';
@@ -479,6 +515,10 @@ export class Player {
   }
 
   _onLand(solid, impact, wasGrounded) {
+    if (!wasGrounded) {
+      this.airDashT = 0;
+      this._refillAirDash();
+    }
     if (solid.ref && solid.ref.onLand) {
       const handled = solid.ref.onLand(this, impact);
       if (handled) return;
@@ -585,7 +625,8 @@ export class Player {
     this._paintGear();
   }
 
-  // Wardrobe changes apply immediately. Refill is only for spawn; a pause equip starts at 0 charges.
+  // Wardrobe changes apply immediately. The guard refills only on spawn; a pause equip starts at 0.
+  // Putting the clown collar on does not grant a dash. Jump and landing do. Taking it off drops any charge.
   applyGear({ refill = false } = {}) {
     const prev = this._equippedNeck || null;
     dressNobuModel(this.model, this.game?.loadout);
@@ -594,6 +635,8 @@ export class Player {
     if (!guard) this.guardCharges = 0;
     else if (refill) this.guardCharges = guard.guard_charges;
     else if (prev !== 'nobu_golden_collar') this.guardCharges = 0;
+    const hadDash = prev === 'nobu_clown_collar' && !!this.gear.air_dash;
+    if (!this.gear.air_dash || !hadDash) this.dashCharges = 0;
     this._equippedNeck = neck;
     this._paintGear();
   }
