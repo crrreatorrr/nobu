@@ -14,7 +14,7 @@ import { CoconutRoller } from '../src/entities/props.js';
 import { Game } from '../src/game/game.js';
 import { Session } from '../src/game/session.js';
 import { hub } from '../src/hub/hubBridge.js';
-import { readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
+import { grantSession, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
 import { creditedEarnTotal, hubError, sdk } from './sdkState.js';
 
 const DAY = '2026-06-15T12:00:00.000Z';
@@ -254,28 +254,37 @@ describe('local-only tickets', () => {
     await expectStillLocal(amount);
   });
 
-  it('quit tickets are not offered to the hub by exchange', async () => {
-    const amount = wholeTicketsFromRaw(rawTicketsForWhole(12));
-    save.data.tickets = amount;
-    const session = playSession();
-    session.levelTickets = amount;
-    const game = Object.create(Game.prototype);
-    game.session = session;
-    game.pauseSel = 6;
-    game.ui = { pinHud() {}, fade: () => Promise.resolve(), setScreen() {} };
-    game._drawPause = () => {};
-    game.toMap = () => {};
-    press('confirm');
-    game.updatePause();
+  it('a session sync drops local-only tickets from the wallet so they are not banked or exchanged', async () => {
+    sessionStorage.clear();
+    resetHub(hub);
+    sdk.ticketBalance = { balance: 4, sessionCapLeft: 100, dailyCapLeft: 80 };
+    await hub.init();
+    expect(hub.inSession).toBe(false);
+    const localOnly = wholeTicketsFromRaw(rawTicketsForWhole(12));
+    save.data.tickets = localOnly;
+    expect(save.data.tickets).toBe(localOnly);
+    await hub.exchange(localOnly);
+    expect(sdk.calls.exchange).toHaveLength(0);
+    expect(sdk.calls.earn).toHaveLength(0);
+
+    grantSession();
+    resetHub(hub);
+    await hub.init();
+    expect(hub.inSession).toBe(true);
+    expect(save.data.tickets).toBe(4);
+    expect(hub.sessionCapLeft).toBe(100);
+    expect(hub.dailyCapLeft).toBe(80);
 
     await Game.prototype._confirmExchange.call({
-      exAmount: amount,
+      exAmount: save.data.tickets,
       exBusy: false,
       exchangeOpen: true,
       state: 'map',
       _drawMap() {},
     });
-    expect(sdk.calls.exchange, 'the local-only wallet was submitted to hub.exchange').toHaveLength(0);
+    expect(sdk.calls.exchange.every((call) => call.tickets !== localOnly)).toBe(true);
+    expect(sdk.calls.exchange.map((call) => call.tickets)).toEqual([4]);
+    expect(sdk.calls.earn).toHaveLength(0);
   });
 
   it('a finished trial banks and a quit trial does not', async () => {
@@ -317,12 +326,15 @@ describe('local-only tickets', () => {
 
 describe('carry', () => {
   it('banks min(earned, allowance, level-end max) and carries the rest under its own key', async () => {
-    hub.sessionAllowance = 50;
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 80, dailyCapLeft: 50 };
+    resetHub(hub);
+    await hub.init();
     const attempt = await hub.beginAttempt(1);
     const earned = 200;
     await hub.bank(attempt.id, earned, true);
 
-    const sent = Math.min(earned, hub.sessionAllowance, LEVEL_END_MAX_AMOUNT);
+    const allowance = Math.min(80, 50);
+    const sent = Math.min(earned, allowance, LEVEL_END_MAX_AMOUNT);
     expect(sdk.calls.earn).toEqual([
       { amount: sent, reason: 'level_end', key: attempt.id },
     ]);
@@ -334,8 +346,63 @@ describe('carry', () => {
     expect(carry.amount).toBeLessThanOrEqual(CARRY_MAX);
   });
 
+  it('uses the one cap that is present, treats 0 as a hard stop, and uses capLeft only as a fallback', async () => {
+    const isolate = async (account) => {
+      localStorage.removeItem('nobu-hub-writes-v1');
+      sdk.calls.earn.length = 0;
+      sdk.earnLedger.clear();
+      sdk.ticketBalance = account;
+      resetHub(hub);
+      await hub.init();
+    };
+
+    await isolate({ balance: 0, dailyCapLeft: 40 });
+    let attempt = await hub.beginAttempt(1);
+    await hub.bank(attempt.id, 200, true);
+    expect(sdk.calls.earn.map((call) => call.amount)).toEqual([Math.min(200, 40, LEVEL_END_MAX_AMOUNT)]);
+
+    await isolate({ balance: 0, sessionCapLeft: 30 });
+    attempt = await hub.beginAttempt(1);
+    await hub.bank(attempt.id, 200, true);
+    expect(sdk.calls.earn.map((call) => call.amount)).toEqual([30]);
+
+    await isolate({ balance: 0, sessionCapLeft: 0, dailyCapLeft: 100 });
+    attempt = await hub.beginAttempt(1);
+    await hub.bank(attempt.id, 50, true);
+    expect(sdk.calls.earn).toHaveLength(0);
+    expect(readHubStore().carry.amount).toBe(Math.min(CARRY_MAX, 50));
+
+    await isolate({ balance: 0, capLeft: 25 });
+    expect(hub.sessionCapLeft).toBeNull();
+    expect(hub.dailyCapLeft).toBeNull();
+    expect(hub.rejectionRemaining).toBe(25);
+    attempt = await hub.beginAttempt(1);
+    await hub.bank(attempt.id, 200, true);
+    expect(sdk.calls.earn.map((call) => call.amount)).toEqual([25]);
+  });
+
+  it('a sync after a lost ack retries the same key and the same amount', async () => {
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 500, dailyCapLeft: 500 };
+    resetHub(hub);
+    await hub.init();
+    const attempt = await hub.beginAttempt(1);
+    sdk.loseEarnOnce = true;
+    sdk.ticketBalance = { balance: 80, sessionCapLeft: 420, dailyCapLeft: 420 };
+    await hub.bank(attempt.id, 80, true);
+    expect(readHubStore().earns[attempt.id]).toMatchObject({ amount: 80, acked: false, dropped: false });
+
+    resetHub(hub);
+    await hub.init();
+    expect(save.data.tickets).toBe(80);
+    const sends = sdk.calls.earn.filter((call) => call.key === attempt.id);
+    expect(sends.length).toBeGreaterThan(1);
+    expect(new Set(sends.map((call) => call.amount))).toEqual(new Set([80]));
+    expect(sdk.earnLedger.get(attempt.id).amount).toBe(80);
+  });
+
   it('with no allowance, the bank is still capped and does not retry', async () => {
-    expect(hub.sessionAllowance).toBeNull();
+    expect(hub.sessionCapLeft).toBeNull();
+    expect(hub.dailyCapLeft).toBeNull();
     const attempt = await hub.beginAttempt(1);
     const earned = 500;
     await hub.bank(attempt.id, earned, true);
@@ -368,7 +435,7 @@ describe('carry', () => {
     const original = readHubStore().carry.amount;
     expect(original).toBe(Math.min(CARRY_MAX, 90));
     const oldKey = readHubStore().carry.key;
-    hub.sessionAllowance = 40;
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 40, dailyCapLeft: 200 };
 
     await hub.bankCarry();
     const remainder = readHubStore().carry;
@@ -378,7 +445,7 @@ describe('carry', () => {
     expect(sdk.earnLedger.get(oldKey).amount).toBe(40);
     expect(sdk.earnLedger.has(remainder.key)).toBe(false);
 
-    hub.sessionAllowance = null;
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 500, dailyCapLeft: 500 };
     await hub.bankCarry();
     expect(sdk.earnLedger.get(remainder.key).amount).toBe(original - 40);
     expect(sdk.earnLedger.get(oldKey).amount).toBe(40);
@@ -390,12 +457,13 @@ describe('carry', () => {
     await hub.bank(first.id, LEVEL_END_MAX_AMOUNT + 90, true);
     const original = readHubStore().carry.amount;
     const oldKey = readHubStore().carry.key;
-    hub.sessionAllowance = 40;
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 40, dailyCapLeft: 200 };
     hub._replaceCarry = () => { throw new Error('reload'); };
     await expect(hub.bankCarry()).rejects.toThrow('reload');
     expect(readHubStore().carry).toMatchObject({ key: oldKey, amount: original });
     expect(readHubStore().earns[oldKey]).toMatchObject({ amount: 40, acked: true });
 
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 500, dailyCapLeft: 500 };
     delete hub._replaceCarry;
     resetHub(hub);
     await hub.init();
@@ -417,7 +485,7 @@ describe('carry', () => {
     await hub.bank(first.id, LEVEL_END_MAX_AMOUNT + 90, true);
     const original = readHubStore().carry.amount;
     const oldKey = readHubStore().carry.key;
-    hub.sessionAllowance = 40;
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 40, dailyCapLeft: 200 };
     sdk.loseEarnOnce = true;
 
     await hub.bankCarry();
@@ -425,6 +493,7 @@ describe('carry', () => {
     expect(readHubStore().carry.key).not.toBe(oldKey);
     expect(readHubStore().carry.amount).toBe(original - 40);
 
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: 500, dailyCapLeft: 500 };
     resetHub(hub);
     await hub.init();
     await hub.bankCarry();

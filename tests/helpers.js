@@ -18,7 +18,9 @@ export function resetHub(h = hub) {
   h.inSession = false;
   h.profile = null;
   h.verseCapLeft = null;
-  h.sessionAllowance = null;
+  h.sessionCapLeft = null;
+  h.dailyCapLeft = null;
+  h.rejectionRemaining = null;
   h._flushing = false;
   h.status = '';
 }
@@ -38,7 +40,13 @@ export function resetWorld() {
 }
 
 export function grantSession() {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 't', playerId: 'player-1' }));
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+    game: 'nobu',
+    token: 't',
+    playerId: 'player-1',
+    sid: 'sid-1',
+    ranked: true,
+  }));
 }
 
 export async function readyHub(h = hub) {

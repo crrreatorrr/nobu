@@ -108,6 +108,11 @@ export function createHubSdk() {
       }
     },
 
+    async getTicketBalance() {
+      if (typeof sdk.ticketBalance === 'function') return sdk.ticketBalance();
+      return sdk.ticketBalance || {};
+    },
+
     exit() {},
   };
 }

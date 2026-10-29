@@ -29,6 +29,7 @@ function fresh() {
     scoreErrorOnce: false,
     initError: null,
     exchangeResponder: null,
+    ticketBalance: null,
   };
 }
 
