@@ -221,6 +221,28 @@ html, body {
 .exchange-panel .ex-nudge { font-family: var(--font-display); font-size: 32px; color: var(--cream); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; }
 .exchange-panel .ex-nudge.disabled, .exchange-panel .menu-item.disabled { opacity: 0.35; }
 
+.wardrobe-panel {
+  position: absolute;
+  left: 4vw;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(40, 10, 70, 0.92);
+  border: 5px solid var(--orange);
+  border-radius: 20px;
+  padding: 18px 26px;
+  text-align: left;
+  box-shadow: 0 6px 0 var(--ink);
+  min-width: min(460px, 46vw);
+}
+.wardrobe-ranked { margin: 8px 0 4px; color: var(--gold); font-size: 18px; font-weight: 800; text-align: center; }
+.ward-row { margin-top: 12px; opacity: 0.72; }
+.ward-row.sel { opacity: 1; }
+.ward-slot { font-size: 16px; font-weight: 800; letter-spacing: 1px; opacity: 0.8; }
+.ward-item { font-family: var(--font-display); font-size: 32px; color: var(--cream); -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke fill; }
+.ward-row.sel .ward-item { color: var(--gold); }
+.ward-fx { font-size: 18px; font-weight: 800; max-width: 420px; }
+.ward-fx.off { opacity: 0.45; }
+
 /* ---------- Level complete ---------- */
 .complete-wrap { display: flex; align-items: center; gap: 4vw; }
 .complete-nobu { height: 62vh; filter: drop-shadow(0 10px 0 rgba(0,0,0,0.5)); animation: dance 0.5s infinite alternate ease-in-out; }

@@ -530,6 +530,8 @@ export class Session {
     this._lifeLineHold = false;
     this.deathsAtCp = 0;
     this.game.ui.banner('CHECKPOINT!', 'yum', 1.4);
+    // Golden Collar refills here. Pits never come through this path.
+    this.game.player?.rechargeGuard?.();
   }
 
   _pushHud() {

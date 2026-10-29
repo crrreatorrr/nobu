@@ -8,6 +8,9 @@ import { UI } from '../ui/ui.js';
 import { GameCamera } from '../camera/camera.js';
 import { Player, createNobuModel } from '../player/player.js';
 import { NobuAnimator } from '../player/nobuAnim.js';
+import { dressNobuModel, setCollarGlow } from '../player/accessories.js';
+import { Loadout } from '../gear/loadout.js';
+import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { INTRO, RESCUE, ENDING, BETWEEN } from '../story/script.js';
@@ -19,6 +22,9 @@ const MAP_NODES = { 1: { x: 24, y: 70 }, ride: { x: 34, y: 55 }, 2: { x: 50, y: 
 const MAP_ORDER = [1, 'ride', 2, 'cave', 3];
 const BONUS_AFTER = { ride: 0, cave: 1 }; // unlocked by beating that boss (beaten[] index)
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉' };
+function esc(text) {
+  return String(text).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+}
 function mapOpen(n) {
   const d = save.data;
   if (n in BONUS_AFTER) return !!d.beaten[BONUS_AFTER[n]] || !!d.bonus?.[n]?.found || !!d.bonus?.[n]?.beaten;
@@ -71,11 +77,18 @@ export class Game {
     const fill = this.uiRoot.querySelector('.fill');
     await Assets.init((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
     await Promise.race([hubReady, new Promise((r) => setTimeout(r, 6000))]);
-    hubReady.then(() => { if (this.state === 'map') this._drawMap(); });
     this.uiRoot.innerHTML = '';
     this.ui = new UI(this.uiRoot);
     this.ui.godBadge(save.data.godMode);
+    this.loadout = new Loadout();
+    const unavailable = this.loadout.resync();
     this.player = new Player(this);
+    this.accessories = { flashCollar: (charged) => setCollarGlow(this.player?.model, charged) };
+    hubReady.then(() => {
+      this._applyHubGear();
+      if (this.state === 'map') this._drawMap();
+    });
+    if (unavailable.length) this.ui.banner('Gear unavailable', unavailable.join(', '), 2.4);
     this.mask = new SprotoMask(this);
     this.resize();
     this._buildTitleScene();
@@ -106,6 +119,7 @@ export class Game {
       case 'map': this.updateMap(dt); break;
       case 'play': this.updatePlay(dt); break;
       case 'pause': this.updatePause(dt); break;
+      case 'wardrobe': this.updateWardrobe(dt); break;
       case 'complete': this.updateComplete(dt); break;
       case 'gameover': this.updateGameOver(dt); break;
       case 'credits': this.updateCredits(dt); break;
@@ -114,7 +128,7 @@ export class Game {
   }
 
   render() {
-    if (this.state === 'title' || this.state === 'credits') {
+    if (this.state === 'title' || this.state === 'credits' || this.state === 'wardrobe') {
       this.renderer.render(this.titleScene, this.titleCam);
     } else if ((this.state === 'play' || this.state === 'pause') && this.session?.stage) {
       this.renderer.render(this.session.stage.scene, this.camera.cam);
@@ -149,6 +163,20 @@ export class Game {
     this.titleCam.position.set(0, 1.0, 6.2);
     this.titleCam.lookAt(0.2, 1.0, 0);
     this.titleIdle = 0;
+    this._dressTitleNobuGear();
+  }
+
+  _dressTitleNobuGear() {
+    if (this.titleNobu) dressNobuModel(this.titleNobu, this.loadout);
+  }
+
+  _applyHubGear() {
+    if (!this.loadout) return;
+    const lost = this.loadout.resync();
+    this.player?.applyGear({ refill: false });
+    this._dressTitleNobuGear();
+    if (lost.length && this.ui) this.ui.banner('Gear unavailable', lost.join(', '), 2.4);
+    if (this.state === 'wardrobe') this._drawWardrobe();
   }
 
   _refreshTitleNobu() {
@@ -159,6 +187,7 @@ export class Game {
     this.titleNobu.root.position.set(1.1, -0.2, 0);
     this.titleNobu.root.rotation.y = -0.35;
     this.titleScene.add(this.titleNobu.root);
+    this._dressTitleNobuGear();
   }
 
   toTitle() {
@@ -182,6 +211,7 @@ export class Game {
     const items = [];
     if (save.hasProgress()) items.push({ id: 'continue', label: 'CONTINUE' });
     items.push({ id: 'new', label: 'NEW GAME' });
+    items.push({ id: 'wardrobe', label: 'WARDROBE' });
     items.push({ id: 'model', label: `NOBU: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` });
     items.push({ id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` });
     items.push({ id: 'god', label: `GOD MODE: ${save.data.godMode ? 'ON' : 'OFF'}` });
@@ -221,6 +251,8 @@ export class Game {
       if (it.id === 'new') {
         save.reset();
         this.playCutscene(INTRO, () => { save.data.seenIntro = true; save.write(); this.toMap(1); });
+      } else if (it.id === 'wardrobe') {
+        this.openWardrobe('title');
       } else if (it.id === 'continue') {
         if (save.data.lives < 0) save.data.lives = START_LIVES;
         this.toMap(Math.min(save.data.unlocked, 3));
@@ -328,7 +360,7 @@ export class Game {
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
     const info = `<div class="map-panel"><div class="sub-title">${head}</div>
       <div class="hint">${status}</div>${tr}
-      <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · X exchange · H exit to hub · ESC title</div>
+      <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
     this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
@@ -436,6 +468,7 @@ export class Game {
 
   updateMap() {
     if (this.exchangeOpen) { this.updateExchange(); return; }
+    if (input.pressed('wardrobe')) { audio.play('select'); this.openWardrobe('map'); return; }
     const d = save.data;
     const open = MAP_ORDER.filter(mapOpen);
     const i = open.indexOf(this.mapSel);
@@ -513,6 +546,7 @@ export class Game {
   _pauseItems() {
     return [
       { id: 'resume', label: 'RESUME' },
+      { id: 'wardrobe', label: 'WARDROBE' },
       { id: 'model', label: `NOBU MODEL: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` },
       { id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` },
       { id: 'music', label: `MUSIC: ${Math.round(save.data.musicVol * 10)}` },
@@ -548,6 +582,7 @@ export class Game {
     if (input.pressed('pause')) { this.closePause(); return; }
     if (input.confirmPressed() || input.pressed('bite')) {
       if (it.id === 'resume') this.closePause();
+      else if (it.id === 'wardrobe') this.openWardrobe('pause');
       else if (it.id === 'model') {
         save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
         save.write();
@@ -568,6 +603,85 @@ export class Game {
     this.ui.pinHud(false);
     this.ui.clearScreen();
     audio.play('menu');
+  }
+
+  // ---------------- wardrobe ----------------
+  // Head and neck only. Back and body stay in the save until an item exists for them.
+  openWardrobe(from) {
+    this.wardrobeReturn = from;
+    this.wardSlot = 0;
+    this.state = 'wardrobe';
+    this._dressTitleNobuGear();
+    if (this.titleNobu) this.titleNobu.root.rotation.y = -0.35;
+    this._drawWardrobe();
+  }
+
+  _drawWardrobe() {
+    const slots = VISIBLE_SLOTS;
+    this.wardSlot = Math.min(this.wardSlot || 0, slots.length - 1);
+    const ranked = !!this.loadout?.ranked;
+    const rows = slots.map((slot, i) => {
+      const options = this.loadout.options(slot);
+      const current = options.indexOf(this.loadout.slots[slot]) === -1 ? null : this.loadout.slots[slot];
+      const def = itemById(current);
+      const name = def ? def.name : '— empty —';
+      const arrows = options.length > 1;
+      const fx = def ? `${def.blurb}${ranked ? ' (off in ranked)' : ''}` : '';
+      return `<div class="ward-row ${i === this.wardSlot ? 'sel' : ''}">
+        <div class="ward-slot">${SLOT_LABEL[slot]}</div>
+        <div class="ward-item">${arrows ? '◀ ' : ''}${esc(name)}${arrows ? ' ▶' : ''}</div>
+        ${fx ? `<div class="ward-fx ${ranked ? 'off' : ''}">${esc(fx)}</div>` : ''}
+      </div>`;
+    }).join('');
+    const banner = ranked ? '<div class="wardrobe-ranked">RANKED · gear is cosmetic only</div>' : '';
+    this.ui.setScreen(`<div class="wardrobe-panel"><div class="sub-title">WARDROBE</div>${banner}${rows}
+      <div class="hint" style="margin-top:14px">↑↓ slot · ←→ item · ENTER close</div></div>`, 'dim');
+  }
+
+  _cycleWardrobe(dir) {
+    const slot = VISIBLE_SLOTS[this.wardSlot];
+    const options = this.loadout.options(slot);
+    if (options.length < 2) return;
+    const cur = options.indexOf(this.loadout.slots[slot]) === -1 ? null : this.loadout.slots[slot];
+    let i = options.indexOf(cur);
+    if (i < 0) i = 0;
+    const next = options[(i + dir + options.length) % options.length];
+    this.loadout.equip(slot, next);
+    this.player.applyGear({ refill: false });
+    this._dressTitleNobuGear();
+    audio.play('menu');
+    this._drawWardrobe();
+  }
+
+  updateWardrobe(dt) {
+    this.titleIdle += dt;
+    const pose = this.titleAnim.update(dt, {
+      mode: 'normal', speed: 0, vy: 0, grounded: true, biteT: -1, flipT: -1,
+      landT: 1, jumpT: 1, idleTime: this.titleIdle, flopPhase: null,
+    });
+    this.titleNobu.apply(pose);
+    this.titleNobu.root.rotation.y += dt * 0.4;
+    if (this.titleMask) {
+      this.titleMask.position.y = 1.55 + Math.sin(this.titleIdle * 2) * 0.1;
+      this.titleMask.rotation.y = Math.sin(this.titleIdle * 1.3) * 0.3;
+    }
+    const n = VISIBLE_SLOTS.length;
+    if (input.pressed('up')) { this.wardSlot = (this.wardSlot + n - 1) % n; audio.play('menu'); this._drawWardrobe(); }
+    if (input.pressed('down')) { this.wardSlot = (this.wardSlot + 1) % n; audio.play('menu'); this._drawWardrobe(); }
+    if (input.pressed('left')) this._cycleWardrobe(-1);
+    if (input.pressed('right')) this._cycleWardrobe(1);
+    if (input.pressed('pause') || input.pressed('back') || input.confirmPressed() || input.pressed('bite')) this.closeWardrobe();
+  }
+
+  closeWardrobe() {
+    if (this.titleNobu) this.titleNobu.root.rotation.y = -0.35;
+    const back = this.wardrobeReturn;
+    audio.play('menu');
+    if (back === 'pause') { this.state = 'pause'; this._drawPause(); return; }
+    if (back === 'map') { this.state = 'map'; this._drawMap(); return; }
+    this.state = 'title';
+    this.titleMenu = true;
+    this._drawTitleMenu();
   }
 
   // ---------------- level complete ----------------

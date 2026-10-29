@@ -11,6 +11,7 @@ const KEYMAP = {
   KeyK: 'slide', ControlLeft: 'slide', ControlRight: 'slide',
   KeyL: 'bark', KeyE: 'bark',
   KeyT: 'trial',
+  KeyI: 'wardrobe',
   KeyX: 'exchange',
   KeyH: 'hub',
   Escape: 'pause', KeyP: 'pause',
@@ -73,6 +74,7 @@ class Input {
       if (b(2) || b(5)) this.pad.held.add('bite');
       if (b(3)) { this.pad.held.add('bark'); this.pad.held.add('trial'); }
       if (b(1) || b(4) || b(6) || b(7)) this.pad.held.add('slide');
+      if (b(4)) this.pad.held.add('wardrobe'); // LB. The map opens the wardrobe; slide still fires in play.
       if (b(9)) this.pad.held.add('pause');
       if (b(0) || b(9)) this.pad.held.add('confirm');
       if (b(1) || b(8)) this.pad.held.add('back');
