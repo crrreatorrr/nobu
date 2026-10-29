@@ -191,8 +191,9 @@ function serverDayFrom(source) {
   if (!source || typeof source !== 'object' || source.serverTime == null || source.serverTime === '') return null;
   const value = source.serverTime;
   let ms = null;
-  if (typeof value === 'number' && Number.isFinite(value)) ms = value;
-  else if (typeof value === 'string' && /^\d+$/.test(value)) ms = Number(value);
+  // 0 is the SDK's "no clock" sentinel (standalone getTicketBalance). It is not 1970-01-01.
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) ms = value;
+  else if (typeof value === 'string' && /^\d+$/.test(value) && Number(value) > 0) ms = Number(value);
   else if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
   if (ms == null) return null;
   const date = new Date(ms);
@@ -447,6 +448,17 @@ class HubBridge {
   _noteServerDay(source) {
     const day = serverDayFrom(source);
     if (day) this.serverDay = day;
+    return this.serverDay;
+  }
+
+  // Re-read getTicketBalance().serverTime so a carry expires at 00:00 UTC on the server clock.
+  async _refreshServerDay() {
+    if (!(this.reach === 'ready' && this.inSession) || typeof this._sdk?.getTicketBalance !== 'function') {
+      return this.serverDay;
+    }
+    try {
+      this._noteServerDay(await this._sdk.getTicketBalance());
+    } catch { /* keep the last server day */ }
     return this.serverDay;
   }
 
@@ -741,19 +753,21 @@ class HubBridge {
 
   _carryStamp() {
     if (this.serverDay) return this.serverDay;
-    // No server clock on the 0.2.0 responses. This label is stored once and is not
-    // read back against the device clock, so a later clock change cannot expire it.
+    // serverTime is absent. This label is stored once and is not compared to the device clock.
     return new Date(Date.now()).toISOString().slice(0, 10);
   }
 
   async _addCarry(amount, settleAttemptId) {
     const add = Math.floor(Number(amount));
     if (!(add > 0)) return false;
+    await this._refreshServerDay();
     let discarded = 0;
     let parked = false;
     const today = this.serverDay;
     const wrote = await writeMerged((s) => {
-      const cur = s.carry && s.carry.amount > 0 && (today == null || s.carry.day === today) ? s.carry : null;
+      const previous = s.carry;
+      const cur = previous && previous.amount > 0 && (today == null || previous.day === today) ? previous : null;
+      if (previous && !cur && previous.key) s.carryClearedKey = previous.key;
       const earn = cur ? s.earns[cur.key] : null;
       const inFlight = earn && !earn.acked && !earn.dropped;
       if (inFlight) {
@@ -779,10 +793,14 @@ class HubBridge {
   }
 
   async _expireCarry() {
+    await this._refreshServerDay();
     const today = this.serverDay;
     if (!today) return;
     await writeMerged((s) => {
-      if (s.carry && s.carry.day !== today) s.carry = null;
+      if (s.carry && s.carry.day && s.carry.day !== today) {
+        s.carryClearedKey = s.carry.key;
+        s.carry = null;
+      }
       return s;
     });
   }
