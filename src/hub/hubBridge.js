@@ -216,7 +216,19 @@ function pendingExchange() {
 }
 
 function hasSession() {
-  try { return !!sessionStorage.getItem(SESSION_KEY); } catch { return false; }
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return !!parsed
+      && parsed.game === GAME_ID
+      && !!parsed.token
+      && !!parsed.playerId
+      && !!parsed.sid
+      && typeof parsed.ranked === 'boolean';
+  } catch {
+    return false;
+  }
 }
 
 function wholeNumber(value) {
@@ -225,38 +237,57 @@ function wholeNumber(value) {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null;
 }
 
-// One read for the hub ticket account. getTicketBalance() is the SDK hook (absent in 0.1.0).
-// Caps come from sessionCapLeft and dailyCapLeft. A cap rejection contributes remainingCap only.
-async function readTicketAccount(sdk, payload) {
+// Ticket account from SDK 0.2.0.
+// getTicketBalance() returns { balance, sessionCapLeft, dailyCapLeft }.
+// HubSdkError carries sessionCapLeft, dailyCapLeft, and capLeft.
+// Allowance is the min of every present session and daily cap. capLeft counts
+// only when neither of those is present. The inactive SDK no-op is not queried.
+function namedNumber(source, key) {
+  if (!source || typeof source !== 'object') return null;
+  return wholeNumber(source[key]);
+}
+
+function tightest(values) {
+  const nums = values.filter((n) => n != null);
+  return nums.length ? Math.min(...nums) : null;
+}
+
+async function readTicketAccount(sdk, payload, { query = true } = {}) {
   let hooked = null;
-  if (sdk && typeof sdk.getTicketBalance === 'function') {
+  if (query && sdk && typeof sdk.getTicketBalance === 'function') {
     try { hooked = await sdk.getTicketBalance(); } catch { hooked = null; }
   }
-  const sources = [hooked, payload].filter((source) => source && typeof source === 'object');
-  const pick = (key) => {
-    for (const source of sources) {
-      const n = wholeNumber(source[key]);
-      if (n != null) return n;
-    }
-    return null;
-  };
-  let remainingCap = pick('remainingCap');
+  let parsed = null;
   const message = payload && typeof payload.message === 'string' ? payload.message : '';
-  if (remainingCap == null && message) {
-    try { remainingCap = wholeNumber(JSON.parse(message).remainingCap); } catch { /* not a JSON payload */ }
+  if (message) {
+    try {
+      const body = JSON.parse(message);
+      if (body && typeof body === 'object') parsed = body;
+    } catch { /* not a JSON payload */ }
   }
-  const sessionCapLeft = pick('sessionCapLeft');
-  const dailyCapLeft = pick('dailyCapLeft');
-  const balance = pick('balance');
-  const caps = [sessionCapLeft, dailyCapLeft, remainingCap].filter((n) => n != null);
-  return {
-    balance,
-    sessionCapLeft,
-    dailyCapLeft,
-    remainingCap,
-    allowance: caps.length ? Math.min(...caps) : null,
-    capsFromHook: !!(hooked && (wholeNumber(hooked.sessionCapLeft) != null || wholeNumber(hooked.dailyCapLeft) != null)),
-  };
+  const sessionCapLeft = tightest([
+    namedNumber(hooked, 'sessionCapLeft'),
+    namedNumber(payload, 'sessionCapLeft'),
+    namedNumber(parsed, 'sessionCapLeft'),
+  ]);
+  const dailyCapLeft = tightest([
+    namedNumber(hooked, 'dailyCapLeft'),
+    namedNumber(payload, 'dailyCapLeft'),
+    namedNumber(parsed, 'dailyCapLeft'),
+  ]);
+  const capLeft = tightest([
+    namedNumber(hooked, 'capLeft'),
+    namedNumber(payload, 'capLeft'),
+    namedNumber(parsed, 'capLeft'),
+  ]);
+  let balance = namedNumber(hooked, 'balance');
+  if (balance == null) balance = namedNumber(payload, 'balance');
+  const caps = [sessionCapLeft, dailyCapLeft].filter((n) => n != null);
+  if (!caps.length && capLeft != null) caps.push(capLeft);
+  const capsFromHook = hooked != null && (
+    namedNumber(hooked, 'sessionCapLeft') != null || namedNumber(hooked, 'dailyCapLeft') != null
+  );
+  return { balance, sessionCapLeft, dailyCapLeft, capLeft, allowance: caps.length ? Math.min(...caps) : null, capsFromHook };
 }
 
 function errorInfo(err) {
@@ -401,17 +432,20 @@ class HubBridge {
       this.reach = 'offline';
       this.inSession = hasSession();
     }
-    if (this.inSession) await this._syncTicketAccount();
-    if (this.reach === 'ready' && this.inSession) await this.flush();
+    if (this.reach === 'ready' && this.inSession) {
+      await this._syncTicketAccount();
+      await this.flush();
+    }
   }
 
-  async _syncTicketAccount(payload) {
-    const account = await readTicketAccount(this._sdk, payload);
+  async _syncTicketAccount(payload, { applyBalance = true } = {}) {
+    const live = this.reach === 'ready' && this.inSession;
+    const account = await readTicketAccount(live ? this._sdk : null, payload, { query: live });
     if (account.capsFromHook) this.rejectionRemaining = null;
     if (account.sessionCapLeft != null) this.sessionCapLeft = account.sessionCapLeft;
     if (account.dailyCapLeft != null) this.dailyCapLeft = account.dailyCapLeft;
-    if (account.remainingCap != null) this.rejectionRemaining = account.remainingCap;
-    if (this.inSession && account.balance != null) {
+    if (account.allowance != null && !account.capsFromHook) this.rejectionRemaining = account.allowance;
+    if (applyBalance && live && account.balance != null) {
       save.data.tickets = account.balance;
       save.write();
     }
@@ -589,6 +623,10 @@ class HubBridge {
   }
 
   async _bankAmount(key, earned) {
+    if (!this._flushing) await this.init();
+    if (this.reach === 'ready' && this.inSession) {
+      await this._syncTicketAccount(undefined, { applyBalance: false });
+    }
     const allowance = this._knownAllowance();
     if (allowance === 0) return { accepted: 0, code: 'session_ticket_cap' };
     const planned = Math.min(earned, allowance ?? earned, LEVEL_END_MAX_AMOUNT);
@@ -596,7 +634,6 @@ class HubBridge {
     const committed = await this._commitEarn(key, planned);
     if (!committed) return { accepted: 0, code: 'persist' };
     if (committed.acked && !committed.dropped) return { accepted: committed.amount };
-    if (!this._flushing) await this.init();
     if (this.reach !== 'ready' || !this.inSession) return { accepted: committed.amount, queued: true };
     const sent = await this._sendEarn(key);
     if (sent.ok || sent.queued) return { accepted: sent.accepted ?? committed.amount, queued: !!sent.queued, code: sent.code };
@@ -704,10 +741,13 @@ class HubBridge {
     } catch (err) {
       const info = errorInfo(err);
       if (typeof info.code === 'string' && info.code.endsWith('_cap')) {
-        const account = await readTicketAccount(null, err);
-        const allowance = account.remainingCap == null ? 0 : account.remainingCap;
-        if (info.code === 'session_ticket_cap') this.sessionCapLeft = allowance;
-        else this.dailyCapLeft = allowance;
+        const live = this.reach === 'ready' && this.inSession;
+        const account = await readTicketAccount(live ? this._sdk : null, err, { query: live });
+        const allowance = account.allowance == null ? 0 : account.allowance;
+        if (account.sessionCapLeft != null) this.sessionCapLeft = account.sessionCapLeft;
+        if (account.dailyCapLeft != null) this.dailyCapLeft = account.dailyCapLeft;
+        if (info.code === 'session_ticket_cap' && this.sessionCapLeft == null) this.sessionCapLeft = allowance;
+        if (info.code === 'daily_ticket_cap' && this.dailyCapLeft == null) this.dailyCapLeft = allowance;
         this.rejectionRemaining = allowance;
         await this._failWrite(err, id);
         if (!shrink || !(allowance > 0) || allowance >= rec.amount) return { ok: false, accepted: 0, code: info.code };
