@@ -18,6 +18,8 @@ const OUTBOX_STORE = 'writes';
 export { TICKETS_PER_VERSE };
 export const MAX_EXCHANGE_TICKETS = VERSE_DAILY_CAP * TICKETS_PER_VERSE;
 
+// Origin path, not the Vite base. /nobu/ and /play/nobu/ both return to /hub/#from=nobu
+// unless VITE_HUB_URL sets another hub page.
 const HUB_URL = import.meta.env.VITE_HUB_URL || '/hub/';
 
 /** Terminal earn/exchange codes are acked and dropped. `rpc_failed` and transport errors stay queued. */
