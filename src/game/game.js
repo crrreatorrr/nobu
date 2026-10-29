@@ -418,9 +418,9 @@ export class Game {
     if (this.exBusy) return;
     const view = hub.view();
     const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
-    const max = maxExchangeTickets(spendable);
     const amount = Math.floor(Number(this.exAmount) || 0);
-    if (view.reach !== 'ready' || !view.inSession || amount < TICKETS_PER_VERSE || amount > max || amount > spendable) return;
+    // The panel steps by 10, but a server balance smaller than that is still spendable.
+    if (view.reach !== 'ready' || !view.inSession || !(amount > 0) || amount > spendable) return;
     this.exBusy = true;
     this._drawMap();
     try { await hub.exchange(amount); }

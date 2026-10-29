@@ -185,18 +185,19 @@ function mergeCarry(disk, ours, diskClearedKey, oursClearedKey) {
   return left;
 }
 
-// SDK 0.2.0 InitResult and TicketBalanceResult have no clock. serverTime is the
-// field a later response can carry (ISO date or epoch ms). Absent means unknown.
+// Hub #12 adds serverTime (epoch milliseconds) on InitResult and TicketBalanceResult.
+// SDK 0.2.0 does not send it. Absent means the server day is unknown, so expiry stays off.
 function serverDayFrom(source) {
-  if (!source || typeof source !== 'object') return null;
+  if (!source || typeof source !== 'object' || source.serverTime == null || source.serverTime === '') return null;
   const value = source.serverTime;
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const ms = value < 1e12 ? value * 1000 : value;
-    const date = new Date(ms);
-    if (!Number.isNaN(date.getTime())) return date.toISOString().slice(0, 10);
-  }
-  return null;
+  let ms = null;
+  if (typeof value === 'number' && Number.isFinite(value)) ms = value;
+  else if (typeof value === 'string' && /^\d+$/.test(value)) ms = Number(value);
+  else if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  if (ms == null) return null;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
 }
 
 function mergeStore(disk, ours) {
@@ -308,7 +309,16 @@ async function readTicketAccount(sdk, payload, { query = true } = {}) {
   const capsFromHook = hooked != null && (
     namedNumber(hooked, 'sessionCapLeft') != null || namedNumber(hooked, 'dailyCapLeft') != null
   );
-  return { balance, sessionCapLeft, dailyCapLeft, capLeft, allowance: caps.length ? Math.min(...caps) : null, capsFromHook };
+  const serverTime = hooked?.serverTime ?? payload?.serverTime ?? parsed?.serverTime ?? null;
+  return {
+    balance,
+    sessionCapLeft,
+    dailyCapLeft,
+    capLeft,
+    allowance: caps.length ? Math.min(...caps) : null,
+    capsFromHook,
+    serverTime,
+  };
 }
 
 function errorInfo(err) {
@@ -540,7 +550,8 @@ class HubBridge {
     if (attempt.settled) return;
     const existing = readStore().earns[attemptId];
     if (existing?.dropped) {
-      await this._settleAttempt(attemptId);
+      // The earn was refused. Park the haul before settling, or the tickets are lost.
+      await this._addCarry(earned, attemptId);
       return;
     }
     if (existing && !existing.dropped) {
@@ -549,27 +560,16 @@ class HubBridge {
         const sent = await this._bankAmount(attemptId, existing.amount);
         accepted = sent.accepted ?? 0;
       }
-      if (readStore().earns[attemptId]?.dropped || readStore().attempts[attemptId]?.settled) {
-        const rest = earned - accepted;
-        if (rest > 0 && !readStore().attempts[attemptId]?.settled) await this._addCarry(rest);
-        await this._settleAttempt(attemptId);
-        return;
-      }
-      const extra = earned - accepted;
-      if (extra > 0) {
-        await this._addCarry(extra);
-        await this._settleAttempt(attemptId);
-      }
+      const rest = earned - accepted;
+      if (rest > 0) await this._addCarry(rest, attemptId);
+      else if (readStore().earns[attemptId]?.dropped) await this._settleAttempt(attemptId);
       return;
     }
     const { accepted } = await this._bankAmount(attemptId, earned);
-    const row = readStore().earns[attemptId];
-    if (!row) return;
-    const rest = earned - accepted;
-    if (row.dropped || rest > 0) {
-      if (rest > 0) await this._addCarry(rest);
-      await this._settleAttempt(attemptId);
-    }
+    // Allowance 0 writes no earn row. The whole haul still has to reach the carry.
+    const rest = earned - (accepted || 0);
+    if (rest > 0) await this._addCarry(rest, attemptId);
+    else if (readStore().earns[attemptId]?.dropped) await this._settleAttempt(attemptId);
   }
 
   _settleAttempt(id) {
@@ -693,7 +693,7 @@ class HubBridge {
       if (!rec.acked && !rec.dropped && rec.amount > 0) {
         const sent = await this._sendEarn(id);
         const accepted = sent.ok || sent.queued ? (sent.accepted ?? rec.amount) : 0;
-        if (accepted < rec.amount) await this._addCarry(rec.amount - accepted);
+        if (accepted < rec.amount) await this._addCarry(rec.amount - accepted, id);
       }
     }
     for (const [id, rec] of Object.entries(store.relics)) {
@@ -746,12 +746,13 @@ class HubBridge {
     return new Date(Date.now()).toISOString().slice(0, 10);
   }
 
-  async _addCarry(amount) {
+  async _addCarry(amount, settleAttemptId) {
     const add = Math.floor(Number(amount));
-    if (!(add > 0)) return;
+    if (!(add > 0)) return false;
     let discarded = 0;
+    let parked = false;
     const today = this.serverDay;
-    await writeMerged((s) => {
+    const wrote = await writeMerged((s) => {
       const cur = s.carry && s.carry.amount > 0 && (today == null || s.carry.day === today) ? s.carry : null;
       const earn = cur ? s.earns[cur.key] : null;
       const inFlight = earn && !earn.acked && !earn.dropped;
@@ -766,9 +767,15 @@ class HubBridge {
       discarded = add - accepted;
       if (!(accepted > 0)) return s;
       s.carry = { key, amount: base + accepted, day: cur?.day || today || this._carryStamp() };
+      // Settle only in the same write as the carry, so a failed persist can be retried.
+      if (settleAttemptId && s.attempts[settleAttemptId]) s.attempts[settleAttemptId].settled = true;
+      parked = true;
       return s;
     });
     if (discarded > 0) console.warn('[hub] discarded tickets above carry cap', discarded);
+    if (!wrote || !parked) return false;
+    const stored = readStore();
+    return !!(stored.carry && stored.carry.amount > 0);
   }
 
   async _expireCarry() {
