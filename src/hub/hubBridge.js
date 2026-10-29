@@ -7,6 +7,9 @@ import { CARRY_MAX, LEVEL_END_MAX_AMOUNT } from '../config/tickets.js';
 
 const GAME_ID = 'nobu';
 const EARN_REASON = 'level_end';
+// A carry is its own earnTickets call, never added to a level clear's amount.
+// Each call stays at or under LEVEL_END_MAX_AMOUNT because the server rejects
+// the whole call when level_end is over 110.
 const STORAGE_KEY = 'nobu-hub-writes-v1';
 const SESSION_KEY = 'hub:nobu:session';
 const LOCK_NAME = 'nobu-hub-writes';
@@ -241,6 +244,12 @@ function pendingExchange() {
   const ex = readStore().exchange;
   if (!ex || !ex.id || ex.acked || ex.dropped || !(ex.tickets > 0)) return null;
   return ex;
+}
+
+function isCarryEarn(id) {
+  if (!id) return false;
+  const store = readStore();
+  return !store.attempts[id] && !!store.earns[id];
 }
 
 function hasSession() {
@@ -479,6 +488,12 @@ class HubBridge {
         const info = errorInfo(err);
         if (isTerminal(info.code)) {
           const key = await firstOutboxKey();
+          // A carry the session cap refused stays local and is tried again later.
+          if (info.code === 'session_ticket_cap' && isCarryEarn(key)) {
+            console.warn('[hub] carry kept after session cap', key || '', info.message);
+            await forgetOutbox(key);
+            continue;
+          }
           console.warn('[hub] terminal error, dropping write', info.code, key || '', info.message);
           if (!key) { this.reach = 'offline'; break; }
           await this._dropKey(key);
@@ -592,12 +607,35 @@ class HubBridge {
   }
 
   // Carry from an earlier clear banks before this attempt's own tickets.
+  // Its body is only the carry, under the carry's own key, capped at 110.
   async bankCarry() {
     await this._expireCarry();
-    const carry = readStore().carry;
+    let carry = readStore().carry;
     if (!carry || !(carry.amount > 0)) return;
+    const prior = readStore().earns[carry.key];
+    if (prior?.dropped) {
+      // That key can never be earned again. The amount stays, under a new key.
+      await this._replaceCarry(carry.amount, carry.day);
+      carry = readStore().carry;
+      if (!carry || !(carry.amount > 0)) return;
+    }
     const { accepted, code } = await this._bankAmount(carry.key, carry.amount);
-    if (accepted <= 0 && code && code !== 'session_ticket_cap' && isTerminal(code)) {
+    // Session cap rejects the whole call. Keep the amount locally. The refused
+    // key is dropped so the next try is a new earn of at most 110, not a retry
+    // of the over-cap body and not a sum with a level clear.
+    if (code === 'session_ticket_cap') {
+      const row = readStore().earns[carry.key];
+      if (row && !row.dropped) {
+        await this._dropKey(carry.key);
+        await forgetOutbox(carry.key);
+        const latest = readStore().carry;
+        if (latest?.key === carry.key && latest.amount > 0) {
+          await this._replaceCarry(latest.amount, latest.day);
+        }
+      }
+      return;
+    }
+    if (accepted <= 0 && code && isTerminal(code)) {
       console.warn('[hub] carry dropped', code, carry.key);
       await this._clearCarry(carry.key);
       return;
@@ -705,7 +743,8 @@ class HubBridge {
       if (!rec.acked && !rec.dropped && rec.amount > 0) {
         const sent = await this._sendEarn(id);
         const accepted = sent.ok || sent.queued ? (sent.accepted ?? rec.amount) : 0;
-        if (accepted < rec.amount) await this._addCarry(rec.amount - accepted, id);
+        // A carry earn is already the carry. Do not add its unsent amount on again.
+        if (accepted < rec.amount && !isCarryEarn(id)) await this._addCarry(rec.amount - accepted, id);
       }
     }
     for (const [id, rec] of Object.entries(store.relics)) {
@@ -744,7 +783,8 @@ class HubBridge {
     if (!(planned > 0)) return { accepted: 0 };
     const committed = await this._commitEarn(key, planned);
     if (!committed) return { accepted: 0, code: 'persist' };
-    if (committed.acked && !committed.dropped) return { accepted: committed.amount };
+    if (committed.dropped) return { accepted: 0, code: 'dropped' };
+    if (committed.acked) return { accepted: committed.amount };
     if (this.reach !== 'ready' || !this.inSession) return { accepted: committed.amount, queued: true };
     const sent = await this._sendEarn(key);
     if (sent.ok || sent.queued) return { accepted: sent.accepted ?? committed.amount, queued: !!sent.queued, code: sent.code };
@@ -885,6 +925,11 @@ class HubBridge {
           if (info.code === 'session_ticket_cap' && this.sessionCapLeft == null) this.sessionCapLeft = allowance;
           if (info.code === 'daily_ticket_cap' && this.dailyCapLeft == null) this.dailyCapLeft = allowance;
           this.rejectionRemaining = allowance;
+        }
+        // The session cap rejected this carry outright. Leave the row unacked
+        // so a later session can earn the same local amount. Do not drop it.
+        if (info.code === 'session_ticket_cap' && isCarryEarn(id)) {
+          return { ok: false, accepted: 0, code: info.code };
         }
         await this._failWrite(err, id);
         return { ok: false, accepted: 0, code: info.code };
