@@ -198,6 +198,14 @@ export class Session {
   }
   finishBonusRound() { if (this.bonusRound && !this.busy) this._leaveBonusRound(true); }
 
+  // Quit, time trial, warp, and game over keep the tickets in the local save.
+  // Queue them once so the next level_end bank can include them.
+  holdUnbanked() {
+    if (this.hubHeld) return;
+    this.hubHeld = true;
+    hub.hold(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] hold failed', err));
+  }
+
   // ---------- secret warp ----------
   secretWarp(target) {
     if (this.trial || this.busy || this.phase !== 'level' || !LEVELS[target]) return false;
@@ -207,6 +215,7 @@ export class Session {
     save.data.bonus ||= {};
     save.data.bonus[target] = { ...(save.data.bonus[target] || {}), found: true };
     save.write();
+    this.holdUnbanked();
     audio.play('whoosh');
     audio.play('oneUp');
     g.ui.banner('SECRET WARP!', LEVEL_NAMES[target], 2);
@@ -231,6 +240,7 @@ export class Session {
     const best = !prev || t < prev.best;
     if (best) d.trials[this.level] = { best: t, medal: trialMedal(this.level, t) };
     save.write();
+    this.holdUnbanked();
     if (best && !d.godMode) hub.submitScore(t, this.level);
     g.ui.trialTime(null);
     g.player.frozen = true;

@@ -16,8 +16,7 @@ export const MAX_EXCHANGE_TICKETS = VERSE_DAILY_CAP * TICKETS_PER_VERSE;
 
 const HUB_URL = import.meta.env.VITE_HUB_URL || '/hub/';
 
-/** Daily cap is `cap` on the server and `verse_cap` in the SDK. Both stop a retry loop. */
-const TERMINAL_CODES = new Set(['cap', 'verse_cap', 'idempotency_mismatch']);
+/** Terminal earn/exchange codes are acked and dropped. `rpc_failed` and transport errors stay queued. */
 
 export function maxExchangeTickets(balance) {
   const stepped = Math.floor(Math.max(0, Number(balance) || 0) / TICKETS_PER_VERSE) * TICKETS_PER_VERSE;
@@ -46,11 +45,16 @@ function uuidv7() {
 }
 
 function emptyStore() {
-  return { v: 1, attempts: {}, earns: {}, relics: {}, exchange: null, receipts: [] };
+  return { v: 1, attempts: {}, earns: {}, relics: {}, held: {}, exchange: null, receipts: [] };
 }
 
 function asRecord(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function asIdList(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((id) => typeof id === 'string' && id))];
 }
 
 function sanitize(parsed) {
@@ -61,7 +65,12 @@ function sanitize(parsed) {
   }
   for (const [id, rec] of Object.entries(asRecord(parsed.earns))) {
     if (!rec || !Number.isFinite(Number(rec.amount))) continue;
-    store.earns[id] = { amount: Math.floor(Number(rec.amount)), acked: !!rec.acked, dropped: !!rec.dropped };
+    const dropped = !!rec.dropped;
+    store.earns[id] = { amount: Math.floor(Number(rec.amount)), acked: !!rec.acked || dropped, dropped, covers: asIdList(rec.covers) };
+  }
+  for (const [id, rec] of Object.entries(asRecord(parsed.held))) {
+    if (!rec || !Number.isFinite(Number(rec.amount))) continue;
+    store.held[id] = { amount: Math.floor(Number(rec.amount)), dropped: !!rec.dropped };
   }
   for (const [id, rec] of Object.entries(asRecord(parsed.relics))) {
     if (!rec || typeof rec.key !== 'string' || !rec.key) continue;
@@ -93,7 +102,20 @@ function mergeEarns(disk = {}, ours = {}) {
     const amount = left && Number.isFinite(left.amount) ? left.amount : right?.amount;
     if (!Number.isFinite(amount)) continue;
     const dropped = !!(left?.dropped || right?.dropped);
-    out[id] = { amount, acked: !dropped && !!(left?.acked || right?.acked), dropped };
+    const covers = [...new Set([...(left?.covers || []), ...(right?.covers || [])])];
+    out[id] = { amount, acked: dropped || !!(left?.acked || right?.acked), dropped, covers };
+  }
+  return out;
+}
+
+function mergeHeld(disk = {}, ours = {}) {
+  const out = {};
+  for (const id of new Set([...Object.keys(disk), ...Object.keys(ours)])) {
+    const left = disk[id];
+    const right = ours[id];
+    const amount = left && Number.isFinite(left.amount) ? left.amount : right?.amount;
+    if (!Number.isFinite(amount)) continue;
+    out[id] = { amount, dropped: !!(left?.dropped || right?.dropped) };
   }
   return out;
 }
@@ -106,16 +128,16 @@ function mergeRelics(disk = {}, ours = {}) {
     const key = left?.key || right?.key;
     if (!key) continue;
     const dropped = !!(left?.dropped || right?.dropped);
-    out[id] = { key, acked: !dropped && !!(left?.acked || right?.acked), dropped };
+    out[id] = { key, acked: dropped || !!(left?.acked || right?.acked), dropped };
   }
   return out;
 }
 
 function mergeExchange(disk, ours) {
-  if (disk?.dropped && (!ours || ours.id === disk.id)) return { ...disk, tickets: disk.tickets, dropped: true, acked: false };
+  if (disk?.dropped && (!ours || ours.id === disk.id)) return { ...disk, tickets: disk.tickets, dropped: true, acked: true };
   if (ours?.dropped && (!disk || disk.id === ours.id)) {
     const tickets = disk && disk.id === ours.id ? disk.tickets : ours.tickets;
-    return { id: ours.id, tickets, dropped: true, acked: false };
+    return { id: ours.id, tickets, dropped: true, acked: true };
   }
   if (disk && ours && disk.id === ours.id) {
     return { id: disk.id, tickets: disk.tickets, acked: !!(disk.acked || ours.acked), dropped: false };
@@ -132,6 +154,7 @@ function mergeStore(disk, ours) {
     v: 1,
     attempts: { ...left.attempts, ...right.attempts },
     earns: mergeEarns(left.earns, right.earns),
+    held: mergeHeld(left.held, right.held),
     relics: mergeRelics(left.relics, right.relics),
     exchange: mergeExchange(left.exchange, right.exchange),
     receipts: [...new Set([...(left.receipts || []), ...(right.receipts || [])])],
@@ -169,21 +192,15 @@ function hasSession() {
 }
 
 function errorInfo(err) {
-  let code = err && typeof err.code === 'string' ? err.code : 'rejected';
-  let message = err && err.message ? String(err.message) : String(err);
-  if (code === 'rpc_failed') {
-    try {
-      const parsed = JSON.parse(message);
-      if (parsed && typeof parsed.error === 'string') {
-        code = parsed.error;
-        if (parsed.message) message = String(parsed.message);
-      }
-    } catch { /* body was not JSON */ }
-  }
+  const code = err && typeof err.code === 'string' ? err.code : 'rejected';
+  const message = err && err.message ? String(err.message) : String(err);
   return { code, message };
 }
 
-function isTerminal(code) { return TERMINAL_CODES.has(code); }
+function isTerminal(code) {
+  if (typeof code !== 'string' || code === 'rpc_failed' || code === 'rejected') return false;
+  return code === 'idempotency_mismatch' || code === 'amount_over_rule' || code.endsWith('_cap');
+}
 
 async function openWrites(mode) {
   if (typeof indexedDB === 'undefined' || !indexedDB.databases) throw new Error('no idb');
@@ -339,19 +356,63 @@ class HubBridge {
     return { id, ok: !!saved };
   }
 
-  async bank(attemptId, amount, durable) {
+  // Tickets kept in the local save when an attempt ends without a level clear
+  // (quit, time trial). The next level_end earn includes them once, under that
+  // later attempt's key. A dropped earn releases them to roll forward again.
+  async hold(attemptId, amount, durable) {
     const whole = Math.floor(Number(amount));
     if (!attemptId || !(whole > 0)) return;
     if (!durable || !readStore().attempts[attemptId]) {
-      console.warn('[hub] earn not sent; attempt id was not saved');
+      console.warn('[hub] tickets kept locally; attempt id was not saved so they are not queued for the next bank');
       return;
     }
-    const rec = await this._commitEarn(attemptId, whole);
-    if (!rec) {
+    const wrote = await writeMerged((s) => {
+      if (s.held[attemptId] && Number.isFinite(s.held[attemptId].amount)) return s;
+      s.held[attemptId] = { amount: whole, dropped: false };
+      return s;
+    });
+    const saved = readStore().held[attemptId];
+    if (!wrote || !saved || !Number.isFinite(saved.amount)) console.warn('[hub] tickets kept locally; the hold was not saved');
+  }
+
+  async bank(attemptId, amount, durable) {
+    const levelAmount = Math.floor(Number(amount)) || 0;
+    if (!attemptId) return;
+    if (!durable || !readStore().attempts[attemptId]) {
+      if (levelAmount > 0) console.warn('[hub] earn not sent; attempt id was not saved');
+      return;
+    }
+    let send = false;
+    const wrote = await writeMerged((s) => {
+      const covered = new Set();
+      for (const rec of Object.values(s.earns)) {
+        if (rec.dropped) continue;
+        for (const id of rec.covers || []) covered.add(id);
+      }
+      let extra = 0;
+      const covers = [];
+      for (const [id, rec] of Object.entries(s.held)) {
+        if (id === attemptId || covered.has(id) || rec.dropped || !(rec.amount > 0)) continue;
+        extra += rec.amount;
+        covers.push(id);
+      }
+      const whole = levelAmount + extra;
+      if (!(whole > 0)) return s;
+      const existing = s.earns[attemptId];
+      if (existing && Number.isFinite(existing.amount)) {
+        if (!existing.dropped && existing.amount >= whole) existing.covers = [...new Set([...(existing.covers || []), ...covers])];
+        send = !existing.acked && !existing.dropped;
+        return s;
+      }
+      s.earns[attemptId] = { amount: whole, acked: false, dropped: false, covers };
+      send = true;
+      return s;
+    });
+    if (!wrote) {
       console.warn('[hub] earn not sent; could not save the idempotency key');
       return;
     }
-    if (rec.acked || rec.dropped) return;
+    if (!send) return;
     await this.init();
     if (this.reach !== 'ready' || !this.inSession) return;
     await this._sendEarn(attemptId);
@@ -530,7 +591,7 @@ class HubBridge {
       const dropped = await this._failWrite(err, current.id);
       if (dropped && pendingExchange()?.id !== current.id) {
         const info = errorInfo(err);
-        this.status = info.code === 'idempotency_mismatch' ? 'Exchange failed.' : 'Daily Verse cap reached.';
+        this.status = info.code.endsWith('_cap') ? 'Daily Verse cap reached.' : 'Exchange failed.';
       }
     }
   }
@@ -565,7 +626,7 @@ class HubBridge {
       console.warn('[hub] write not acked', info.code, key, info.message);
       return false;
     }
-    console.warn('[hub] dropping write', info.code, key, info.message);
+    console.warn('[hub] acking and dropping write', info.code, key, info.message);
     await this._dropKey(key);
     await forgetOutbox(key);
     return true;
@@ -573,11 +634,11 @@ class HubBridge {
 
   _dropKey(key) {
     return writeMerged((s) => {
-      if (s.earns[key]) s.earns[key] = { ...s.earns[key], dropped: true, acked: false };
+      if (s.earns[key]) s.earns[key] = { ...s.earns[key], dropped: true, acked: true };
       for (const rec of Object.values(s.relics)) {
-        if (rec && rec.key === key) { rec.dropped = true; rec.acked = false; }
+        if (rec && rec.key === key) { rec.dropped = true; rec.acked = true; }
       }
-      if (s.exchange && s.exchange.id === key) s.exchange = { ...s.exchange, dropped: true, acked: false };
+      if (s.exchange && s.exchange.id === key) s.exchange = { ...s.exchange, dropped: true, acked: true };
       return s;
     });
   }

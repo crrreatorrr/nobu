@@ -543,9 +543,14 @@ export class Game {
         save.write();
         this.player.rebuildModel(save.data.nobuModel);
         this._drawPause();
-      }       else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
+      } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
       else if (it.id === 'hub') { this.exitToHub(); }
-      else if (it.id === 'quit') { this.ui.pinHud(false); save.write(); this.ui.fade(1).then(() => this.toMap(this.session.level)); }
+      else if (it.id === 'quit') {
+        this.session?.holdUnbanked();
+        this.ui.pinHud(false);
+        save.write();
+        this.ui.fade(1).then(() => this.toMap(this.session.level));
+      }
     }
   }
 
@@ -677,6 +682,7 @@ export class Game {
     if (this.goT > 0.8 && (input.confirmPressed() || input.pressed('bite'))) {
       audio.play('select');
       const lvl = this.session?.level || save.data.lastLevel || 1;
+      this.session?.holdUnbanked();
       save.data.lives = START_LIVES;
       save.write();
       if (this.goSel === 0) this.startLevel(lvl);
