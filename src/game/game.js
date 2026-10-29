@@ -607,6 +607,7 @@ export class Game {
 
   // ---------------- wardrobe ----------------
   // Head and neck only. Back and body stay in the save until an item exists for them.
+  // Neck cycles None, Golden Collar, Clown-Nose Collar, and holds one of those ids.
   openWardrobe(from) {
     this.wardrobeReturn = from;
     this.wardSlot = 0;

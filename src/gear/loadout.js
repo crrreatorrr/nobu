@@ -27,6 +27,7 @@ export class Loadout {
   get ranked() { return readNobuOwnership().ranked; }
 
   // Ids the wardrobe may offer, including None. Unowned items stay hidden.
+  // Neck order follows the catalog: None, Golden Collar, Clown-Nose Collar.
   options(slot) {
     const own = readNobuOwnership();
     if (!own.ready) return [null];
@@ -62,6 +63,7 @@ export class Loadout {
   }
 
   // Drop ids the server result does not own. Unknown ids are ignored, not crashed on.
+  // Golden Collar and Clown-Nose Collar are both known neck ids, so neither is cleared as unknown.
   // Returns display names that were cleared, for one toast. Does not write other save fields.
   resync() {
     const own = readNobuOwnership();
@@ -89,7 +91,7 @@ export class Loadout {
     return lost;
   }
 
-  // One id per slot. Assigning neck replaces whatever collar was there.
+  // One id per slot. Assigning neck replaces the other collar.
   equip(slot, id) {
     if (!SLOTS.includes(slot)) return false;
     const next = id || null;

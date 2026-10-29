@@ -1,6 +1,6 @@
 // NOBU Relic items. Gameplay's equip spec (EQ §1.1) is the source for these numbers.
 // Cone's Tip is earned in this game, so it has no NOBU item.
-// Neck holds one id: the Golden Collar and the Clown-Nose Collar cannot both be worn.
+// Neck holds one id. The cycle is None, Golden Collar, then Clown-Nose Collar.
 
 export const SLOTS = ['head', 'neck', 'back', 'body'];
 export const VISIBLE_SLOTS = ['head', 'neck'];
@@ -42,6 +42,19 @@ export const NOBU_ITEMS = [
       params: { guard_charges: 1, invuln_s: 1.7, knockback: 6 },
     },
     cosmetic: { mesh: 'nobu_golden_collar', fallback: 'procedural' },
+  },
+  {
+    id: 'nobu_clown_collar',
+    game: 'nobu',
+    slot: 'neck',
+    name: 'Clown-Nose Collar',
+    relic: 'hpos10i_core',
+    blurb: 'One horizontal air dash per jump.',
+    effect: {
+      id: 'air_dash',
+      params: { charges_per_jump: 1, distance_m: 3, dash_time_s: 0.18 },
+    },
+    cosmetic: { mesh: 'nobu_clown_collar', fallback: 'procedural' },
   },
 ];
 
