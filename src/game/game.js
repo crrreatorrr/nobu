@@ -12,6 +12,7 @@ import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { INTRO, RESCUE, ENDING, BETWEEN } from '../story/script.js';
 import { damp } from '../core/util.js';
+import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
 const MAP_NODES = { 1: { x: 24, y: 70 }, ride: { x: 34, y: 55 }, 2: { x: 50, y: 50 }, cave: { x: 66, y: 62 }, 3: { x: 77, y: 27 } };
 // walk order on the map; bonus stages sit between the main levels
@@ -39,8 +40,13 @@ export class Game {
     this.fx = null;
     this.flyingMasks = [];
     this.last = performance.now();
+    this.hubExit = false;
+    this.exchangeOpen = false;
+    this.exAmount = TICKETS_PER_VERSE;
+    this.exBusy = false;
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('beforeunload', (e) => {
+      if (this.hubExit) return;
       if (this.state === 'play') { e.preventDefault(); e.returnValue = ''; }
     });
   }
@@ -59,10 +65,13 @@ export class Game {
 
   async boot() {
     save.load();
+    const hubReady = hub.init();
     audio.setVolumes(save.data.musicVol, save.data.sfxVol);
     this.uiRoot.innerHTML = '<div class="loading"><div class="big-title" style="font-size:52px">NOBU</div><div class="bar"><div class="fill"></div></div><div class="hint">Loading Higgsfield art...</div></div>';
     const fill = this.uiRoot.querySelector('.fill');
     await Assets.init((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
+    await Promise.race([hubReady, new Promise((r) => setTimeout(r, 6000))]);
+    hubReady.then(() => { if (this.state === 'map') this._drawMap(); });
     this.uiRoot.innerHTML = '';
     this.ui = new UI(this.uiRoot);
     this.ui.godBadge(save.data.godMode);
@@ -279,6 +288,7 @@ export class Game {
 
   // ---------------- level select map ----------------
   toMap(sel = 1) {
+    this.exchangeOpen = false;
     this.ui.trialTime(null);
     this.state = 'map';
     this.session = null;
@@ -315,18 +325,124 @@ export class Game {
     const tr = !bonusSel && d.beaten[lv - 1]
       ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[lv][0])}`}</div>`
       : '';
+    const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
     const info = `<div class="map-panel"><div class="sub-title">${head}</div>
       <div class="hint">${status}</div>${tr}
-      <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · ESC title &nbsp;&nbsp; Lives ${d.lives} · Tickets ${d.tickets}</div></div>`;
-    this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${info}`);
+      <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · X exchange · H exit to hub · ESC title</div>
+      <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
+    const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
+    this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
+  }
+
+  _exchangeHtml() {
+    const view = hub.view();
+    const pending = view.pending;
+    const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+    const max = maxExchangeTickets(spendable);
+    if (!pending) {
+      if (max < TICKETS_PER_VERSE) this.exAmount = 0;
+      else this.exAmount = Math.min(max, Math.max(TICKETS_PER_VERSE, this.exAmount));
+    }
+    const shown = pending ? pending.tickets : this.exAmount;
+    const verse = Math.floor(shown / TICKETS_PER_VERSE);
+    const locked = !!pending || this.exBusy;
+    const can = !locked && view.reach === 'ready' && view.inSession && shown >= TICKETS_PER_VERSE && shown % TICKETS_PER_VERSE === 0 && shown <= max;
+    const cap = view.verseCapLeft == null ? '' : `<div class="hint">Verse left today: ${view.verseCapLeft}</div>`;
+    let status = view.pending ? 'Exchange pending' : view.status;
+    if (!status && view.reach === 'pending') status = 'Connecting to the hub…';
+    else if (!status && !view.inSession) status = 'Open this game from the hub to exchange.';
+    const nudge = (label, off) => `<div class="ex-nudge${off ? ' disabled' : ''}">${label}</div>`;
+    return `<div class="exchange-panel">
+      <div class="sub-title">EXCHANGE</div>
+      <div class="hint">${TICKETS_PER_VERSE} Tickets = 1 Verse</div>
+      <div class="hint">Tickets: ${spendable}</div>
+      <div class="ex-step">
+        ${nudge(`-${TICKETS_PER_VERSE}`, locked || shown <= TICKETS_PER_VERSE)}
+        <div class="ex-amt">${shown}</div>
+        ${nudge(`+${TICKETS_PER_VERSE}`, locked || shown + TICKETS_PER_VERSE > max)}
+      </div>
+      <div class="hint">Worth ${verse} Verse</div>
+      ${cap}
+      <div class="menu-item ${can ? 'sel' : 'disabled'}">EXCHANGE</div>
+      ${status ? `<div class="hint">${status}</div>` : ''}
+      <div class="hint">${locked ? 'ESC close' : '◀ ▶ amount · ENTER exchange · ESC close'}</div>
+    </div>`;
+  }
+
+  openExchange() {
+    const pending = hub.view().pending;
+    if (pending) this.exAmount = pending.tickets;
+    else {
+      const view = hub.view();
+      const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+      const max = maxExchangeTickets(spendable);
+      this.exAmount = max >= TICKETS_PER_VERSE ? TICKETS_PER_VERSE : 0;
+    }
+    this.exchangeOpen = true;
+    this._drawMap();
+    if (pending) hub.resendExchange().then(() => { if (this.exchangeOpen && this.state === 'map') this._drawMap(); });
+  }
+
+  updateExchange() {
+    if (input.pressed('pause') || input.pressed('back')) {
+      audio.play('menu');
+      this.exchangeOpen = false;
+      this._drawMap();
+      return;
+    }
+    const view = hub.view();
+    if (view.pending || this.exBusy) return;
+    const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+    const max = maxExchangeTickets(spendable);
+    if (input.pressed('left') || input.pressed('down')) {
+      if (this.exAmount > TICKETS_PER_VERSE) {
+        this.exAmount -= TICKETS_PER_VERSE;
+        audio.play('menu');
+        this._drawMap();
+      }
+    }
+    if (input.pressed('right') || input.pressed('up')) {
+      if (this.exAmount + TICKETS_PER_VERSE <= max) {
+        this.exAmount += TICKETS_PER_VERSE;
+        audio.play('menu');
+        this._drawMap();
+      }
+    }
+    if ((input.confirmPressed() || input.pressed('bite')) && this.exAmount >= TICKETS_PER_VERSE && this.exAmount % TICKETS_PER_VERSE === 0 && this.exAmount <= max && view.reach === 'ready' && view.inSession) {
+      audio.play('select');
+      this._confirmExchange();
+    }
+  }
+
+  async _confirmExchange() {
+    if (this.exBusy) return;
+    const view = hub.view();
+    const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+    const max = maxExchangeTickets(spendable);
+    const amount = Math.floor(Number(this.exAmount) || 0);
+    // 10 Tickets = 1 Verse. Under 10, or any amount that is not a step of 10, sends nothing.
+    if (view.reach !== 'ready' || !view.inSession || amount < TICKETS_PER_VERSE || amount % TICKETS_PER_VERSE !== 0 || amount > max) return;
+    this.exBusy = true;
+    this._drawMap();
+    try { await hub.exchange(amount); }
+    finally { this.exBusy = false; }
+    if (this.exchangeOpen && this.state === 'map') this._drawMap();
+  }
+
+  exitToHub() {
+    this.hubExit = true;
+    hub.exit('exit_to_hub');
   }
 
   updateMap() {
+    if (this.exchangeOpen) { this.updateExchange(); return; }
     const d = save.data;
     const open = MAP_ORDER.filter(mapOpen);
     const i = open.indexOf(this.mapSel);
     if (input.pressed('right') || input.pressed('up')) { if (i < open.length - 1) { this.mapSel = open[i + 1]; audio.play('menu'); this._drawMap(); } }
     if (input.pressed('left') || input.pressed('down')) { if (i > 0) { this.mapSel = open[i - 1]; audio.play('menu'); this._drawMap(); } }
+    if (input.pressed('exchange')) { audio.play('select'); this.openExchange(); return; }
+    if (input.pressed('hub')) { audio.play('select'); this.exitToHub(); return; }
     if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); this.startLevel(this.mapSel); }
     else if (input.pressed('trial') && !(this.mapSel in BONUS_AFTER) && d.beaten[this.mapSel - 1]) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
@@ -401,6 +517,7 @@ export class Game {
       { id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` },
       { id: 'music', label: `MUSIC: ${Math.round(save.data.musicVol * 10)}` },
       { id: 'sfx', label: `SFX: ${Math.round(save.data.sfxVol * 10)}` },
+      { id: 'hub', label: 'EXIT TO HUB' },
       { id: 'quit', label: 'QUIT TO MAP' },
     ];
   }
@@ -437,7 +554,12 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawPause();
       } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
-      else if (it.id === 'quit') { this.ui.pinHud(false); save.write(); this.ui.fade(1).then(() => this.toMap(this.session.level)); }
+      else if (it.id === 'hub') { this.exitToHub(); }
+      else if (it.id === 'quit') {
+        this.ui.pinHud(false);
+        save.write();
+        this.ui.fade(1).then(() => this.toMap(this.session.level));
+      }
     }
   }
 
@@ -459,6 +581,7 @@ export class Game {
     d.bestDogs[n - 1] = Math.max(d.bestDogs[n - 1], st.dogs);
     if (bone) d.bones[n - 1] = true;
     save.write();
+    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     // rescue scene first, then the results screen
     this.playCutscene(RESCUE[n], () => this._showComplete(n, st, bone), 'victory');
   }
@@ -502,6 +625,7 @@ export class Game {
     d.bonus ||= {};
     d.bonus[n] = { beaten: true, best: Math.max(d.bonus[n]?.best || 0, st.tickets) };
     save.write();
+    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     this._showComplete(n, st, false, true);
   }
 

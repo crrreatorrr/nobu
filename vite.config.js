@@ -20,5 +20,13 @@ const devShot = {
 };
 
 export default defineConfig({
+  base: './',
   plugins: [devShot],
+  server: {
+    // Same-origin /v2 in dev. Production Caddy proxies Nakama; serverUrl stays ''.
+    proxy: {
+      '/v2': { target: 'http://127.0.0.1:7350', changeOrigin: true },
+      '/ws': { target: 'http://127.0.0.1:7350', ws: true, changeOrigin: true },
+    },
+  },
 });

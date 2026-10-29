@@ -1,11 +1,16 @@
-// Art loader: reads /assets/manifest.json (Higgsfield-generated art), loads textures + the Nobu GLB,
+// Art loader: reads assets/manifest.json (Higgsfield-generated art), loads textures + the Nobu GLB,
 // and supplies procedural canvas fallbacks for anything missing so the game always runs.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { drawFallback } from './fallbacks.js';
 
-const BASE = '/assets/';
+const BASE = `${import.meta.env.BASE_URL}assets/`;
+
+if (typeof document !== 'undefined') {
+  const textbox = new URL(`${BASE}ui/textbox.webp`, document.baseURI).href;
+  document.documentElement.style.setProperty('--nobu-textbox', `url("${textbox}")`);
+}
 
 class AssetStore {
   constructor() {
