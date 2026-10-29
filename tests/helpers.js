@@ -21,6 +21,8 @@ export function resetHub(h = hub) {
   h.sessionCapLeft = null;
   h.dailyCapLeft = null;
   h.rejectionRemaining = null;
+  h.serverBalance = null;
+  h.serverDay = null;
   h._flushing = false;
   h.status = '';
 }

@@ -19,6 +19,14 @@ function take(slot, onceFlag) {
   return err;
 }
 
+// serverNow is a hub clock. Null omits the field. 0 is the no-clock sentinel, not 1970-01-01.
+function serverTimeField() {
+  if (sdk.serverNow == null) return {};
+  const serverTime = typeof sdk.serverNow === 'function' ? sdk.serverNow() : sdk.serverNow;
+  if (serverTime === undefined) return {};
+  return { serverTime };
+}
+
 export function createHubSdk() {
   return {
     async init(gameId) {
@@ -31,6 +39,7 @@ export function createHubSdk() {
         effects: {},
         ticketsCapLeft: 1000,
         gameId,
+        ...serverTimeField(),
       };
     },
 
@@ -109,8 +118,10 @@ export function createHubSdk() {
     },
 
     async getTicketBalance() {
-      if (typeof sdk.ticketBalance === 'function') return sdk.ticketBalance();
-      return sdk.ticketBalance || {};
+      const base = typeof sdk.ticketBalance === 'function'
+        ? await sdk.ticketBalance()
+        : (sdk.ticketBalance || {});
+      return { ...base, ...serverTimeField() };
     },
 
     exit() {},

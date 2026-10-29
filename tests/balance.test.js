@@ -329,6 +329,27 @@ describe('local-only tickets', () => {
     expect(sdk.calls.earn).toHaveLength(0);
   });
 
+  it('a zero_value rejection does not debit the local wallet', async () => {
+    const wallet = 40;
+    save.data.tickets = wallet;
+    sdk.exchangeError = hubError('zero_value');
+    await hub.exchange(TICKETS_PER_VERSE * 2);
+
+    expect(sdk.calls.exchange.map((call) => call.tickets)).toEqual([TICKETS_PER_VERSE * 2]);
+    expect(save.data.tickets).toBe(wallet);
+    expect(readHubStore().exchange).toMatchObject({
+      tickets: TICKETS_PER_VERSE * 2,
+      acked: true,
+      dropped: true,
+    });
+
+    sdk.exchangeError = null;
+    await hub.flush();
+    await hub.resendExchange();
+    expect(save.data.tickets).toBe(wallet);
+    expect(sdk.calls.exchange).toHaveLength(1);
+  });
+
   it('a finished trial banks and a quit trial does not', async () => {
     const finished = playSession();
     const amount = wholeTicketsFromRaw(rawTicketsForWhole(7));
@@ -567,32 +588,108 @@ describe('carry', () => {
     expect(carryCredits).toBe(original);
   });
 
-  it('keeps an expired carry alive when the client clock is wound back', async () => {
+  const WOUND_BACK = '2026-06-14T12:00:00.000Z';
+
+  async function armServerClock(ms) {
+    sdk.serverNow = ms;
+    resetHub(hub);
+    await hub.init();
+  }
+
+  async function parkForty() {
     const attempt = await hub.beginAttempt(1);
     await hub.bank(attempt.id, LEVEL_END_MAX_AMOUNT + 40, true);
     const carry = readHubStore().carry;
+    expect(carry.amount).toBe(40);
     expect(carry.day).toBe(DAY_STAMP);
+    return { attempt, carry };
+  }
 
-    // Server midnight has passed. The game clock is still the previous UTC day.
-    const serverNow = Date.parse(NEXT_DAY);
-    expect(new Date(serverNow).toISOString().slice(0, 10)).not.toBe(carry.day);
+  function carryCredits(attemptId) {
+    return [...sdk.earnLedger.entries()]
+      .filter(([key]) => key !== attemptId)
+      .map(([key, rec]) => [key, rec.amount]);
+  }
+
+  it('drops a carry when the server day rolls even if the client clock is wound back to 06-15', async () => {
+    await armServerClock(Date.parse(DAY));
+    const { attempt, carry } = await parkForty();
+
+    sdk.serverNow = Date.parse(NEXT_DAY);
     Date.now.mockReturnValue(Date.parse(DAY));
-
+    const before = creditedEarnTotal();
     await hub.bankCarry();
-    expect(sdk.earnLedger.has(carry.key), 'client Date.now kept an expired carry alive and credited it').toBe(false);
-    expect(readHubStore().carry, 'client Date.now kept an expired carry alive').toBeNull();
+
+    expect(sdk.earnLedger.has(carry.key)).toBe(false);
+    expect(carryCredits(attempt.id)).toEqual([]);
+    expect(creditedEarnTotal()).toBe(before);
+    expect(readHubStore().carry).toBeNull();
   });
 
-  it('expires a live carry when the client clock jumps forward', async () => {
-    const attempt = await hub.beginAttempt(1);
-    await hub.bank(attempt.id, LEVEL_END_MAX_AMOUNT + 40, true);
-    const carry = readHubStore().carry;
-    const serverStill = Date.parse(DAY);
-    expect(new Date(serverStill).toISOString().slice(0, 10)).toBe(carry.day);
+  it('credits a carry once when the client clock jumps to 06-16 and the server stays on 06-15', async () => {
+    await armServerClock(Date.parse(DAY));
+    const { attempt, carry } = await parkForty();
 
     Date.now.mockReturnValue(Date.parse(NEXT_DAY));
+    const before = creditedEarnTotal();
     await hub.bankCarry();
-    expect(readHubStore().carry?.key, 'client Date.now expired a carry the server day still allowed').toBe(carry.key);
-    expect(sdk.earnLedger.has(carry.key)).toBe(true);
+
+    expect(carryCredits(attempt.id)).toEqual([[carry.key, carry.amount]]);
+    expect(creditedEarnTotal() - before).toBe(carry.amount);
+    expect(readHubStore().earns[carry.key]).toMatchObject({ amount: carry.amount, acked: true, dropped: false });
+
+    await hub.bankCarry();
+    expect(carryCredits(attempt.id)).toEqual([[carry.key, carry.amount]]);
+    expect(creditedEarnTotal() - before).toBe(carry.amount);
+  });
+
+  it('ignores a wound-back or wound-forward client clock when serverTime is missing or 0', async () => {
+    async function outcome(serverNow, clientIso) {
+      resetWorld();
+      Date.now.mockReturnValue(Date.parse(DAY));
+      if (serverNow !== undefined) sdk.serverNow = serverNow;
+      await readyHub();
+      const { attempt, carry } = await parkForty();
+      Date.now.mockReturnValue(Date.parse(clientIso));
+      const before = creditedEarnTotal();
+      await hub.bankCarry();
+      await hub.bankCarry();
+      return {
+        delta: creditedEarnTotal() - before,
+        amount: carry.amount,
+        credits: carryCredits(attempt.id),
+        key: carry.key,
+      };
+    }
+
+    const clocks = [DAY, WOUND_BACK, NEXT_DAY];
+    for (const serverNow of [undefined, 0]) {
+      const runs = [];
+      for (const clientIso of clocks) runs.push(await outcome(serverNow, clientIso));
+      for (const run of runs) {
+        expect(run.delta).toBe(run.amount);
+        expect(run.credits).toEqual([[run.key, run.amount]]);
+      }
+      expect(runs.map((run) => run.delta)).toEqual(runs.map(() => runs[0].amount));
+      expect(new Set(runs.map((run) => run.delta)).size).toBe(1);
+    }
+  });
+
+  it('drops a carry when the server day changes between init and bankCarry', async () => {
+    await armServerClock(Date.parse(DAY));
+    expect(hub.serverDay).toBe(DAY_STAMP);
+    const { attempt, carry } = await parkForty();
+
+    // Init's snapshot is still 06-15. Only the getTicketBalance re-read has moved.
+    sdk.serverNow = Date.parse(NEXT_DAY);
+    Date.now.mockReturnValue(Date.parse(DAY));
+    const before = creditedEarnTotal();
+    await hub.bankCarry();
+
+    expect(hub.serverDay).toBe('2026-06-16');
+    expect(sdk.earnLedger.has(carry.key)).toBe(false);
+    expect(carryCredits(attempt.id)).toEqual([]);
+    expect(creditedEarnTotal()).toBe(before);
+    expect(readHubStore().carry).toBeNull();
   });
 });

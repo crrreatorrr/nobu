@@ -30,6 +30,9 @@ function fresh() {
     initError: null,
     exchangeResponder: null,
     ticketBalance: null,
+    // Epoch ms from the hub, or 0 for the SDK's no-clock sentinel. Null omits serverTime.
+    // This is not Date.now. Carry expiry reads only this clock.
+    serverNow: null,
   };
 }
 
