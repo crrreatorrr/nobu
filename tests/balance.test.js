@@ -13,7 +13,7 @@ import { save } from '../src/core/save.js';
 import { CoconutRoller } from '../src/entities/props.js';
 import { Game } from '../src/game/game.js';
 import { Session } from '../src/game/session.js';
-import { hub } from '../src/hub/hubBridge.js';
+import { hub, TICKETS_PER_VERSE } from '../src/hub/hubBridge.js';
 import { grantSession, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
 import { creditedEarnTotal, hubError, sdk } from './sdkState.js';
 
@@ -275,15 +275,57 @@ describe('local-only tickets', () => {
     expect(hub.sessionCapLeft).toBe(100);
     expect(hub.dailyCapLeft).toBe(80);
 
-    await Game.prototype._confirmExchange.call({
-      exAmount: save.data.tickets,
+    const confirm = (exAmount) => Game.prototype._confirmExchange.call({
+      exAmount,
       exBusy: false,
       exchangeOpen: true,
       state: 'map',
       _drawMap() {},
     });
-    expect(sdk.calls.exchange.every((call) => call.tickets !== localOnly)).toBe(true);
-    expect(sdk.calls.exchange.map((call) => call.tickets)).toEqual([4]);
+    // 4 is below 10 tickets = 1 Verse, so the panel must not send an exchange.
+    await confirm(save.data.tickets);
+    await confirm(localOnly);
+    expect(sdk.calls.exchange).toHaveLength(0);
+    expect(sdk.calls.earn).toHaveLength(0);
+
+    resetHub(hub);
+    await hub.init();
+    expect(save.data.tickets).toBe(4);
+    const next = await hub.beginAttempt(2);
+    await hub.bankCarry();
+    await hub.bank(next.id, wholeTicketsFromRaw(DENOM), true);
+    const localOnlyLeft = localOnly - 4;
+    expect(sdk.calls.earn.every((call) => call.amount !== localOnly && call.amount !== localOnlyLeft)).toBe(true);
+    expect(sdk.calls.exchange).toHaveLength(0);
+  });
+
+  it('a server balance of 12 caps the exchange below the old local wallet', async () => {
+    sessionStorage.clear();
+    resetHub(hub);
+    const serverBalance = 12;
+    const oldLocal = serverBalance + TICKETS_PER_VERSE;
+    sdk.ticketBalance = { balance: serverBalance, sessionCapLeft: 100, dailyCapLeft: 80 };
+    await hub.init();
+    save.data.tickets = oldLocal;
+
+    grantSession();
+    resetHub(hub);
+    await hub.init();
+    expect(save.data.tickets).toBe(serverBalance);
+    expect(sdk.calls.earn).toHaveLength(0);
+
+    const confirm = (exAmount) => Game.prototype._confirmExchange.call({
+      exAmount,
+      exBusy: false,
+      exchangeOpen: true,
+      state: 'map',
+      _drawMap() {},
+    });
+    await confirm(oldLocal);
+    await confirm(TICKETS_PER_VERSE);
+    const sent = sdk.calls.exchange.reduce((sum, call) => sum + call.tickets, 0);
+    expect(sent).toBeLessThanOrEqual(serverBalance);
+    expect(sdk.calls.exchange.every((call) => call.tickets <= serverBalance && call.tickets !== oldLocal)).toBe(true);
     expect(sdk.calls.earn).toHaveLength(0);
   });
 
