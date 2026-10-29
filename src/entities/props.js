@@ -13,6 +13,7 @@ import { audio } from '../audio/audio.js';
 import { makeShadow, textSprite } from './fx.js';
 import { TUNING } from '../player/player.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { switchCrate, pulseSwitches } from './switchCrate.js';
 
 const UPV = new THREE.Vector3(0, 1, 0);
 
@@ -270,6 +271,7 @@ export class CrackedFloor extends Entity {
   onLand(p) {
     if (p.mode === 'flop' && this.solid.enabled) {
       this.solid.enabled = false;
+      this.visible = false; // (the stage re-shows anything near Nobu unless it's flagged hidden)
       this.obj.visible = false;
       audio.play('break');
       this.fx.burst(this.pos.x, this.pos.y, this.pos.z, { count: 26, colors: [0x8a6a4a, 0xb98a5a, 0x5a3a20], speed: 5, size: 0.3 });
@@ -279,7 +281,7 @@ export class CrackedFloor extends Entity {
     }
     return false;
   }
-  reset() { this.solid.enabled = true; this.obj.visible = true; }
+  reset() { this.solid.enabled = true; this.visible = true; this.obj.visible = true; }
 }
 
 // Bounce mushroom: launches Nobu up (and a little forward).
@@ -329,23 +331,28 @@ export class BoneSwitch extends Entity {
   constructor(stage, x, y, z, platforms) {
     super(stage, x, y, z);
     this.platforms = platforms; // [{x,y,z,w,d,yaw}]
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.95), toon(0x2a8cff));
-    box.position.y = 0.475;
-    const bone = textSprite('🦴', { size: 110, color: '#ffffff' });
-    bone.material.depthTest = true;
-    bone.scale.setScalar(0.75);
-    bone.position.set(0, 0.5, 0.5);
-    const bang = textSprite('!', { color: '#ffd23f' });
-    bang.scale.setScalar(0.6);
-    bang.position.set(0, 1.4, 0);
-    this.bang = bang;
-    this.box = null;
-    this.obj.add(box, bone, bang);
-    this.setBox(1, 1, 1);
+    this.crate = switchCrate('blue');
+    // a golden bone spinning above the crate
+    const gold = new THREE.MeshPhongMaterial({ color: 0xffc21a, emissive: 0x4a3000, specular: 0xffffff, shininess: 90 });
+    this.bone = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.5, 10), gold);
+    shaft.rotation.z = Math.PI / 2;
+    this.bone.add(shaft);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), gold); k.position.set(sx * 0.27, sy * 0.08, 0); this.bone.add(k); }
+    this.bone.position.y = 1.35;
+    this.bone.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.obj.add(this.crate, this.bone);
+    // generous hit box: a touch, bite, slide, stomp, flop or bark from any side presses it
+    this.setBox(1.25, 1.1, 1.25);
     this.solid = stage.world.add(new Solid({ x: x - 0.48, y, z: z - 0.48 }, { x: x + 0.48, y: y + 0.95, z: z + 0.48 }, { kind: 'static', ref: this }));
-    // ghost outlines of the bridge
+    // see-through outlines of the bridge it builds
+    const ghostFill = new THREE.MeshBasicMaterial({ color: 0x7fd4ff, transparent: true, opacity: 0.14, depthWrite: false });
+    const ghostLine = new THREE.LineBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.7 });
+    this.ghostMats = [ghostFill, ghostLine];
     this.ghosts = platforms.map((pl) => {
-      const g = new THREE.Mesh(new THREE.BoxGeometry(pl.w, 0.4, pl.d), new THREE.MeshBasicMaterial({ color: 0x7fd4ff, transparent: true, opacity: 0.25, wireframe: true }));
+      const geo = new THREE.BoxGeometry(pl.w, 0.4, pl.d);
+      const g = new THREE.Mesh(geo, ghostFill);
+      g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), ghostLine));
       g.position.set(pl.x, pl.y - 0.2, pl.z);
       g.rotation.y = pl.yaw || 0;
       stage.scene.add(g);
@@ -357,12 +364,17 @@ export class BoneSwitch extends Entity {
   }
   update(dt) {
     this.t += dt;
-    this.bang.position.y = 1.4 + Math.abs(Math.sin(this.t * 4)) * 0.2;
-    for (const g of this.ghosts) g.material.opacity = 0.2 + Math.sin(this.t * 4) * 0.08;
+    if (this.distToPlayer() < 9) this.game.ui.tutorial('boneswitch');
+    pulseSwitches(this.t);
+    this.bone.rotation.y = this.t * 2;
+    this.bone.position.y = 1.35 + Math.sin(this.t * 3) * 0.08;
+    this.ghostMats[0].opacity = 0.1 + (Math.sin(this.t * 4) * 0.5 + 0.5) * 0.1;
+    this.ghostMats[1].opacity = 0.45 + (Math.sin(this.t * 4) * 0.5 + 0.5) * 0.4;
   }
   press(p) {
     if (this.used) return;
     this.used = true;
+    this.visible = false;
     this.obj.visible = false;
     this.solid.enabled = false;
     this.interactive = false;
@@ -385,7 +397,9 @@ export class BoneSwitch extends Entity {
   onSlide(p) { this.press(p); }
   onHeadHit(p) { this.press(p); }
   onLand(p) { if (this.used) return false; this.press(p); p.bounce(TUNING.STOMP_BOUNCE); return true; }
-  onTouch() {}
+  onTouch(p) { this.press(p); }
+  onFlop(p) { this.press(p); }
+  onExplosion() { this.press(); }
 }
 
 // Rope drawbridge: bite the rope post and the bridge swings down over the gap.

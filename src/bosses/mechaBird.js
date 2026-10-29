@@ -4,7 +4,7 @@
 // Phase 3: HOMING ROCKETS, ticking EGG BOMBS, cone drops, lasers, gusts, dives
 // The GLB is auto-rigged: real wing flaps (with a lagging wingtip), head tracking, tail and a swinging cage.
 import * as THREE from 'three';
-import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam } from './common.js';
+import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart } from './common.js';
 import { autoRig, sstep, blendPose } from './autorig.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
@@ -64,7 +64,40 @@ export class MechaBird extends Boss {
     this.cageSwing = { x: 0, z: 0, vx: 0, vz: 0 };
     this.roll = 0; this.pitch = 0;
     this.lastPhase = 1;
+    this.stageNames = { 2: 'OVERCLOCKED', 3: 'HYPER MECHA' };
+    this.stagePowers = { 2: 'Feather volleys · laser eye · faster dives', 3: 'Homing missiles · egg bombs · double laser sweeps' };
+    this.stageColors = [0, 0, 0xff7a1a, 0x3ad8ff];
+    this.stageGlow = { 2: 0x120500, 3: 0x00121c };
     this.collectMeshes();
+    this.setStageLook(1);
+  }
+
+  // Stage 2 (OVERCLOCKED): head crest, red visor eyes, jet flames under the wings.
+  // Stage 3 (HYPER MECHA): steel wing blades, a plasma afterburner and a spinning halo.
+  makeStageParts() {
+    const B = this.bones;
+    if (!B) return {};
+    const k = 1.05; // mesh units per model unit (height 4.2 / 4)
+    const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
+    const steel = new THREE.MeshPhongMaterial({ color: 0xd8dde8, specular: 0xffffff, shininess: 90 });
+    const two = [], three = [];
+    const add = (bone, o, list) => { B[bone].add(o); list.push(o); return o; };
+    [[0, 0.5, 0.05, 0.6], [0, 0.45, -0.2, 0.5], [0, 0.35, -0.42, 0.4]].forEach(([x, y, z, h]) => add('head', spikePart(steel, V(x, y, z), new THREE.Vector3(0, 1, -0.6), 0.1, h), two));
+    for (const sx of [-1, 1]) {
+      add('head', glowPart(0xff3030, 0.6), two).position.copy(V(sx * 0.2, 0.22, 0.5));
+      const jet = add(sx < 0 ? 'wingL' : 'wingR', flamePart(0xff8a2a, 0.45, 1.1), two);
+      jet.position.copy(V(sx * 0.45, -0.25, -0.1)); jet.rotation.x = Math.PI;
+      const blade = add(sx < 0 ? 'wingL2' : 'wingR2', new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.32), steel), three);
+      blade.position.copy(V(sx * 0.95, 0.02, -0.22)); blade.rotation.y = sx * 0.12;
+      const edge = add(sx < 0 ? 'wingL2' : 'wingR2', new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0x7af0ff })), three);
+      edge.position.copy(V(sx * 0.95, 0.02, -0.38)); edge.rotation.y = sx * 0.12;
+      add('head', glowPart(0x7af0ff, 0.8), three).position.copy(V(sx * 0.2, 0.22, 0.52));
+    }
+    const burner = add('tail', flamePart(0x5ae0ff, 0.7, 1.6), three);
+    burner.position.copy(V(0, 0, -0.35)); burner.rotation.x = -Math.PI / 2;
+    const halo = add('root', new THREE.Mesh(new THREE.TorusGeometry(2.0, 0.06, 6, 40), new THREE.MeshBasicMaterial({ color: 0x7af0ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })), three);
+    halo.rotation.x = Math.PI / 2; halo.position.copy(V(0, 0.35, 0));
+    return { 2: two, 3: three };
   }
 
   buildModel() {
@@ -193,7 +226,7 @@ export class MechaBird extends Boss {
   }
 
   ai(dt) {
-    const sp = this.phase === 3 ? 1.25 : this.phase === 2 ? 1.1 : 1;
+    const sp = this.phase === 3 ? 1.4 : this.phase === 2 ? 1.2 : 1;
     const p = this.player;
     this.stars.visible = false;
     this.vulnerable = false;

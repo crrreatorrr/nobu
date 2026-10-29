@@ -37,6 +37,8 @@ export class UI {
     root.appendChild(this.hud);
     this.god = h('div', 'god-badge', 'GOD MODE');
     root.appendChild(this.god);
+    this.trialEl = h('div', 'trial-timer');
+    root.appendChild(this.trialEl);
 
     // boss bar
     this.boss = h('div', '', '<img><div class="bb-body"><div class="bb-name"></div><div class="bb-track"><div class="bb-fill"></div></div><div class="bb-row"><div class="bb-phase"></div><div class="bb-sp"><span>SPECIAL</span><div class="bb-sptrack"><div class="bb-spfill"></div></div></div></div></div>');
@@ -80,6 +82,13 @@ export class UI {
     }
   }
   godBadge(on) { this.god.classList.toggle('on', !!on); }
+  // time trial clock: text, or null to hide; `frozen` tints it icy while a Freeze Pack holds it
+  trialTime(text, frozen = false) {
+    this.trialEl.classList.toggle('on', text != null);
+    if (text == null) return;
+    this.trialEl.textContent = (frozen ? '❄ ' : '⏱ ') + text;
+    this.trialEl.classList.toggle('frozen', !!frozen);
+  }
   showHud(t = 3) { for (const s of Object.values(this.slots)) { s.timer = t; s.el.classList.add('show'); } }
   pinHud(on) { this.hudPinned = on; if (on) this.showHud(999); else for (const s of Object.values(this.slots)) s.timer = 1.5; }
   hideHud() { for (const s of Object.values(this.slots)) { s.timer = 0; s.el.classList.remove('show'); } }

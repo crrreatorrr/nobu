@@ -86,21 +86,34 @@ export const LEVEL_INTRO = {
     ['mask', 'The Cone Factory. This is where it all started, Nobu. Where YOU started.'],
     ['mask', 'Crushers, conveyors, every trick he\'s got. Breathe. Bite. Believe.'],
   ],
+  ride: [
+    ['mask', 'The Owner\'s House! The Vacuum Bot\'s big brother went haywire and it\'s heading for the door.'],
+    ['mask', 'Hop on and ride it out! It drives itself. Steer with LEFT / RIGHT, hop cables and gaps with SPACE.'],
+    ['mask', 'Ram backpacks and mice. NOT toy piles, table legs, cats or rugs.'],
+  ],
+  cave: [
+    ['mask', 'Glowworm Grotto. Can\'t see a thing... oh hey, a glowworm! Her name\'s Lumi.'],
+    ['mask', 'Lumi\'s glow fades over time. Pass a glowing mushroom nest to top her up.'],
+    ['mask', 'If she runs out she\'ll wait at the next nest. Follow the little light!'],
+  ],
 };
 
 // Mask chatter after finishing a level (between levels).
 export const BETWEEN = {
   1: [
+    ['mask', 'You took that bird\'s rotor trick! NEW MOVE: TAIL GLIDE. Out of jumps? Press SPACE again and HOLD it to helicopter down.'],
     ['mask', 'Nice! Pro tip: a SLIDE + JUMP goes way farther than a normal jump. Ctrl or K, then SPACE.'],
     ['mask', 'Also: break every backpack and free every dog in a level to earn a Golden Bone. Shiny. Very shiny.'],
   ],
   2: [
     ['mask', 'You outran a cat the size of a house. Your cardio is unmatched.'],
+    ['mask', 'NEW MOVE: ZOOMIES! Slide, and KEEP HOLDING Ctrl or K to stay at sprint speed.'],
     ['mask', 'Belly flop tip: jump, then press Ctrl or K. Smashes everything around you. Spiky stuff too.'],
     ['mask', 'Rumor says the Evil Cone gets dizzy after his combos. Hit him then, not before!'],
   ],
   3: [
     ['mask', 'It\'s over. Every cone is popped. Every dog is free. I\'m not crying, YOU\'RE crying.'],
+    ['mask', 'Oh, and you earned the MEGA BARK. Press L or E. Those cracked rocks back in the old levels? Something\'s inside...'],
   ],
 };
 
@@ -121,13 +134,27 @@ export const TUTORIALS = {
   flop: { img: 'nobu_head', title: 'BELLY FLOP', text: 'In the air, press <span class="key">K</span> or <span class="key">CTRL</span> to slam down and smash everything around you.' },
   drone: { img: 'cone_drone', title: 'CONE DRONE', text: 'Flies low over the path. Jump and bite, or jump on it.' },
   squirrel: { img: 'squirrel', title: 'NUTJOB SQUIRREL', text: 'Hops like crazy. Time your bite between hops.' },
-  lint: { img: 'nobu_head', title: 'LINT ROLLER', text: 'Hit this green box to roll up EVERY rug in the level. They count as broken!' },
+  lint: { img: 'icon_lint', title: 'LINT ROLLER', text: 'Hit this green box to roll up EVERY rug in the level. They count as broken!' },
   vacuum: { img: 'vacuum', title: 'VACUUM BOT', text: 'Fast patroller. Every dog\'s nemesis. Bite it or bounce on it.' },
   mouse: { img: 'mouse', title: 'BANDIT MOUSE', text: 'Scurries across the path. Don\'t let it trip you up!' },
   yarn: { img: 'small_cat', title: 'YARN BALL', text: 'Rolling yarn! Jump over it or bounce off the top.' },
   pill: { img: 'pill_bot', title: 'PILL BOT', text: 'Wobbles, then TUMBLES at you! Dodge the roll, then bite it in half.' },
   conveyor: { img: 'nobu_head', title: 'CONVEYOR', text: 'Belts push you around. Fight the current!' },
   crusher: { img: 'nobu_head', title: 'CONE STAMPER', text: 'Watch the shadow. Go when it lifts!' },
+  lunchbox: { img: 'icon_lunchbox', title: 'STEEL LUNCHBOX', text: 'Unbreakable! Bites just clang off. Use it as a step.' },
+  arrowbox: { img: 'icon_arrowbox', title: 'ARROW LUNCHBOX', text: 'Land on the arrow to get launched sky high. Hold <span class="key">SPACE</span> for extra height.' },
+  zipped: { img: 'icon_zipped', title: 'ZIPPED BACKPACK', text: 'Three bites or bounces to unzip, a ticket each time. A slide or belly flop rips it open at once.' },
+  vacswitch: { img: 'icon_vacswitch', title: 'VACUUM DOCK', text: 'Hit it and a robot vacuum pops EVERY rug in the level. They count as broken!' },
+  knight: { img: 'icon_knight', title: 'LID KNIGHT', text: 'Bites and bounces clang off the pot lid and colander. SLIDE into it or BELLY FLOP it!' },
+  shellback: { img: 'icon_shellback', title: 'SHELLBACK', text: 'Jump on it to flip it over, THEN bite it. Flipped, it\'s a handy springboard.' },
+  ride: { img: 'icon_ride', title: 'VACUUM RIDE', text: '<span class="key">◀</span> <span class="key">▶</span> steer, <span class="key">SPACE</span> hops. Ram backpacks, dodge toys, legs, cats and rugs!' },
+  glide: { img: 'nobu_head', title: 'TAIL GLIDE', text: 'Out of jumps? Press <span class="key">SPACE</span> again in the air and HOLD it to helicopter down slowly.' },
+  zoom: { img: 'nobu_head', title: 'ZOOMIES', text: 'Slide, then KEEP HOLDING <span class="key">K</span> / <span class="key">CTRL</span> to keep sprinting.' },
+  bark: { img: 'nobu_head', title: 'MEGA BARK', text: 'Press <span class="key">L</span> or <span class="key">E</span>: a blast of sound that knocks enemies flat and breaks backpacks in front of you.' },
+  boneswitch: { img: 'icon_boneswitch', title: 'BONE SWITCH', text: 'Touch it, bite it or jump on it and the see-through outline nearby turns into a real bridge!' },
+  treat: { img: 'snacks', title: 'TREAT TRAY', text: 'Hop in for a BONUS ROUND up in the sky. Fall off and you lose the haul, but not a life. Reach the green tray to keep it!' },
+  barkrock: { img: 'nobu_head', title: 'CRACKED ROCK', text: 'Something shiny is inside. Bites won\'t crack it... maybe a really loud BARK would?' },
+  glowworm: { img: 'icon_glowworm', title: 'LUMI THE GLOWWORM', text: 'Her light fades. Glowing mushroom nests refill it. If she runs out, find her at the next nest.' },
 };
 
 export const DEATH_CAPTIONS = {

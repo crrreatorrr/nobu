@@ -3,7 +3,7 @@
 // Also: paw swipes, bouncing hairballs, a giant YARN BALL it bats across the arena,
 // CLAW SLASH shockwaves, a TAIL-WHIP SPIN, and phase-3 ZOOMIES (dashes until it collapses, dizzy).
 import * as THREE from 'three';
-import { Boss, makeMarker, dirTo, rotY, attachGlb } from './common.js';
+import { Boss, makeMarker, dirTo, rotY, attachGlb, flamePart, spikePart } from './common.js';
 import { autoRig, sstep, chain, segDist, blendPose } from './autorig.js';
 import { Entity } from '../entities/entity.js';
 import { toon } from '../player/nobuPrims.js';
@@ -88,12 +88,8 @@ export class CatRig {
     }
   }
 
-  setCount(n) {
-    if (!n) { this.count.visible = false; return; }
-    this.count.visible = true;
-    this.count.material.map = textTexture(String(n), { color: n === 1 ? '#ff5050' : '#ffd23f' });
-    this.count.material.needsUpdate = true;
-  }
+  // (attack timers are not shown on screen any more: the crouch animation is the only tell)
+  setCount() { this.count.visible = false; }
 
   // pose(mode, dt, k): run | idle | crouch | leap | land | dizzy | swipeUp | swipe | cough | sit | bat | rear | slam | spin | yowl
   pose(mode, dt, k = 1) {
@@ -138,14 +134,15 @@ export class CatRig {
       tailSwish(0.25, 1.8, 0.05);
       rate = 8;
     } else if (mode === 'crouch') {
-      // hunting crouch with a butt wiggle before the pounce
-      bodyY = 1.33; pitch = 0.1;
-      roll = Math.sin(t * 18) * 0.04;
-      P.blU = [-0.3, 0, 0]; P.brU = [-0.3, 0, 0]; P.blL = [0.4, 0, 0]; P.brL = [0.4, 0, 0];
+      // hunting crouch with a butt wiggle before the pounce; k (0..1) winds it up: lower, faster, wilder
+      const w = 14 + k * 16;
+      bodyY = 1.36 - k * 0.12; pitch = 0.08 + k * 0.06;
+      roll = Math.sin(t * w) * (0.03 + k * 0.03);
+      P.blU = [-0.3 - k * 0.1, 0, 0]; P.brU = [-0.3 - k * 0.1, 0, 0]; P.blL = [0.4 + k * 0.1, 0, 0]; P.brL = [0.4 + k * 0.1, 0, 0];
       P.flU = [0.2, 0, 0]; P.frU = [0.2, 0, 0];
-      P.hips = [-0.08, Math.sin(t * 18) * 0.1, 0];
-      P.head = [-0.15, look[1], 0];
-      P.tail0 = [-0.25, Math.sin(t * 16) * 0.3, 0]; P.tail1 = [0, Math.sin(t * 16 - 1) * 0.2, 0];
+      P.hips = [-0.08 - k * 0.04, Math.sin(t * w) * (0.06 + k * 0.08), 0];
+      P.head = [-0.15 - k * 0.08, look[1], 0];
+      P.tail0 = [-0.25, Math.sin(t * w) * (0.2 + k * 0.2), 0]; P.tail1 = [0, Math.sin(t * w - 1) * 0.2, 0];
       rate = 20;
     } else if (mode === 'leap') {
       // stretched flying pounce: front paws reach, back legs trail, tail streams behind
@@ -418,7 +415,37 @@ export class BigCatBoss extends Boss {
     this.sinceVuln = 0;
     this.lastAttack = '';
     this.lastPhase = 1;
+    this.stageNames = { 2: 'FERAL', 3: 'NINE LIVES' };
+    this.stagePowers = { 2: 'Double pounce · claw slashes · tail-whip spin', 3: 'Triple pounce · zoomies · everything faster' };
+    this.stageColors = [0, 0, 0xff8a1a, 0xff2a3a];
+    this.stageGlow = { 2: 0x140600, 3: 0x2a0404 };
     this.collectMeshes();
+    this.setStageLook(1);
+  }
+
+  // Stage 2 (FERAL): bristling back spikes and bared claws.
+  // Stage 3 (NINE LIVES): little devil horns, a burning tail tip and paw flames.
+  makeStageParts() {
+    const B = this.rig.bones;
+    if (!B) return {};
+    const k = 0.825; // mesh units per model unit (rig height 3.3 / 4)
+    const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
+    const fur = toon(0x2a1208), claw = toon(0xfff6e3), horn = toon(0x3a0a12);
+    const two = [], three = [];
+    const add = (bone, o, list) => { B[bone].add(o); list.push(o); };
+    // back spikes along the spine
+    [['chest', 0, 1.1, 0.2], ['chest', 0, 1.15, -0.35], ['hips', 0, 1.15, 0.5], ['hips', 0, 1.1, -0.05], ['hips', 0, 0.95, -0.55]].forEach(([b, x, y, z], i) => {
+      add(b, spikePart(fur, V(x, y, z), new THREE.Vector3(0, 1, -0.4), 0.2, 0.7 + (i % 2) * 0.2), two);
+    });
+    for (const sx of [-1, 1]) {
+      // claws on the front paws
+      for (const dx of [-0.12, 0, 0.12]) add(sx < 0 ? 'flL' : 'frL', spikePart(claw, V(dx, -0.15, 0.55), new THREE.Vector3(0, -0.4, 1), 0.05, 0.3), two);
+      // stage 3: horns, red eyes, paw flames
+      add('head', spikePart(horn, V(sx * 0.42, 0.95, 0.35), new THREE.Vector3(sx * 0.5, 1, 0.2), 0.12, 0.6), three);
+      const pf = flamePart(0xff6a2a, 0.5, 0.8); pf.position.copy(V(0, -0.1, 0.4)); add(sx < 0 ? 'flL' : 'frL', pf, three);
+    }
+    const tf = flamePart(0xff5a1a, 0.8, 1.4); tf.position.copy(V(0.05, -0.2, 0.7)); add('tail3', tf, three);
+    return { 2: two, 3: three };
   }
 
   idleAnim(dt) {
@@ -439,7 +466,7 @@ export class BigCatBoss extends Boss {
 
   start() { this.active = true; this.setState('stalk'); this.nextAttackAt = 1.4; }
 
-  get sp() { return this.phase === 3 ? 1.35 : this.phase === 2 ? 1.15 : 1; }
+  get sp() { return this.phase === 3 ? 1.45 : this.phase === 2 ? 1.2 : 1; }
 
   ai(dt) {
     const p = this.player;
@@ -494,8 +521,9 @@ export class BigCatBoss extends Boss {
         // the 3-2-1 hiss (echo of the small cat), target ring follows Nobu until the last beat
         const beat = (this.firstPounce ? 0.95 : 0.55) / this.sp;
         const n = 3 - Math.floor(this.stateT / beat);
-        if (n !== this.lastN && n > 0) { this.lastN = n; this.rig.setCount(n); audio.play('beep', n === 1 ? 1.5 : 1); if (n === 3) audio.play('hiss'); }
-        this.rig.pose('crouch', dt);
+        // no numbers: the hunting crouch winds up (lower, faster butt wiggle, ears back) until it springs
+        if (n !== this.lastN && n > 0) { this.lastN = n; if (n === 3) audio.play('hiss'); }
+        this.rig.pose('crouch', dt, Math.min(1, this.stateT / (beat * 3)));
         this.faceTo(p.pos, dt, 8);
         if (n >= 2) this.target.set(clamp(p.pos.x, -10.5, 10.5), this.pos.y, clamp(p.pos.z, -10.5, 10.5));
         this.marker.visible = true;

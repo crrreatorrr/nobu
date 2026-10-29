@@ -1,5 +1,5 @@
 // Keyboard + Gamepad input with per-frame edge detection.
-// Actions: left/right/up/down (analog-ish), jump, bite, slide, pause, confirm, back.
+// Actions: left/right/up/down (analog-ish), jump, bite, slide, bark, pause, confirm, back, trial (map).
 
 const KEYMAP = {
   ArrowLeft: 'left', KeyA: 'left',
@@ -9,6 +9,8 @@ const KEYMAP = {
   Space: 'jump',
   KeyJ: 'bite', ShiftLeft: 'bite', ShiftRight: 'bite',
   KeyK: 'slide', ControlLeft: 'slide', ControlRight: 'slide',
+  KeyL: 'bark', KeyE: 'bark',
+  KeyT: 'trial',
   Escape: 'pause', KeyP: 'pause',
   Enter: 'confirm',
   Backspace: 'back',
@@ -66,7 +68,8 @@ class Input {
     if (gp) {
       const b = (i) => gp.buttons[i] && gp.buttons[i].pressed;
       if (b(0)) this.pad.held.add('jump');
-      if (b(2) || b(3) || b(5)) this.pad.held.add('bite');
+      if (b(2) || b(5)) this.pad.held.add('bite');
+      if (b(3)) { this.pad.held.add('bark'); this.pad.held.add('trial'); }
       if (b(1) || b(4) || b(6) || b(7)) this.pad.held.add('slide');
       if (b(9)) this.pad.held.add('pause');
       if (b(0) || b(9)) this.pad.held.add('confirm');

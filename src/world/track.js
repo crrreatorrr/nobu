@@ -47,7 +47,12 @@ export class Track {
     this.wallKeys = [];
     this.triggers = [];
     this.waters = [];
+    this.secrets = [];
   }
+
+  // Secret warp: falling into the pit between d0..d1 with lateral u in [u0, u1] warps to `target` instead of dying.
+  secret(d0, d1, u0, u1, target) { this.secrets.push({ d0, d1, u0, u1, target }); }
+  secretAt(s, u) { for (const w of this.secrets) if (s >= w.d0 && s <= w.d1 && u >= w.u0 && u <= w.u1) return w.target; return null; }
 
   // Water zones: dropping into the water is a fall-out (like a pit).
   waterZone(d0, d1, y) { this.waters.push({ d0, d1, y }); }

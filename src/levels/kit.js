@@ -1,8 +1,11 @@
 // Authoring helpers. Levels are written in track coordinates:
 //   d = distance along the winding path, x = lateral offset (+ = right), y = height above the path.
 import * as THREE from 'three';
-import { Backpack, BlueSphere, OneUp, Trampoline, Snacks, Cat, Rug, LintRoller } from '../entities/breakables.js';
-import { Broccoli, Squirrel, ConeDrone, Vacuum, Mouse, YarnBall, PillBot } from '../entities/enemies.js';
+import { Backpack, BlueSphere, OneUp, Trampoline, Snacks, Cat, Rug, LintRoller, ZippedBackpack, VacuumSwitch, Lunchbox } from '../entities/breakables.js';
+import { Broccoli, Squirrel, ConeDrone, Vacuum, Mouse, YarnBall, PillBot, LidKnight, Shellback } from '../entities/enemies.js';
+import { FloorCable, ToyPile, FurnitureLeg } from '../entities/ride.js';
+import { BarkRock, GoodBoyRoute, ColorBone, TreatTray, WarpSparkle } from '../entities/secrets.js';
+import { save } from '../core/save.js';
 import { ConedDog, backgroundDog } from '../entities/dogs.js';
 import {
   StaticPlatform, MovingPlatform, CrumblePlatform, LilyPad, FlipPlank, CrackedFloor, BouncePad, BoneSwitch, RopeBridge,
@@ -54,6 +57,11 @@ export function makeKit(game, stage, tickets, track = null) {
     cat: (x, y, d) => faced(at(Cat, x, y, d), d),
     rug(x, y, d, rot = 0) { const p = W(x, y, d); return add(new Rug(stage, p.x, p.y, p.z, { rot: rot + yawAt(d) })); },
     lint: (x, y, d) => faced(at(LintRoller, x, y, d), d),
+    zipped(x, y, d, n) { const p = W(x, y, d); return faced(add(new ZippedBackpack(stage, p.x, p.y, p.z, { tickets: n })), d); },
+    vacSwitch: (x, y, d) => faced(at(VacuumSwitch, x, y, d), d),
+    // steel lunchboxes: unbreakable steps; arrow ones launch you (power ~ launch speed)
+    lunch: (x, y, d) => faced(at(Lunchbox, x, y, d), d),
+    arrowBox: (x, y, d, power = 16) => faced(at(Lunchbox, x, y, d, { arrow: true, power }), d),
     // ---- enemies ----
     broc: (x, y, d, o = {}) => at(Broccoli, x, y, d, dirOpts(d, o)),
     spiky: (x, y, d, o = {}) => at(Broccoli, x, y, d, dirOpts(d, { variant: 'spiky', speed: 1.4, ...o })),
@@ -64,6 +72,12 @@ export function makeKit(game, stage, tickets, track = null) {
     mouse: (x, y, d, o = {}) => at(Mouse, x, y, d, dirOpts(d, o)),
     yarn: (x, y, d, o = {}) => at(YarnBall, x, y, d, dirOpts(d, o)),
     pill: (x, y, d, o = {}) => at(PillBot, x, y, d, dirOpts(d, o)),
+    knight: (x, y, d, o = {}) => at(LidKnight, x, y, d, dirOpts(d, o)),
+    shellback: (x, y, d, o = {}) => at(Shellback, x, y, d, dirOpts(d, o)),
+    // ---- ride hazards (vacuum ride) ----
+    cable(d, { w = 8.6, x = 0 } = {}) { const p = W(x, 0, d); return add(new FloorCable(stage, p.x, p.y, p.z, { width: w, yaw: yawAt(d) })); },
+    toys(x, y, d, w) { const p = W(x, y, d); return add(new ToyPile(stage, p.x, p.y, p.z, { w, yaw: yawAt(d) })); },
+    leg(x, y, d, o) { const p = W(x, y, d); return add(new FurnitureLeg(stage, p.x, p.y, p.z, o)); },
     // ---- dogs ----
     dog: (x, y, d, breed) => faced(at(ConedDog, x, y, d, { breed }), d),
     bgDog(x, y, d, o) { const p = W(x, y, d); return backgroundDog(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) + Math.PI + rand(-0.4, 0.4) }); },
@@ -112,6 +126,45 @@ export function makeKit(game, stage, tickets, track = null) {
       const span = track.ground(d0, d1, { u: x, w, visible: false });
       const p = W(postX, 0, d0 - 1.5);
       return add(new RopeBridge(stage, p.x, p.y, p.z, { span, track, d0, d1, yaw: yawAt(d0) }));
+    },
+    // ---- replay secrets ----
+    barkRock: (x, y, d, o) => faced(at(BarkRock, x, y, d, o), d),
+    // golden paw platforms [[x, y, d, w, dd], ...] that rise at track distance `at` if Nobu hasn't died yet
+    goodBoy(atD, plats, o) {
+      const list = plats.map(([px, py, pd, w = 2, dd = 2]) => { const p = W(px, py, pd); return { x: p.x, y: p.y, z: p.z, w, d: dd, yaw: yawAt(pd) }; });
+      const route = add(new GoodBoyRoute(stage, list, o));
+      track.trigger(atD, () => { if (game.session && game.session.deaths === 0) route.reveal(); });
+      return route;
+    },
+    // colored bones: collected in a later stage, they make the matching path solid in an earlier one
+    colorBone: (x, y, d, color) => at(ColorBone, x, y, d, { color }),
+    colorPath(color, plats, o) {
+      const list = plats.map(([px, py, pd, w = 2, dd = 2]) => { const p = W(px, py, pd); return { x: p.x, y: p.y, z: p.z, w, d: dd, yaw: yawAt(pd) }; });
+      return add(new GoodBoyRoute(stage, list, { ...o, color, unlocked: !!save.data.colorBones?.[color] }));
+    },
+    // Treat Tray bonus round: a tray on the path whisks Nobu up to platforms `h` metres above the path.
+    // plats [[x, dy, d, w, dd]] (dy above h), packs [[x, dy, d]], tix [[x0, dy0, d0, x1, dy1, d1, n]]; exit tray on the
+    // last platform; `back` = [x, d] where Nobu lands on the path afterwards.
+    bonusRound({ tray: [tx, td], h = 12, plats, packs = [], tix = [], back }) {
+      for (const [x, dy, d, w = 2.4, dd = 2.4] of plats) k.platform(x, h + dy, d, w, dd);
+      for (const [x, dy, d] of packs) k.pack(x, h + dy, d);
+      for (const [x0, dy0, d0, x1, dy1, d1, n] of tix) k.tix(x0, h + dy0, d0, x1, h + dy1, d1, n);
+      const first = plats[0], last = plats[plats.length - 1];
+      const start = W(first[0], h + first[1] + 0.05, first[2]);
+      const minY = Math.min(...plats.map(([x, dy, d]) => W(x, h + dy, d).y));
+      const ex = W(last[0], h + last[1], last[2]);
+      add(new TreatTray(stage, ex.x, ex.y, ex.z, { exit: true })).obj.rotation.y = yawAt(last[2]) + Math.PI;
+      const bk = W(back[0], 0, back[1]);
+      const tp = W(tx, 0, td);
+      const tray = add(new TreatTray(stage, tp.x, tp.y, tp.z, { round: { start, back: bk, floorY: minY, facing: yawAt(first[2]) } }));
+      tray.obj.rotation.y = yawAt(td) + Math.PI;
+      return tray;
+    },
+    // secret warp pit: falling in between d0..d1 at lateral x0..x1 sends Nobu to `target` (with a faint glitter)
+    warp(d0, d1, x0, x1, target) {
+      track.secret(d0, d1, x0, x1, target);
+      const p = W((x0 + x1) / 2, -2.5, (d0 + d1) / 2);
+      add(new WarpSparkle(stage, p.x, p.y, p.z));
     },
     trigger(d, fn) { track.trigger(d, fn); },
     tut(d, id) { track.trigger(d, popup(id)); },

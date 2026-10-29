@@ -43,12 +43,15 @@ export function buildLevel2(game, stage, tickets) {
   k.tix(2.5, 0, D(90), 2.5, 0, D(94), 3);
   k.snacks(0, 0, D(97));
   k.cat(2.9, 0, D(108));
+  k.barkRock(-3.3, 0, D(100), { prize: 'tickets', tickets: 15 });
   k.tix(-2.6, 0, D(103), -2.6, 0, D(112), 5);
   packWall(114, true);
   k.pill(0, 0, D(118), { range: 2.8 });
   k.tixArc(0, 0, D(119), 0, D(127), 3.6, 7);
   F(126, 160);
   k.sphere(0, 0, D(130));
+  // blue bone path (the blue bone is up on the fan catwalk in the Cone Factory)
+  k.colorPath('blue', [[3.4, 1.4, D(132), 1.6, 1.8], [3.4, 2.8, D(135), 1.6, 1.8], [3.2, 4.2, D(138.5), 2.2, 3]], { jackpot: 15 });
   k.mouse(0, 0, D(138), { range: 3.4, speed: 5 });
   k.dog(3.6, 0, D(146), 'pug');
   k.rug(0, 0, D(152)); k.rug(-3, 0, D(152));
@@ -70,6 +73,7 @@ export function buildLevel2(game, stage, tickets) {
   k.floor(D(200), D(222), { w: 3, style: 'platform', depth: 1 });
   k.tix(0, 0, D(202), 0, 0, D(218), 7);
   k.mushroom(0, 0, D(220.6), { power: 16 });
+  k.warp(D(222.5), D(227.5), -4.6, -2.3, 'cave');
   k.tixArc(0, 2, D(221), 0, D(229), 3.5, 7);
   F(228, 262);
   k.dog(-3.6, 0, D(236), 'shiba');
@@ -82,6 +86,8 @@ export function buildLevel2(game, stage, tickets) {
   k.mouse(0, 0, D(275), { range: 3.4, speed: 5.5 });
   k.tix(0, 0, D(279), 0, 0, D(296), 8);
   k.packs([[-2.8, D(284)], [2.8, D(288)]]);
+  k.zipped(-3, 0, D(270));
+  k.vacSwitch(0, 0, D(293));
   k.trigger(D(302), () => game.session.reachBossGate());
 
   // decor

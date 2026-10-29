@@ -1,5 +1,6 @@
 // Procedural canvas art used when a generated asset is missing.
 // The Sproto Mask is drawn here in full, matching the reference face (red, spiky hair, yellow eyes, toothy grin).
+import { PROCEDURAL } from './procedural.js';
 
 function canvas(w, h) {
   const c = document.createElement('canvas');
@@ -111,6 +112,7 @@ const BG_COLORS = {
 
 export function drawFallback(id) {
   if (id === 'sproto_mask' || id === 'portrait_mask') return drawSprotoMask(512);
+  if (PROCEDURAL[id]) return PROCEDURAL[id]();
 
   if (TEXTURE_COLORS[id]) {
     const [c, g] = canvas(256, 256);

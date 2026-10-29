@@ -28,6 +28,7 @@ export function buildLevel1(game, stage, tickets) {
   k.tix(0, 0, 3.5, 0, 0, 6.5, 3);
   k.tut(13, 'dog');
   k.dog(3, 0, 17, 'shiba');
+  k.barkRock(-3.3, 0, 15.5);
   k.tut(19, 'broccoli');
   k.broc(0, 0, 22.5, { range: 2.5 });
   k.tix(-2.4, 0, 12, -2.4, 0, 24, 6);
@@ -39,6 +40,7 @@ export function buildLevel1(game, stage, tickets) {
   k.floor(46, 56, { x: 2.9, w: 2.8, y: 1.5 });
   k.tut(31, 'sphere');
   k.sphere(-1, 0, 35);
+  k.shellback(0.6, 0, 38, { range: 1.2 });
   k.stack(-2.8, 0, 41, 2); k.pack(-1.6, 0, 41);
   k.broc(-1.5, 0, 46, { range: 1.5 });
   k.broc(-1.0, 0, 52, { axis: 'z', range: 2.5 });
@@ -47,15 +49,30 @@ export function buildLevel1(game, stage, tickets) {
 
   // --- double jump gap ---
   k.tut(53.5, 'doubleJump');
+  k.warp(58, 64, 2.6, 4.3, 'ride');
+  // red bone path (the red bone is hidden in Glowworm Grotto): up off the end of the high road
+  k.colorPath('red', [[3.2, 3, 59.5, 1.6, 1.8], [3.2, 4.5, 62.5, 1.6, 1.8], [3.0, 6, 66, 2.2, 3]], { jackpot: 15 });
   k.tixArc(0, 0, 57, 0, 66, 3.4, 9);
   k.floor(65, 92);
   k.tut(68, 'spiky');
   k.spiky(0, 0, 74, { range: 2 });
   k.packs([[-3, 70], [3, 70], [-3, 78], [3, 78]]);
+  k.zipped(0, 0, 70);
   k.tut(80, 'slide');
   k.tix(-2.4, 0, 82, 2.4, 0, 82, 5);
+  k.knight(0, 0, 84.5, { range: 1.2 });
   k.tut(84.5, 'snacks');
   k.snacks(0, 0, 87);
+
+  // --- Treat Tray bonus round: platforms 12 m up, back down at the end of the stretch ---
+  k.tut(88.5, 'treat');
+  k.bonusRound({
+    tray: [-3, 89.8], h: 12,
+    plats: [[-2.5, 0, 92.5, 3, 3], [0.6, 0.5, 96, 2.4, 2.4], [3, 1, 99.6, 2.4, 2.4], [0.2, 1.5, 103.2, 2.4, 2.4], [-2.8, 2, 106.8, 2.6, 2.6], [0, 2, 110.6, 3, 3]],
+    packs: [[0.6, 0.5, 96], [3, 1, 99.6], [-3.3, 2, 106.8], [-2.3, 2, 106.8], [0.2, 1.5, 103.2]],
+    tix: [[-2.5, 0.2, 93, 0.6, 0.7, 95.4, 3], [1.2, 1.2, 97.2, 2.6, 1.6, 98.6, 2], [2.6, 1.8, 100.8, 0.6, 2.2, 102.2, 2], [-0.6, 2.4, 104.4, -2.2, 2.8, 105.8, 2], [-2, 2.8, 108, -0.6, 3, 109.6, 3]],
+    back: [0, 111],
+  });
 
   // --- cat + trampoline to a hidden ledge ---
   k.floor(92, 112);
@@ -78,6 +95,9 @@ export function buildLevel1(game, stage, tickets) {
   k.lily(1.4, 0, 125.3);
   for (const [x, d] of [[-1.4, 115.2], [1.5, 118.6], [-1.0, 122.0], [1.4, 125.3]]) k.tix(x, 0.2, d, x, 0.2, d, 1);
   k.floor(128, 152);
+
+  // --- Good Boy Route: no deaths by here and golden steps rise on the left ---
+  k.goodBoy(129, [[-3.6, 1.2, 134.5, 1.4, 1.8], [-3.6, 2.4, 137.5, 1.4, 1.8], [-3.6, 3.6, 140.5, 1.4, 1.8], [-3.4, 4.8, 145, 1.8, 3.4]]);
 
   // --- rugs + squirrel ---
   k.tut(129.5, 'rug');
@@ -138,6 +158,11 @@ export function buildLevel1(game, stage, tickets) {
   k.tixArc(0, 0, 239, 0, 247, 2.4, 6);
   k.floor(246, 287);
   k.packs([[2.2, 252], [3.2, 253.6], [2.2, 255.2]]);
+  // arrow lunchbox up to a ring of tickets, plain lunchboxes as steps to a perched backpack
+  k.arrowBox(-3, 0, 249.5, 16);
+  k.tixRing(-3, 4.6, 249.8, 1.0, 8);
+  k.lunch(-1.2, 0, 256.5); k.lunch(-2.4, 0, 257.5); k.lunch(-2.4, 1, 257.5);
+  k.zipped(-2.4, 2, 257.5);
   k.dog(3.3, 0, 257.5, 'corgi');
   k.tut(259.5, 'lint');
   k.lint(0, 0, 263);

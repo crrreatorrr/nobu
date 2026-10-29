@@ -19,6 +19,9 @@ function fresh() {
     nobuModel: 'glb',        // 'glb' (Higgsfield 3D) or 'classic' (primitives)
     pixelated: false,
     godMode: false,          // title-screen cheat: no damage + 4 jumps in a row
+    bonus: {},               // bonus stages: { ride: { beaten, best }, cave: {...} }
+    trials: {},              // time trials: { 1: { best: seconds, medal } }
+    colorBones: {},          // colored bones found: { red: true, blue: true }
     v: 2,
     musicVol: 0.6,
     sfxVol: 0.8,

@@ -132,6 +132,31 @@ export class NobuAnimator {
       P.rootRotZ = st.bank || 0;
       P.headZ -= (st.bank || 0) * 0.6;
     }
+    // tail glide: arms out like rotor blades, legs dangling, tail whirling
+    if (st.glide) {
+      P.armL.out = P.armR.out = 1.5; P.armL.swing = P.armR.swing = 0;
+      P.legL.swing = P.legR.swing = 0.15; P.legL.knee = P.legR.knee = 0.4;
+      P.tail = Math.sin(this.t * 45) * 1.2;
+      P.jaw = 0.25;
+    }
+    // zoomies: low, stretched-out sprint with the tail streaming
+    if (st.zoom && st.grounded) { P.lean = (P.lean || 0) + 0.22; P.tail = -0.6 + Math.sin(this.t * 30) * 0.15; }
+    // mega bark: head thrown forward, jaw wide open
+    if (st.barkT < 0.35) {
+      const k = Math.sin((st.barkT / 0.35) * Math.PI);
+      P.jaw = Math.max(P.jaw || 0, k * 1.2);
+      P.headX = (P.headX || 0) - k * 0.35;
+      P.lean = (P.lean || 0) - k * 0.2;
+      P.armL.out = P.armR.out = 0.6 + k * 0.6;
+    }
+    // vacuum ride: surfer stance, knees soft, arms out for balance, leaning into the steer
+    if (st.ride && st.mode === 'normal' && st.grounded) {
+      const w = Math.sin(this.t * 9) * 0.04;
+      P.legL.swing = 0.35; P.legR.swing = -0.15; P.legL.knee = P.legR.knee = 0.55 + w;
+      P.armL.out = P.armR.out = 1.1; P.armL.swing = 0.2; P.armR.swing = -0.2;
+      P.lean = 0.18;
+      P.tail = Math.sin(this.t * 14) * 0.5;
+    }
     if (st.skid) {
       P.lean = -0.35;
       P.legL.swing = 0.7; P.legR.swing = 0.2; P.legL.knee = 0.3; P.legR.knee = 0.9;

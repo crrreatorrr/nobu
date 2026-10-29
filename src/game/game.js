@@ -9,11 +9,20 @@ import { GameCamera } from '../camera/camera.js';
 import { Player, createNobuModel } from '../player/player.js';
 import { NobuAnimator } from '../player/nobuAnim.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
-import { Session, LEVEL_NAMES } from './session.js';
+import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { INTRO, RESCUE, ENDING, BETWEEN } from '../story/script.js';
 import { damp } from '../core/util.js';
 
-const MAP_NODES = { 1: { x: 24, y: 70 }, 2: { x: 50, y: 50 }, 3: { x: 77, y: 27 } };
+const MAP_NODES = { 1: { x: 24, y: 70 }, ride: { x: 34, y: 55 }, 2: { x: 50, y: 50 }, cave: { x: 66, y: 62 }, 3: { x: 77, y: 27 } };
+// walk order on the map; bonus stages sit between the main levels
+const MAP_ORDER = [1, 'ride', 2, 'cave', 3];
+const BONUS_AFTER = { ride: 0, cave: 1 }; // unlocked by beating that boss (beaten[] index)
+const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉' };
+function mapOpen(n) {
+  const d = save.data;
+  if (n in BONUS_AFTER) return !!d.beaten[BONUS_AFTER[n]] || !!d.bonus?.[n]?.found || !!d.bonus?.[n]?.beaten;
+  return n <= d.unlocked;
+}
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -144,6 +153,7 @@ export class Game {
   }
 
   toTitle() {
+    this.ui.trialTime(null);
     this.state = 'title';
     this.session = null;
     this._refreshTitleNobu();
@@ -269,9 +279,10 @@ export class Game {
 
   // ---------------- level select map ----------------
   toMap(sel = 1) {
+    this.ui.trialTime(null);
     this.state = 'map';
     this.session = null;
-    this.mapSel = Math.max(1, Math.min(sel, save.data.unlocked));
+    this.mapSel = mapOpen(sel) ? sel : Math.max(1, Math.min(typeof sel === 'number' ? sel : 1, save.data.unlocked));
     this.ui.hideHud();
     this.ui.bossHide();
     audio.playMusic('map');
@@ -282,41 +293,55 @@ export class Game {
   _drawMap() {
     const d = save.data;
     let nodes = '';
-    for (const n of [1, 2, 3]) {
+    for (const n of MAP_ORDER) {
       const p = MAP_NODES[n];
-      const locked = n > d.unlocked;
-      const beaten = d.beaten[n - 1];
-      nodes += `<div class="map-node ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
-        ${!beaten ? '<div class="cone-cloud"></div>' : ''}
-        ${d.bones[n - 1] ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
+      const bonus = n in BONUS_AFTER;
+      const locked = !mapOpen(n);
+      const beaten = bonus ? !!d.bonus?.[n]?.beaten : d.beaten[n - 1];
+      nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
+        ${!beaten && !bonus ? '<div class="cone-cloud"></div>' : ''}
+        ${!bonus && d.bones[n - 1] ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
+        ${!bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
         ${n === this.mapSel ? `<img class="nobu-marker" src="${Assets.url('nobu_head')}">` : ''}
-        <div class="dot">${locked ? '🔒' : n}</div>
-        <div class="label">${LEVEL_NAMES[n]}</div></div>`;
+        <div class="dot">${locked ? '🔒' : bonus ? '★' : n}</div>
+        <div class="label">${bonus && locked ? 'BONUS' : LEVEL_NAMES[n]}</div></div>`;
     }
     const lv = this.mapSel;
-    const info = `<div class="map-panel"><div class="sub-title">LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}</div>
-      <div class="hint">${d.beaten[lv - 1] ? `Cleared! Dogs best: ${d.bestDogs[lv - 1]} · ${d.bones[lv - 1] ? 'Golden Bone earned' : 'Golden Bone: break everything + free every dog'}` : 'The cone smog still hangs over this place...'}</div>
+    const bonusSel = lv in BONUS_AFTER;
+    const head = bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
+    const status = bonusSel
+      ? (d.bonus?.[lv]?.beaten ? `Cleared! Best tickets: ${d.bonus[lv].best}` : lv === 'ride' ? 'A runaway robot vacuum is loose in the house. Ride it!' : 'Pitch dark. Stay close to Lumi the glowworm.')
+      : d.beaten[lv - 1] ? `Cleared! Dogs best: ${d.bestDogs[lv - 1]} · ${d.bones[lv - 1] ? 'Golden Bone earned' : 'Golden Bone: break everything + free every dog'}` : 'The cone smog still hangs over this place...';
+    const tr = !bonusSel && d.beaten[lv - 1]
+      ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[lv][0])}`}</div>`
+      : '';
+    const info = `<div class="map-panel"><div class="sub-title">${head}</div>
+      <div class="hint">${status}</div>${tr}
       <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · ESC title &nbsp;&nbsp; Lives ${d.lives} · Tickets ${d.tickets}</div></div>`;
     this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${info}`);
   }
 
   updateMap() {
     const d = save.data;
-    if (input.pressed('right') || input.pressed('up')) { if (this.mapSel < d.unlocked) { this.mapSel++; audio.play('menu'); this._drawMap(); } }
-    if (input.pressed('left') || input.pressed('down')) { if (this.mapSel > 1) { this.mapSel--; audio.play('menu'); this._drawMap(); } }
+    const open = MAP_ORDER.filter(mapOpen);
+    const i = open.indexOf(this.mapSel);
+    if (input.pressed('right') || input.pressed('up')) { if (i < open.length - 1) { this.mapSel = open[i + 1]; audio.play('menu'); this._drawMap(); } }
+    if (input.pressed('left') || input.pressed('down')) { if (i > 0) { this.mapSel = open[i - 1]; audio.play('menu'); this._drawMap(); } }
     if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); this.startLevel(this.mapSel); }
+    else if (input.pressed('trial') && !(this.mapSel in BONUS_AFTER) && d.beaten[this.mapSel - 1]) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
 
   // ---------------- play ----------------
-  async startLevel(n) {
+  async startLevel(n, opts = {}) {
     await this.ui.fade(1);
     this.ui.clearScreen();
+    this.ui.trialTime(null);
     save.data.lastLevel = n;
     if (save.data.lives < 0) save.data.lives = START_LIVES;
     save.write();
     this.state = 'play';
-    this.session = new Session(this, n);
+    this.session = new Session(this, n, opts);
     this.flyingMasks.length = 0;
     await this.session.startLevel();
   }
@@ -438,21 +463,63 @@ export class Game {
     this.playCutscene(RESCUE[n], () => this._showComplete(n, st, bone), 'victory');
   }
 
-  _showComplete(n, st, bone) {
+  // Colored bone found: it opens a path in an earlier level.
+  collectBone(color) {
+    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon' };
+    save.data.colorBones ||= {};
+    const fresh = !save.data.colorBones[color];
+    save.data.colorBones[color] = true;
+    save.write();
+    audio.play('oneUp');
+    this.ui.banner(`${color.toUpperCase()} BONE!`, fresh ? `A ${color} path has opened in ${where[color]}` : 'Already found', 2.2);
+  }
+
+  // Time trial finished at the boss gate: time, dog tag, personal best.
+  trialDone(session, t, medal, best) {
+    const n = session.level;
+    const [g, s, b] = TRIAL_TARGETS[n];
     this.state = 'complete';
     this.completeT = 0;
-    this.completeNext = { n };
+    this.completeNext = { n, bonus: true };
+    audio.playMusic('complete');
+    const names = { gold: 'GOLD TAG!', silver: 'SILVER TAG!', bronze: 'BRONZE TAG!' };
+    this.ui.setScreen(`
+      <div class="big-title" style="margin-bottom:1vh">TIME TRIAL</div>
+      <div class="sub-title">${LEVEL_NAMES[n].toUpperCase()}</div>
+      <div class="big-title" style="font-size:72px;margin:2vh 0">${fmtTime(t)}</div>
+      <div class="sub-title">${medal ? `${MEDAL[medal]} ${names[medal]}` : 'No tag this time'}${best ? ' · NEW BEST!' : ''}</div>
+      <div class="hint" style="margin-top:2vh">🥇 ${fmtTime(g)} · 🥈 ${fmtTime(s)} · 🥉 ${fmtTime(b)}</div>
+      <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
+    this.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #23599a, #05183a)';
+    this.ui.fade(0);
+  }
+
+  // Bonus stage finished (no boss, no cutscene): record it and show the results.
+  bonusCleared(session) {
+    const n = session.level;
+    const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
+    const d = save.data;
+    d.bonus ||= {};
+    d.bonus[n] = { beaten: true, best: Math.max(d.bonus[n]?.best || 0, st.tickets) };
+    save.write();
+    this._showComplete(n, st, false, true);
+  }
+
+  _showComplete(n, st, bone, bonus = false) {
+    this.state = 'complete';
+    this.completeT = 0;
+    this.completeNext = { n, bonus };
     audio.playMusic('complete');
     const row = (img, label, val, cls = '') => `<div class="stat-row ${cls}"><img src="${Assets.url(img)}"><span>${label}</span><span class="val">${val}</span></div>`;
     this.ui.setScreen(`
-      <div class="big-title" style="margin-bottom:2vh">LEVEL ${n} COMPLETE!</div>
+      <div class="big-title" style="margin-bottom:2vh">${bonus ? 'BONUS STAGE CLEAR!' : `LEVEL ${n} COMPLETE!`}</div>
       <div class="complete-wrap">
         <img class="complete-nobu" src="${Assets.url('nobu_complete')}">
         <div class="stats">
           ${row('ticket', 'TICKETS', st.tickets)}
           ${row(Assets.has('backpack_icon') ? 'backpack_icon' : 'backpack', 'BREAKABLES', `${st.broken}/${st.breakables}`, st.broken >= st.breakables ? '' : 'miss')}
           ${row('dog_corgi_free', 'DOGS FREED', `${st.dogs}/${st.dogsTotal}`, st.dogs >= st.dogsTotal ? '' : 'miss')}
-          ${row('golden_bone', 'GOLDEN BONE', bone ? 'EARNED!' : 'not yet', bone ? 'reward' : 'miss')}
+          ${bonus ? '' : row('golden_bone', 'GOLDEN BONE', bone ? 'EARNED!' : 'not yet', bone ? 'reward' : 'miss')}
         </div>
       </div>
       <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
@@ -465,9 +532,10 @@ export class Game {
   async updateComplete(dt) {
     this.completeT += dt;
     if (this.completeT > 2.3 && input.anyPressed() && this.completeNext) {
-      const { n } = this.completeNext;
+      const { n, bonus } = this.completeNext;
       this.completeNext = null;
       audio.play('select');
+      if (bonus) { this.ui.screen.style.background = ''; this.toMap(n); return; }
       this.ui.screen.style.background = '';
       this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}');filter:brightness(0.5)"></div>`);
       await this.ui.say(BETWEEN[n]);

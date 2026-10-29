@@ -10,6 +10,7 @@ import { NobuAnimator } from './nobuAnim.js';
 import { NobuPrims } from './nobuPrims.js';
 import { NobuGlb } from './nobuGlb.js';
 import { makeShadow, placeShadow } from '../entities/fx.js';
+import { rideVacuumMesh } from '../entities/ride.js';
 
 export const TUNING = {
   RUN: 8.0,
@@ -111,6 +112,9 @@ export class Player {
     this.deathCone.visible = false;
     this.stars.visible = false;
     this.speedMul = 1;
+    this.zoomArmed = false;
+    this.glideOn = false;
+    this.gliding = false;
     this.lockForward = null;     // chase level: optional auto-run hint
   }
 
@@ -128,6 +132,8 @@ export class Player {
   get invincible() { return this.game.session?.invincibleT > 0; }
   // God mode (title-screen toggle): no damage, pits bounce you back, and 4 jumps in a row (ground + 3 in the air)
   get god() { return !!save.data.godMode; }
+  // moves earned from bosses: Tail Glide (Mecha Bird), Zoomies (Big Cat), Mega Bark (Evil Cone)
+  get abilities() { const b = save.data.beaten || []; return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] }; }
   get canDouble() { return this.airJumps > 0; }
   set canDouble(v) { this.airJumps = v ? (this.god ? 3 : 1) : 0; }
   get forward() { return _fwd.set(Math.sin(this.facing), 0, Math.cos(this.facing)); }
@@ -159,7 +165,10 @@ export class Player {
     const grounded = this.body.grounded;
 
     // ---- actions ----
-    if (this.mode === 'normal') {
+    this.barkCool = Math.max(0, (this.barkCool || 0) - dt);
+    this.barkT = (this.barkT ?? 1) + dt;
+    if (this.mode === 'normal' && !this.ride) {
+      if (input.pressed('bark') && this.abilities.bark && this.barkCool <= 0) this._bark();
       if (input.pressed('bite') && this.biteCooldown <= 0 && this.biteT < 0) this._startBite();
       if (input.pressed('slide')) {
         if (grounded) this._startSlide(mag > 0.2 ? Math.atan2(dx, dz) : this.facing);
@@ -168,7 +177,29 @@ export class Player {
     }
 
     // ---- horizontal movement ----
-    if (this.mode === 'normal') {
+    let rideF = null;
+    if (this.mode === 'normal' && this.ride && stage.track) {
+      // vacuum ride: it drives itself along the track; left / right steers, jump hops the whole thing
+      const R = this.ride;
+      rideF = stage.track.tangent(this.body.s ?? 0, this._rideF ||= new THREE.Vector3());
+      R.speedK = Math.min(1, (R.speedK ?? 0) + dt / 1.4);
+      const sp = R.speed * R.speedK, steer = st.x;
+      R.sp = sp;
+      const lat = steer * 6.8;
+      this._approach(rideF.x * sp - rideF.z * lat, rideF.z * sp + rideF.x * lat, 70 * dt);
+      this.targetFacing = Math.atan2(rideF.x, rideF.z) - steer * 0.35;
+      this.facing = dampAngle(this.facing, this.targetFacing, 10, dt);
+      this.bank = damp(this.bank || 0, steer * 0.3, 8, dt);
+      for (const b of R.mesh.userData.brushes || []) b.rotation.y += dt * 30;
+      R.whirrT = (R.whirrT ?? 0) - dt;
+      if (grounded && R.whirrT <= 0) { R.whirrT = 0.55; audio.play('whirr'); }
+      if (grounded && Math.random() < 0.18) this.game.fx?.dust(this.pos.x - rideF.x * 0.75, this.pos.y, this.pos.z - rideF.z * 0.75, { count: 1, size: 0.18, color: this._dustColor(), speed: 0.8, life: 0.3, dirX: -rideF.x * 2, dirZ: -rideF.z * 2 });
+    } else if (this.mode === 'normal') {
+      // Zoomies: keep holding slide after a slide to stay at sprint speed
+      if (this.zoomArmed && !input.held('slide')) this.zoomArmed = false;
+      this.zooming = !!this.zoomArmed && mag > 0.3;
+      this.speedMul = this.zooming ? 1.55 : 1;
+      if (this.zooming && grounded && Math.random() < 0.6) this.game.fx?.dust(this.pos.x - this.vel.x * 0.04, this.pos.y, this.pos.z - this.vel.z * 0.04, { count: 1, size: 0.3, color: this._dustColor(), speed: 1.2, life: 0.35 });
       const speed = T.RUN * this.speedMul;
       const tx = dx * mag * speed, tz = dz * mag * speed;
       const hs = Math.hypot(this.vel.x, this.vel.z);
@@ -235,6 +266,11 @@ export class Player {
         audio.play('doubleJump');
         this.game.fx?.puff(this.pos.x, this.pos.y + 0.1, this.pos.z, { count: 5, size: 0.3, color: 0xffffff, up: -1.5, speed: 2.2, life: 0.4, grow: 1 });
         this.game.fx?.shock(this.pos.x, this.pos.y - 0.05, this.pos.z, { radius: 1.1, life: 0.3, k: 0.6, color: 0xeaf6ff });
+      } else if (this.mode === 'normal' && !this.ride && this.abilities.glide) {
+        // Tail Glide: out of air jumps, press jump again and hold it to helicopter down slowly
+        this.glideOn = true;
+        this.jumpBuffer = 0;
+        audio.play('whoosh');
       }
     }
     // variable jump height
@@ -248,6 +284,14 @@ export class Player {
       let g = T.GRAVITY * (this.vel.y < 0 ? T.FALL_MULT : 1);
       if (!grounded && input.held('jump') && Math.abs(this.vel.y) < 2.2 && !this.jumpCut) g *= 0.55;
       this.vel.y = Math.max(-T.MAX_FALL, this.vel.y - g * dt);
+    }
+    if (grounded || this.mode !== 'normal' || !input.held('jump')) this.glideOn = false;
+    this.gliding = !!this.glideOn && this.vel.y < 0;
+    if (this.gliding) {
+      this.vel.y = Math.max(this.vel.y, -2.4);
+      this.glideSfx = (this.glideSfx || 0) - dt;
+      if (this.glideSfx <= 0) { this.glideSfx = 0.32; audio.play('gust'); }
+      if (Math.random() < dt * 10) this.game.fx?.puff(this.pos.x, this.pos.y + 0.6, this.pos.z, { count: 1, size: 0.22, color: 0xffffff, up: -1.2, speed: 1.6, life: 0.3, grow: 1 });
     }
 
     // ---- bite timing ----
@@ -265,8 +309,19 @@ export class Player {
     // external push (boss wind gusts, suction): moved through collision like normal velocity, cleared each frame
     const px = this.mode === 'dead' ? 0 : this.pushX || 0, pz = this.mode === 'dead' ? 0 : this.pushZ || 0;
     this.vel.x += px; this.vel.z += pz;
+    const preX = this.pos.x, preZ = this.pos.z;
     for (let i = 0; i < steps; i++) moveBody(stage.world, this.body, h);
     this.vel.x -= px; this.vel.z -= pz;
+    if (rideF && this.ride.sp > 3) {
+      // the ride rammed something solid: crash (a mask or god mode just hops it over)
+      const moved = (this.pos.x - preX) * rideF.x + (this.pos.z - preZ) * rideF.z;
+      this.ride.stuck = moved < this.ride.sp * dt * 0.3 ? (this.ride.stuck || 0) + dt : 0;
+      if (this.ride.stuck > 0.1) {
+        this.ride.stuck = 0;
+        this.hurt('flat');
+        if (this.mode !== 'dead') { this.vel.y = 11; this.body.grounded = false; this.ride.speedK = 0.4; }
+      }
+    }
     this.pushX = 0; this.pushZ = 0;
     if (wasGrounded && !this.body.grounded && this.vel.y <= 0) this.canDouble = true; // walked off a ledge
     if (this.body.grounded) { this.airBiteUsed = false; this.canDouble = false; }
@@ -289,6 +344,9 @@ export class Player {
 
     // ---- interactions + hazards ----
     this._interact(stage);
+    // secret warp pits: drop in at just the right spot and get whisked away instead of falling to your doom
+    const warp = stage.track && this.mode !== 'dead' && this.pos.y < stage.track.heightAt(this.body.s ?? 0) - 3 && stage.track.secretAt(this.body.s ?? 0, this.body.u ?? 0);
+    if (warp && this.game.session?.secretWarp(warp)) { this._animate(dt); return; }
     if (this.pos.y < stage.killYAt(this.pos, this.body) && this.mode !== 'dead') {
       const wy = stage.track?.waterAt(this.body.s ?? 0);
       if (wy != null) { this.game.fx?.splash(this.pos.x, wy, this.pos.z); audio.play('land'); }
@@ -361,6 +419,31 @@ export class Player {
     if (hits.length && !intoJump) { this.slideT = 0.3; return; }
     this.mode = 'normal';
     this.body.h = 1.3;
+    if (this.abilities.zoom && input.held('slide') && !intoJump) {
+      if (!this.zoomArmed) { audio.play('whoosh'); this.game.ui.tutorial('zoom'); }
+      this.zoomArmed = true;
+    }
+  }
+
+  // Mega Bark: a blast of sound in front of Nobu that knocks enemies over, breaks backpacks and cracks Bark Rocks
+  _bark() {
+    this.barkCool = 0.9;
+    this.barkT = 0;
+    audio.play('bark');
+    audio.play('gust');
+    const f = this.forward, p = this.pos, fx = this.game.fx;
+    for (let i = 1; i <= 3; i++) fx?.shock(p.x + f.x * i * 1.7, p.y + 0.7, p.z + f.z * i * 1.7, { radius: 0.7 + i * 0.6, color: 0xfff1a8, life: 0.3 + i * 0.05, k: 0.7 });
+    fx?.puff(p.x + f.x * 0.9, p.y + 1.0, p.z + f.z * 0.9, { count: 4, size: 0.35, color: 0xffffff, speed: 3, up: 0 });
+    this.game.camera.shake(0.25, 0.2);
+    for (const e of this.game.stage.entities) {
+      if (e.dead || e === this || e.maxHp !== undefined) continue;
+      const dx = e.pos.x - p.x, dz = e.pos.z - p.z, d = Math.hypot(dx, dz);
+      if (d > 6.5 || d < 0.05 || Math.abs(e.pos.y - p.y) > 2.5) continue;
+      if ((dx * f.x + dz * f.z) / d < 0.55) continue;
+      if (e.onBark) { e.onBark(this); continue; }
+      if (!e.interactive || e.kind === 'rug' || (e.kind === 'cat' && d < 3.5)) continue;
+      e.onExplosion?.({ pos: p });
+    }
   }
 
   _startFlop() {
@@ -404,7 +487,7 @@ export class Player {
     const biting = this.biteT >= 0.1 && this.biteT <= 0.75;
     const f = this.forward;
     const bx = p.x + f.x * 0.75, by = p.y + 0.75, bz = p.z + f.z * 0.75;
-    const sliding = this.mode === 'slide';
+    const sliding = this.mode === 'slide' || (!!this.ride && this.mode === 'normal');
     for (const e of stage.entities) {
       if (e.dead || !e.interactive || !e.box) continue;
       if (Math.abs(e.pos.z - p.z) > 8) continue;
@@ -433,7 +516,7 @@ export class Player {
   // ---------- damage ----------
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
-    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god) return false;
+    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god || this.frozen) return false;
     const s = this.game.session;
     if (s && s.mask > 0) {
       s.setMask(s.mask - 1);
@@ -517,6 +600,15 @@ export class Player {
     this.root.rotation.y = this.facing;
   }
 
+  // Vacuum ride (bonus stage): cfg = { speed } or null to get off
+  setRide(cfg) {
+    if (this.ride) { this.root.remove(this.ride.mesh); this.ride = null; }
+    if (!cfg) return;
+    this._rideMesh ||= rideVacuumMesh();
+    this.root.add(this._rideMesh);
+    this.ride = { speed: cfg.speed ?? 10.5, lift: cfg.lift ?? 0.42, mesh: this._rideMesh, speedK: 0 };
+  }
+
   victory() {
     this.mode = 'victory';
     this.vel.set(0, 0, 0);
@@ -537,14 +629,20 @@ export class Player {
       flopPhase: this.flopPhase, flopT: this.flopT,
       deathType: this.deathType, deathT: this.deathT,
       bank: this.bank || 0, skid: (this.skidT || 0) > 0,
+      ride: !!this.ride,
+      glide: !!this.gliding, zoom: !!this.zooming, barkT: this.barkT ?? 1,
     };
+    if (this.ride && this.mode === 'normal') { st.speed = 0; st.idleTime = 0; }
     if (this.frozen && this.mode === 'normal') { st.speed = 0; st.grounded = true; }
     const pose = this.anim.update(dt, st);
     this.model.apply(pose);
     if (this.mode !== 'dead') {
       this.root.position.copy(this.pos);
       this.root.rotation.y = this.facing;
-      this.model.root.position.y = 0;
+      this.model.root.position.y = this.ride ? this.ride.lift : 0;
+      // tail-glide helicopter spin
+      this.glideSpin = this.gliding ? (this.glideSpin || 0) + dt * 16 : 0;
+      this.model.root.rotation.y = this.glideSpin;
     }
     // invulnerability blink / invincibility glow
     if (this.invincible) {

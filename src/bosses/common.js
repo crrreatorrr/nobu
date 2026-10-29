@@ -8,7 +8,6 @@ import { toon } from '../player/nobuPrims.js';
 import { TUNING } from '../player/player.js';
 
 import { Assets } from '../art/assets.js';
-import { textTexture } from '../entities/fx.js';
 
 // Put a Higgsfield GLB body inside an animated rig group, hiding the primitive meshes of `hideRoots`.
 export function attachGlb(parent, id, height, offsetY = 0, hideRoots = []) {
@@ -137,7 +136,7 @@ export class Projectiles {
     return this._add({ kind: 'missile', mesh, flame, vel: dir.clone().normalize().multiplyScalar(speed), speed, turn, life, r: 0.42, death: 'puff', groundY, biteable: true, t: 0 });
   }
 
-  // Egg bomb: bounces to a stop, beeps 3-2-1 under a warning ring, then blows up.
+  // Egg bomb: bounces to a stop, then swells and blinks red faster and faster under a warning ring, and blows up.
   eggBomb(pos, vel, { groundY = 0, fuse = 2.4, radius = 2.3 } = {}) {
     const G = pgeo();
     const mesh = new THREE.Group();
@@ -145,14 +144,11 @@ export class Projectiles {
     const blink = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), G.mBlink.clone());
     blink.position.set(0, 0.5, 0);
     mesh.add(shell, blink);
-    const count = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture('3'), transparent: true, depthTest: false }));
-    count.scale.setScalar(0.9); count.position.y = 1.3; count.renderOrder = 20;
-    mesh.add(count);
     mesh.position.copy(pos);
     const marker = makeMarker(radius);
     marker.position.set(pos.x, groundY + 0.05, pos.z);
     marker.visible = false;
-    return this._add({ kind: 'egg', mesh, marker, blink, count, vel: vel.clone(), life: 99, fuse, fuseMax: fuse, r: 0.5, radius, death: 'puff', groundY, shown: 0 });
+    return this._add({ kind: 'egg', mesh, marker, blink, shell, vel: vel.clone(), life: 99, fuse, fuseMax: fuse, r: 0.5, radius, death: 'puff', groundY });
   }
 
   // Giant yarn ball that rolls across the arena and rebounds off the walls. Jump over it (or bounce on it).
@@ -251,17 +247,15 @@ export class Projectiles {
           pr.marker.visible = true;
           pr.marker.position.set(m.x, pr.groundY + 0.05, m.z);
           pr.marker.material.opacity = 0.55 + Math.sin(pr.fuse * 24) * 0.35;
-          const n = Math.max(1, Math.ceil((pr.fuse / pr.fuseMax) * 3));
-          if (n !== pr.shown) {
-            pr.shown = n;
-            pr.count.material.map = textTexture(String(n), { color: n === 1 ? '#ff5050' : '#ffd23f' });
-            pr.count.material.needsUpdate = true;
-            audio.play('tick');
-          }
+          // no numbers: the egg shivers, swells and blinks faster the closer it is to going off
+          const k = 1 - pr.fuse / pr.fuseMax;
           const on = Math.sin(pr.fuse * (30 - pr.fuse * 8)) > 0;
           pr.blink.material.color.setHex(on ? 0xff3030 : 0x401010);
-          const sq = 1 + Math.max(0, 0.6 - pr.fuse) * 0.6;
-          pr.mesh.scale.set(sq, 2 - sq, sq);
+          pr.blink.scale.setScalar(1 + k * 1.5);
+          const sq = 1 + k * 0.25 + Math.max(0, 0.6 - pr.fuse) * 0.5;
+          pr.mesh.scale.set(sq, 1 + k * 0.3 + (sq - 1) * -0.6, sq);
+          pr.mesh.position.x += (Math.random() - 0.5) * 0.04 * k;
+          pr.mesh.position.z += (Math.random() - 0.5) * 0.04 * k;
           if (pr.fuse <= 0) {
             this._boom(m, pr.radius, pr.groundY);
             pr.life = 0;
@@ -422,13 +416,127 @@ export class Boss extends Entity {
     this.charge = 0;
     this.chargeTimes = [0, 26, 20, 15]; // seconds to fill, per phase
     this.ulting = false;
+    // evolution: every new stage the boss transforms (cinematic + new parts + aura) and hits harder and faster
+    this.stageLook = 1;
+    this.stageScale = [1, 1, 1.12, 1.24];
+    this.stageColors = [0, 0, 0xff8a1a, 0xff2a6a];
+    this.stageNames = { 2: 'EVOLVED', 3: 'FINAL FORM' };
+    this.stagePowers = { 2: 'New attacks · faster', 3: 'Every attack · fastest' };
+    this.baseGlow = new THREE.Color(0, 0, 0);
+    this.evolving = null;
+  }
+
+  // The group that grows each stage (subclasses point this at their model root).
+  get evolveRoot() { return this.rig?.root || this.rig || this.obj; }
+
+  // Show the parts for stage n (built once by makeStageParts(): { 2: [objects], 3: [objects] }), set the size.
+  setStageLook(n) {
+    if (!this.stageParts) this.stageParts = this.makeStageParts?.() || {};
+    for (const [k, list] of Object.entries(this.stageParts)) for (const o of list) o.visible = n >= +k;
+    const root = this.evolveRoot;
+    root.userData.base ??= root.scale.x;
+    root.scale.setScalar(root.userData.base * this.stageScale[n]);
+    this.stageLook = n;
+    this.baseGlow.setHex(this.stageGlow?.[n] ?? 0);
+    this.clearGlow();
+  }
+
+  // Transformation cinematic for a new stage. Resolves when the animation is done.
+  evolve(n) {
+    return new Promise((resolve) => {
+      this.evolving = { n, t: 0, resolve, burst: false };
+      audio.play('charge');
+      const c = this.stageColors[n] || 0xffd23f;
+      this.pillar ||= new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 24, 24, 1, true), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+      this.pillar.material.color.setHex(c);
+      this.stage.scene.add(this.pillar);
+    });
+  }
+
+  _evolveStep(dt) {
+    const E = this.evolving, CHARGE = 1.9, END = 3.1;
+    E.t += dt;
+    const c = this.stageColors[E.n] || 0xffd23f;
+    const root = this.evolveRoot;
+    const gy = this.ground ?? this.pos.y;
+    this.pillar.position.set(this.pos.x, gy + 12, this.pos.z);
+    if (E.t < CHARGE) {
+      // charging: shaking harder and harder, energy pulled in, a light pillar swelling around it
+      const k = E.t / CHARGE;
+      this.powerUp(dt, k, c, 1.6, gy);
+      root.position.x = (Math.random() - 0.5) * 0.18 * k;
+      root.position.z = (Math.random() - 0.5) * 0.18 * k;
+      const pulse = 1 + Math.sin(E.t * (10 + k * 30)) * 0.03 * k;
+      root.scale.setScalar((root.userData.base ?? 1) * this.stageScale[this.stageLook] * pulse);
+      this.pillar.scale.set(0.6 + k * 2.6, 1, 0.6 + k * 2.6);
+      this.pillar.material.opacity = k * 0.35;
+      if (Math.random() < dt * 8) this.game.camera.shake(0.08 + k * 0.2, 0.15);
+    } else {
+      if (!E.burst) {
+        // BOOM: the new form bursts out
+        E.burst = true;
+        this.setStageLook(E.n);
+        root.position.set(0, root.position.y, 0);
+        const p = this.pos;
+        this.fx.explosion(p.x, p.y + 1.2, p.z, { radius: 3.4, color: c });
+        this.fx.ring(p.x, gy, p.z, { color: c, radius: 5.5, count: 16, size: 0.7 });
+        this.fx.shock(p.x, gy + 0.05, p.z, { radius: 8, color: c, life: 0.7, k: 0.8 });
+        this.fx.flash(p.x, p.y + 1.5, p.z, { size: 9, color: 0xffffff, life: 0.35 });
+        this.fx.sparkle(p.x, p.y + 1.5, p.z, { count: 30, color: c, size: 0.9, speed: 9 });
+        this.game.camera.shake(0.9, 0.7);
+        audio.play('explosion');
+        audio.play('bossRoar');
+      }
+      // springy settle into the new size; the pillar fades
+      const k = Math.min(1, (E.t - CHARGE) / (END - CHARGE));
+      const wob = 1 + 0.22 * Math.exp(-5 * k) * Math.sin(k * 22);
+      root.scale.setScalar((root.userData.base ?? 1) * this.stageScale[E.n] * wob);
+      this.pillar.material.opacity = 0.5 * (1 - k);
+      this.pillar.scale.set(3.2 + k * 2, 1, 3.2 + k * 2);
+      const g = (1 - k) * 0.9;
+      for (const m of this.meshes) m.material.emissive.setRGB(this.baseGlow.r + g * ((c >> 16 & 255) / 255), this.baseGlow.g + g * ((c >> 8 & 255) / 255), this.baseGlow.b + g * ((c & 255) / 255));
+    }
+    if (E.t >= END) {
+      root.scale.setScalar((root.userData.base ?? 1) * this.stageScale[E.n]);
+      this.clearGlow();
+      this.stage.scene.remove(this.pillar);
+      this.evolving = null;
+      E.resolve();
+    }
+  }
+
+  // Lingering aura of an evolved boss: embers at stage 2, embers + rising flames at stage 3.
+  stageAura(dt) {
+    this.partT = (this.partT || 0) + dt;
+    for (const list of Object.values(this.stageParts || {})) for (const o of list) {
+      if (!o.visible) continue;
+      o.traverse((q) => {
+        if (q.userData.flick) q.scale.set(0.85 + Math.random() * 0.3, 0.8 + Math.random() * 0.45, 1);
+        if (q.userData.pulse) q.scale.setScalar(q.userData.pulse * (0.85 + Math.sin(this.partT * 9 + q.id) * 0.15));
+        if (q.userData.spin) q.rotation.y += q.userData.spin * dt;
+      });
+    }
+    if (this.stageLook < 2 || this.defeated) return;
+    const c = this.stageColors[this.stageLook];
+    const p = this.pos, gy = this.ground ?? p.y;
+    const rate = this.stageLook === 3 ? 16 : 6;
+    if (Math.random() < dt * rate) {
+      const a = rand(0, Math.PI * 2), r = rand(0.8, 1.8);
+      this.fx.sparkle(p.x + Math.cos(a) * r, p.y + rand(0.3, 2.6), p.z + Math.sin(a) * r, { count: 1, color: c, size: 0.45, speed: 0.6, up: 2.5, life: 0.8 });
+    }
+    if (this.stageLook === 3 && Math.random() < dt * 7) {
+      const a = rand(0, Math.PI * 2), r = rand(0.5, 1.5);
+      this.fx.smokeCard(p.x + Math.cos(a) * r, Math.max(gy + 0.1, p.y - 0.5), p.z + Math.sin(a) * r, {
+        vx: 0, vy: rand(2, 3.5), vz: 0, size: rand(0.5, 0.9), life: 0.7, colors: [0xffffff, c, 0x401020], grow: 0.4, g: 0, drag: 0.98, alpha: 0.75, fadeAt: 0.3,
+      });
+    }
   }
 
   get ultReady() { return this.charge >= 1 && !this.ulting; }
 
   // call when the ultimate starts / ends
   beginUlt() { this.ulting = true; }
-  endUlt() { this.ulting = false; this.charge = 0; this.game.ui.bossCharge(0, false); }
+  endUlt() { this.ulting = false; this.charge = 0; }
 
   // Power-up flourish while charging the ultimate: glowing body, sparks pulled in, pulsing rings on the floor.
   powerUp(dt, k, color = 0xffd23f, y = 1.5, groundY = 0) {
@@ -445,7 +553,7 @@ export class Boss extends Entity {
     this.ringT = (this.ringT || 0) - dt;
     if (this.ringT <= 0) { this.ringT = 0.35 - k * 0.15; fx.shock(this.pos.x, groundY, this.pos.z, { radius: 4.5 - k * 2, color, life: 0.4, k: 0.7, start: 1.2 }); }
   }
-  clearGlow() { for (const m of this.meshes) m.material.emissive.setRGB(0, 0, 0); }
+  clearGlow() { for (const m of this.meshes) m.material.emissive.copy(this.baseGlow); }
   // safety: if an ultimate was ever cut short, don't leave the gauge locked
   cancelUlt() { if (this.ulting) { this.ulting = false; this.ultStarted = false; this.glowCleared = false; this.clearGlow(); } }
 
@@ -462,8 +570,8 @@ export class Boss extends Entity {
     if (this.flashT > 0) {
       this.flashT -= dt;
       const on = Math.floor(this.flashT * 20) % 2 === 0;
-      for (const m of this.meshes) m.material.emissive.setRGB(on ? 0.8 : 0, on ? 0.8 : 0, on ? 0.8 : 0);
-      if (this.flashT <= 0) for (const m of this.meshes) m.material.emissive.setRGB(0, 0, 0);
+      for (const m of this.meshes) { if (on) m.material.emissive.setRGB(0.8, 0.8, 0.8); else m.material.emissive.copy(this.baseGlow); }
+      if (this.flashT <= 0) this.clearGlow();
     }
   }
 
@@ -477,7 +585,7 @@ export class Boss extends Entity {
     this.game.camera.shake(0.6, 0.4);
     this.fx.sparkle(this.pos.x, this.pos.y + 1.5, this.pos.z, { count: 18, color: 0xffffff, size: 0.9, speed: 6 });
     this.game.ui.bossHp(this.hp / this.maxHp, this.phase);
-    if (!this.ulting) { this.charge = Math.min(1, this.charge + 0.15); this.game.ui.bossCharge(this.charge, this.charge >= 1); }
+    if (!this.ulting) this.charge = Math.min(1, this.charge + 0.15);
     if (p && p.bounce && p.vel.y <= 0) p.bounce(TUNING.STOMP_BOUNCE * 1.05);
     if (this.hp <= 0) { this.defeated = true; this.game.session.onBossDefeated(this); return true; }
     const used = this.maxHp - this.hp;
@@ -496,10 +604,11 @@ export class Boss extends Entity {
     this.vulnerable = false;
     this.hitCool = 0;
     this.flashT = 0;
-    for (const m of this.meshes) m.material.emissive.setRGB(0, 0, 0);
     this.ulting = false;
     this.charge = 0;
-    this.game.ui.bossCharge(0, false);
+    this.evolving = null;
+    if (this.pillar) this.stage.scene.remove(this.pillar);
+    this.setStageLook(phase);
     this.onResetPhase?.();
   }
 
@@ -507,11 +616,20 @@ export class Boss extends Entity {
     this.hitCool = Math.max(0, this.hitCool - dt);
     this.stateT += dt;
     this.flash(dt);
+    if (this.evolving) {
+      this._evolveStep(dt);
+      this.stageAura(dt);
+      this.idleAnim?.(dt);
+      this.obj.position.copy(this.pos);
+      this.updateBox();
+      return;
+    }
+    // the ultimate recharges silently: no gauge on screen, the boss's own shimmer is the only tell
     if (this.active && !this.defeated && !this.ulting && this.charge < 1) {
       this.charge = Math.min(1, this.charge + dt / this.chargeTimes[Math.min(3, this.phase)]);
-      this.game.ui.bossCharge(this.charge, this.charge >= 1);
       if (this.charge >= 1) audio.play('charge');
     }
+    this.stageAura(dt);
     // gauge full: a warning shimmer until the boss gets the chance to unleash it
     if (this.ultReady && this.active && this.flashT <= 0 && Math.random() < dt * 12) this.fx.sparkle(this.pos.x + rand(-1.2, 1.2), this.pos.y + rand(0, 2.5), this.pos.z + rand(-1.2, 1.2), { count: 1, color: 0xffe14a, size: 0.5, speed: 1, up: 2 });
     if (this.active && !this.defeated) this.ai(dt);
@@ -526,6 +644,54 @@ export class Boss extends Entity {
   onBite(p) { if (this.vulnerable) this.damage(p); }
   onStomp(p) { if (this.vulnerable) this.damage(p); else this.onTouch(p); }
   onSlide(p) { this.onBite(p); }
+}
+
+// ---------- evolution parts ----------
+let flameTex, glowTex2;
+function flameTexture() {
+  if (flameTex) return flameTex;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 96, 2, 32, 80, 60);
+  gr.addColorStop(0, 'rgba(255,255,230,1)'); gr.addColorStop(0.35, 'rgba(255,220,120,0.9)'); gr.addColorStop(1, 'rgba(255,120,40,0)');
+  g.fillStyle = gr;
+  g.beginPath(); g.moveTo(32, 2); g.bezierCurveTo(58, 50, 62, 90, 32, 126); g.bezierCurveTo(2, 90, 6, 50, 32, 2); g.fill();
+  flameTex = new THREE.CanvasTexture(c);
+  return flameTex;
+}
+function glowTexture2() {
+  if (glowTex2) return glowTex2;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 1, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  glowTex2 = new THREE.CanvasTexture(c);
+  return glowTex2;
+}
+// flickering additive flame (points up in its parent's space)
+export function flamePart(color, w = 0.6, h = 1.2) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h).translate(0, h / 2, 0), new THREE.MeshBasicMaterial({ map: flameTexture(), color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  const g = new THREE.Group();
+  const m2 = m.clone(); m2.rotation.y = Math.PI / 2;
+  g.add(m, m2);
+  g.userData.flick = true;
+  return g;
+}
+// glowing eye / visor dot
+export function glowPart(color, size = 0.5) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture2(), color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  s.scale.setScalar(size);
+  s.userData.pulse = size;
+  return s;
+}
+// a spike pointing along `dir` from `at`
+export function spikePart(mat, at, dir, r = 0.12, h = 0.5) {
+  const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 8).translate(0, h / 2, 0), mat);
+  c.position.copy(at);
+  c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+  c.castShadow = true;
+  return c;
 }
 
 export function dirTo(from, to) {

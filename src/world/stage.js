@@ -30,6 +30,17 @@ export const THEMES = {
     sky: 'bg_level3', fog: 0x2a1440, fogNear: 30, fogFar: 95, hemiSky: 0xc8a0ff, hemiGround: 0x2a1030, sun: 0xffe0f0, sunI: 1.35, hemiI: 1.25,
     dust: 0xd4cce8, music: 'level3',
   },
+  // bonus stages (procedural textures, see art/procedural.js)
+  house: {
+    name: 'The Owner\'s House', ground: 'tex_house_ground', wall: 'tex_house_wall', platform: 'tex_house_platform',
+    sky: 'bg_house', fog: 0xf0d6ae, fogNear: 45, fogFar: 125, hemiSky: 0xfff0d8, hemiGround: 0x8a5a32, sun: 0xffe0b0, sunI: 1.45, hemiI: 1.25,
+    dust: 0xf2e6d0, music: 'level1',
+  },
+  cave: {
+    name: 'Glowworm Grotto', ground: 'tex_cave_ground', wall: 'tex_cave_wall', platform: 'tex_cave_platform',
+    sky: 'bg_cave', fog: 0x05040a, fogNear: 7, fogFar: 34, hemiSky: 0x3a3a66, hemiGround: 0x0a0812, sun: 0x8a8acc, sunI: 0.12, hemiI: 0.32, rimI: 0.08,
+    dust: 0x8a8098, music: 'level3',
+  },
   boss3: {
     name: 'Throne of Shame', ground: 'tex_l3_ground', wall: 'tex_l3_wall', platform: 'tex_l3_platform',
     sky: 'bg_boss3', fog: 0x2a0a30, fogNear: 40, fogFar: 120, hemiSky: 0xffa0d0, hemiGround: 0x200820, sun: 0xffd0e0, sunI: 1.3, hemiI: 1.2,
@@ -91,7 +102,7 @@ export class Stage {
     this.scene.add(sun);
     this.scene.add(sun.target);
     // soft rim light from behind so characters pop off the background
-    const rim = new THREE.DirectionalLight(0xbfd8ff, 0.45);
+    const rim = new THREE.DirectionalLight(0xbfd8ff, t.rimI ?? 0.45);
     rim.position.set(0.4, 0.6, -1);
     this.scene.add(rim);
 

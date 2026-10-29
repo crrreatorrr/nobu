@@ -43,6 +43,7 @@ export function buildLevel3(game, stage, tickets) {
   k.crusher(0, 0, 61, { w: 4, d: 2.4, phase: 1.8 });
   k.tix(0, 0, 49.5, 0, 0, 63, 7);
   k.dog(-3.2, 0, 68, 'pug');
+  k.lunch(-2.8, 0, 65.5);
   k.snacks(1.5, 0, 69.5);
 
   // --- troopers, drones and the rug/cat puzzle ---
@@ -56,6 +57,7 @@ export function buildLevel3(game, stage, tickets) {
   k.rug(-1.9, 0, 91.5, Math.PI / 2);
   k.packs([[0.4, 92.6], [1.9, 93.5]]);
   k.sphere(-2.9, 0, 95.5);
+  k.knight(-0.5, 0, 96.5, { range: 0 });
   k.dog(2.9, 0, 96.5, 'dalmatian');
   k.tix(2.8, 0, 72, 2.8, 0, 84, 5);
 
@@ -87,10 +89,13 @@ export function buildLevel3(game, stage, tickets) {
   k.oneUp(-2.6, 5.4, 157.4);
   k.dog(-2.1, 5.4, 154.2, 'corgi');
   k.pack(-3.5, 5.4, 155.8, 5);
+  k.colorBone(-1.7, 5.4, 156.6, 'blue');
+  k.barkRock(2.9, 0, 152);
   k.vacuum(0.8, 0, 160, { range: 2.6, speed: 5 });
   k.spiky(1.8, 0, 163.5, { range: 0 });
   k.vacuum(0.8, 0, 166.5, { range: 2.6, speed: 5 });
   k.dog(3.3, 0, 169.5, 'shiba');
+  k.shellback(-1.2, 0, 170, { range: 1.4 });
 
   // --- second crusher pair + lint roller ---
   F(172, 188);
@@ -117,10 +122,13 @@ export function buildLevel3(game, stage, tickets) {
   k.mushroom(-1.9, -4.5, 221.2, { power: 17 });
   k.tixRing(-2.5, -4.5, 220, 1.0, 6);
   k.dog(-3, 0, 212, 'dalmatian');
+  k.goodBoy(204, [[3.3, 1.2, 207.5, 1.4, 1.8], [3.3, 2.4, 210.3, 1.4, 1.8], [3.3, 3.6, 214.5, 1.8, 3.6]]);
   k.snacks(1.5, 0, 214.5);
   k.pill(0, 0, 226, { range: 2 });
   k.broc(-1.5, 0, 230, { range: 1.5 });
   k.packs([[2.6, 224], [2.6, 228], [-2.6, 233]]);
+  k.zipped(-2.6, 0, 226);
+  k.knight(1.2, 0, 233, { range: 1.4 });
   k.hammer(0, 0, 237, { period: 2.2 });
   k.gate(243, 'THE EVIL CONE', 0x8a1a3a);
   k.trigger(245, () => game.session.reachBossGate());

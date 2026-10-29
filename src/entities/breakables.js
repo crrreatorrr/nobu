@@ -1,13 +1,16 @@
 // Breakables (Crash's crates, reimagined): Black Backpack, Blue Sphere, 1UP head, Trampoline, Snacks checkpoint,
-// Cat (TNT), Rug (Nitro) and the Lint Roller switch that rolls up every rug.
+// Cat (TNT), Rug (Nitro), the Lint Roller switch that rolls up every rug, the Zipped Backpack (three hits),
+// the Vacuum Dock switch (pops every rug) and the unbreakable steel Lunchboxes (plain and arrow-launch).
 import * as THREE from 'three';
-import { Breakable } from './entity.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { Entity, Breakable } from './entity.js';
+import { switchCrate, pulseSwitches } from './switchCrate.js';
 import { Solid } from '../world/physics.js';
 import { toon } from '../player/nobuPrims.js';
 import { Assets } from '../art/assets.js';
 import { audio } from '../audio/audio.js';
 import { textSprite, textTexture, makeShadow, placeShadow } from './fx.js';
-import { randInt, rand } from '../core/util.js';
+import { randInt, rand, canvasTex } from '../core/util.js';
 import { TUNING } from '../player/player.js';
 
 // ---------- shared explosion ----------
@@ -28,7 +31,7 @@ export function explode(stage, x, y, z, r, { kind = 'flat', source = null, color
 
 // ---------- Black Backpack (front print = the real meme backpack photo) ----------
 let backpackParts;
-function backpackModel() {
+export function backpackModel() {
   if (!backpackParts) {
     const front = new THREE.PlaneGeometry(0.78, 0.98, 8, 8);
     const fp = front.attributes.position;
@@ -521,6 +524,16 @@ export class Rug extends Breakable {
     this.fly = 0;
     this.fx.sparkle(this.pos.x, this.pos.y + 0.3, this.pos.z, { count: 12, color: 0x7dff8a, size: 0.7 });
   }
+  // popped by the Vacuum Dock: counts as broken, hurts nobody
+  vacuumUp() {
+    if (this.broken) return;
+    this.markBroken();
+    this.interactive = false;
+    this.fly = 0;
+    audio.play('conePop');
+    this.fx.puff(this.pos.x, this.pos.y + 0.2, this.pos.z, { count: 8, size: 0.45, color: 0xe8d0f0, speed: 3 });
+    this.fx.sparkle(this.pos.x, this.pos.y + 0.3, this.pos.z, { count: 10, color: 0x7dff8a, size: 0.6 });
+  }
   onBite() { this.pull(); }
   onSlide() { this.pull(); }
   onTouch() { this.pull(); }
@@ -531,21 +544,49 @@ export class Rug extends Breakable {
 }
 
 // ---------- Lint Roller switch: rolls up every rug in the stage ----------
+let lintTex;
 export class LintRoller extends Breakable {
   constructor(stage, x, y, z) {
     super(stage, x, y, z);
     this.kind = 'lintroller';
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.95), toon(0x3ec46d));
-    base.position.y = 0.475;
-    const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.7, 14), toon(0xf8f8ff));
-    roller.rotation.z = Math.PI / 2; roller.position.set(0, 1.15, 0);
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 8), toon(0x2a6ad0));
-    handle.position.set(0, 1.4, 0.15); handle.rotation.x = 0.6;
-    const bang = textSprite('!', { color: '#ffffff', size: 128 });
-    bang.scale.setScalar(0.7); bang.position.set(0, 0.5, 0.5); bang.material.depthTest = true;
-    this.obj.add(base, roller, handle, bang);
-    this.setBox(1.0, 1.0, 1.0);
+    this.crate = switchCrate('green');
+    // a proper lint roller on top: sticky roll with lint on it, wire frame, blue grip
+    lintTex ||= canvasTex(256, 128, (g) => {
+      g.fillStyle = '#f6f8ff'; g.fillRect(0, 0, 256, 128);
+      g.strokeStyle = 'rgba(120,150,210,0.45)'; g.lineWidth = 3;
+      for (let x = -128; x < 256; x += 22) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 128, 128); g.stroke(); }
+      const fuzz = ['#c86a4a', '#5a5a6a', '#d8b070', '#8a4ac8', '#e84a7a'];
+      for (let i = 0; i < 26; i++) {
+        g.strokeStyle = fuzz[i % fuzz.length]; g.lineWidth = 2;
+        const x = (i * 97) % 256, y = (i * 53) % 128;
+        g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 8, y - 6, x + 14, y + 3); g.stroke();
+      }
+    });
+    this.topper = new THREE.Group();
+    this.topper.position.y = 1.18;
+    this.roll = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.72, 24), new THREE.MeshLambertMaterial({ map: lintTex }));
+    this.roll.rotation.z = Math.PI / 2;
+    const capM = toon(0xd8dde8), gripM = toon(0x2a6ad0), wireM = toon(0x9aa2b0);
+    for (const sx of [-1, 1]) {
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.04, 20), capM); cap.rotation.z = Math.PI / 2; cap.position.x = sx * 0.37; this.topper.add(cap);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.42, 6), wireM); arm.position.set(sx * 0.2, 0.12, -0.22); arm.rotation.set(0.9, 0, sx * -0.75); this.topper.add(arm);
+    }
+    const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.42, 4, 10), gripM);
+    grip.position.set(0, 0.32, -0.5); grip.rotation.x = 1.05;
+    for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.018, 6, 14), toon(0x1a4aa0)); r.position.y = (i - 1) * 0.12; r.rotation.x = Math.PI / 2; grip.add(r); }
+    this.topper.add(this.roll, grip);
+    this.topper.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.obj.add(this.crate, this.topper);
+    this.setBox(1.25, 1.1, 1.25);
     this.solid = stage.world.add(new Solid({ x: x - 0.48, y, z: z - 0.48 }, { x: x + 0.48, y: y + 0.95, z: z + 0.48 }, { kind: 'breakable', ref: this }));
+    this.t = rand(0, 6);
+  }
+  update(dt) {
+    this.t += dt;
+    pulseSwitches(this.t);
+    this.roll.rotation.x += dt * 1.2;
+    this.topper.position.y = 1.18 + Math.sin(this.t * 2.4) * 0.04;
+    this.topper.rotation.y = Math.sin(this.t * 0.9) * 0.25;
   }
   press() {
     if (!this.markBroken()) return;
@@ -559,6 +600,218 @@ export class LintRoller extends Breakable {
   onBite() { this.press(); }
   onSlide() { this.press(); }
   onHeadHit() { this.press(); }
+  onTouch() { this.press(); }
+  onFlop() { this.press(); }
   onLand(p) { if (this.broken) return false; this.press(); p.bounce(TUNING.STOMP_BOUNCE); return true; }
   onExplosion() { this.press(); }
+}
+
+// ---------- Zipped Backpack: three bites (or bounces) to unzip, each one shakes a ticket loose ----------
+const ZIP_TAGS = [0x3ec46d, 0xffd23f, 0xe84a3a];
+export class ZippedBackpack extends Backpack {
+  constructor(stage, x, y, z, { tickets = 8 } = {}) {
+    super(stage, x, y, z, { tickets });
+    this.kind = 'zipped';
+    this.maxHits = 3;
+    this.hits = 3;
+    // navy body so it reads differently from the black packs, a chunky zipper track and three pull tags
+    const navy = toon(0x1e2a52);
+    this.model.traverse((o) => { if (o.isMesh && o.material === backpackParts.mBody) o.material = navy; });
+    const track = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.035, 6, 24, Math.PI), toon(0xd0d0dc));
+    track.position.set(0, 0.54, 0.36); track.rotation.z = 0;
+    this.model.add(track);
+    this.tags = ZIP_TAGS.map((c, i) => {
+      const t = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.05), toon(c));
+      t.position.set(-0.22 + i * 0.22, 0.88, 0.38);
+      t.userData.home = t.position.clone();
+      this.model.add(t);
+      return t;
+    });
+  }
+  update(dt) {
+    super.update(dt);
+    this.tags.forEach((t, i) => { if (t.visible) t.rotation.z = Math.sin(this.t * 4 + i * 1.7) * 0.25; });
+    if (this.distToPlayer() < 7) this.game.ui.tutorial('zipped');
+  }
+  break(player, how) {
+    // bites, stomps and head-bonks unzip one notch; flops, slides and explosions rip it open in one go
+    if (this.broken) return;
+    if (this.hits > 1 && (how === 'bite' || how === 'stomp' || how === 'head')) {
+      this.hits--;
+      const tag = this.tags[this.hits];
+      tag.visible = false;
+      const wp = tag.getWorldPosition(new THREE.Vector3());
+      this.fx.burst(wp.x, wp.y, wp.z, { count: 6, colors: [ZIP_TAGS[this.hits], 0xffffff], speed: 3, size: 0.12, floor: this.pos.y });
+      audio.play('zip');
+      this.wobble = 0.5;
+      this.game.tickets.spawnFlying(this.pos.x, this.pos.y + 1.0, this.pos.z, 1);
+      this.tickets = Math.max(1, this.tickets - 1);
+      return;
+    }
+    super.break(player, how);
+  }
+  onRestore() { this.hits = this.maxHits; this.tickets = 8; this.tags.forEach((t) => (t.visible = true)); }
+}
+
+// ---------- Vacuum Dock switch: a robot vacuum zooms out and pops every rug in the stage ----------
+export class VacuumSwitch extends Breakable {
+  constructor(stage, x, y, z) {
+    super(stage, x, y, z);
+    this.kind = 'vacswitch';
+    this.crate = switchCrate('green');
+    // charging dock on the lid: dark plate, a backboard with two blinking charge lights
+    this.dock = new THREE.Group();
+    this.dock.position.y = 0.96;
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.48, 0.05, 28), toon(0x2a2a34));
+    const back = new THREE.Mesh(new RoundedBoxGeometry(0.6, 0.34, 0.12, 2, 0.04), toon(0x3a3a46));
+    back.position.set(0, 0.17, -0.42);
+    this.lights = [0, 1].map((i) => { const l = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshBasicMaterial({ color: 0x7dff8a })); l.position.set(-0.1 + i * 0.2, 0.22, -0.35); this.dock.add(l); return l; });
+    this.dock.add(plate, back);
+    // the robot vacuum resting on the dock (Higgsfield vacuum model when present)
+    this.bot = new THREE.Group();
+    const glb = Assets.model('model_vacuum', 0.34);
+    if (glb) this.bot.add(glb);
+    else {
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.42, 0.18, 24), toon(0x7a3fd0)); disc.position.y = 0.09;
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 20), toon(0x9a9aaa)); lid.position.y = 0.2;
+      const eyeM = new THREE.MeshBasicMaterial({ color: 0xff3a3a });
+      for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), eyeM); e.position.set(sx * 0.13, 0.13, 0.38); this.bot.add(e); }
+      this.bot.add(disc, lid);
+    }
+    this.bot.position.y = 1.0;
+    this.bot.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    this.obj.add(this.crate, this.dock, this.bot);
+    this.setBox(1.25, 1.15, 1.25);
+    this.solid = stage.world.add(new Solid({ x: x - 0.48, y, z: z - 0.48 }, { x: x + 0.48, y: y + 0.95, z: z + 0.48 }, { kind: 'breakable', ref: this }));
+    this.t = 0;
+    this.zoom = -1;
+    this.queue = [];
+  }
+  update(dt) {
+    this.t += dt;
+    if (this.zoom < 0) {
+      if (this.distToPlayer() < 8) this.game.ui.tutorial('vacswitch');
+      pulseSwitches(this.t);
+      this.bot.rotation.y = Math.sin(this.t * 1.5) * 0.35;
+      this.bot.position.y = 1.0 + Math.abs(Math.sin(this.t * 6)) * 0.025;
+      this.lights.forEach((l, i) => (l.visible = Math.sin(this.t * 5 + i * 1.6) > -0.2));
+      return;
+    }
+    // the little vacuum spins off, and the rugs pop one after another
+    this.zoom += dt;
+    this.bot.position.y = 1.0 + this.zoom * 3;
+    this.bot.rotation.y += dt * 24;
+    this.bot.scale.setScalar(Math.max(0.01, 1 - this.zoom * 0.8));
+    while (this.queue.length && this.queue[0].at <= this.zoom) {
+      const r = this.queue.shift().rug;
+      r.vacuumUp();
+    }
+    if (this.zoom > 1.3 && !this.queue.length) { this.zoom = -1; this.visible = false; this.obj.visible = false; }
+  }
+  press() {
+    if (!this.markBroken()) return;
+    this.interactive = false;
+    if (this.solid) this.solid.enabled = false;
+    audio.play('switch');
+    audio.play('whirr');
+    this.fx.burst(this.pos.x, this.pos.y + 0.5, this.pos.z, { count: 14, colors: [0x3ec46d, 0xffffff, 0x7a3fd0], speed: 4, floor: this.pos.y });
+    const rugs = this.stage.entities.filter((e) => e instanceof Rug && !e.broken);
+    rugs.forEach((rug, i) => this.queue.push({ rug, at: 0.25 + i * 0.12 }));
+    this.zoom = 0;
+    for (const m of this.obj.children) if (m !== this.bot) m.visible = false;
+    if (rugs.length) this.game.ui.banner('RUGS VACUUMED!', `${rugs.length} rug${rugs.length > 1 ? 's' : ''} popped`, 1.8);
+  }
+  onBite() { this.press(); }
+  onSlide() { this.press(); }
+  onHeadHit() { this.press(); }
+  onTouch() { this.press(); }
+  onFlop() { this.press(); }
+  onLand(p) { if (this.broken) return false; this.press(); p.bounce(TUNING.STOMP_BOUNCE); return true; }
+  onExplosion() { this.press(); }
+  onRestore() {
+    this.interactive = true; this.zoom = -1; this.queue.length = 0; this.visible = true;
+    this.bot.position.y = 1.0; this.bot.scale.setScalar(1);
+    for (const m of this.obj.children) m.visible = true;
+  }
+}
+
+// ---------- Lunchboxes: steel, unbreakable. Plain ones are just steps; arrow ones launch you ----------
+let lunchParts;
+function lunchMats() {
+  lunchParts ||= {
+    box: new RoundedBoxGeometry(0.98, 0.98, 0.98, 3, 0.1),
+    band: new THREE.BoxGeometry(1.0, 0.16, 1.0),
+    rivet: new THREE.SphereGeometry(0.045, 8, 6),
+    handle: new THREE.TorusGeometry(0.2, 0.045, 8, 16, Math.PI),
+    latch: new THREE.BoxGeometry(0.2, 0.16, 0.06),
+    steel: new THREE.MeshPhongMaterial({ color: 0xb8c2d0, specular: 0xffffff, shininess: 70 }),
+    dark: toon(0x5a6272), gold: toon(0xffc21a), ink: toon(0x2a2a34),
+    arrowTop: new THREE.MeshLambertMaterial({ map: canvasTex(128, 128, (g) => {
+      g.fillStyle = '#b8c2d0'; g.fillRect(0, 0, 128, 128);
+      g.fillStyle = '#ffd23f'; g.strokeStyle = '#1a0a24'; g.lineWidth = 6;
+      g.beginPath(); g.moveTo(64, 10); g.lineTo(110, 60); g.lineTo(80, 60); g.lineTo(80, 116); g.lineTo(48, 116); g.lineTo(48, 60); g.lineTo(18, 60); g.closePath(); g.fill(); g.stroke();
+    }) }),
+  };
+  return lunchParts;
+}
+
+export class Lunchbox extends Entity {
+  constructor(stage, x, y, z, { arrow = false, power = 16 } = {}) {
+    super(stage, x, y, z);
+    this.kind = arrow ? 'arrowbox' : 'lunchbox';
+    this.arrow = arrow;
+    this.power = power;
+    const P = lunchMats();
+    this.body = new THREE.Group();
+    const box = new THREE.Mesh(P.box, P.steel); box.position.y = 0.49;
+    const band = new THREE.Mesh(P.band, arrow ? P.gold : P.dark); band.position.y = 0.42;
+    this.body.add(box, band);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const yy of [0.12, 0.86]) {
+      const r = new THREE.Mesh(P.rivet, P.ink); r.position.set(sx * 0.44, yy, sz * 0.5); this.body.add(r);
+    }
+    if (arrow) {
+      const top = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), P.arrowTop);
+      top.rotation.x = -Math.PI / 2; top.position.y = 0.985;
+      this.body.add(top);
+    } else {
+      const handle = new THREE.Mesh(P.handle, P.dark); handle.position.y = 0.98; this.body.add(handle);
+      const latch = new THREE.Mesh(P.latch, P.gold); latch.position.set(0, 0.62, 0.5); this.body.add(latch);
+    }
+    this.body.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.obj.add(this.body);
+    this.setBox(1.0, 1.0, 1.0);
+    this.solid = stage.world.add(new Solid({ x: x - 0.49, y, z: z - 0.49 }, { x: x + 0.49, y: y + 0.98, z: z + 0.49 }, { kind: 'static', ref: this }));
+    this.squash = 0;
+    this.t = 0;
+  }
+  update(dt) {
+    if (this.distToPlayer() < 7) this.game.ui.tutorial(this.arrow ? 'arrowbox' : 'lunchbox');
+    if (this.squash > 0) {
+      this.squash = Math.max(0, this.squash - dt * 3.5);
+      const k = Math.sin(this.squash * 16) * this.squash;
+      this.body.scale.set(1 + k * 0.1, 1 - k * 0.18, 1 + k * 0.1);
+    }
+  }
+  _clang(p) {
+    audio.play('clang');
+    this.squash = 0.4;
+    this.fx.burst(this.pos.x, this.pos.y + 0.7, this.pos.z, { count: 6, colors: [0xffffff, 0xffe680], speed: 4, size: 0.08, floor: this.pos.y });
+    if (p) {
+      // bounce back off the steel
+      const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z, d = Math.hypot(dx, dz) || 1;
+      p.vel.x = (dx / d) * 5; p.vel.z = (dz / d) * 5;
+    }
+  }
+  onBite(p) { this._clang(p); }
+  onSlide(p) { this._clang(p); }
+  onHeadHit() { this._clang(null); }
+  onExplosion() { this.squash = 0.6; }
+  onLand(p) {
+    if (!this.arrow) return false;
+    p.bounce(this.power, { allowCut: false });
+    this.squash = 1;
+    audio.play('boing');
+    this.fx.ring(this.pos.x, this.pos.y + 1.0, this.pos.z, { color: 0xffd23f, radius: 1.1 });
+    return true;
+  }
 }

@@ -5,7 +5,7 @@
 // PUMP.FUN minions launched in every phase (they pump up with each hop, then dump: explode),
 // and the rechargeable ultimate SHAME SUPERNOVA (spinning floor-laser spokes + cone rain).
 import * as THREE from 'three';
-import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam } from './common.js';
+import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart } from './common.js';
 import { autoRig, sstep, chain, blendPose } from './autorig.js';
 import { Broccoli, PumpPill } from '../entities/enemies.js';
 import { toon } from '../player/nobuPrims.js';
@@ -63,7 +63,49 @@ export class EvilCone extends Boss {
     this.minions = [];
     this.yaw = 0;
     this.lastPhase = 1;
+    this.stageNames = { 2: 'CRACKED', 3: 'SUPERNOVA' };
+    this.stagePowers = { 2: 'Floor sweeps · twin lasers · grab · vortex', 3: 'Shadow clones · every attack · fastest' };
+    this.stageColors = [0, 0, 0xb040ff, 0xff2a6a];
+    this.stageGlow = { 2: 0x14042a, 3: 0x2a0414 };
     this.collectMeshes();
+    this.setStageLook(1);
+  }
+
+  // Stage 2 (CRACKED): a ring of spikes round the rim and glowing eyes.
+  // Stage 3 (SUPERNOVA): a crown of flames and three mini cones orbiting it.
+  makeStageParts() {
+    const B = this.bones;
+    if (!B) return {};
+    const up = CJ.upper;
+    const at = (x, y, z) => new THREE.Vector3(x - up[0], y - up[1], z - up[2]); // model coords -> 'upper' bone space
+    const spikeM = new THREE.MeshPhongMaterial({ color: 0x8a5ad0, emissive: 0x2a0a50, shininess: 80 });
+    const two = [], three = [];
+    const add = (bone, o, list) => { B[bone].add(o); list.push(o); return o; };
+    const cx = 0.1, cz = 0.15, rimY = 3.55, R = 1.25;
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      add('upper', spikePart(spikeM, at(cx + Math.cos(a) * R, rimY, cz + Math.sin(a) * R), new THREE.Vector3(Math.cos(a), 0.9, Math.sin(a)), 0.13, 0.55), two);
+      if (i % 2 === 0) {
+        const f = add('upper', flamePart(0xff4a8a, 0.55, 1.2), three);
+        f.position.copy(at(cx + Math.cos(a) * (R - 0.15), rimY + 0.05, cz + Math.sin(a) * (R - 0.15)));
+      }
+    }
+    for (const side of [-1, 1]) {
+      add('upper', glowPart(0xd060ff, 0.7), two).position.set(0.0755 + side * 0.27, 0.75, 0.82);
+      add('upper', glowPart(0xff3060, 0.95), three).position.set(0.0755 + side * 0.27, 0.75, 0.84);
+    }
+    const orbit = add('root', new THREE.Group(), three);
+    orbit.userData.spin = 2.2;
+    orbit.position.set(0, 1.2, 0);
+    const mini = new THREE.MeshPhongMaterial({ color: 0xff5ad0, emissive: 0x501030, shininess: 80 });
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2;
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.1, 0.55, 14), mini);
+      c.position.set(Math.cos(a) * 2.3, Math.sin(i * 2) * 0.3, Math.sin(a) * 2.3);
+      c.rotation.set(0.5, 0, -0.4);
+      orbit.add(c);
+    }
+    return { 2: two, 3: three };
   }
 
   get ground() { return this.home.y - 3.2; }

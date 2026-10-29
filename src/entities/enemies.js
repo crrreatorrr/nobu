@@ -1,11 +1,12 @@
-// Enemies. Broccoli Heads (normal / spiky / cone trooper) plus per-level critters:
-// Squirrel (hopper), Cone Drone (flyer), Vacuum Bot (patroller), Bandit Mouse (patroller), Yarn Ball (roller).
+// Enemies. Broccoli Heads (normal / spiky / cone trooper / shielded Lid Knight) plus per-level critters:
+// Squirrel (hopper), Cone Drone (flyer), Vacuum Bot (patroller), Bandit Mouse (patroller), Yarn Ball (roller),
+// Pill Bots and the Shellback tortoise (flip it, then bite it).
 import * as THREE from 'three';
 import { Entity } from './entity.js';
 import { toon } from '../player/nobuPrims.js';
 import { makeShadow, textTexture } from './fx.js';
 import { audio } from '../audio/audio.js';
-import { rand, canvasTex } from '../core/util.js';
+import { rand, canvasTex, damp } from '../core/util.js';
 import { TUNING } from '../player/player.js';
 import { Assets } from '../art/assets.js';
 
@@ -714,6 +715,7 @@ export class PumpPill extends PillBot {
     if (this.glb) this.glb.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); if (o.material.emissive) this.mats.push(o.material); } });
     this.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture('LAUNCH', { color: '#7dff8a', w: 256, size: 90 }), transparent: true, depthTest: false }));
     this.tag.scale.set(1.8, 0.9, 1); this.tag.position.y = 2.3; this.tag.renderOrder = 20;
+    this.tag.visible = false;
     this.obj.add(this.tag);
     this.squashT = 0;
     const fx = stage.game.fx;
@@ -724,11 +726,8 @@ export class PumpPill extends PillBot {
     }
   }
 
-  setTag(text, color = '#7dff8a') {
-    this.tag.material.map = textTexture(text, { color, w: 256, size: 90 });
-    this.tag.material.needsUpdate = true;
-    this.tag.visible = true;
-  }
+  // no on-screen counters: the pill's growth and glow are the only warning before it dumps
+  setTag() { this.tag.visible = false; }
 
   behave(dt) {
     const p = this.player;
@@ -816,3 +815,166 @@ export class PumpPill extends PillBot {
   }
 }
 
+
+// ---------------- Lid Knight: a Broccoli Head behind a pot-lid shield, wearing a colander ----------------
+// Bites clang off the lid and stomps bounce off the colander. Only a SLIDE (knocks it flat) or a
+// BELLY FLOP (squash) gets through. Touching it still hurts.
+export class LidKnight extends Broccoli {
+  constructor(stage, x, y, z, opts = {}) {
+    super(stage, x, y, z, { speed: 1.1, ...opts, variant: 'normal' });
+    const steel = new THREE.MeshPhongMaterial({ color: 0xc4ccd8, specular: 0xffffff, shininess: 90 });
+    const dark = toon(0x5a6272);
+    // pot lid: shallow dome with a knob, held out front
+    this.shield = new THREE.Group();
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 8, 0, Math.PI * 2, 0, 0.55), steel);
+    lid.rotation.x = Math.PI / 2;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.035, 6, 24), dark);
+    rim.position.z = 0.06;
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), toon(0x2a2a34));
+    knob.position.z = 0.27;
+    this.shield.add(lid, rim, knob);
+    this.shield.position.set(0.05, 0.72, 0.36);
+    this.model.add(this.shield);
+    // colander helmet with holes
+    const col = new THREE.Group();
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.36, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), steel);
+    col.add(dome);
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2, r = i % 2 ? 0.2 : 0.29, h = Math.sqrt(0.36 * 0.36 - r * r);
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(0.035, 8), toon(0x1a1a22));
+      hole.position.set(Math.cos(a) * r, h + 0.003, Math.sin(a) * r);
+      hole.lookAt(hole.position.clone().multiplyScalar(2));
+      col.add(hole);
+    }
+    for (const sx of [-1, 1]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.022, 6, 10, Math.PI), dark); h.position.set(sx * 0.37, 0.02, 0); h.rotation.y = Math.PI / 2; col.add(h); }
+    col.position.set(0, 1.38, 0);
+    this.model.add(col);
+    this.shieldKick = 0;
+  }
+  behave(dt) {
+    super.behave(dt);
+    // brace behind the lid when Nobu is close
+    const p = this.player;
+    const dist = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
+    if (dist < 8) this.game.ui.tutorial('knight');
+    const near = dist < 3;
+    this.shieldKick = Math.max(0, this.shieldKick - dt * 4);
+    this.shield.position.z = 0.36 + (near ? 0.08 : 0) - this.shieldKick * 0.15;
+    this.shield.rotation.x = Math.sin(this.t * 3) * 0.05 + this.shieldKick * 0.5;
+  }
+  _clang(p, up = 0) {
+    audio.play('clang');
+    this.shieldKick = 1;
+    const sp = this.shield.getWorldPosition(new THREE.Vector3());
+    this.fx.burst(sp.x, sp.y, sp.z, { count: 7, colors: [0xffffff, 0xffe680], speed: 4, size: 0.08, floor: this.pos.y });
+    const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z, d = Math.hypot(dx, dz) || 1;
+    p.vel.x = (dx / d) * 7; p.vel.z = (dz / d) * 7;
+    if (up) p.bounce(up);
+    this.game.ui.tutorial('knight');
+  }
+  onBite(p) { if (this.alive) this._clang(p); }
+  onStomp(p) { if (this.alive) this._clang(p, TUNING.STOMP_BOUNCE * 0.85); }
+  onSlide(p) {
+    if (!this.alive) return;
+    // the lid goes flying, then so does the knight
+    const sp = this.shield.getWorldPosition(new THREE.Vector3());
+    this.fx.burst(sp.x, sp.y, sp.z, { count: 10, colors: [0xc4ccd8, 0xffffff, 0x5a6272], speed: 6, size: 0.14, floor: this.pos.y });
+    audio.play('clang');
+    this.knock(p.pos);
+  }
+}
+
+// ---------------- Shellback: a cone-collared tortoise. Flip it first, then bite it ----------------
+// Upright: bites and slides bonk off the shell, touching it hurts. Jump on it (or flop) to flip it on its
+// back; flipped it's harmless, a bite or slide kicks it away, and it doubles as a springboard.
+let shellTex;
+export class Shellback extends Enemy {
+  constructor(stage, x, y, z, opts = {}) {
+    super(stage, x, y, z, { shadow: 1.3, ...opts });
+    const { s1, cyl, vetCone } = geos();
+    const mm = mats();
+    shellTex ||= canvasTex(256, 128, (g) => {
+      g.fillStyle = '#3a8a4a'; g.fillRect(0, 0, 256, 128);
+      g.strokeStyle = '#a8e070'; g.lineWidth = 5;
+      for (let row = 0; row < 4; row++) for (let i = 0; i < 9; i++) {
+        const cx = i * 32 + (row % 2) * 16, cy = row * 34 + 10;
+        g.beginPath(); for (let a = 0; a < 6; a++) g.lineTo(cx + Math.cos(a * Math.PI / 3) * 14, cy + Math.sin(a * Math.PI / 3) * 14); g.closePath(); g.stroke();
+      }
+    });
+    const skin = toon(0x8acb5a);
+    this.body = new THREE.Group();
+    this.model.add(this.body);
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.62, 22, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ map: shellTex }));
+    shell.scale.set(1, 0.8, 1.15); shell.position.y = 0.32;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.63, 0.07, 8, 26), toon(0x2f6a3a));
+    rim.rotation.x = Math.PI / 2; rim.scale.set(1, 1.15, 1); rim.position.y = 0.32;
+    const belly = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.08, 22), toon(0xe8d8a0));
+    belly.scale.set(1, 1, 1.15); belly.position.y = 0.3;
+    this.body.add(shell, rim, belly);
+    this.head = new THREE.Group();
+    this.head.position.set(0, 0.42, 0.78);
+    this.head.add(part(s1, skin, 0, 0, 0, 0.24, 0.22, 0.26));
+    angryEyes(this.head, 0.06, 0.18, 0.1, 0.07);
+    const collar = new THREE.Mesh(vetCone, mm.cone); collar.scale.setScalar(0.62); collar.rotation.x = -Math.PI / 2; collar.position.z = -0.08;
+    this.head.add(collar);
+    this.body.add(this.head);
+    this.legs = [];
+    for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]) {
+      const l = part(cyl, skin, sx * 0.42, 0.16, sz * 0.45, 0.13, 0.3, 0.13);
+      this.body.add(l); this.legs.push(l);
+    }
+    this.body.add(part(s1, skin, 0, 0.26, -0.78, 0.09, 0.07, 0.14));
+    this.setBox(1.25, 0.95, 1.25);
+    this.speed = opts.speed ?? 1.0;
+    this.mode = 'walk';
+    this.flipT = 0;
+  }
+  behave(dt) {
+    if (this.distToPlayer() < 8) this.game.ui.tutorial('shellback');
+    if (this.mode === 'walk') {
+      if (this.opts.range !== 0) this.patrol(dt, this.speed);
+      const w = Math.sin(this.t * 7);
+      this.legs.forEach((l, i) => (l.rotation.x = (i % 2 ? w : -w) * 0.5));
+      this.head.position.z = 0.78 + Math.sin(this.t * 3.5) * 0.04;
+      this.body.rotation.z = Math.sin(this.t * 7) * 0.04;
+      this.body.position.y = damp(this.body.position.y, 0, 12, dt);
+      this.body.rotation.x = damp(this.body.rotation.x, 0, 10, dt);
+    } else if (this.mode === 'flipped') {
+      // on its back: legs paddling helplessly; wobbles hard just before it rights itself
+      this.flipT += dt;
+      const late = this.flipT > 3.2;
+      this.body.rotation.x = damp(this.body.rotation.x, Math.PI, 14, dt);
+      this.body.position.y = damp(this.body.position.y, 0.75, 14, dt);
+      this.body.rotation.z = Math.sin(this.t * (late ? 22 : 6)) * (late ? 0.25 : 0.08);
+      this.legs.forEach((l, i) => (l.rotation.x = Math.sin(this.t * 18 + i) * 0.8));
+      this.head.position.z = 0.6;
+      if (this.flipT > 4.2) { this.mode = 'walk'; audio.play('flipOver'); this.fx.puff(this.pos.x, this.pos.y + 0.2, this.pos.z, { count: 4, size: 0.35, color: 0xeeeeee, speed: 2 }); }
+    }
+  }
+  flip(p) {
+    this.mode = 'flipped';
+    this.flipT = 0;
+    audio.play('flipOver');
+    this.fx.puff(this.pos.x, this.pos.y + 0.4, this.pos.z, { count: 5, size: 0.35, color: 0xffffff, speed: 2.5 });
+    this.game.ui.tutorial('shellback');
+  }
+  _bonk(p) {
+    audio.play('clang');
+    const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z, d = Math.hypot(dx, dz) || 1;
+    p.vel.x = (dx / d) * 6.5; p.vel.z = (dz / d) * 6.5;
+    if (p.mode === 'slide') p._endSlide?.();
+    this.fx.burst(this.pos.x, this.pos.y + 0.5, this.pos.z, { count: 5, colors: [0xffffff, 0xa8e070], speed: 3, size: 0.08, floor: this.pos.y });
+    this.game.ui.tutorial('shellback');
+  }
+  onBite(p) { if (!this.alive) return; if (this.mode === 'flipped') this.knock(p.pos); else this._bonk(p); }
+  onSlide(p) { this.onBite(p); }
+  onStomp(p) {
+    if (!this.alive) return;
+    if (this.mode === 'flipped') { p.bounce(TUNING.STOMP_BOUNCE * 1.35); this.flipT = Math.min(this.flipT, 2); audio.play('boing'); return; }
+    this.flip(p);
+    p.bounce(TUNING.STOMP_BOUNCE * 1.15);
+  }
+  onFlop(p) { if (!this.alive) return; if (this.mode === 'flipped') this.squash(); else this.flip(p); }
+  onTouch(p) { if (!this.alive || this.mode === 'flipped') return; super.onTouch(p); }
+  onReset() { this.mode = 'walk'; this.flipT = 0; this.body.rotation.set(0, 0, 0); this.body.position.y = 0; }
+}

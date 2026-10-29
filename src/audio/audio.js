@@ -228,6 +228,13 @@ class AudioEngine {
       case 'suck': this._noise(1.4, 0.35, 0, 'bandpass', 1800, 250, 2); this._osc('sine', 300, 90, 1.4, 0.1); break;
       case 'stomp': this._osc('sine', 80, 30, 0.5, 0.8); this._noise(0.4, 0.5, 0, 'lowpass', 900, 60); break;
       case 'paw': this._osc('sine', 72, 36, 0.14, 0.3 * p); this._noise(0.1, 0.16 * p, 0, 'lowpass', 520, 110); break;
+      case 'clang': this._osc('square', 1240, 1190, 0.22, 0.1); this._osc('triangle', 1860, 1820, 0.32, 0.09, 0.004); this._noise(0.05, 0.22, 0, 'highpass', 3200); break;
+      case 'zip': this._noise(0.17, 0.3, 0, 'bandpass', 2200, 5600, 3); this._osc('square', 900, 1500, 0.12, 0.03); break;
+      case 'bonk': this._osc('sine', 560, 170, 0.13, 0.32); this._noise(0.06, 0.22, 0, 'lowpass', 1500, 300); break;
+      case 'whirr': this._noise(0.55, 0.2, 0, 'bandpass', 260, 1900, 2); this._osc('sawtooth', 85, 170, 0.55, 0.05); break;
+      case 'chime': this._osc('sine', 1318, 1318, 0.5, 0.13); this._osc('sine', 1760, 1760, 0.6, 0.09, 0.08); this._osc('sine', 2637, 2637, 0.7, 0.05, 0.16); break;
+      case 'flipOver': this._osc('triangle', 280, 720, 0.18, 0.18); this._noise(0.08, 0.2, 0, 'lowpass', 900); break;
+      case 'fade': this._osc('sine', 880, 330, 0.6, 0.1); this._osc('sine', 660, 250, 0.7, 0.07, 0.1); break;
       case 'menu': this._osc('square', 660, 660, 0.05, 0.08); break;
       case 'select': this._osc('square', 880, 1320, 0.12, 0.12); this._osc('triangle', 1320, 1760, 0.1, 0.1, 0.06); break;
       case 'blip': this._osc('square', 520 + Math.random() * 120, 520, 0.03, 0.04); break;
