@@ -68,6 +68,8 @@ export class Session {
     this.coconutSpawned = 0;  // coconuts launched this attempt; not rolled back on death
     this.coconutSeq = 0;
     this.collectedCoconuts = new Set();
+    this.lifeLine = Math.floor(Math.max(0, Number(save.data.tickets) || 0) / 100);
+    this._lifeLineHold = false;
     this.stats = null;
     this.deathsAtCp = 0;
     this.busy = false;     // transitions / dialogue
@@ -103,7 +105,7 @@ export class Session {
     g.camera.cam.updateProjectionMatrix();
     g.camera.endCinematic();
     g.camera.snap(g.player);
-    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw };
+    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
     this.deathsAtCp = 0;
   }
 
@@ -169,7 +171,7 @@ export class Session {
     p.frozen = true;
     audio.play('boing');
     await g.ui.fade(1, 0.25);
-    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw };
+    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
     p.spawnAt(R.start, R.facing);
     g.camera.snap(p);
     g.mask.snapTo(p);
@@ -187,11 +189,14 @@ export class Session {
       // roll back everything grabbed up there
       for (const e of this.stage.entities) if (e instanceof Breakable && e.broken && e.brokenSeq > B.seq) e.restore();
       this.tickets.restoreAfter(B.seq);
+      const lineBefore = this.lifeLine || 0;
       this.tickets.clearFlying();
+      this._undoLifeLinesAbove(lineBefore);
       save.data.tickets = B.tickets;
       this.levelTickets = B.levelTickets;
       this.fieldRaw = B.fieldRaw;
       this.coconutRaw = B.coconutRaw;
+      this._lifeLineHold = true;
       this._pushHud();
     } else B.tray.used = true;
     audio.play(kept ? 'checkpoint' : 'fade');
@@ -461,10 +466,37 @@ export class Session {
     if (gain <= 0) return;
     this.levelTickets = whole;
     const before = save.data.tickets;
+    if (!this._lifeLineHold) {
+      const spentLine = Math.floor(Math.max(0, before) / 100);
+      if (spentLine < (this.lifeLine || 0)) this._setLifeLine(spentLine);
+    }
     save.data.tickets += gain;
-    const lives = Math.floor(save.data.tickets / 100) - Math.floor(before / 100);
-    for (let i = 0; i < lives; i++) this.addLife(1);
+    this._grantLifeLines();
     this.game.ui.setHud('tickets', save.data.tickets);
+  }
+
+  _setLifeLine(line) {
+    const next = Math.max(0, Math.floor(line));
+    this.lifeLine = next;
+    if (this.cp) this.cp.lifeLine = next;
+  }
+
+  _grantLifeLines() {
+    const line = Math.floor(Math.max(0, save.data.tickets) / 100);
+    while ((this.lifeLine || 0) < line) {
+      this.lifeLine = (this.lifeLine || 0) + 1;
+      if (this.cp) this.cp.lifeLine = Math.max(this.cp.lifeLine || 0, this.lifeLine);
+      this.addLife(1);
+    }
+  }
+
+  _undoLifeLinesAbove(line) {
+    const floor = Math.max(0, Math.floor(line));
+    const current = this.lifeLine || 0;
+    if (current > floor) {
+      this.addLife(floor - current);
+      this._setLifeLine(floor);
+    }
   }
 
   addLife(n) {
@@ -494,7 +526,8 @@ export class Session {
   }
 
   checkpoint(pos, snacks) {
-    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw };
+    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
+    this._lifeLineHold = false;
     this.deathsAtCp = 0;
     this.game.ui.banner('CHECKPOINT!', 'yum', 1.4);
   }
@@ -552,7 +585,12 @@ export class Session {
       e.onRespawn?.();
     }
     this.tickets.restoreAfter(cp.seq);
+    const lineBefore = this.lifeLine || 0;
     this.tickets.clearFlying();
+    this._undoLifeLinesAbove(lineBefore);
+    const restored = Number.isFinite(cp.lifeLine) ? cp.lifeLine : lineBefore;
+    if ((this.lifeLine || 0) < restored) this._setLifeLine(restored);
+    this._lifeLineHold = true;
     save.data.tickets = cp.tickets;
     this.levelTickets = cp.levelTickets;
     this.fieldRaw = cp.fieldRaw || 0;
