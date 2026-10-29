@@ -219,27 +219,50 @@ function hasSession() {
   try { return !!sessionStorage.getItem(SESSION_KEY); } catch { return false; }
 }
 
-const REMAINING_CAP_KEYS = ['remainingCap', 'remaining_cap', 'remaining-cap'];
-const ALLOWANCE_KEYS = ['sessionTicketsRemaining', 'sessionTicketCapLeft', 'sessionTicketAllowance', 'remainingSessionTickets', ...REMAINING_CAP_KEYS];
+function wholeNumber(value) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null;
+}
 
-function numberField(obj, keys) {
-  if (!obj || typeof obj !== 'object') return null;
-  for (const key of keys) {
-    if (obj[key] == null || obj[key] === '') continue;
-    const value = Number(obj[key]);
-    if (Number.isFinite(value)) return Math.max(0, Math.floor(value));
+// One read for the hub ticket account. getTicketBalance() is the SDK hook (absent in 0.1.0).
+// Caps come from sessionCapLeft and dailyCapLeft. A cap rejection contributes remainingCap only.
+async function readTicketAccount(sdk, payload) {
+  let hooked = null;
+  if (sdk && typeof sdk.getTicketBalance === 'function') {
+    try { hooked = await sdk.getTicketBalance(); } catch { hooked = null; }
   }
-  return null;
+  const sources = [hooked, payload].filter((source) => source && typeof source === 'object');
+  const pick = (key) => {
+    for (const source of sources) {
+      const n = wholeNumber(source[key]);
+      if (n != null) return n;
+    }
+    return null;
+  };
+  let remainingCap = pick('remainingCap');
+  const message = payload && typeof payload.message === 'string' ? payload.message : '';
+  if (remainingCap == null && message) {
+    try { remainingCap = wholeNumber(JSON.parse(message).remainingCap); } catch { /* not a JSON payload */ }
+  }
+  const sessionCapLeft = pick('sessionCapLeft');
+  const dailyCapLeft = pick('dailyCapLeft');
+  const balance = pick('balance');
+  const caps = [sessionCapLeft, dailyCapLeft, remainingCap].filter((n) => n != null);
+  return {
+    balance,
+    sessionCapLeft,
+    dailyCapLeft,
+    remainingCap,
+    allowance: caps.length ? Math.min(...caps) : null,
+    capsFromHook: !!(hooked && (wholeNumber(hooked.sessionCapLeft) != null || wholeNumber(hooked.dailyCapLeft) != null)),
+  };
 }
 
 function errorInfo(err) {
   const code = err && typeof err.code === 'string' ? err.code : 'rejected';
   const message = err && err.message ? String(err.message) : String(err);
-  let remaining = numberField(err, REMAINING_CAP_KEYS);
-  if (remaining == null && typeof message === 'string') {
-    try { remaining = numberField(JSON.parse(message), REMAINING_CAP_KEYS); } catch { /* message is not JSON */ }
-  }
-  return { code, message, remaining };
+  return { code, message };
 }
 
 function isTerminal(code) {
@@ -330,7 +353,9 @@ class HubBridge {
     this.inSession = false;
     this.profile = null;
     this.verseCapLeft = null;
-    this.sessionAllowance = null;
+    this.sessionCapLeft = null;
+    this.dailyCapLeft = null;
+    this.rejectionRemaining = null;
     this.status = '';
     this._sdk = null;
     this._initing = null;
@@ -376,7 +401,21 @@ class HubBridge {
       this.reach = 'offline';
       this.inSession = hasSession();
     }
+    if (this.inSession) await this._syncTicketAccount();
     if (this.reach === 'ready' && this.inSession) await this.flush();
+  }
+
+  async _syncTicketAccount(payload) {
+    const account = await readTicketAccount(this._sdk, payload);
+    if (account.capsFromHook) this.rejectionRemaining = null;
+    if (account.sessionCapLeft != null) this.sessionCapLeft = account.sessionCapLeft;
+    if (account.dailyCapLeft != null) this.dailyCapLeft = account.dailyCapLeft;
+    if (account.remainingCap != null) this.rejectionRemaining = account.remainingCap;
+    if (this.inSession && account.balance != null) {
+      save.data.tickets = account.balance;
+      save.write();
+    }
+    return account;
   }
 
   view() {
@@ -536,9 +575,17 @@ class HubBridge {
   }
 
   _knownAllowance() {
-    const fromProfile = numberField(this.profile, ALLOWANCE_KEYS);
-    if (fromProfile != null) return fromProfile;
-    return this.sessionAllowance;
+    const caps = [this.sessionCapLeft, this.dailyCapLeft, this.rejectionRemaining].filter((n) => n != null);
+    if (!caps.length) return null;
+    return Math.min(...caps);
+  }
+
+  _spendAllowance(amount) {
+    const n = Math.floor(Number(amount));
+    if (!(n > 0)) return;
+    if (this.sessionCapLeft != null) this.sessionCapLeft = Math.max(0, this.sessionCapLeft - n);
+    if (this.dailyCapLeft != null) this.dailyCapLeft = Math.max(0, this.dailyCapLeft - n);
+    if (this.rejectionRemaining != null) this.rejectionRemaining = Math.max(0, this.rejectionRemaining - n);
   }
 
   async _bankAmount(key, earned) {
@@ -651,12 +698,17 @@ class HubBridge {
         cur.acked = true;
         return s;
       });
+      const account = await this._syncTicketAccount(result);
+      if (!account.capsFromHook) this._spendAllowance(rec.amount);
       return { ok: true, accepted: rec.amount };
     } catch (err) {
       const info = errorInfo(err);
-      if (info.code === 'session_ticket_cap') {
-        const allowance = info.remaining == null ? 0 : info.remaining;
-        this.sessionAllowance = allowance;
+      if (typeof info.code === 'string' && info.code.endsWith('_cap')) {
+        const account = await readTicketAccount(null, err);
+        const allowance = account.remainingCap == null ? 0 : account.remainingCap;
+        if (info.code === 'session_ticket_cap') this.sessionCapLeft = allowance;
+        else this.dailyCapLeft = allowance;
+        this.rejectionRemaining = allowance;
         await this._failWrite(err, id);
         if (!shrink || !(allowance > 0) || allowance >= rec.amount) return { ok: false, accepted: 0, code: info.code };
         const replaced = await this._commitEarn(id, allowance);
@@ -703,6 +755,7 @@ class HubBridge {
       if (!norm.receiptId || norm.receiptId === 'noop') return;
       if (!hasSession()) return;
       await this._applyReceipt(current.id, norm);
+      await this._syncTicketAccount(result);
     } catch (err) {
       const dropped = await this._failWrite(err, current.id);
       if (dropped && pendingExchange()?.id !== current.id) {
