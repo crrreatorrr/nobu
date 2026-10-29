@@ -118,7 +118,7 @@ html, body {
   min-height: 190px;
   transform: translate(-50%, 140%);
   transition: transform 0.35s cubic-bezier(.2,1.2,.4,1);
-  background: url('/assets/ui/textbox.webp') center / 100% 100% no-repeat;
+  background: var(--nobu-textbox) center / 100% 100% no-repeat;
   display: flex;
   align-items: center;
   padding: 30px 46px 30px 30px;
@@ -215,6 +215,11 @@ html, body {
 .map-node .nobu-marker { position: absolute; top: -92px; width: 80px; animation: hop 0.6s infinite alternate ease-in-out; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.5)); }
 @keyframes hop { to { transform: translateY(-10px); } }
 .map-panel { position: absolute; bottom: 3vh; left: 50%; transform: translateX(-50%); background: rgba(40, 10, 70, 0.88); border: 5px solid var(--orange); border-radius: 20px; padding: 14px 28px; text-align: center; box-shadow: 0 6px 0 var(--ink); min-width: min(620px, 90vw); }
+.exchange-panel { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); background: rgba(40, 10, 70, 0.94); border: 5px solid var(--orange); border-radius: 20px; padding: 16px 28px; text-align: center; box-shadow: 0 6px 0 var(--ink); min-width: min(520px, 92vw); z-index: 3; }
+.exchange-panel .ex-step { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 8px 0; }
+.exchange-panel .ex-amt { font-family: var(--font-display); font-size: 54px; color: var(--gold); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; min-width: 3.2ch; }
+.exchange-panel .ex-nudge { font-family: var(--font-display); font-size: 32px; color: var(--cream); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; }
+.exchange-panel .ex-nudge.disabled, .exchange-panel .menu-item.disabled { opacity: 0.35; }
 
 /* ---------- Level complete ---------- */
 .complete-wrap { display: flex; align-items: center; gap: 4vw; }

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@metaverse/hub-sdk": "file:vendor/hub-sdk",
     "three": "0.186.1"
   },
   "devDependencies": {

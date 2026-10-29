@@ -25,6 +25,7 @@ import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
 import { rand } from '../core/util.js';
+import { hub } from '../hub/hubBridge.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -102,6 +103,9 @@ export class Session {
 
   async startLevel() {
     const g = this.game;
+    const attempt = await hub.beginAttempt(this.level);
+    this.attemptId = attempt.id;
+    this.attemptDurable = attempt.ok;
     this.busy = true;
     this.phase = 'level';
     const stage = this._newStage(this.def.theme);
@@ -227,6 +231,7 @@ export class Session {
     const best = !prev || t < prev.best;
     if (best) d.trials[this.level] = { best: t, medal: trialMedal(this.level, t) };
     save.write();
+    if (best && !d.godMode) hub.submitScore(t, this.level);
     g.ui.trialTime(null);
     g.player.frozen = true;
     audio.play(medal ? 'oneUp' : 'checkpoint');
@@ -406,6 +411,7 @@ export class Session {
 
   onBossDefeated(boss) {
     const g = this.game;
+    if (this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
     this.busy = true;
     this.projectiles.clear();
     g.player.frozen = true;
@@ -429,12 +435,11 @@ export class Session {
   onEnemyDefeated() {}
 
   addTickets(n) {
+    const before = save.data.tickets;
     save.data.tickets += n;
     this.levelTickets += n;
-    while (save.data.tickets >= 100) {
-      save.data.tickets -= 100;
-      this.addLife(1);
-    }
+    const gained = Math.floor(save.data.tickets / 100) - Math.floor(before / 100);
+    for (let i = 0; i < gained; i++) this.addLife(1);
     this.game.ui.setHud('tickets', save.data.tickets);
   }
 

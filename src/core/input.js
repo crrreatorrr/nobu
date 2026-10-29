@@ -11,6 +11,8 @@ const KEYMAP = {
   KeyK: 'slide', ControlLeft: 'slide', ControlRight: 'slide',
   KeyL: 'bark', KeyE: 'bark',
   KeyT: 'trial',
+  KeyX: 'exchange',
+  KeyH: 'hub',
   Escape: 'pause', KeyP: 'pause',
   Enter: 'confirm',
   Backspace: 'back',
