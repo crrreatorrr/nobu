@@ -57,14 +57,14 @@ export class TicketSystem {
     this.total = this.list.length;
   }
 
-  spawnFlying(x, y, z, n) {
+  spawnFlying(x, y, z, n, source) {
     for (let i = 0; i < n; i++) {
       const m = this.flyPool.find((f) => !f.visible);
-      if (!m) { this.game.session.addTickets(1); continue; }
+      if (!m) { this.game.session.addTickets(1, source); continue; }
       m.visible = true;
       m.position.set(x, y, z);
       const a = Math.random() * Math.PI * 2;
-      this.flying.push({ m, vx: Math.cos(a) * 3, vy: 6 + Math.random() * 3, vz: Math.sin(a) * 3, t: -i * 0.06 });
+      this.flying.push({ m, source, vx: Math.cos(a) * 3, vy: 6 + Math.random() * 3, vz: Math.sin(a) * 3, t: -i * 0.06 });
     }
   }
 
@@ -116,7 +116,7 @@ export class TicketSystem {
         if (d < 0.5 || f.t > 2.2) {
           f.m.visible = false;
           this.flying.splice(i, 1);
-          this.game.session.addTickets(1);
+          this.game.session.addTickets(1, f.source);
           audio.play('ticket');
           continue;
         }
@@ -130,7 +130,7 @@ export class TicketSystem {
   }
 
   clearFlying() {
-    for (const f of this.flying) { f.m.visible = false; this.game.session.addTickets(1); }
+    for (const f of this.flying) { f.m.visible = false; this.game.session.addTickets(1, f.source); }
     this.flying.length = 0;
   }
 }

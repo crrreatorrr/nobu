@@ -26,6 +26,7 @@ import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
+import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -61,7 +62,12 @@ export class Session {
     this.mask = 0;
     this.invincibleT = 0;
     this.phase = 'level';
-    this.levelTickets = 0;
+    this.levelTickets = 0;   // whole Tickets this attempt, after NOBU_TICKET_SCALE
+    this.fieldRaw = 0;        // unscaled pickups other than coconuts; remainder is fieldRaw % scale
+    this.coconutRaw = 0;      // unscaled coconut pickups accepted under the per-clear cap
+    this.coconutSpawned = 0;  // coconuts launched this attempt; not rolled back on death
+    this.coconutSeq = 0;
+    this.collectedCoconuts = new Set();
     this.stats = null;
     this.deathsAtCp = 0;
     this.busy = false;     // transitions / dialogue
@@ -97,7 +103,7 @@ export class Session {
     g.camera.cam.updateProjectionMatrix();
     g.camera.endCinematic();
     g.camera.snap(g.player);
-    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets };
+    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw };
     this.deathsAtCp = 0;
   }
 
@@ -106,6 +112,7 @@ export class Session {
     const attempt = await hub.beginAttempt(this.level);
     this.attemptId = attempt.id;
     this.attemptDurable = attempt.ok;
+    await hub.bankCarry();
     this.busy = true;
     this.phase = 'level';
     const stage = this._newStage(this.def.theme);
@@ -162,7 +169,7 @@ export class Session {
     p.frozen = true;
     audio.play('boing');
     await g.ui.fade(1, 0.25);
-    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets };
+    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw };
     p.spawnAt(R.start, R.facing);
     g.camera.snap(p);
     g.mask.snapTo(p);
@@ -183,6 +190,8 @@ export class Session {
       this.tickets.clearFlying();
       save.data.tickets = B.tickets;
       this.levelTickets = B.levelTickets;
+      this.fieldRaw = B.fieldRaw;
+      this.coconutRaw = B.coconutRaw;
       this._pushHud();
     } else B.tray.used = true;
     audio.play(kept ? 'checkpoint' : 'fade');
@@ -198,14 +207,6 @@ export class Session {
   }
   finishBonusRound() { if (this.bonusRound && !this.busy) this._leaveBonusRound(true); }
 
-  // Quit, time trial, warp, and game over keep the tickets in the local save.
-  // Queue them once so the next level_end bank can include them.
-  holdUnbanked() {
-    if (this.hubHeld) return;
-    this.hubHeld = true;
-    hub.hold(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] hold failed', err));
-  }
-
   // ---------- secret warp ----------
   secretWarp(target) {
     if (this.trial || this.busy || this.phase !== 'level' || !LEVELS[target]) return false;
@@ -215,7 +216,6 @@ export class Session {
     save.data.bonus ||= {};
     save.data.bonus[target] = { ...(save.data.bonus[target] || {}), found: true };
     save.write();
-    this.holdUnbanked();
     audio.play('whoosh');
     audio.play('oneUp');
     g.ui.banner('SECRET WARP!', LEVEL_NAMES[target], 2);
@@ -240,7 +240,7 @@ export class Session {
     const best = !prev || t < prev.best;
     if (best) d.trials[this.level] = { best: t, medal: trialMedal(this.level, t) };
     save.write();
-    this.holdUnbanked();
+    hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     if (best && !d.godMode) hub.submitScore(t, this.level);
     g.ui.trialTime(null);
     g.player.frozen = true;
@@ -444,12 +444,26 @@ export class Session {
   onBreak() { this._pushHud(); }
   onEnemyDefeated() {}
 
-  addTickets(n) {
+  addTickets(n, source) {
+    n = Math.floor(Number(n));
+    if (!(n > 0)) return;
+    if (source === 'coconut') {
+      const capRaw = rawTicketsForWhole(COCONUT_CAP_PER_CLEAR);
+      const room = capRaw - this.coconutRaw;
+      if (room <= 0) return;
+      n = Math.min(n, room);
+      this.coconutRaw += n;
+    } else {
+      this.fieldRaw += n;
+    }
+    const whole = Math.min(COCONUT_CAP_PER_CLEAR, wholeTicketsFromRaw(this.coconutRaw)) + wholeTicketsFromRaw(this.fieldRaw);
+    const gain = whole - this.levelTickets;
+    if (gain <= 0) return;
+    this.levelTickets = whole;
     const before = save.data.tickets;
-    save.data.tickets += n;
-    this.levelTickets += n;
-    const gained = Math.floor(save.data.tickets / 100) - Math.floor(before / 100);
-    for (let i = 0; i < gained; i++) this.addLife(1);
+    save.data.tickets += gain;
+    const lives = Math.floor(save.data.tickets / 100) - Math.floor(before / 100);
+    for (let i = 0; i < lives; i++) this.addLife(1);
     this.game.ui.setHud('tickets', save.data.tickets);
   }
 
@@ -480,7 +494,7 @@ export class Session {
   }
 
   checkpoint(pos, snacks) {
-    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets };
+    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw };
     this.deathsAtCp = 0;
     this.game.ui.banner('CHECKPOINT!', 'yum', 1.4);
   }
@@ -541,6 +555,8 @@ export class Session {
     this.tickets.clearFlying();
     save.data.tickets = cp.tickets;
     this.levelTickets = cp.levelTickets;
+    this.fieldRaw = cp.fieldRaw || 0;
+    this.coconutRaw = cp.coconutRaw || 0;
     this.projectiles.clear();
     g.fx.clear();
     g.player.spawnAt(cp.pos, cp.facing);

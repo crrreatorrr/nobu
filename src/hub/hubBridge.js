@@ -3,6 +3,7 @@
 // and unacked writes stay queued for the next init.
 import { createHubSdk, HubEvent, BoardId, HUB_OUTBOX_DB, TICKETS_PER_VERSE, VERSE_DAILY_CAP } from '@metaverse/hub-sdk';
 import { save } from '../core/save.js';
+import { CARRY_MAX, LEVEL_END_MAX_AMOUNT } from '../config/tickets.js';
 
 const GAME_ID = 'nobu';
 const EARN_REASON = 'level_end';
@@ -45,7 +46,7 @@ function uuidv7() {
 }
 
 function emptyStore() {
-  return { v: 1, attempts: {}, earns: {}, relics: {}, held: {}, exchange: null, receipts: [] };
+  return { v: 1, attempts: {}, earns: {}, relics: {}, held: {}, carry: null, carryClearedKey: null, exchange: null, receipts: [] };
 }
 
 function asRecord(value) {
@@ -72,6 +73,11 @@ function sanitize(parsed) {
     if (!rec || !Number.isFinite(Number(rec.amount))) continue;
     store.held[id] = { amount: Math.floor(Number(rec.amount)), dropped: !!rec.dropped };
   }
+  const carry = parsed.carry;
+    if (carry && typeof carry === 'object' && typeof carry.key === 'string' && carry.key && Number.isFinite(Number(carry.amount)) && typeof carry.day === 'string') {
+    store.carry = { key: carry.key, amount: Math.floor(Number(carry.amount)), day: carry.day };
+  }
+  store.carryClearedKey = typeof parsed.carryClearedKey === 'string' ? parsed.carryClearedKey : null;
   for (const [id, rec] of Object.entries(asRecord(parsed.relics))) {
     if (!rec || typeof rec.key !== 'string' || !rec.key) continue;
     store.relics[id] = { key: rec.key, acked: !!rec.acked, dropped: !!rec.dropped };
@@ -99,10 +105,14 @@ function mergeEarns(disk = {}, ours = {}) {
   for (const id of new Set([...Object.keys(disk), ...Object.keys(ours)])) {
     const left = disk[id];
     const right = ours[id];
+    const covers = [...new Set([...(left?.covers || []), ...(right?.covers || [])])];
+    if (left?.dropped && right && !right.dropped && Number.isFinite(right.amount)) {
+      out[id] = { amount: right.amount, acked: !!right.acked, dropped: false, covers };
+      continue;
+    }
     const amount = left && Number.isFinite(left.amount) ? left.amount : right?.amount;
     if (!Number.isFinite(amount)) continue;
     const dropped = !!(left?.dropped || right?.dropped);
-    const covers = [...new Set([...(left?.covers || []), ...(right?.covers || [])])];
     out[id] = { amount, acked: dropped || !!(left?.acked || right?.acked), dropped, covers };
   }
   return out;
@@ -147,6 +157,22 @@ function mergeExchange(disk, ours) {
   return ours || disk || null;
 }
 
+function mergeCarry(disk, ours, diskClearedKey, oursClearedKey) {
+  const live = (carry) => (carry && carry.key && carry.amount > 0 && carry.day === utcDay() ? carry : null);
+  const left = live(disk);
+  const right = live(ours);
+  if (oursClearedKey && (!left || left.key === oursClearedKey)) return right && right.key !== oursClearedKey ? right : null;
+  if (!left) return right;
+  if (!right) return left;
+  if (left.key === right.key) return { key: left.key, amount: Math.min(CARRY_MAX, Math.max(left.amount, right.amount)), day: left.day };
+  if (diskClearedKey && left.key === diskClearedKey) return right;
+  return left;
+}
+
+function utcDay(now = Date.now()) {
+  return new Date(now).toISOString().slice(0, 10);
+}
+
 function mergeStore(disk, ours) {
   const left = sanitize(disk);
   const right = sanitize(ours);
@@ -155,6 +181,8 @@ function mergeStore(disk, ours) {
     attempts: { ...left.attempts, ...right.attempts },
     earns: mergeEarns(left.earns, right.earns),
     held: mergeHeld(left.held, right.held),
+    carry: mergeCarry(left.carry, right.carry, left.carryClearedKey, right.carryClearedKey),
+    carryClearedKey: right.carryClearedKey || left.carryClearedKey || null,
     relics: mergeRelics(left.relics, right.relics),
     exchange: mergeExchange(left.exchange, right.exchange),
     receipts: [...new Set([...(left.receipts || []), ...(right.receipts || [])])],
@@ -191,10 +219,27 @@ function hasSession() {
   try { return !!sessionStorage.getItem(SESSION_KEY); } catch { return false; }
 }
 
+const REMAINING_CAP_KEYS = ['remainingCap', 'remaining_cap', 'remaining-cap'];
+const ALLOWANCE_KEYS = ['sessionTicketsRemaining', 'sessionTicketCapLeft', 'sessionTicketAllowance', 'remainingSessionTickets', ...REMAINING_CAP_KEYS];
+
+function numberField(obj, keys) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (const key of keys) {
+    if (obj[key] == null || obj[key] === '') continue;
+    const value = Number(obj[key]);
+    if (Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  }
+  return null;
+}
+
 function errorInfo(err) {
   const code = err && typeof err.code === 'string' ? err.code : 'rejected';
   const message = err && err.message ? String(err.message) : String(err);
-  return { code, message };
+  let remaining = numberField(err, REMAINING_CAP_KEYS);
+  if (remaining == null && typeof message === 'string') {
+    try { remaining = numberField(JSON.parse(message), REMAINING_CAP_KEYS); } catch { /* message is not JSON */ }
+  }
+  return { code, message, remaining };
 }
 
 function isTerminal(code) {
@@ -285,6 +330,7 @@ class HubBridge {
     this.inSession = false;
     this.profile = null;
     this.verseCapLeft = null;
+    this.sessionAllowance = null;
     this.status = '';
     this._sdk = null;
     this._initing = null;
@@ -356,66 +402,33 @@ class HubBridge {
     return { id, ok: !!saved };
   }
 
-  // Tickets kept in the local save when an attempt ends without a level clear
-  // (quit, time trial). The next level_end earn includes them once, under that
-  // later attempt's key. A dropped earn releases them to roll forward again.
-  async hold(attemptId, amount, durable) {
-    const whole = Math.floor(Number(amount));
-    if (!attemptId || !(whole > 0)) return;
+  // Quit, game over, and secret warp do not call this. A finished time trial does.
+  async bank(attemptId, amount, durable) {
+    const earned = Math.floor(Number(amount)) || 0;
+    if (!attemptId || earned <= 0) return;
     if (!durable || !readStore().attempts[attemptId]) {
-      console.warn('[hub] tickets kept locally; attempt id was not saved so they are not queued for the next bank');
+      console.warn('[hub] earn not sent; attempt id was not saved');
       return;
     }
-    const wrote = await writeMerged((s) => {
-      if (s.held[attemptId] && Number.isFinite(s.held[attemptId].amount)) return s;
-      s.held[attemptId] = { amount: whole, dropped: false };
-      return s;
-    });
-    const saved = readStore().held[attemptId];
-    if (!wrote || !saved || !Number.isFinite(saved.amount)) console.warn('[hub] tickets kept locally; the hold was not saved');
+    const { accepted } = await this._bankAmount(attemptId, earned);
+    await this._addCarry(earned - accepted);
   }
 
-  async bank(attemptId, amount, durable) {
-    const levelAmount = Math.floor(Number(amount)) || 0;
-    if (!attemptId) return;
-    if (!durable || !readStore().attempts[attemptId]) {
-      if (levelAmount > 0) console.warn('[hub] earn not sent; attempt id was not saved');
+  // Carry from an earlier clear banks before this attempt's own tickets.
+  async bankCarry() {
+    await this._expireCarry();
+    const carry = readStore().carry;
+    if (!carry || !(carry.amount > 0)) return;
+    const { accepted, code } = await this._bankAmount(carry.key, carry.amount);
+    if (accepted <= 0 && code && code !== 'session_ticket_cap' && isTerminal(code)) {
+      console.warn('[hub] carry dropped', code, carry.key);
+      await this._clearCarry(carry.key);
       return;
     }
-    let send = false;
-    const wrote = await writeMerged((s) => {
-      const covered = new Set();
-      for (const rec of Object.values(s.earns)) {
-        if (rec.dropped) continue;
-        for (const id of rec.covers || []) covered.add(id);
-      }
-      let extra = 0;
-      const covers = [];
-      for (const [id, rec] of Object.entries(s.held)) {
-        if (id === attemptId || covered.has(id) || rec.dropped || !(rec.amount > 0)) continue;
-        extra += rec.amount;
-        covers.push(id);
-      }
-      const whole = levelAmount + extra;
-      if (!(whole > 0)) return s;
-      const existing = s.earns[attemptId];
-      if (existing && Number.isFinite(existing.amount)) {
-        if (!existing.dropped && existing.amount >= whole) existing.covers = [...new Set([...(existing.covers || []), ...covers])];
-        send = !existing.acked && !existing.dropped;
-        return s;
-      }
-      s.earns[attemptId] = { amount: whole, acked: false, dropped: false, covers };
-      send = true;
-      return s;
-    });
-    if (!wrote) {
-      console.warn('[hub] earn not sent; could not save the idempotency key');
-      return;
-    }
-    if (!send) return;
-    await this.init();
-    if (this.reach !== 'ready' || !this.inSession) return;
-    await this._sendEarn(attemptId);
+    if (accepted <= 0) return;
+    const rest = carry.amount - accepted;
+    if (rest <= 0) await this._clearCarry(carry.key);
+    else await this._replaceCarry(rest, carry.day);
   }
 
   async reportCone(attemptId, durable) {
@@ -501,9 +514,19 @@ class HubBridge {
   }
 
   async flush() {
+    this._flushing = true;
+    try {
+      await this.bankCarry();
+    } finally {
+      this._flushing = false;
+    }
     const store = readStore();
     for (const [id, rec] of Object.entries(store.earns)) {
-      if (!rec.acked && !rec.dropped && rec.amount > 0) await this._sendEarn(id);
+      if (!rec.acked && !rec.dropped && rec.amount > 0) {
+        const sent = await this._sendEarn(id);
+        const accepted = sent.ok || sent.queued ? (sent.accepted ?? rec.amount) : 0;
+        if (accepted < rec.amount) await this._addCarry(rec.amount - accepted);
+      }
     }
     for (const [id, rec] of Object.entries(store.relics)) {
       if (!rec.acked && !rec.dropped && rec.key) await this._sendRelic(id);
@@ -512,10 +535,84 @@ class HubBridge {
     if (ex) await this._sendExchange(ex);
   }
 
+  _knownAllowance() {
+    const fromProfile = numberField(this.profile, ALLOWANCE_KEYS);
+    if (fromProfile != null) return fromProfile;
+    return this.sessionAllowance;
+  }
+
+  async _bankAmount(key, earned) {
+    const allowance = this._knownAllowance();
+    if (allowance === 0) return { accepted: 0, code: 'session_ticket_cap' };
+    const planned = Math.min(earned, allowance ?? earned, LEVEL_END_MAX_AMOUNT);
+    if (!(planned > 0)) return { accepted: 0 };
+    const committed = await this._commitEarn(key, planned);
+    if (!committed) return { accepted: 0, code: 'persist' };
+    if (committed.acked && !committed.dropped) return { accepted: committed.amount };
+    if (!this._flushing) await this.init();
+    if (this.reach !== 'ready' || !this.inSession) return { accepted: committed.amount, queued: true };
+    const sent = await this._sendEarn(key);
+    if (sent.ok || sent.queued) return { accepted: sent.accepted ?? committed.amount, queued: !!sent.queued, code: sent.code };
+    return { accepted: 0, code: sent.code };
+  }
+
+  async _addCarry(amount) {
+    const add = Math.floor(Number(amount));
+    if (!(add > 0)) return;
+    let discarded = 0;
+    await writeMerged((s) => {
+      const today = utcDay();
+      const cur = s.carry && s.carry.day === today ? s.carry : null;
+      const earn = cur ? s.earns[cur.key] : null;
+      const inFlight = earn && !earn.acked && !earn.dropped;
+      if (inFlight) {
+        discarded = add;
+        return s;
+      }
+      const settled = earn && (earn.acked || earn.dropped);
+      const base = cur && !settled ? cur.amount : 0;
+      const key = cur && !settled ? cur.key : uuidv7();
+      const accepted = Math.min(Math.max(0, CARRY_MAX - base), add);
+      discarded = add - accepted;
+      if (!(accepted > 0)) return s;
+      s.carry = { key, amount: base + accepted, day: today };
+      return s;
+    });
+    if (discarded > 0) console.warn('[hub] discarded tickets above carry cap', discarded);
+  }
+
+  async _expireCarry() {
+    await writeMerged((s) => {
+      if (s.carry && s.carry.day !== utcDay()) s.carry = null;
+      return s;
+    });
+  }
+
+  async _clearCarry(key) {
+    await writeMerged((s) => {
+      if (!s.carry || !key || s.carry.key === key) {
+        s.carry = null;
+        s.carryClearedKey = key || s.carryClearedKey;
+      }
+      return s;
+    });
+  }
+
+  async _replaceCarry(amount, day) {
+    const next = Math.min(CARRY_MAX, Math.floor(amount));
+    if (!(next > 0)) return;
+    await writeMerged((s) => {
+      s.carryClearedKey = s.carry?.key || s.carryClearedKey;
+      s.carry = { key: uuidv7(), amount: next, day };
+      return s;
+    });
+  }
+
   async _commitEarn(id, amount) {
     const wrote = await writeMerged((s) => {
-      if (s.earns[id] && Number.isFinite(s.earns[id].amount)) return s;
-      s.earns[id] = { amount, acked: false, dropped: false };
+      const existing = s.earns[id];
+      if (existing && Number.isFinite(existing.amount) && !existing.dropped) return s;
+      s.earns[id] = { amount, acked: false, dropped: false, covers: existing?.covers || [] };
       return s;
     });
     if (!wrote) return null;
@@ -537,24 +634,43 @@ class HubBridge {
     return rec;
   }
 
-  async _sendEarn(id) {
+  async _sendEarn(id, shrink = true) {
     const rec = readStore().earns[id];
-    if (!rec || rec.acked || rec.dropped || !(rec.amount > 0)) return;
-    if (this.reach !== 'ready' || !this.inSession) return;
+    if (!rec || !(rec.amount > 0)) return { ok: false, accepted: 0 };
+    if (rec.acked && !rec.dropped) return { ok: true, accepted: rec.amount };
+    if (rec.dropped || this.reach !== 'ready' || !this.inSession) return { queued: !rec.dropped, accepted: rec.dropped ? 0 : rec.amount };
     try {
       const result = await this.sdk.earnTickets(rec.amount, EARN_REASON, id);
       // Standalone no-op is { balance: 0, capped: false } and must stay queued.
-      if (!result || typeof result.balance !== 'number') return;
-      if (result.balance === 0 && result.capped === false) return;
-      if (!hasSession()) return;
+      if (!result || typeof result.balance !== 'number' || (result.balance === 0 && result.capped === false) || !hasSession()) {
+        return { queued: true, accepted: rec.amount };
+      }
       await writeMerged((s) => {
         const cur = s.earns[id];
         if (!cur || cur.dropped || cur.amount !== rec.amount) return s;
         cur.acked = true;
         return s;
       });
+      return { ok: true, accepted: rec.amount };
     } catch (err) {
-      await this._failWrite(err, id);
+      const info = errorInfo(err);
+      if (info.code === 'session_ticket_cap') {
+        const allowance = info.remaining == null ? 0 : info.remaining;
+        this.sessionAllowance = allowance;
+        await this._failWrite(err, id);
+        if (!shrink || !(allowance > 0) || allowance >= rec.amount) return { ok: false, accepted: 0, code: info.code };
+        const replaced = await this._commitEarn(id, allowance);
+        if (!replaced || replaced.amount !== allowance) return { ok: false, accepted: 0, code: info.code };
+        const second = await this._sendEarn(id, false);
+        if (second.ok || second.queued) return { ...second, accepted: allowance, code: info.code };
+        return { ok: false, accepted: 0, code: second.code || info.code };
+      }
+      if (isTerminal(info.code)) {
+        await this._failWrite(err, id);
+        return { ok: false, accepted: 0, code: info.code };
+      }
+      console.warn('[hub] write not acked', info.code, id, info.message);
+      return { queued: true, accepted: rec.amount, code: info.code };
     }
   }
 

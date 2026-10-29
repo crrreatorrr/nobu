@@ -12,6 +12,7 @@ import { canvasTex, rand, pick, damp } from '../core/util.js';
 import { audio } from '../audio/audio.js';
 import { makeShadow, textSprite } from './fx.js';
 import { TUNING } from '../player/player.js';
+import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole } from '../config/tickets.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { switchCrate, pulseSwitches } from './switchCrate.js';
 
@@ -644,13 +645,17 @@ export class CoconutRoller extends Entity {
     const ps = pl.body.s ?? 0;
     const active = ps > this.until - 6 && ps < this.d;
     this.timer -= dt;
-    if (active && this.timer <= 0) {
+    const session = this.game.session;
+    const spawnCap = rawTicketsForWhole(COCONUT_CAP_PER_CLEAR);
+    if (active && this.timer <= 0 && session && session.coconutSpawned < spawnCap) {
       this.timer = this.every;
       const m = new THREE.Mesh(this.geo, this.mat);
       m.castShadow = true;
       this.stage.scene.add(m);
-      this.balls.push({ m, s: this.d, u: pick(this.lanes), alive: true });
-    }
+      const id = ++session.coconutSeq;
+      session.coconutSpawned++;
+      this.balls.push({ id, m, s: this.d, u: pick(this.lanes), alive: true });
+    } else if (active && this.timer <= 0) this.timer = this.every;
     for (let i = this.balls.length - 1; i >= 0; i--) {
       const b = this.balls[i];
       b.s -= this.speed * dt;
@@ -665,7 +670,11 @@ export class CoconutRoller extends Entity {
           b.alive = false;
           audio.play('chompHit');
           this.fx.burst(b.m.position.x, b.m.position.y, b.m.position.z, { count: 10, colors: [0x6a4020, 0xffffff], size: 0.15 });
-          this.game.tickets.spawnFlying(b.m.position.x, b.m.position.y, b.m.position.z, 1);
+          // A collected coconut stays collected for the attempt. It is not spawned again.
+          if (session && !session.collectedCoconuts.has(b.id)) {
+            session.collectedCoconuts.add(b.id);
+            this.game.tickets.spawnFlying(b.m.position.x, b.m.position.y, b.m.position.z, 1, 'coconut');
+          }
         } else if (pl.vel.y < 0 && pl.pos.y > b.m.position.y + 0.1) {
           b.alive = false;
           pl.bounce(TUNING.STOMP_BOUNCE);
