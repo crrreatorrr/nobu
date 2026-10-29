@@ -19,6 +19,8 @@ function fresh() {
     nobuModel: 'glb',        // 'glb' (Higgsfield 3D) or 'classic' (primitives)
     pixelated: false,
     godMode: false,          // title-screen cheat: no damage + 4 jumps in a row
+    // Equip choice only. Ownership is not stored here; effects are derived at runtime.
+    loadout: { slots: { head: null, neck: null, back: null, body: null } },
     bonus: {},               // bonus stages: { ride: { beaten, best }, cave: {...} }
     trials: {},              // time trials: { 1: { best: seconds, medal } }
     colorBones: {},          // colored bones found: { red: true, blue: true }
@@ -49,7 +51,7 @@ export const save = {
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* storage unavailable */ }
   },
   reset() {
-    const keep = { nobuModel: data.nobuModel, pixelated: data.pixelated, godMode: data.godMode, musicVol: data.musicVol, sfxVol: data.sfxVol };
+    const keep = { nobuModel: data.nobuModel, pixelated: data.pixelated, godMode: data.godMode, musicVol: data.musicVol, sfxVol: data.sfxVol, loadout: data.loadout };
     data = { ...fresh(), ...keep };
     this.write();
   },

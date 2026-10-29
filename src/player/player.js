@@ -9,6 +9,7 @@ import { Assets } from '../art/assets.js';
 import { NobuAnimator } from './nobuAnim.js';
 import { NobuPrims } from './nobuPrims.js';
 import { NobuGlb } from './nobuGlb.js';
+import { dressNobuModel, setCollarGlow } from './accessories.js';
 import { makeShadow, placeShadow } from '../entities/fx.js';
 import { rideVacuumMesh } from '../entities/ride.js';
 
@@ -31,6 +32,17 @@ export const TUNING = {
   BITE_RANGE: 0.95,
   FLOP_SPEED: 30,
   STOMP_BOUNCE: 10.5,
+};
+
+// Mega Bark with nothing equipped. Spell Bark replaces these while the hat is on.
+export const BARK_BASE = {
+  cooldown_s: 0.9,
+  rings: 3,
+  ring_step_m: 1.7,
+  color: 0xfff1a8,
+  range_m: 6.5,
+  cone_dot: 0.55,
+  y_tol_m: 2.5,
 };
 
 const _fwd = new THREE.Vector3();
@@ -68,6 +80,8 @@ export class Player {
     this.model.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.root.add(this.model.root);
     this.modelKind = this.model instanceof NobuGlb ? 'glb' : 'classic';
+    dressNobuModel(this.model, this.game?.loadout);
+    this._equippedNeck = this.game?.loadout?.cosmeticSlots()?.neck || null;
   }
 
   attach(scene) {
@@ -92,6 +106,7 @@ export class Player {
     this.flopPhase = null;
     this.flopT = 0;
     this.invulnT = 0;
+    this.guardCharges = 0;
     this.deathType = null;
     this.deathT = 0;
     this.landT = 1;
@@ -126,14 +141,20 @@ export class Player {
     this.facing = this.targetFacing = facing;
     this.root.position.copy(p);
     this.root.rotation.y = facing;
+    this.rechargeGuard();
   }
 
   get dead() { return this.mode === 'dead'; }
   get invincible() { return this.game.session?.invincibleT > 0; }
   // God mode (title-screen toggle): no damage, pits bounce you back, and 4 jumps in a row (ground + 3 in the air)
   get god() { return !!save.data.godMode; }
-  // moves earned from bosses: Tail Glide (Mecha Bird), Zoomies (Big Cat), Mega Bark (Evil Cone)
-  get abilities() { const b = save.data.beaten || []; return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] }; }
+  // Equipped Relic params. Empty in Ranked, and empty until init has reported ownership.
+  get gear() { return this.game.loadout?.effects || {}; }
+  // Boss moves, plus Mega Bark while the Wizard Hat is equipped. Never writes beaten.
+  get abilities() {
+    const b = save.data.beaten || [];
+    return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] || !!this.gear.spell_bark };
+  }
   get canDouble() { return this.airJumps > 0; }
   set canDouble(v) { this.airJumps = v ? (this.god ? 3 : 1) : 0; }
   get forward() { return _fwd.set(Math.sin(this.facing), 0, Math.cos(this.facing)); }
@@ -425,21 +446,24 @@ export class Player {
     }
   }
 
-  // Mega Bark: a blast of sound in front of Nobu that knocks enemies over, breaks backpacks and cracks Bark Rocks
+  // Mega Bark: a blast of sound in front of Nobu that knocks enemies over, breaks backpacks and cracks Bark Rocks.
+  // Spell Bark widens and lengthens it. Bosses (maxHp) are still skipped. There is no stun state.
   _bark() {
-    this.barkCool = 0.9;
+    const spell = this.gear.spell_bark;
+    const B = spell || BARK_BASE;
+    this.barkCool = B.cooldown_s;
     this.barkT = 0;
     audio.play('bark');
     audio.play('gust');
     const f = this.forward, p = this.pos, fx = this.game.fx;
-    for (let i = 1; i <= 3; i++) fx?.shock(p.x + f.x * i * 1.7, p.y + 0.7, p.z + f.z * i * 1.7, { radius: 0.7 + i * 0.6, color: 0xfff1a8, life: 0.3 + i * 0.05, k: 0.7 });
-    fx?.puff(p.x + f.x * 0.9, p.y + 1.0, p.z + f.z * 0.9, { count: 4, size: 0.35, color: 0xffffff, speed: 3, up: 0 });
+    for (let i = 1; i <= B.rings; i++) fx?.shock(p.x + f.x * i * B.ring_step_m, p.y + 0.7, p.z + f.z * i * B.ring_step_m, { radius: 0.7 + i * 0.6, color: B.color, life: 0.3 + i * 0.05, k: 0.7 });
+    fx?.puff(p.x + f.x * 0.9, p.y + 1.0, p.z + f.z * 0.9, { count: 4, size: 0.35, color: spell ? B.color : 0xffffff, speed: 3, up: 0 });
     this.game.camera.shake(0.25, 0.2);
     for (const e of this.game.stage.entities) {
       if (e.dead || e === this || e.maxHp !== undefined) continue;
       const dx = e.pos.x - p.x, dz = e.pos.z - p.z, d = Math.hypot(dx, dz);
-      if (d > 6.5 || d < 0.05 || Math.abs(e.pos.y - p.y) > 2.5) continue;
-      if ((dx * f.x + dz * f.z) / d < 0.55) continue;
+      if (d > B.range_m || d < 0.05 || Math.abs(e.pos.y - p.y) > B.y_tol_m) continue;
+      if ((dx * f.x + dz * f.z) / d < B.cone_dot) continue;
       if (e.onBark) { e.onBark(this); continue; }
       if (!e.interactive || e.kind === 'rug' || (e.kind === 'cat' && d < 3.5)) continue;
       e.onExplosion?.({ pos: p });
@@ -531,8 +555,53 @@ export class Player {
       if (this.body.grounded) this.vel.y = 6;
       return true;
     }
+    // Mask first, then the Golden Collar, then death. Pits and crushers call die() and skip this.
+    const guard = this.gear.damage_guard;
+    if (guard && this.guardCharges > 0) {
+      this.guardCharges -= 1;
+      this.invulnT = guard.invuln_s;
+      audio.play('maskLost');
+      this.game.camera.shake(0.35, 0.3);
+      if (fromX !== undefined) {
+        const dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
+        const d = Math.hypot(dx, dz) || 1;
+        this.vel.x = (dx / d) * guard.knockback;
+        this.vel.z = (dz / d) * guard.knockback;
+      }
+      if (this.body.grounded) this.vel.y = 6;
+      this.game.accessories?.flashCollar(false);
+      this._paintGear();
+      return true;
+    }
     this.die(type);
     return true;
+  }
+
+  // Spawn and checkpoints call this. A collar equipped mid-level stays empty until one of them.
+  rechargeGuard() {
+    const guard = this.gear.damage_guard;
+    this.guardCharges = guard ? guard.guard_charges : 0;
+    this._equippedNeck = this.game?.loadout?.cosmeticSlots()?.neck || null;
+    this._paintGear();
+  }
+
+  // Wardrobe changes apply immediately. Refill is only for spawn; a pause equip starts at 0 charges.
+  applyGear({ refill = false } = {}) {
+    const prev = this._equippedNeck || null;
+    dressNobuModel(this.model, this.game?.loadout);
+    const neck = this.game?.loadout?.cosmeticSlots()?.neck || null;
+    const guard = this.gear.damage_guard;
+    if (!guard) this.guardCharges = 0;
+    else if (refill) this.guardCharges = guard.guard_charges;
+    else if (prev !== 'nobu_golden_collar') this.guardCharges = 0;
+    this._equippedNeck = neck;
+    this._paintGear();
+  }
+
+  _paintGear() {
+    if (this.model?.gearHat) this.model.gearHat.visible = this.deathType !== 'cone';
+    if (this.invulnT > 0 || this.invincible) return;
+    setCollarGlow(this.model, this.guardCharges > 0);
   }
 
   // God mode: fell in a pit -> pop back up onto the last solid footing
@@ -657,6 +726,7 @@ export class Player {
       this.root.visible = true;
       this.model.setTint?.(0x000000, 0);
     }
+    this._paintGear();
   }
 
   _updateShadow(stage) {

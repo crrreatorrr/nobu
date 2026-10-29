@@ -90,6 +90,8 @@ export class NobuGlb {
     this.chomp.visible = false;
     this.root.add(this.chomp);
     this.headSocket = this.bones.Head ? this.bones.Head.bone : this.body;
+    this.neckSocket = this.bones.neck?.bone || this.bones.Spine01?.bone || this.body;
+    this.hatLift = 0.22;
   }
 
   _rot(name, d) {

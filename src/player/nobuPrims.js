@@ -43,6 +43,10 @@ export class NobuPrims {
     band.scale.z = 0.9;
     const flap = add(this.chest, new THREE.ConeGeometry(0.13, 0.2, 3), M.bandana, 0, 0.33, 0.13);
     flap.rotation.set(Math.PI, 0, 0); flap.scale.z = 0.4;
+    this.bandana = [band, flap];
+    this.neckSocket = new THREE.Group();
+    this.neckSocket.position.set(0, 0.43, 0);
+    this.chest.add(this.neckSocket);
     add(this.chest, new THREE.CylinderGeometry(0.045, 0.045, 0.015, 14), M.coin, 0, 0.26, 0.18).rotation.x = Math.PI / 2;
 
     // head
@@ -117,6 +121,7 @@ export class NobuPrims {
     this.allMeshes = [];
     this.root.traverse((o) => { if (o.isMesh) this.allMeshes.push(o); });
     this.headSocket = this.head;
+    this.hatLift = 0.46;
   }
 
   apply(P) {
