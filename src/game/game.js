@@ -346,7 +346,7 @@ export class Game {
     const shown = pending ? pending.tickets : this.exAmount;
     const verse = Math.floor(shown / TICKETS_PER_VERSE);
     const locked = !!pending || this.exBusy;
-    const can = !locked && view.reach === 'ready' && view.inSession && shown >= TICKETS_PER_VERSE && shown <= max;
+    const can = !locked && view.reach === 'ready' && view.inSession && shown >= TICKETS_PER_VERSE && shown % TICKETS_PER_VERSE === 0 && shown <= max;
     const cap = view.verseCapLeft == null ? '' : `<div class="hint">Verse left today: ${view.verseCapLeft}</div>`;
     let status = view.pending ? 'Exchange pending' : view.status;
     if (!status && view.reach === 'pending') status = 'Connecting to the hub…';
@@ -408,7 +408,7 @@ export class Game {
         this._drawMap();
       }
     }
-    if ((input.confirmPressed() || input.pressed('bite')) && this.exAmount >= TICKETS_PER_VERSE && this.exAmount <= max && view.reach === 'ready' && view.inSession) {
+    if ((input.confirmPressed() || input.pressed('bite')) && this.exAmount >= TICKETS_PER_VERSE && this.exAmount % TICKETS_PER_VERSE === 0 && this.exAmount <= max && view.reach === 'ready' && view.inSession) {
       audio.play('select');
       this._confirmExchange();
     }
@@ -418,9 +418,10 @@ export class Game {
     if (this.exBusy) return;
     const view = hub.view();
     const spendable = view.inSession ? hub.exchangeableTickets() : save.data.tickets;
+    const max = maxExchangeTickets(spendable);
     const amount = Math.floor(Number(this.exAmount) || 0);
-    // The panel steps by 10, but a server balance smaller than that is still spendable.
-    if (view.reach !== 'ready' || !view.inSession || !(amount > 0) || amount > spendable) return;
+    // 10 Tickets = 1 Verse. Under 10, or any amount that is not a step of 10, sends nothing.
+    if (view.reach !== 'ready' || !view.inSession || amount < TICKETS_PER_VERSE || amount % TICKETS_PER_VERSE !== 0 || amount > max) return;
     this.exBusy = true;
     this._drawMap();
     try { await hub.exchange(amount); }

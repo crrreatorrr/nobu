@@ -329,7 +329,7 @@ function errorInfo(err) {
 
 function isTerminal(code) {
   if (typeof code !== 'string' || code === 'rpc_failed' || code === 'rejected') return false;
-  return code === 'idempotency_mismatch' || code === 'amount_over_rule' || code.endsWith('_cap');
+  return code === 'idempotency_mismatch' || code === 'amount_over_rule' || code === 'zero_value' || code.endsWith('_cap');
 }
 
 async function openWrites(mode) {
