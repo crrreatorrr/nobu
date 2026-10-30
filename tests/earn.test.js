@@ -3,7 +3,7 @@ import { Game } from '../src/game/game.js';
 import { Session } from '../src/game/session.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { save, START_LIVES } from '../src/core/save.js';
-import { captureBank, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
+import { captureBank, creditedForBase, levelEndCalls, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
 import { CARRY_MAX, rawTicketsForWhole } from '../src/config/tickets.js';
 import { creditedEarnTotal, hubError, sdk } from './sdkState.js';
 
@@ -71,9 +71,11 @@ describe('case 1: one attempt produces one earn key', () => {
     // A later clear in the same attempt may see a different haul. The key stays put.
     await hub.bank(attempt.id, 99, true);
 
-    expect(sdk.calls.earn.every((call) => call.key === attempt.id && call.amount === 40 && call.reason === 'level_end')).toBe(true);
+    const chunks = levelEndCalls(attempt.id, 40);
+    expect(sdk.calls.earn.every((call) => chunks.some((chunk) => chunk.key === call.key && chunk.amount === call.amount && chunk.reason === call.reason))).toBe(true);
+    expect(sdk.calls.earn.some((call) => call.key === attempt.id || call.amount === 99)).toBe(false);
     expect(creditedEarnTotal()).toBe(40);
-    expect(sdk.earnLedger.size).toBe(1);
+    expect(sdk.earnLedger.size).toBe(chunks.length);
   });
 
   it('a reload mid-attempt keeps the attempt key and does not send an earn', async () => {
@@ -145,7 +147,7 @@ describe('case 1: one attempt produces one earn key', () => {
     // is a carry with its own key, credited once at the next bankCarry, not added
     // onto the attempt and not summed with it.
     expect(readHubStore().earns[attempt.id]).toMatchObject({ amount: 25, acked: true });
-    expect(sdk.calls.earn.filter((call) => call.key === attempt.id).every((call) => call.amount === 25)).toBe(true);
+    expect(sdk.calls.earn.filter((call) => call.key === attempt.id || call.key.startsWith(`${attempt.id}:`))).toEqual(levelEndCalls(attempt.id, 25));
     expect(creditedEarnTotal()).toBe(25);
     const carry = readHubStore().carry;
     expect(carry.amount).toBe(15);
@@ -154,7 +156,7 @@ describe('case 1: one attempt produces one earn key', () => {
     await hub.bankCarry();
     expect(creditedEarnTotal()).toBe(40);
     expect(sdk.earnLedger.get(carry.key).amount).toBe(15);
-    expect(sdk.earnLedger.get(attempt.id).amount).toBe(25);
+    expect(creditedForBase(attempt.id)).toBe(25);
     expect(save.data.lives).toBe(START_LIVES);
     expect(CARRY_MAX).toBeGreaterThan(15);
   });

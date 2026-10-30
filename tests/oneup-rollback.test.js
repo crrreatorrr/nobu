@@ -4,7 +4,7 @@ import { TicketSystem } from '../src/entities/tickets.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { Session } from '../src/game/session.js';
 import { rawTicketsForWhole } from '../src/config/tickets.js';
-import { readyHub, resetWorld } from './helpers.js';
+import { levelEndCalls, readyHub, resetWorld } from './helpers.js';
 import { creditedEarnTotal, sdk } from './sdkState.js';
 
 beforeEach(async () => {
@@ -172,7 +172,7 @@ describe('case 5: 1UPs and the rolled-back balance', () => {
     expect(session.levelTickets).toBe(40);
 
     await hub.bank(session.attemptId, session.levelTickets, session.attemptDurable);
-    expect(sdk.calls.earn).toEqual([{ amount: 40, reason: 'level_end', key: attempt.id }]);
+    expect(sdk.calls.earn).toEqual(levelEndCalls(attempt.id, 40));
     expect(creditedEarnTotal()).toBe(40);
   });
 });

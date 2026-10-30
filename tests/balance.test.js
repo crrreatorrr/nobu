@@ -14,7 +14,7 @@ import { CoconutRoller } from '../src/entities/props.js';
 import { Game } from '../src/game/game.js';
 import { Session } from '../src/game/session.js';
 import { hub, TICKETS_PER_VERSE } from '../src/hub/hubBridge.js';
-import { grantSession, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
+import { creditedForBase, grantSession, levelEndCalls, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
 import { creditedEarnTotal, hubError, sdk } from './sdkState.js';
 
 const DAY = '2026-06-15T12:00:00.000Z';
@@ -125,7 +125,7 @@ describe('ticket scale', () => {
 
     const attempt = await hub.beginAttempt('cave');
     await hub.bank(attempt.id, glowworm.levelTickets, true);
-    expect(sdk.earnLedger.get(attempt.id).amount).toBe(whole);
+    expect(creditedForBase(attempt.id)).toBe(whole);
     expect(readHubStore().carry).toBeNull();
 
     const again = playSession();
@@ -388,7 +388,7 @@ describe('local-only tickets', () => {
 });
 
 describe('carry', () => {
-  it('banks min(earned, allowance, level-end max) and carries the rest under its own key', async () => {
+  it('banks min(earned, allowance) in level-end chunks and carries the rest under its own key', async () => {
     sdk.ticketBalance = { balance: 0, sessionCapLeft: 80, dailyCapLeft: 50 };
     resetHub(hub);
     await hub.init();
@@ -397,10 +397,10 @@ describe('carry', () => {
     await hub.bank(attempt.id, earned, true);
 
     const allowance = Math.min(80, 50);
-    const sent = Math.min(earned, allowance, LEVEL_END_MAX_AMOUNT);
-    expect(sdk.calls.earn).toEqual([
-      { amount: sent, reason: 'level_end', key: attempt.id },
-    ]);
+    const sent = Math.min(earned, allowance);
+    expect(sdk.calls.earn).toEqual(levelEndCalls(attempt.id, sent));
+    expect(sdk.calls.earn.every((call) => call.amount <= LEVEL_END_MAX_AMOUNT)).toBe(true);
+    expect(sdk.calls.earn.reduce((sum, call) => sum + call.amount, 0)).toBe(sent);
     const carry = readHubStore().carry;
     expect(carry.key).toMatch(UUID_V7);
     expect(carry.key).not.toBe(attempt.id);
@@ -412,6 +412,7 @@ describe('carry', () => {
   it('uses the one cap that is present, treats 0 as a hard stop, and uses capLeft only as a fallback', async () => {
     const isolate = async (account) => {
       localStorage.removeItem('nobu-hub-writes-v1');
+      localStorage.removeItem('nobu-hub-writes-v2');
       sdk.calls.earn.length = 0;
       sdk.earnLedger.clear();
       sdk.ticketBalance = account;
@@ -422,12 +423,12 @@ describe('carry', () => {
     await isolate({ balance: 0, dailyCapLeft: 40 });
     let attempt = await hub.beginAttempt(1);
     await hub.bank(attempt.id, 200, true);
-    expect(sdk.calls.earn.map((call) => call.amount)).toEqual([Math.min(200, 40, LEVEL_END_MAX_AMOUNT)]);
+    expect(sdk.calls.earn).toEqual(levelEndCalls(attempt.id, 40));
 
     await isolate({ balance: 0, sessionCapLeft: 30 });
     attempt = await hub.beginAttempt(1);
     await hub.bank(attempt.id, 200, true);
-    expect(sdk.calls.earn.map((call) => call.amount)).toEqual([30]);
+    expect(sdk.calls.earn).toEqual(levelEndCalls(attempt.id, 30));
 
     await isolate({ balance: 0, sessionCapLeft: 0, dailyCapLeft: 100 });
     attempt = await hub.beginAttempt(1);
@@ -441,7 +442,7 @@ describe('carry', () => {
     expect(hub.rejectionRemaining).toBe(25);
     attempt = await hub.beginAttempt(1);
     await hub.bank(attempt.id, 200, true);
-    expect(sdk.calls.earn.map((call) => call.amount)).toEqual([25]);
+    expect(sdk.calls.earn).toEqual(levelEndCalls(attempt.id, 25));
   });
 
   it('a sync after a lost ack retries the same key and the same amount', async () => {
@@ -457,42 +458,53 @@ describe('carry', () => {
     resetHub(hub);
     await hub.init();
     expect(save.data.tickets).toBe(80);
-    const sends = sdk.calls.earn.filter((call) => call.key === attempt.id);
-    expect(sends.length).toBeGreaterThan(1);
-    expect(new Set(sends.map((call) => call.amount))).toEqual(new Set([80]));
-    expect(sdk.earnLedger.get(attempt.id).amount).toBe(80);
+    const chunks = levelEndCalls(attempt.id, 80);
+    const sends = sdk.calls.earn.filter((call) => chunks.some((chunk) => chunk.key === call.key));
+    expect(sends.filter((call) => call.key === `${attempt.id}:0`).length).toBeGreaterThan(1);
+    expect(new Set(sends.map((call) => call.amount))).toEqual(new Set([20]));
+    expect(new Set(sends.map((call) => call.key))).toEqual(new Set(chunks.map((chunk) => chunk.key)));
+    expect(creditedForBase(attempt.id)).toBe(80);
+    expect(sdk.earnLedger.has(attempt.id)).toBe(false);
   });
 
-  it('with no allowance, the bank is still capped and does not retry', async () => {
+  it('with no allowance, the earn is chunked at the level-end max and is not retried', async () => {
     expect(hub.sessionCapLeft).toBeNull();
     expect(hub.dailyCapLeft).toBeNull();
     const attempt = await hub.beginAttempt(1);
     const earned = 500;
     await hub.bank(attempt.id, earned, true);
-    expect(sdk.calls.earn).toEqual([
-      { amount: LEVEL_END_MAX_AMOUNT, reason: 'level_end', key: attempt.id },
-    ]);
-    expect(readHubStore().carry.amount).toBe(Math.min(CARRY_MAX, earned - LEVEL_END_MAX_AMOUNT));
-    expect(sdk.calls.earn).toHaveLength(1);
+    const calls = levelEndCalls(attempt.id, earned);
+    expect(sdk.calls.earn).toEqual(calls);
+    expect(calls.every((call) => call.amount <= LEVEL_END_MAX_AMOUNT)).toBe(true);
+    expect(creditedEarnTotal()).toBe(earned);
+    expect(readHubStore().carry).toBeNull();
+    expect(new Set(sdk.calls.earn.map((call) => call.key)).size).toBe(calls.length);
   });
 
   it('the carry banks at the next level start, before that level earns', async () => {
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: LEVEL_END_MAX_AMOUNT, dailyCapLeft: 1000 };
     const first = await hub.beginAttempt(1);
     await hub.bank(first.id, LEVEL_END_MAX_AMOUNT + 40, true);
     const carryKey = readHubStore().carry.key;
     expect(carryKey).not.toBe(first.id);
+    expect(readHubStore().carry.amount).toBe(40);
 
+    sdk.ticketBalance = { balance: LEVEL_END_MAX_AMOUNT, sessionCapLeft: 1000, dailyCapLeft: 1000 };
     const next = await hub.beginAttempt(2);
     await hub.bankCarry();
-    expect(sdk.earnLedger.has(carryKey)).toBe(true);
+    const carryChunks = levelEndCalls(carryKey, 40);
+    expect(carryChunks.map((call) => call.key).every((key) => sdk.earnLedger.has(key))).toBe(true);
+    expect(creditedForBase(carryKey)).toBe(40);
     expect(sdk.earnLedger.has(next.id)).toBe(false);
 
     await hub.bank(next.id, 5, true);
     const keys = sdk.calls.earn.map((call) => call.key);
-    expect(keys.indexOf(carryKey)).toBeLessThan(keys.indexOf(next.id));
+    expect(keys.indexOf(carryChunks[0].key)).toBeLessThan(keys.indexOf(next.id));
+    expect(keys.indexOf(carryChunks[1].key)).toBeLessThan(keys.indexOf(next.id));
   });
 
   it('a partial carry keeps the remainder on a new key and the two keys do not credit the same tickets', async () => {
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: LEVEL_END_MAX_AMOUNT, dailyCapLeft: 1000 };
     const first = await hub.beginAttempt(1);
     await hub.bank(first.id, LEVEL_END_MAX_AMOUNT + 90, true);
     const original = readHubStore().carry.amount;
@@ -505,17 +517,19 @@ describe('carry', () => {
     expect(remainder.key).not.toBe(oldKey);
     expect(remainder.key).toMatch(UUID_V7);
     expect(remainder.amount).toBe(original - 40);
-    expect(sdk.earnLedger.get(oldKey).amount).toBe(40);
+    expect(creditedForBase(oldKey)).toBe(40);
+    expect(sdk.calls.earn.filter((call) => call.key === oldKey || call.key.startsWith(`${oldKey}:`))).toEqual(levelEndCalls(oldKey, 40));
     expect(sdk.earnLedger.has(remainder.key)).toBe(false);
 
     sdk.ticketBalance = { balance: 0, sessionCapLeft: 500, dailyCapLeft: 500 };
     await hub.bankCarry();
-    expect(sdk.earnLedger.get(remainder.key).amount).toBe(original - 40);
-    expect(sdk.earnLedger.get(oldKey).amount).toBe(40);
-    expect(sdk.earnLedger.get(oldKey).amount + sdk.earnLedger.get(remainder.key).amount).toBe(original);
+    expect(creditedForBase(remainder.key)).toBe(original - 40);
+    expect(creditedForBase(oldKey)).toBe(40);
+    expect(creditedForBase(oldKey) + creditedForBase(remainder.key)).toBe(original);
   });
 
   it('a reload between the partial ack and the re-key does not credit the acked portion again', async () => {
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: LEVEL_END_MAX_AMOUNT, dailyCapLeft: 1000 };
     const first = await hub.beginAttempt(1);
     await hub.bank(first.id, LEVEL_END_MAX_AMOUNT + 90, true);
     const original = readHubStore().carry.amount;
@@ -530,8 +544,9 @@ describe('carry', () => {
     delete hub._replaceCarry;
     resetHub(hub);
     await hub.init();
-    expect(sdk.earnLedger.get(oldKey).amount).toBe(40);
-    expect(sdk.calls.earn.filter((call) => call.key === oldKey && call.amount !== 40)).toHaveLength(0);
+    expect(creditedForBase(oldKey)).toBe(40);
+    const paid = levelEndCalls(oldKey, 40);
+    expect(sdk.calls.earn.filter((call) => call.key === oldKey || call.key.startsWith(`${oldKey}:`))).toEqual(paid);
     const remainder = readHubStore().carry;
     expect(remainder.key).not.toBe(oldKey);
     expect(remainder.amount).toBe(original - 40);
@@ -544,6 +559,7 @@ describe('carry', () => {
   });
 
   it('a lost carry response still credits once, and the remainder is a new key', async () => {
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: LEVEL_END_MAX_AMOUNT, dailyCapLeft: 1000 };
     const first = await hub.beginAttempt(1);
     await hub.bank(first.id, LEVEL_END_MAX_AMOUNT + 90, true);
     const original = readHubStore().carry.amount;
@@ -564,7 +580,7 @@ describe('carry', () => {
       .filter(([key]) => key !== first.id)
       .reduce((sum, [, rec]) => sum + rec.amount, 0);
     expect(carryCredits).toBe(original);
-    expect(sdk.earnLedger.get(oldKey).amount).toBe(40);
+    expect(creditedForBase(oldKey)).toBe(40);
   });
 
   it('two tabs cannot both credit the same carry', async () => {
@@ -574,10 +590,13 @@ describe('carry', () => {
     resetHub(tabB.hub);
     await readyHub(tabA.hub);
     await readyHub(tabB.hub);
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: LEVEL_END_MAX_AMOUNT, dailyCapLeft: 1000 };
     const attempt = await tabA.hub.beginAttempt(1);
     await tabA.hub.bank(attempt.id, LEVEL_END_MAX_AMOUNT + 80, true);
     const original = readHubStore().carry.amount;
+    expect(original).toBe(80);
     const before = creditedEarnTotal();
+    sdk.ticketBalance = { balance: LEVEL_END_MAX_AMOUNT, sessionCapLeft: 1000, dailyCapLeft: 1000 };
 
     await Promise.all([tabA.hub.bankCarry(), tabB.hub.bankCarry()]);
     await tabA.hub.bankCarry();
@@ -597,11 +616,13 @@ describe('carry', () => {
   }
 
   async function parkForty() {
+    sdk.ticketBalance = { balance: 0, sessionCapLeft: LEVEL_END_MAX_AMOUNT, dailyCapLeft: 1000 };
     const attempt = await hub.beginAttempt(1);
     await hub.bank(attempt.id, LEVEL_END_MAX_AMOUNT + 40, true);
     const carry = readHubStore().carry;
     expect(carry.amount).toBe(40);
     expect(carry.day).toBe(DAY_STAMP);
+    sdk.ticketBalance = { balance: LEVEL_END_MAX_AMOUNT, sessionCapLeft: 1000, dailyCapLeft: 1000 };
     return { attempt, carry };
   }
 
@@ -621,6 +642,7 @@ describe('carry', () => {
     await hub.bankCarry();
 
     expect(sdk.earnLedger.has(carry.key)).toBe(false);
+    expect(sdk.earnLedger.has(`${carry.key}:0`)).toBe(false);
     expect(carryCredits(attempt.id)).toEqual([]);
     expect(creditedEarnTotal()).toBe(before);
     expect(readHubStore().carry).toBeNull();
@@ -634,12 +656,12 @@ describe('carry', () => {
     const before = creditedEarnTotal();
     await hub.bankCarry();
 
-    expect(carryCredits(attempt.id)).toEqual([[carry.key, carry.amount]]);
+    expect(carryCredits(attempt.id)).toEqual(levelEndCalls(carry.key, carry.amount).map((call) => [call.key, call.amount]));
     expect(creditedEarnTotal() - before).toBe(carry.amount);
     expect(readHubStore().earns[carry.key]).toMatchObject({ amount: carry.amount, acked: true, dropped: false });
 
     await hub.bankCarry();
-    expect(carryCredits(attempt.id)).toEqual([[carry.key, carry.amount]]);
+    expect(carryCredits(attempt.id)).toEqual(levelEndCalls(carry.key, carry.amount).map((call) => [call.key, call.amount]));
     expect(creditedEarnTotal() - before).toBe(carry.amount);
   });
 
@@ -668,7 +690,7 @@ describe('carry', () => {
       for (const clientIso of clocks) runs.push(await outcome(serverNow, clientIso));
       for (const run of runs) {
         expect(run.delta).toBe(run.amount);
-        expect(run.credits).toEqual([[run.key, run.amount]]);
+        expect(run.credits).toEqual(levelEndCalls(run.key, run.amount).map((call) => [call.key, call.amount]));
       }
       expect(runs.map((run) => run.delta)).toEqual(runs.map(() => runs[0].amount));
       expect(new Set(runs.map((run) => run.delta)).size).toBe(1);
@@ -688,6 +710,7 @@ describe('carry', () => {
 
     expect(hub.serverDay).toBe('2026-06-16');
     expect(sdk.earnLedger.has(carry.key)).toBe(false);
+    expect(sdk.earnLedger.has(`${carry.key}:0`)).toBe(false);
     expect(carryCredits(attempt.id)).toEqual([]);
     expect(creditedEarnTotal()).toBe(before);
     expect(readHubStore().carry).toBeNull();
