@@ -1,14 +1,20 @@
+import { LEVEL_END_MAX_AMOUNT } from '../src/config/tickets.js';
 import { save, START_LIVES } from '../src/core/save.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { resetLocks } from './locks.js';
-import { resetSdk } from './sdkState.js';
+import { resetSdk, sdk } from './sdkState.js';
 
-export const HUB_STORAGE_KEY = 'nobu-hub-writes-v1';
+export const HUB_STORAGE_KEY = 'nobu-hub-writes-v2';
+export const HUB_STORAGE_KEY_V1 = 'nobu-hub-writes-v1';
 export const SESSION_KEY = 'hub:nobu:session';
 
 export function readHubStore() {
   const raw = localStorage.getItem(HUB_STORAGE_KEY);
   return raw ? JSON.parse(raw) : null;
+}
+
+export function writeHubStore(store) {
+  localStorage.setItem(HUB_STORAGE_KEY, JSON.stringify(store));
 }
 
 export function resetHub(h = hub) {
@@ -56,6 +62,28 @@ export async function readyHub(h = hub) {
   resetHub(h);
   await h.init();
   return h;
+}
+
+/** level_end calls for `amount`, split the way the hub chunks an earn. */
+export function levelEndCalls(baseKey, amount, limit = LEVEL_END_MAX_AMOUNT) {
+  const total = Math.floor(Number(amount)) || 0;
+  const calls = [];
+  let offset = 0;
+  while (offset < total) {
+    const size = Math.min(limit, total - offset);
+    const key = total <= limit ? baseKey : `${baseKey}:${calls.length}`;
+    calls.push({ amount: size, reason: 'level_end', key });
+    offset += size;
+  }
+  return calls;
+}
+
+export function creditedForBase(baseKey, ledger = sdk.earnLedger) {
+  let total = 0;
+  for (const [key, rec] of ledger) {
+    if (key === baseKey || key.startsWith(`${baseKey}:`)) total += rec.amount;
+  }
+  return total;
 }
 
 export function captureBank(h = hub) {
