@@ -87,6 +87,7 @@ export class Game {
     hubReady.then(() => {
       this._applyHubGear();
       if (this.state === 'map') this._drawMap();
+      else if (this.state === 'title' && this.titleMenu) this._drawTitleMenu();
     });
     if (unavailable.length) this.ui.banner('Gear unavailable', unavailable.join(', '), 2.4);
     this.mask = new SprotoMask(this);
@@ -215,6 +216,7 @@ export class Game {
     items.push({ id: 'model', label: `NOBU: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` });
     items.push({ id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` });
     items.push({ id: 'god', label: `GOD MODE: ${save.data.godMode ? 'ON' : 'OFF'}` });
+    if (hub.view().inSession) items.push({ id: 'hub', label: 'RETURN TO HUB' });
     return items;
   }
 
@@ -243,6 +245,7 @@ export class Game {
       return;
     }
     const items = this._titleItems();
+    if (this.titleSel >= items.length) this.titleSel = items.length - 1;
     if (input.pressed('up')) { this.titleSel = (this.titleSel + items.length - 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
     if (input.pressed('down')) { this.titleSel = (this.titleSel + 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
     if (input.confirmPressed() || input.pressed('bite')) {
@@ -272,6 +275,8 @@ export class Game {
         save.write();
         this.resize();
         this._drawTitleMenu();
+      } else if (it.id === 'hub') {
+        this.exitToHub();
       }
     }
     if (input.pressed('pause') || input.pressed('back')) { this.titleMenu = null; this.toTitle(); }
