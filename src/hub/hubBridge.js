@@ -126,6 +126,10 @@ function sanitize(parsed) {
   return store;
 }
 
+function carryDay(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
 function sanitizeCarryQueue(value) {
   const out = new Map();
   if (!Array.isArray(value)) return [];
@@ -133,27 +137,49 @@ function sanitizeCarryQueue(value) {
     if (!entry || typeof entry.id !== 'string' || !entry.id) continue;
     const amount = Math.floor(Number(entry.amount));
     if (!(amount > 0)) continue;
-    out.set(entry.id, Math.max(out.get(entry.id) || 0, amount));
+    const day = carryDay(entry.day);
+    const prev = out.get(entry.id);
+    if (!prev || amount >= prev.amount) out.set(entry.id, { amount, day: day || prev?.day || null });
+    else if (!prev.day && day) prev.day = day;
   }
-  return [...out.entries()].map(([id, amount]) => ({ id, amount }));
+  return [...out.entries()].map(([id, rec]) => {
+    const entry = { id, amount: rec.amount };
+    if (rec.day) entry.day = rec.day;
+    return entry;
+  });
+}
+
+function appliedRecord(raw) {
+  if (typeof raw === 'number') return { amount: Math.floor(raw), day: null };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const amount = Math.floor(Number(raw.amount));
+  if (!(amount > 0)) return null;
+  return { amount, day: carryDay(raw.day) };
 }
 
 function sanitizeApplied(value) {
   const out = {};
   if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
   for (const [id, raw] of Object.entries(value)) {
-    const amount = Math.floor(Number(raw));
-    if (id && amount > 0) out[id] = amount;
+    const rec = appliedRecord(raw);
+    if (id && rec) out[id] = rec;
   }
   return out;
 }
 
 function mergeApplied(left, right) {
   const out = sanitizeApplied(left);
-  for (const [id, amount] of Object.entries(sanitizeApplied(right))) {
-    out[id] = Math.max(out[id] || 0, amount);
+  for (const [id, rec] of Object.entries(sanitizeApplied(right))) {
+    const prev = out[id];
+    if (!prev || rec.amount >= prev.amount) out[id] = { amount: rec.amount, day: rec.day || prev?.day || null };
+    else if (!prev.day && rec.day) prev.day = rec.day;
   }
   return out;
+}
+
+function appliedAmount(value) {
+  const rec = appliedRecord(value);
+  return rec ? rec.amount : 0;
 }
 
 // Queue entries stay in the store. `carryApplied` is how much of each id already
@@ -161,30 +187,48 @@ function mergeApplied(left, right) {
 function pendingTotal(store) {
   const applied = sanitizeApplied(store?.carryApplied);
   return sanitizeCarryQueue(store?.carryQueue).reduce((sum, entry) => {
-    return sum + Math.max(0, entry.amount - (applied[entry.id] || 0));
+    return sum + Math.max(0, entry.amount - appliedAmount(applied[entry.id]));
   }, 0);
 }
 
 function markQueueApplied(store) {
   store.carryApplied = sanitizeApplied(store.carryApplied);
   for (const entry of sanitizeCarryQueue(store.carryQueue)) {
-    store.carryApplied[entry.id] = Math.max(store.carryApplied[entry.id] || 0, entry.amount);
+    const prev = store.carryApplied[entry.id];
+    const rec = { amount: Math.max(appliedAmount(prev), entry.amount) };
+    const day = entry.day || prev?.day;
+    if (day) rec.day = day;
+    store.carryApplied[entry.id] = rec;
   }
 }
 
-// Same id accumulates. A later flush adds only the new remainder, so this is a sum.
-function enqueueCarry(store, id, amount) {
+// Drop queued tails from a previous server day, and the applied marks for those tails.
+function pruneCarryDays(store, today) {
+  if (!today) return;
+  const queue = sanitizeCarryQueue(store.carryQueue);
+  const stale = new Set(queue.filter((entry) => entry.day && entry.day !== today).map((entry) => entry.id));
+  store.carryQueue = queue.filter((entry) => !entry.day || entry.day === today);
+  const applied = sanitizeApplied(store.carryApplied);
+  for (const [id, rec] of Object.entries(applied)) {
+    if (stale.has(id) || (rec.day && rec.day !== today)) delete applied[id];
+  }
+  store.carryApplied = applied;
+}
+
+// `amount` is a delta computed from the earn inside the write, never a stale remainder.
+function enqueueCarry(store, id, amount, day) {
+  if (!(amount > 0)) return;
   if (!Array.isArray(store.carryQueue)) store.carryQueue = [];
   const qid = id || uuidv7();
   const prior = store.carryQueue.find((entry) => entry.id === qid);
-  if (prior) prior.amount += amount;
-  else store.carryQueue.push({ id: qid, amount });
-}
-
-function noteParked(store, id, parkedTotal) {
-  const next = Math.floor(Number(parkedTotal));
-  if (!(next > 0) || !id || !store.earns[id]) return;
-  store.earns[id].parked = Math.max(paidTickets(store.earns[id].parked), next);
+  if (prior) {
+    prior.amount += amount;
+    if (day) prior.day = day;
+  } else {
+    const entry = { id: qid, amount };
+    if (day) entry.day = day;
+    store.carryQueue.push(entry);
+  }
 }
 
 // v1 rows were one level_end call. Replaying one over 20 is amount_over_rule and
@@ -995,23 +1039,20 @@ class HubBridge {
     return new Date(Date.now()).toISOString().slice(0, 10);
   }
 
-  // Hand `earned - credited` to the carry. Repeating is safe: `parked` moves
-  // forward in the same write as the carry or its queue.
+  // `earned` is the haul. The amount queued is decided inside the write from
+  // the fresh earn, so two tabs cannot each add the same tail.
   async _parkOnce(id, earned) {
-    const rec = readStore().earns[id];
-    if (!rec || rec.dropped) return;
-    const owed = Math.max(0, Math.floor(Number(earned)) - paidTickets(rec.credited));
-    const already = paidTickets(rec.parked);
-    const rest = owed - already;
-    if (!(rest > 0)) return;
-    await this._addCarry(rest, id, already + rest);
+    const whole = Math.floor(Number(earned)) || 0;
+    if (!id || !(whole > 0)) return;
+    await this._addCarry(0, id, whole);
   }
 
-  // `parkedTotal` is recorded on the earn in this same write, including when the
-  // amount can only be queued because the current carry is still in flight.
-  async _addCarry(amount, settleAttemptId, parkedTotal) {
-    const add = Math.floor(Number(amount)) || 0;
-    if (!(add > 0) && !pendingTotal(readStore())) return false;
+  // `parkEarned`, when set, is that haul. The producer queues only
+  // owed - parked from its own copy of the earn, and records parked there.
+  async _addCarry(amount, settleAttemptId, parkEarned) {
+    const explicit = Math.floor(Number(amount)) || 0;
+    const parking = parkEarned != null && !!settleAttemptId;
+    if (!parking && !(explicit > 0) && !pendingTotal(readStore())) return false;
     await this._refreshServerDay();
     let discarded = 0;
     let parked = false;
@@ -1019,6 +1060,20 @@ class HubBridge {
     const today = this.serverDay;
     const wrote = await writeMerged((s) => {
       if (!Array.isArray(s.carryQueue)) s.carryQueue = [];
+      pruneCarryDays(s, today);
+      let add = explicit;
+      if (parking) {
+        const row = s.earns[settleAttemptId];
+        if (!row || row.dropped) return s;
+        const owed = Math.max(0, Math.floor(Number(parkEarned)) - paidTickets(row.credited));
+        const delta = owed - paidTickets(row.parked);
+        if (delta > 0) {
+          add = delta;
+          row.parked = owed;
+        } else {
+          add = 0;
+        }
+      }
       const previous = s.carry;
       const cur = previous && previous.amount > 0 && (today == null || previous.day === today) ? previous : null;
       if (previous && !cur && previous.key) s.carryClearedKey = previous.key;
@@ -1026,16 +1081,14 @@ class HubBridge {
       const inFlight = earn && !earn.acked && !earn.dropped && !earn.halted;
       if (inFlight) {
         if (!(add > 0)) return s;
-        enqueueCarry(s, settleAttemptId, add);
-        noteParked(s, settleAttemptId, parkedTotal);
+        enqueueCarry(s, settleAttemptId, add, today);
         if (settleAttemptId && s.attempts[settleAttemptId]) s.attempts[settleAttemptId].settled = true;
         queued = true;
         return s;
       }
-      if (add > 0) enqueueCarry(s, settleAttemptId, add);
+      if (add > 0) enqueueCarry(s, settleAttemptId, add, today);
       const total = pendingTotal(s);
       markQueueApplied(s);
-      noteParked(s, settleAttemptId, parkedTotal);
       if (settleAttemptId && s.attempts[settleAttemptId] && add > 0) s.attempts[settleAttemptId].settled = true;
       const settled = earn && (earn.acked || earn.dropped);
       const base = cur && !settled ? cur.amount : 0;
@@ -1043,6 +1096,10 @@ class HubBridge {
       discarded = total - accepted;
       if (!(accepted > 0)) return s;
       const key = cur && !settled ? cur.key : uuidv7();
+      // An acked carry is already paid. Replacing it has to clear that key,
+      // or the merge keeps the old amount and the queued tail is marked applied
+      // without ever landing on the carry.
+      if (cur && settled) s.carryClearedKey = cur.key;
       s.carry = { key, amount: base + accepted, day: cur?.day || today || this._carryStamp() };
       // Settle only in the same write as the carry, so a failed persist can be retried.
       parked = true;
@@ -1067,6 +1124,7 @@ class HubBridge {
     const today = this.serverDay;
     if (!today) return;
     await writeMerged((s) => {
+      pruneCarryDays(s, today);
       if (s.carry && s.carry.day && s.carry.day !== today) {
         s.carryClearedKey = s.carry.key;
         s.carry = null;
