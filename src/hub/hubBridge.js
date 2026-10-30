@@ -444,6 +444,7 @@ class HubBridge {
   }
 
   get sdk() {
+    // Same-origin /v2. The SDK redeems #t= with custom auth and then sends only the session token.
     if (!this._sdk) this._sdk = createHubSdk({ serverUrl: '', hubUrl: HUB_URL });
     return this._sdk;
   }
