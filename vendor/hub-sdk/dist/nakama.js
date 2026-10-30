@@ -1,10 +1,8 @@
 import { HubSdkError } from './errors';
 import { base64UrlToBytes } from './ticket';
-/** Local compose defaults. The HTTP key is a dev credential used only to exchange a portal ticket. */
+/** Same-origin Nakama. Ticket redeem is custom auth; every RPC sends the session token. */
 export const LOCAL_NAKAMA = {
     serverUrl: 'http://127.0.0.1:7350',
-    serverKey: 'defaultkey',
-    httpKey: 'localhttpkey',
 };
 export function userIdFromToken(token) {
     const part = token.split('.')[1];
@@ -24,36 +22,36 @@ export function userIdFromToken(token) {
 }
 export function createNakamaClient(options) {
     const serverUrl = options.serverUrl.replace(/\/$/, '');
-    const serverKey = options.serverKey ?? LOCAL_NAKAMA.serverKey;
-    const httpKey = options.httpKey ?? LOCAL_NAKAMA.httpKey;
     const fetchImpl = options.fetchImpl ?? fetch;
     return {
-        async authenticateDevice(deviceId, vars) {
-            const response = await fetchImpl(`${serverUrl}/v2/account/authenticate/device?create=true`, {
+        /**
+         * Redeem a portal ticket. `id` is `t:` plus the fragment ticket.
+         * `create` stays false: the hub account already exists. Vars ride on
+         * the custom account, which is what `beforeAuthenticateCustom` reads.
+         */
+        async authenticateCustom(id, vars) {
+            const account = vars ? { id, vars } : { id };
+            const response = await fetchImpl(`${serverUrl}/v2/account/authenticate/custom?create=false`, {
                 method: 'POST',
-                headers: {
-                    Authorization: `Basic ${btoa(`${serverKey}:`)}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(vars ? { id: deviceId, vars } : { id: deviceId }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ account, create: { value: false } }),
             });
             const text = await response.text();
             if (!response.ok)
                 throw new HubSdkError('auth_failed', text || `HTTP ${response.status}`);
             const body = JSON.parse(text);
             if (!body.token)
-                throw new HubSdkError('auth_failed', 'Device auth did not return a token');
+                throw new HubSdkError('auth_failed', 'Custom auth did not return a token');
             return { token: body.token, userId: userIdFromToken(body.token) };
         },
         async rpc(id, body, opts) {
             const params = new URLSearchParams({ unwrap: 'true' });
-            const headers = { 'Content-Type': 'application/json' };
-            if (opts?.token)
-                headers.Authorization = `Bearer ${opts.token}`;
-            else if (opts?.httpKey)
-                params.set('http_key', httpKey);
-            else
+            if (!opts?.token)
                 throw new HubSdkError('unauthorized', 'Missing session');
+            const headers = {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${opts.token}`,
+            };
             const response = await fetchImpl(`${serverUrl}/v2/rpc/${encodeURIComponent(id)}?${params}`, {
                 method: 'POST',
                 headers,
