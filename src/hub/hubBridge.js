@@ -1096,6 +1096,10 @@ class HubBridge {
       discarded = total - accepted;
       if (!(accepted > 0)) return s;
       const key = cur && !settled ? cur.key : uuidv7();
+      // An acked carry is already paid. Replacing it has to clear that key,
+      // or the merge keeps the old amount and the queued tail is marked applied
+      // without ever landing on the carry.
+      if (cur && settled) s.carryClearedKey = cur.key;
       s.carry = { key, amount: base + accepted, day: cur?.day || today || this._carryStamp() };
       // Settle only in the same write as the carry, so a failed persist can be retried.
       parked = true;
