@@ -8,8 +8,9 @@ import { CARRY_MAX, LEVEL_END_MAX_AMOUNT } from '../config/tickets.js';
 const GAME_ID = 'nobu';
 const EARN_REASON = 'level_end';
 // A carry is its own earnTickets call, never added to a level clear's amount.
-// Each call stays at or under LEVEL_END_MAX_AMOUNT because the server rejects
-// the whole call when level_end is over 110.
+// The hub rejects one level_end call above LEVEL_END_MAX_AMOUNT with
+// amount_over_rule, and that code is terminal. Larger earns and carries are
+// split into chunks of at most that size so the tickets are not dropped.
 const STORAGE_KEY = 'nobu-hub-writes-v1';
 const SESSION_KEY = 'hub:nobu:session';
 const LOCK_NAME = 'nobu-hub-writes';
@@ -76,7 +77,15 @@ function sanitize(parsed) {
   for (const [id, rec] of Object.entries(asRecord(parsed.earns))) {
     if (!rec || !Number.isFinite(Number(rec.amount))) continue;
     const dropped = !!rec.dropped;
-    store.earns[id] = { amount: Math.floor(Number(rec.amount)), acked: !!rec.acked || dropped, dropped, covers: asIdList(rec.covers) };
+    const amount = Math.floor(Number(rec.amount));
+    const row = { amount, acked: !!rec.acked || dropped, dropped, covers: asIdList(rec.covers) };
+    const credited = Math.floor(Number(rec.credited));
+    if (Number.isFinite(credited) && credited > 0) row.credited = Math.min(amount, credited);
+    const parked = Math.floor(Number(rec.parked));
+    if (Number.isFinite(parked) && parked > 0) row.parked = parked;
+    // Halted: an earlier chunk was paid and a later one was refused. Do not retry it.
+    if (!dropped && rec.halted) row.halted = true;
+    store.earns[id] = row;
   }
   for (const [id, rec] of Object.entries(asRecord(parsed.held))) {
     if (!rec || !Number.isFinite(Number(rec.amount))) continue;
@@ -133,7 +142,13 @@ function mergeEarns(disk = {}, ours = {}) {
     const amount = left && Number.isFinite(left.amount) ? left.amount : right?.amount;
     if (!Number.isFinite(amount)) continue;
     const dropped = !!(left?.dropped || right?.dropped);
-    out[id] = { amount, acked: dropped || !!(left?.acked || right?.acked), dropped, covers };
+    const credited = Math.max(paidTickets(left?.credited), paidTickets(right?.credited));
+    const parked = Math.max(paidTickets(left?.parked), paidTickets(right?.parked));
+    const row = { amount, acked: dropped || !!(left?.acked || right?.acked), dropped, covers };
+    if (credited > 0) row.credited = Math.min(amount, credited);
+    if (parked > 0) row.parked = parked;
+    if (!dropped && (left?.halted || right?.halted)) row.halted = true;
+    out[id] = row;
   }
   return out;
 }
@@ -248,10 +263,48 @@ function pendingExchange() {
   return ex;
 }
 
+function paidTickets(value) {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// Split a level_end earn into calls the hub will accept. Chunk i of a multi-chunk
+// earn uses idempotency key `${baseKey}:${i}` with i starting at 0. The split is a
+// pure function of the saved amount, so a retry repeats the same keys and amounts.
+// A single chunk keeps baseKey: an earn that already fits must retry under the key
+// it was first sent with, or the hub would pay it twice.
+function earnChunks(amount) {
+  const total = Math.floor(Number(amount)) || 0;
+  const limit = Math.floor(LEVEL_END_MAX_AMOUNT);
+  if (total <= 0 || limit <= 0) return [];
+  const chunks = [];
+  let offset = 0;
+  while (offset < total) {
+    const size = Math.min(limit, total - offset);
+    chunks.push({ index: chunks.length, amount: size, offset });
+    offset += size;
+  }
+  return chunks;
+}
+
+function chunkKey(baseKey, index, count) {
+  if (!(count > 1)) return baseKey;
+  return `${baseKey}:${index}`;
+}
+
+function earnBaseId(id) {
+  if (typeof id !== 'string') return id;
+  const cut = id.lastIndexOf(':');
+  if (cut <= 0) return id;
+  if (!/^\d+$/.test(id.slice(cut + 1))) return id;
+  return id.slice(0, cut);
+}
+
 function isCarryEarn(id) {
   if (!id) return false;
   const store = readStore();
-  return !store.attempts[id] && !!store.earns[id];
+  const base = earnBaseId(id);
+  return !store.attempts[base] && !!store.earns[base];
 }
 
 function hasSession() {
@@ -403,6 +456,15 @@ async function forgetOutbox(key) {
   } catch {
     /* the row stays queued and the next init tries again */
   }
+}
+
+// Drop every outbox row this earn could have queued: the base key and each chunk key.
+async function forgetEarnOutbox(baseKey, amount) {
+  if (!baseKey) return;
+  const chunks = earnChunks(amount);
+  const keys = new Set([baseKey]);
+  for (const chunk of chunks) keys.add(chunkKey(baseKey, chunk.index, chunks.length));
+  for (const key of keys) await forgetOutbox(key);
 }
 
 function normalizeExchange(result) {
@@ -580,13 +642,21 @@ class HubBridge {
     const existing = readStore().earns[attemptId];
     if (existing?.dropped) {
       // The earn was refused. Park the haul before settling, or the tickets are lost.
-      await this._addCarry(earned, attemptId);
+      await this._addCarry(Math.max(0, earned - paidTickets(existing.credited)), attemptId);
+      return;
+    }
+    if (existing?.halted) {
+      await this._parkOnce(attemptId, earned);
       return;
     }
     if (existing && !existing.dropped) {
       let accepted = existing.acked ? existing.amount : 0;
       if (!existing.acked) {
         const sent = await this._bankAmount(attemptId, existing.amount);
+        if (sent.halted || readStore().earns[attemptId]?.halted) {
+          await this._parkOnce(attemptId, earned);
+          return;
+        }
         accepted = sent.accepted ?? 0;
       }
       const rest = earned - accepted;
@@ -594,9 +664,14 @@ class HubBridge {
       else if (readStore().earns[attemptId]?.dropped) await this._settleAttempt(attemptId);
       return;
     }
-    const { accepted } = await this._bankAmount(attemptId, earned);
+    const sent = await this._bankAmount(attemptId, earned);
+    if (sent.halted || readStore().earns[attemptId]?.halted) {
+      await this._parkOnce(attemptId, earned);
+      return;
+    }
     // Allowance 0 writes no earn row. The whole haul still has to reach the carry.
-    const rest = earned - (accepted || 0);
+    const accepted = sent.accepted || 0;
+    const rest = earned - accepted;
     if (rest > 0) await this._addCarry(rest, attemptId);
     else if (readStore().earns[attemptId]?.dropped) await this._settleAttempt(attemptId);
   }
@@ -609,7 +684,8 @@ class HubBridge {
   }
 
   // Carry from an earlier clear banks before this attempt's own tickets.
-  // Its body is only the carry, under the carry's own key, capped at 110.
+  // Its body is only the carry, under the carry's own key. A carry can be up to
+  // CARRY_MAX, so the send is split into level_end chunks of LEVEL_END_MAX_AMOUNT.
   async bankCarry() {
     await this._expireCarry();
     let carry = readStore().carry;
@@ -622,14 +698,16 @@ class HubBridge {
       if (!carry || !(carry.amount > 0)) return;
     }
     const { accepted, code } = await this._bankAmount(carry.key, carry.amount);
-    // Session cap rejects the whole call. Keep the amount locally. The refused
-    // key is dropped so the next try is a new earn of at most 110, not a retry
-    // of the over-cap body and not a sum with a level clear.
-    if (code === 'session_ticket_cap') {
+    // Session cap rejected this carry before any chunk was paid. Keep the amount
+    // locally. The refused key is dropped so the next try is a new earn, in
+    // chunks of at most LEVEL_END_MAX_AMOUNT, not a retry of the refused body
+    // and not a sum with a level clear. A cap after an earlier chunk was paid
+    // falls through: accepted is only the paid chunks, and the tail is re-keyed.
+    if (code === 'session_ticket_cap' && !(accepted > 0)) {
       const row = readStore().earns[carry.key];
       if (row && !row.dropped) {
         await this._dropKey(carry.key);
-        await forgetOutbox(carry.key);
+        await forgetEarnOutbox(carry.key, row.amount);
         const latest = readStore().carry;
         if (latest?.key === carry.key && latest.amount > 0) {
           await this._replaceCarry(latest.amount, latest.day);
@@ -647,8 +725,9 @@ class HubBridge {
     if (rest > 0) await this._replaceCarry(rest, carry.day);
     // Without a server day, leave the row. Deleting it here is indistinguishable
     // from the device clock expiring a carry the server day still allows.
-    // The earn is acked, so a later bankCarry does not credit it again.
-    else if (this.serverDay) await this._clearCarry(carry.key);
+    // Clear only once the earn is acked. A queued chunk sequence can still halt
+    // on a later chunk; the carry has to remain so that unpaid tail is not lost.
+    else if (this.serverDay && readStore().earns[carry.key]?.acked) await this._clearCarry(carry.key);
   }
 
   async reportCone(attemptId, durable) {
@@ -742,18 +821,25 @@ class HubBridge {
     }
     const store = readStore();
     for (const [id, rec] of Object.entries(store.earns)) {
-      if (!rec.acked && !rec.dropped && rec.amount > 0) {
-        const sent = await this._sendEarn(id);
-        const accepted = sent.ok || sent.queued ? (sent.accepted ?? rec.amount) : 0;
-        // A carry earn is already the carry. Do not add its unsent amount on again.
-        if (accepted < rec.amount && !isCarryEarn(id)) await this._addCarry(rec.amount - accepted, id);
+      if (rec.halted || rec.acked || rec.dropped || !(rec.amount > 0)) continue;
+      const sent = await this._sendEarn(id);
+      const row = readStore().earns[id] || rec;
+      if (row.halted) {
+        // Paid chunks stay on this row. Park the unsent tail once.
+        // A carry's tail is still the carry; bankCarry owns that.
+        if (!isCarryEarn(id)) await this._parkOnce(id, row.amount);
+        continue;
       }
+      const accepted = sent.ok || sent.queued ? (sent.accepted ?? rec.amount) : 0;
+      // A carry earn is already the carry. Do not add its unsent amount on again.
+      if (accepted < rec.amount && !isCarryEarn(id)) await this._addCarry(rec.amount - accepted, id);
     }
     for (const [id, rec] of Object.entries(store.relics)) {
       if (!rec.acked && !rec.dropped && rec.key) await this._sendRelic(id);
     }
     const ex = pendingExchange();
     if (ex) await this._sendExchange(ex);
+    await this._clearAckedCarry();
   }
 
   _knownAllowance() {
@@ -781,14 +867,18 @@ class HubBridge {
     }
     const allowance = this._knownAllowance();
     if (allowance === 0) return { accepted: 0, code: 'session_ticket_cap' };
-    const planned = Math.min(earned, allowance ?? earned, LEVEL_END_MAX_AMOUNT);
+    // The per-call ceiling is applied in _sendEarn. Carries up to CARRY_MAX and
+    // any planned earn above LEVEL_END_MAX_AMOUNT go out as chunks of that size.
+    const planned = Math.min(earned, allowance ?? earned);
     if (!(planned > 0)) return { accepted: 0 };
     const committed = await this._commitEarn(key, planned);
     if (!committed) return { accepted: 0, code: 'persist' };
     if (committed.dropped) return { accepted: 0, code: 'dropped' };
+    if (committed.halted) return { accepted: committed.credited || 0, halted: true };
     if (committed.acked) return { accepted: committed.amount };
     if (this.reach !== 'ready' || !this.inSession) return { accepted: committed.amount, queued: true };
     const sent = await this._sendEarn(key);
+    if (sent.halted) return { accepted: sent.accepted ?? 0, halted: true, code: sent.code };
     if (sent.ok || sent.queued) return { accepted: sent.accepted ?? committed.amount, queued: !!sent.queued, code: sent.code };
     return { accepted: 0, code: sent.code };
   }
@@ -797,6 +887,19 @@ class HubBridge {
     if (this.serverDay) return this.serverDay;
     // serverTime is absent. This label is stored once and is not compared to the device clock.
     return new Date(Date.now()).toISOString().slice(0, 10);
+  }
+
+  // Hand `earned - credited` to the carry once. Flush and bank can both observe
+  // the same halt; `parked` is how much of that gap was already handed off.
+  async _parkOnce(id, earned) {
+    const rec = readStore().earns[id];
+    if (!rec || rec.dropped) return;
+    const owed = Math.max(0, Math.floor(Number(earned)) - paidTickets(rec.credited));
+    const rest = owed - paidTickets(rec.parked);
+    if (!(rest > 0)) return;
+    const ok = await this._addCarry(rest, id);
+    if (!ok) return;
+    await this._markEarn(id, { parked: paidTickets(rec.parked) + rest });
   }
 
   async _addCarry(amount, settleAttemptId) {
@@ -811,7 +914,8 @@ class HubBridge {
       const cur = previous && previous.amount > 0 && (today == null || previous.day === today) ? previous : null;
       if (previous && !cur && previous.key) s.carryClearedKey = previous.key;
       const earn = cur ? s.earns[cur.key] : null;
-      const inFlight = earn && !earn.acked && !earn.dropped;
+      // Halted means the chunk sequence stopped. The unpaid tail can be parked.
+      const inFlight = earn && !earn.acked && !earn.dropped && !earn.halted;
       if (inFlight) {
         discarded = add;
         return s;
@@ -893,56 +997,99 @@ class HubBridge {
     return rec;
   }
 
+  _markEarn(id, patch) {
+    return writeMerged((s) => {
+      const cur = s.earns[id];
+      if (!cur || cur.dropped) return s;
+      if (patch.credited != null) {
+        const next = paidTickets(patch.credited);
+        if (next > 0) cur.credited = Math.max(paidTickets(cur.credited), Math.min(cur.amount, next));
+      }
+      if (patch.parked != null) {
+        const next = paidTickets(patch.parked);
+        if (next > 0) cur.parked = Math.max(paidTickets(cur.parked), next);
+      }
+      if (patch.halted) cur.halted = true;
+      if (patch.acked && !cur.halted) cur.acked = true;
+      return s;
+    });
+  }
+
+  // Carry was fully acked after a queued send. Drop it so the next bankCarry
+  // does not treat the paid amount as still waiting.
+  async _clearAckedCarry() {
+    if (!this.serverDay) return;
+    const carry = readStore().carry;
+    if (!carry?.key) return;
+    const earn = readStore().earns[carry.key];
+    if (earn?.acked && !earn.dropped && !earn.halted) await this._clearCarry(carry.key);
+  }
+
+  async _noteCap(err, info) {
+    const live = this.reach === 'ready' && this.inSession;
+    const account = await readTicketAccount(live ? this._sdk : null, err, { query: live });
+    this._noteServerDay(err);
+    if (account.sessionCapLeft != null) this.sessionCapLeft = account.sessionCapLeft;
+    if (account.dailyCapLeft != null) this.dailyCapLeft = account.dailyCapLeft;
+    const ticketCap = info.code === 'session_ticket_cap' || info.code === 'daily_ticket_cap';
+    if (ticketCap) {
+      const allowance = account.allowance == null ? 0 : account.allowance;
+      if (info.code === 'session_ticket_cap' && this.sessionCapLeft == null) this.sessionCapLeft = allowance;
+      if (info.code === 'daily_ticket_cap' && this.dailyCapLeft == null) this.dailyCapLeft = allowance;
+      this.rejectionRemaining = allowance;
+    }
+  }
+
   async _sendEarn(id) {
     const rec = readStore().earns[id];
     if (!rec || !(rec.amount > 0)) return { ok: false, accepted: 0 };
     if (rec.acked && !rec.dropped) return { ok: true, accepted: rec.amount };
+    if (rec.halted) return { ok: false, accepted: rec.credited || 0, halted: true };
     if (rec.dropped || this.reach !== 'ready' || !this.inSession) return { queued: !rec.dropped, accepted: rec.dropped ? 0 : rec.amount };
-    try {
-      const result = await this.sdk.earnTickets(rec.amount, EARN_REASON, id);
-      // Standalone no-op is { balance: 0, capped: false } and must stay queued.
-      if (!result || typeof result.balance !== 'number' || (result.balance === 0 && result.capped === false) || !hasSession()) {
-        return { queued: true, accepted: rec.amount };
-      }
-      await writeMerged((s) => {
-        const cur = s.earns[id];
-        if (!cur || cur.dropped || cur.amount !== rec.amount) return s;
-        cur.acked = true;
-        return s;
-      });
-      const account = await this._syncTicketAccount(result);
-      if (!account.capsFromHook) this._spendAllowance(rec.amount);
-      return { ok: true, accepted: rec.amount };
-    } catch (err) {
-      const info = errorInfo(err);
-      if (typeof info.code === 'string' && info.code.endsWith('_cap')) {
-        const live = this.reach === 'ready' && this.inSession;
-        const account = await readTicketAccount(live ? this._sdk : null, err, { query: live });
-        this._noteServerDay(err);
-        if (account.sessionCapLeft != null) this.sessionCapLeft = account.sessionCapLeft;
-        if (account.dailyCapLeft != null) this.dailyCapLeft = account.dailyCapLeft;
-        const ticketCap = info.code === 'session_ticket_cap' || info.code === 'daily_ticket_cap';
-        if (ticketCap) {
-          const allowance = account.allowance == null ? 0 : account.allowance;
-          if (info.code === 'session_ticket_cap' && this.sessionCapLeft == null) this.sessionCapLeft = allowance;
-          if (info.code === 'daily_ticket_cap' && this.dailyCapLeft == null) this.dailyCapLeft = allowance;
-          this.rejectionRemaining = allowance;
+    const chunks = earnChunks(rec.amount);
+    let credited = Math.min(rec.amount, paidTickets(rec.credited));
+    for (const chunk of chunks) {
+      if (credited >= chunk.offset + chunk.amount) continue;
+      const key = chunkKey(id, chunk.index, chunks.length);
+      try {
+        const result = await this.sdk.earnTickets(chunk.amount, EARN_REASON, key);
+        // Standalone no-op is { balance: 0, capped: false } and must stay queued.
+        if (!result || typeof result.balance !== 'number' || (result.balance === 0 && result.capped === false) || !hasSession()) {
+          return { queued: true, accepted: rec.amount };
         }
-        // The session cap rejected this carry outright. Leave the row unacked
-        // so a later session can earn the same local amount. Do not drop it.
-        if (info.code === 'session_ticket_cap' && isCarryEarn(id)) {
+        // Boundary, not +=, so an idempotent replay of this same chunk cannot
+        // count the tickets twice. A retry that lost `credited` resends `key`.
+        credited = chunk.offset + chunk.amount;
+        await this._markEarn(id, { credited });
+        const account = await this._syncTicketAccount(result);
+        if (!account.capsFromHook) this._spendAllowance(chunk.amount);
+      } catch (err) {
+        const info = errorInfo(err);
+        const cap = typeof info.code === 'string' && info.code.endsWith('_cap');
+        if (cap) await this._noteCap(err, info);
+        if (cap || isTerminal(info.code)) {
+          if (credited > 0) {
+            // Stop the sequence. Later chunks are not sent. The refused chunk's
+            // outbox row is dropped so init will not replay it under this key;
+            // the caller carries that tail (and anything after it) instead.
+            await forgetOutbox(key);
+            await this._markEarn(id, { credited, halted: true });
+            return { ok: false, accepted: credited, halted: true, code: info.code };
+          }
+          // The session cap rejected this carry outright. Leave the row unacked
+          // so a later session can earn the same local amount. Do not drop it.
+          if (cap && info.code === 'session_ticket_cap' && isCarryEarn(id)) {
+            return { ok: false, accepted: 0, code: info.code };
+          }
+          await this._failWrite(err, id);
           return { ok: false, accepted: 0, code: info.code };
         }
-        await this._failWrite(err, id);
-        return { ok: false, accepted: 0, code: info.code };
+        console.warn('[hub] write not acked', info.code, key, info.message);
+        return { queued: true, accepted: rec.amount, code: info.code };
       }
-      if (isTerminal(info.code)) {
-        await this._failWrite(err, id);
-        return { ok: false, accepted: 0, code: info.code };
-      }
-      console.warn('[hub] write not acked', info.code, id, info.message);
-      return { queued: true, accepted: rec.amount, code: info.code };
     }
+    await this._markEarn(id, { credited: rec.amount, acked: true });
+    return { ok: true, accepted: rec.amount };
   }
 
   async _sendRelic(attemptId) {
@@ -1021,8 +1168,11 @@ class HubBridge {
       return false;
     }
     console.warn('[hub] acking and dropping write', info.code, key, info.message);
+    const base = earnBaseId(key);
+    const amount = readStore().earns[base]?.amount || readStore().earns[key]?.amount || 0;
     await this._dropKey(key);
-    await forgetOutbox(key);
+    if (base !== key) await this._dropKey(base);
+    await forgetEarnOutbox(base || key, amount);
     return true;
   }
 
