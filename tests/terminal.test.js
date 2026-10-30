@@ -11,6 +11,7 @@ const TERMINAL = [
   'session_ticket_cap',
   'earn_cap',
   'tickets_cap',
+  'unknown_reason',
 ];
 
 const TRANSPORT = ['rpc_failed', 'rejected', 'network_error'];
@@ -28,12 +29,15 @@ describe('case 7: terminal errors stop, transport errors stay queued', () => {
 
     expect(readHubStore().earns[attempt.id]).toMatchObject({ amount: 30, acked: true, dropped: true });
     expect(creditedEarnTotal()).toBe(0);
-    const attemptSends = sdk.calls.earn.filter((call) => call.key === attempt.id).length;
-    expect(attemptSends).toBeGreaterThan(0);
+    const mine = (call) => call.key === attempt.id || call.key.startsWith(`${attempt.id}:`);
+    const attemptSends = sdk.calls.earn.filter(mine);
+    expect(attemptSends.length).toBeGreaterThan(0);
+    expect(attemptSends.every((call) => call.reason === 'level_end' && call.amount <= 20)).toBe(true);
+    expect(new Set(attemptSends.map((call) => call.key)).size).toBe(attemptSends.length);
 
     sdk.earnError = null;
     await hub.flush();
-    expect(sdk.calls.earn.filter((call) => call.key === attempt.id)).toHaveLength(attemptSends);
+    expect(sdk.calls.earn.filter(mine)).toHaveLength(attemptSends.length);
     expect(creditedEarnTotal()).toBeLessThanOrEqual(30);
   });
 
