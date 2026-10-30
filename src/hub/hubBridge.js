@@ -836,41 +836,39 @@ class HubBridge {
     const prior = readStore().earns[carry.key];
     if (prior?.dropped) {
       // That key can never be earned again. The amount stays, under a new key.
-      await this._replaceCarry(carry.amount, carry.day);
+      await this._replaceCarry(carry.key, carry.day);
       carry = readStore().carry;
       if (!carry || !(carry.amount > 0)) return;
     }
-    const { accepted, code } = await this._bankAmount(carry.key, carry.amount);
+    const fromKey = carry.key;
+    const day = carry.day;
+    const { accepted, code } = await this._bankAmount(fromKey, carry.amount);
     // Session cap rejected this carry before any chunk was paid. Keep the amount
     // locally. The refused key is dropped so the next try is a new earn, in
     // chunks of at most LEVEL_END_MAX_AMOUNT, not a retry of the refused body
     // and not a sum with a level clear. A cap after an earlier chunk was paid
     // falls through: accepted is only the paid chunks, and the tail is re-keyed.
     if (code === 'session_ticket_cap' && !(accepted > 0)) {
-      const row = readStore().earns[carry.key];
+      const row = readStore().earns[fromKey];
       if (row && !row.dropped) {
-        await this._dropKey(carry.key);
-        await forgetEarnOutbox(carry.key, row.amount, row.chunkSize);
-        const latest = readStore().carry;
-        if (latest?.key === carry.key && latest.amount > 0) {
-          await this._replaceCarry(latest.amount, latest.day);
-        }
+        await this._dropKey(fromKey);
+        await forgetEarnOutbox(fromKey, row.amount, row.chunkSize);
+        await this._replaceCarry(fromKey, day);
       }
       return;
     }
     if (accepted <= 0 && code && isTerminal(code)) {
-      console.warn('[hub] carry dropped', code, carry.key);
-      await this._clearCarry(carry.key);
+      console.warn('[hub] carry dropped', code, fromKey);
+      await this._clearCarry(fromKey);
       return;
     }
     if (accepted <= 0) return;
-    const rest = carry.amount - accepted;
-    if (rest > 0) await this._replaceCarry(rest, carry.day);
+    await this._replaceCarry(fromKey, day);
     // Without a server day, leave the row. Deleting it here is indistinguishable
     // from the device clock expiring a carry the server day still allows.
     // Clear only once the earn is acked. A queued chunk sequence can still halt
     // on a later chunk; the carry has to remain so that unpaid tail is not lost.
-    else if (this.serverDay && readStore().earns[carry.key]?.acked) await this._clearCarry(carry.key);
+    if (this.serverDay && readStore().earns[fromKey]?.acked) await this._clearCarry(fromKey);
   }
 
   async reportCone(attemptId, durable) {
@@ -1143,12 +1141,20 @@ class HubBridge {
     });
   }
 
-  async _replaceCarry(amount, day) {
-    const next = Math.min(CARRY_MAX, Math.floor(amount));
-    if (!(next > 0)) return;
-    await writeMerged((s) => {
-      s.carryClearedKey = s.carry?.key || s.carryClearedKey;
-      s.carry = { key: uuidv7(), amount: next, day };
+  // Re-key `fromKey` only. The unpaid amount is read inside the write, so a
+  // halted carry that grew under this key is not replaced with a stale remainder.
+  _replaceCarry(fromKey, day) {
+    return writeMerged((s) => {
+      if (!fromKey || s.carry?.key !== fromKey) return s;
+      const row = s.earns[fromKey];
+      let paid = paidTickets(row?.credited);
+      // An open earn is still going to send its whole body. A halted or dropped
+      // earn will not, so only its credited part counts as paid.
+      if (row && !row.dropped && !row.halted) paid = Math.max(paid, paidTickets(row.amount));
+      const next = Math.min(CARRY_MAX, s.carry.amount - paid);
+      if (!(next > 0)) return s;
+      s.carryClearedKey = fromKey;
+      s.carry = { key: uuidv7(), amount: next, day: s.carry.day || day };
       return s;
     });
   }
