@@ -5,9 +5,6 @@ import { readTicketParam, stripTicketParam } from './ticket';
 import { GAME_IDS, canonicalGameId, isBoardId, isRelicId, } from './types';
 /** IndexedDB database for earn, event, and exchange writes that have not been acked. */
 export const HUB_OUTBOX_DB = 'hub-outbox';
-// Nobu's hub rejects one level_end earn above this. Older builds queued the whole
-// amount under one key. Those rows are dropped, not split, so they cannot replay.
-const LEVEL_END_OUTBOX_MAX = 20;
 const OUTBOX_STORE = 'writes';
 const memoryWrites = new Map();
 function flatEffects(value) {
@@ -106,23 +103,6 @@ async function forget(key) {
         store.delete(key);
     });
 }
-function oversizedLevelEnd(row) {
-    if (!row || row.rpc !== 'tickets.earn' || !row.body || typeof row.body !== 'object')
-        return false;
-    if (row.body.reason !== 'level_end')
-        return false;
-    const amount = Number(row.body.amount);
-    return Number.isFinite(amount) && amount > LEVEL_END_OUTBOX_MAX;
-}
-async function discardOversizedLevelEnds() {
-    const rows = await listWrites();
-    for (const row of rows) {
-        if (!oversizedLevelEnd(row))
-            continue;
-        console.warn('[hub] discarded outbox level_end over 20', row.key, row.body.amount);
-        await forget(row.key);
-    }
-}
 /**
  * Hub SDK backed by Nakama. `init` reads `#t=<ticket>`, strips it, and exchanges it
  * for a game-scoped session cached in sessionStorage. Without a ticket or a cached
@@ -209,13 +189,9 @@ export function createLiveHubSdk(env, client) {
         return transmit(row);
     }
     async function drain() {
-        await discardOversizedLevelEnds();
         const rows = await listWrites();
-        for (const row of rows) {
-            if (oversizedLevelEnd(row))
-                continue;
+        for (const row of rows)
             await transmit(row);
-        }
     }
     return {
         async init(gameId) {
