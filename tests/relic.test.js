@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Session } from '../src/game/session.js';
 import { hub } from '../src/hub/hubBridge.js';
-import { readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
+import { HUB_STORAGE_KEY_V1, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
 import { hubError, sdk } from './sdkState.js';
 
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -118,5 +118,39 @@ describe('case 2: relic key is separate from the earn key', () => {
     await Promise.all(pending);
     expect(sdk.calls.event).toHaveLength(1);
     expect(sdk.calls.event[0].data).toEqual({ boss: 'cone' });
+  });
+});
+
+describe('a Cone relic queued in the v1 store', () => {
+  it('moves to v2 and is sent under its v1 key; acked and dropped rows are not', async () => {
+    localStorage.setItem(HUB_STORAGE_KEY_V1, JSON.stringify({
+      v: 1,
+      attempts: { 'cone-run': { level: '3' } },
+      earns: { 'cone-run': { amount: 40, acked: false, dropped: false, covers: [] } },
+      relics: {
+        'cone-run': { key: 'relic-key-v1', acked: false, dropped: false },
+        'old-acked': { key: 'relic-acked', acked: true, dropped: false },
+        'old-dropped': { key: 'relic-dropped', acked: true, dropped: true },
+      },
+      held: {},
+      carry: null,
+      carryClearedKey: null,
+      exchange: null,
+      receipts: [],
+    }));
+    resetHub(hub);
+    await hub.init();
+
+    expect(localStorage.getItem(HUB_STORAGE_KEY_V1)).toBeNull();
+    expect(sdk.calls.event).toEqual([
+      { eventId: 'nobu.boss_defeated', data: { boss: 'cone' }, key: 'relic-key-v1' },
+    ]);
+    expect(sdk.relicGrants).toBe(1);
+    expect(readHubStore().relics['cone-run']).toMatchObject({ key: 'relic-key-v1', acked: true });
+    expect(readHubStore().relics['old-acked']).toBeUndefined();
+    expect(readHubStore().relics['old-dropped']).toBeUndefined();
+    // The v1 level_end row is still discarded.
+    expect(readHubStore().earns['cone-run']).toBeUndefined();
+    expect(sdk.calls.earn).toHaveLength(0);
   });
 });

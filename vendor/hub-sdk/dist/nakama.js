@@ -1,9 +1,33 @@
 import { HubSdkError } from './errors';
 import { base64UrlToBytes } from './ticket';
-/** Same-origin Nakama. Ticket redeem is custom auth; every RPC sends the session token. */
+/**
+ * Local compose origin. Credentials are not embedded: the app passes `serverKey`
+ * (dev builds inject the compose server key).
+ */
 export const LOCAL_NAKAMA = {
     serverUrl: 'http://127.0.0.1:7350',
+    serverKey: '',
 };
+/** Session vars Nakama stores under `vrs` (scope, game, sid, ranked). */
+export function sessionVarsFromToken(token) {
+    const part = token.split('.')[1];
+    if (!part)
+        return {};
+    try {
+        const json = JSON.parse(new TextDecoder().decode(base64UrlToBytes(part)));
+        if (!json.vrs || typeof json.vrs !== 'object' || Array.isArray(json.vrs))
+            return {};
+        const out = {};
+        for (const [key, value] of Object.entries(json.vrs)) {
+            if (typeof value === 'string')
+                out[key] = value;
+        }
+        return out;
+    }
+    catch {
+        return {};
+    }
+}
 export function userIdFromToken(token) {
     const part = token.split('.')[1];
     if (!part)
@@ -22,36 +46,49 @@ export function userIdFromToken(token) {
 }
 export function createNakamaClient(options) {
     const serverUrl = options.serverUrl.replace(/\/$/, '');
+    const serverKey = options.serverKey ?? LOCAL_NAKAMA.serverKey;
     const fetchImpl = options.fetchImpl ?? fetch;
+    async function postAuth(path, body) {
+        const response = await fetchImpl(`${serverUrl}${path}`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Basic ${btoa(`${serverKey}:`)}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        });
+        const text = await response.text();
+        if (!response.ok)
+            throw new HubSdkError('auth_failed', text || `HTTP ${response.status}`);
+        const parsed = JSON.parse(text);
+        if (!parsed.token)
+            throw new HubSdkError('auth_failed', 'Auth did not return a token');
+        return {
+            token: parsed.token,
+            refreshToken: parsed.refreshToken || parsed.refresh_token || '',
+            userId: userIdFromToken(parsed.token),
+        };
+    }
     return {
-        /**
-         * Redeem a portal ticket. `id` is `t:` plus the fragment ticket.
-         * `create` stays false: the hub account already exists. Vars ride on
-         * the custom account, which is what `beforeAuthenticateCustom` reads.
-         */
-        async authenticateCustom(id, vars) {
-            const account = vars ? { id, vars } : { id };
-            const response = await fetchImpl(`${serverUrl}/v2/account/authenticate/custom?create=false`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ account, create: { value: false } }),
-            });
-            const text = await response.text();
-            if (!response.ok)
-                throw new HubSdkError('auth_failed', text || `HTTP ${response.status}`);
-            const body = JSON.parse(text);
-            if (!body.token)
-                throw new HubSdkError('auth_failed', 'Custom auth did not return a token');
-            return { token: body.token, userId: userIdFromToken(body.token) };
+        async authenticateDevice(deviceId, vars) {
+            const auth = await postAuth('/v2/account/authenticate/device?create=true', vars ? { id: deviceId, vars } : { id: deviceId });
+            return { token: auth.token, userId: auth.userId };
+        },
+        async authenticateCustom(id, create = false, vars) {
+            const params = new URLSearchParams({ create: create ? 'true' : 'false' });
+            // Nakama maps this route with body: "account", so the JSON body is the account itself.
+            const body = vars ? { id, vars } : { id };
+            const auth = await postAuth(`/v2/account/authenticate/custom?${params}`, body);
+            if (!auth.refreshToken)
+                throw new HubSdkError('auth_failed', 'Auth did not return a refresh token');
+            return auth;
         },
         async rpc(id, body, opts) {
             const params = new URLSearchParams({ unwrap: 'true' });
+            const headers = { 'Content-Type': 'application/json' };
             if (!opts?.token)
                 throw new HubSdkError('unauthorized', 'Missing session');
-            const headers = {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${opts.token}`,
-            };
+            headers.Authorization = `Bearer ${opts.token}`;
             const response = await fetchImpl(`${serverUrl}/v2/rpc/${encodeURIComponent(id)}?${params}`, {
                 method: 'POST',
                 headers,
