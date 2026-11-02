@@ -14,8 +14,9 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // 0.2.0 / 8a5b869 (7e77812): 105b90df36cab2e8e3ca25ab2d5bc53b635d7885efc48791a55216be80b0fd2f
 // 0.3.0 / c676fde: f6ae2898ee1023426997fb0b0b520ad8468edfa2d9a16a98568ce21e8242e834
 // 0.4.0 / 947ed4c (hub #25 branch, session.claim): 6eaa077ee41377b735b334571cbf3b92446649eba5b3f77d304e916ab8dec016
-// 0.4.0-redeem.1 / hub main f88b442: custom auth with the server key, no session.claim.
-const CONTENT_MANIFEST_SHA256 = '80c344c55edb429d6b395c320df3a902c7c97019ce162c6d7cb001964993c404';
+// 0.4.0-redeem.1 / hub main f88b442: 80c344c55edb429d6b395c320df3a902c7c97019ce162c6d7cb001964993c404
+// 0.4.0-redeem.1 / hub 9ce6ade: f88b442 plus the dead-session outbox fix.
+const CONTENT_MANIFEST_SHA256 = '810a0d205afa87755d257639dad4880d002da8f9e0b3f3dbe960558a1c274bc0';
 
 function listFiles(dir) {
   const out = [];
@@ -79,6 +80,9 @@ describe('vendored hub SDK', () => {
     const nakama = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/nakama.js'), 'utf8');
     expect(live).not.toContain('session.claim');
     expect(live).not.toContain('session.redeem');
+    // A queued write on a closed session must not fail every later init.
+    expect(live).toContain('async function rebind(row)');
+    expect(live).toContain('deadSession(error)');
     expect(nakama).toContain('Authorization: `Basic ${btoa(`${serverKey}:`)}`');
   });
 
