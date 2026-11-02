@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { save } from '../src/core/save.js';
-import { readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
+import { levelEndCalls, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
 import { creditedEarnTotal, sdk } from './sdkState.js';
 
 let tabA;
@@ -38,7 +38,7 @@ describe('case 3: two tabs share the key store', () => {
     expect(store.earns[left.id].amount).toBe(40);
     expect(store.earns[right.id].amount).toBe(15);
     expect(creditedEarnTotal()).toBe(55);
-    expect(sdk.earnLedger.size).toBe(2);
+    expect(sdk.earnLedger.size).toBe(levelEndCalls(left.id, 40).length + 1);
 
     const byKey = new Map();
     for (const call of sdk.calls.earn) {
@@ -46,8 +46,9 @@ describe('case 3: two tabs share the key store', () => {
       list.push(call.amount);
       byKey.set(call.key, list);
     }
-    expect([...byKey.keys()].sort()).toEqual([left.id, right.id].sort());
-    expect(byKey.get(left.id).every((amount) => amount === 40)).toBe(true);
+    expect([...byKey.keys()].sort()).toEqual([...levelEndCalls(left.id, 40).map((call) => call.key), right.id].sort());
+    expect(byKey.get(`${left.id}:0`).every((amount) => amount === 20)).toBe(true);
+    expect(byKey.get(`${left.id}:1`).every((amount) => amount === 20)).toBe(true);
     expect(byKey.get(right.id).every((amount) => amount === 15)).toBe(true);
   });
 
@@ -61,7 +62,10 @@ describe('case 3: two tabs share the key store', () => {
     expect(Object.keys(readHubStore().earns)).toEqual([attempt.id]);
     expect(readHubStore().earns[attempt.id].amount).toBe(40);
     expect(creditedEarnTotal()).toBe(40);
-    expect(sdk.calls.earn.every((call) => call.key === attempt.id && call.amount === 40)).toBe(true);
+    expect(sdk.earnLedger.size).toBe(2);
+    expect(sdk.calls.earn.every((call) => (
+      (call.key === `${attempt.id}:0` || call.key === `${attempt.id}:1`) && call.amount === 20
+    ))).toBe(true);
   });
 
   it('two tabs opening an exchange produce one receipt and one debit', async () => {

@@ -9,8 +9,8 @@ export const COCONUT_CAP_PER_CLEAR = 15;
 /** Whole Tickets that may wait for the next session. Anything above this is discarded. */
 export const CARRY_MAX = 100;
 
-/** Server max_amount for one level_end earnTickets call. */
-export const LEVEL_END_MAX_AMOUNT = 110;
+/** Server max_amount for one level_end earnTickets call. Larger earns are chunked. */
+export const LEVEL_END_MAX_AMOUNT = 20;
 
 const SCALE_DENOMINATOR = Math.round(1 / NOBU_TICKET_SCALE);
 
