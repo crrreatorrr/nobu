@@ -13,7 +13,9 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // 0.2.0 / 4d917b6: a4095e4419c85c63f36f7ee0d871b187d87387085311c1f8e76656a66cd30c9c
 // 0.2.0 / 8a5b869 (7e77812): 105b90df36cab2e8e3ca25ab2d5bc53b635d7885efc48791a55216be80b0fd2f
 // 0.3.0 / c676fde: f6ae2898ee1023426997fb0b0b520ad8468edfa2d9a16a98568ce21e8242e834
-const CONTENT_MANIFEST_SHA256 = '6eaa077ee41377b735b334571cbf3b92446649eba5b3f77d304e916ab8dec016';
+// 0.4.0 / 947ed4c (hub #25 branch, session.claim): 6eaa077ee41377b735b334571cbf3b92446649eba5b3f77d304e916ab8dec016
+// 0.4.0-redeem.1 / hub main f88b442: custom auth with the server key, no session.claim.
+const CONTENT_MANIFEST_SHA256 = '80c344c55edb429d6b395c320df3a902c7c97019ce162c6d7cb001964993c404';
 
 function listFiles(dir) {
   const out = [];
@@ -60,9 +62,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.4.0', () => {
+  it('package.json is SDK 0.4.0-redeem.1 from hub main', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.4.0');
+    expect(pkg.version).toBe('0.4.0-redeem.1');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -71,9 +73,16 @@ describe('vendored hub SDK', () => {
     expect(types).toContain('serverTime: number;');
     expect(types.match(/serverTime: number;/g)).toHaveLength(2);
     expect(index).toContain('canonicalGameId');
+    // Hub main redeems with custom auth plus the server key, then profile.get.
+    // It registers no session.claim RPC, so a vendor that calls one never gets a session.
+    const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
+    const nakama = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/nakama.js'), 'utf8');
+    expect(live).not.toContain('session.claim');
+    expect(live).not.toContain('session.redeem');
+    expect(nakama).toContain('Authorization: `Basic ${btoa(`${serverKey}:`)}`');
   });
 
-  it('content manifest matches SDK 0.4.0 after maps and sourceMappingURL are removed', () => {
+  it('content manifest matches SDK 0.4.0-redeem.1 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);

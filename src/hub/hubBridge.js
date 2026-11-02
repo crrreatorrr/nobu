@@ -24,6 +24,12 @@ export const MAX_EXCHANGE_TICKETS = VERSE_DAILY_CAP * TICKETS_PER_VERSE;
 // unless VITE_HUB_URL sets another hub page.
 const HUB_URL = import.meta.env.VITE_HUB_URL || '/hub/';
 
+// Nakama's client server key. Custom-auth ticket redeem sends it as Basic auth; it is
+// not the runtime HTTP key. Like the hub, only `vite dev` falls back to the compose
+// default. A production build takes VITE_NAKAMA_SERVER_KEY, or every redeem is refused
+// and the game runs without a hub session (no Tickets banked, no Relic sent).
+const NAKAMA_SERVER_KEY = import.meta.env.VITE_NAKAMA_SERVER_KEY || (import.meta.env.DEV ? 'defaultkey' : '');
+
 /** Terminal earn/exchange codes are acked and dropped. `rpc_failed` and transport errors stay queued. */
 
 export function maxExchangeTickets(balance) {
@@ -231,11 +237,36 @@ function enqueueCarry(store, id, amount, day) {
   }
 }
 
+// Unsent Cone relic rows from a v1 store. Each is a { key } the hub has not acked.
+function legacyRelics(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    return Object.entries(asRecord(parsed?.relics))
+      .filter(([, rec]) => rec && typeof rec.key === 'string' && rec.key && !rec.acked && !rec.dropped)
+      .map(([id, rec]) => [id, { key: rec.key, acked: false, dropped: false }]);
+  } catch {
+    return [];
+  }
+}
+
 // v1 rows were one level_end call. Replaying one over 20 is amount_over_rule and
-// the tickets are dropped, so the old key is removed and not copied forward.
+// the tickets are dropped, so those rows are not copied forward. An unsent relic is
+// one session.event with no amount, so it moves to v2 under its own key and is sent
+// on the next hub init. The hub grants Cone's Tip once per player, so a resend is safe.
 function discardLegacyStore() {
   try {
-    if (localStorage.getItem(LEGACY_STORAGE_KEY) == null) return;
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (raw == null) return;
+    const relics = legacyRelics(raw);
+    if (relics.length) {
+      let next = emptyStore();
+      try {
+        const cur = localStorage.getItem(STORAGE_KEY);
+        if (cur) next = sanitize(JSON.parse(cur));
+      } catch { /* an unreadable v2 store reads as empty anyway */ }
+      for (const [id, rec] of relics) if (!next.relics[id]) next.relics[id] = rec;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    }
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     console.warn('[hub] discarded nobu-hub-writes-v1');
   } catch (err) {
@@ -649,8 +680,9 @@ class HubBridge {
   }
 
   get sdk() {
-    // Same-origin /v2. The SDK redeems #t= with custom auth and then sends only the session token.
-    if (!this._sdk) this._sdk = createHubSdk({ serverUrl: '', hubUrl: HUB_URL });
+    // Same-origin /v2. The SDK redeems #t= with custom auth (server key only) and then
+    // sends only the session token.
+    if (!this._sdk) this._sdk = createHubSdk({ serverUrl: '', serverKey: NAKAMA_SERVER_KEY, hubUrl: HUB_URL });
     return this._sdk;
   }
 

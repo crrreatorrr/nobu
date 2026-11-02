@@ -1,5 +1,6 @@
 import { resolveHubEnv } from './env';
 import { HubSdkError } from './errors';
+import { sessionVarsFromToken } from './nakama';
 import { getOrCreateDeviceId } from './storage';
 import { readTicketParam, stripTicketParam } from './ticket';
 import { GAME_IDS, canonicalGameId, isBoardId, isRelicId, } from './types';
@@ -104,8 +105,8 @@ async function forget(key) {
     });
 }
 /**
- * Hub SDK backed by Nakama. `init` reads `#t=<ticket>`, strips it, and redeems it
- * with custom auth. Later calls send only that session token. Without a ticket or a
+ * Hub SDK backed by Nakama. A `#t=` ticket is exchanged with `authenticateCustom`
+ * (`t:` + ticket, create=false) and the server key only. Without a ticket or a
  * cached session every call no-ops so the game still runs standalone.
  */
 export function createLiveHubSdk(env, client) {
@@ -193,7 +194,62 @@ export function createLiveHubSdk(env, client) {
         for (const row of rows)
             await transmit(row);
     }
+    async function rememberAuth(game, auth) {
+        const vars = sessionVarsFromToken(auth.token);
+        let relics = [];
+        let effects = {};
+        let ticketsCapLeft = 0;
+        let playerId = auth.userId;
+        let ranked = vars.ranked === '1';
+        let serverTime = 0;
+        try {
+            const profile = await client.rpc('profile.get', {}, { token: auth.token });
+            relics = asRelics(profile.relics);
+            effects = flatEffects(profile.effects);
+            if (typeof profile.ticketsCapLeft === 'number')
+                ticketsCapLeft = profile.ticketsCapLeft;
+            if (profile.playerId)
+                playerId = profile.playerId;
+            if (profile.ranked === true)
+                ranked = true;
+            serverTime = clockMs(profile.serverTime);
+        }
+        catch {
+            // The session token is still valid. The next init can load the profile.
+        }
+        if (!vars.sid)
+            return serverTime;
+        writeCached({
+            game,
+            playerId,
+            ranked,
+            sid: vars.sid,
+            token: auth.token,
+            effects,
+            relics,
+            ticketsCapLeft,
+        });
+        return serverTime;
+    }
+    async function redeemCustom(game, ticket) {
+        const authenticateCustom = client.authenticateCustom;
+        if (!authenticateCustom)
+            throw new HubSdkError('auth_failed', 'Custom authentication is unavailable');
+        const auth = await authenticateCustom(`t:${ticket}`, false, { game });
+        const serverTime = await rememberAuth(game, auth);
+        return { token: auth.token, refreshToken: auth.refreshToken, serverTime };
+    }
     return {
+        async redeemTicket({ game: gameId }) {
+            const game = canonicalGameId(gameId);
+            if (!game)
+                throw new HubSdkError('bad_game', `Unknown game "${gameId}"`);
+            const ticket = readTicketParam(resolved.readHash());
+            resolved.writeHash(stripTicketParam(resolved.readHash()));
+            if (!ticket)
+                throw new HubSdkError('ticket_invalid', 'Missing ticket');
+            return redeemCustom(game, ticket);
+        },
         async init(gameId) {
             const game = canonicalGameId(gameId);
             if (!game)
@@ -201,25 +257,11 @@ export function createLiveHubSdk(env, client) {
             const token = readTicketParam(resolved.readHash());
             let serverTime = 0;
             if (token) {
-                const auth = await client.authenticateCustom(`t:${token}`, { game });
-                const body = await client.rpc('session.claim', { gameId: game }, { token: auth.token });
-                const playerId = typeof body.playerId === 'string' && body.playerId ? body.playerId : auth.userId;
-                const sessionToken = typeof body.token === 'string' && body.token ? body.token : auth.token;
-                if (!playerId || !body.sid || !sessionToken) {
-                    throw new HubSdkError('ticket_invalid', 'Redeem did not return a session');
-                }
                 resolved.writeHash(stripTicketParam(resolved.readHash()));
-                serverTime = clockMs(body.serverTime);
-                writeCached({
-                    game,
-                    playerId,
-                    ranked: body.ranked === true,
-                    sid: body.sid,
-                    token: sessionToken,
-                    effects: flatEffects(body.effects),
-                    relics: asRelics(body.relics),
-                    ticketsCapLeft: typeof body.ticketsCapLeft === 'number' ? body.ticketsCapLeft : 0,
-                });
+                const redeemed = await redeemCustom(game, token);
+                serverTime = redeemed.serverTime;
+                if (!active)
+                    throw new HubSdkError('ticket_invalid', 'Redeem did not return a session');
             }
             else {
                 const cached = readCached(game);
