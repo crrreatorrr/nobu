@@ -1,8 +1,8 @@
 # @metaverse/hub-sdk
 
-Client for a game page that was opened from the hub. The hub puts a short-lived signed ticket in the URL fragment (`#t=`). `init` strips that fragment and exchanges the ticket for a game-scoped Nakama session. Later calls use that session. With no ticket and no saved session, every method no-ops, so the game still runs on its own.
+Client for a game page that was opened from the hub. The hub puts a short-lived signed ticket in the URL fragment (`#t=`). `init` strips that fragment and redeems the ticket with custom auth (`authenticateCustom`, id `t:` + ticket, `create` false, vars `{ game }`), then `session.claim`. Later calls send only the session token. With no ticket and no saved session, every method no-ops, so the game still runs on its own.
 
-Version 0.2.0 adds shop purchases. `spendTickets`, `sellItem`, and `getTicketBalance` sit on the 0.1.0 surface. Method names, argument order, game ids, relic ids, and event ids from 0.1.0 stay the same.
+Version 0.4.0 redeems the portal ticket with custom auth. Version 0.2.0 adds shop purchases. `spendTickets`, `sellItem`, and `getTicketBalance` sit on the 0.1.0 surface. Method names, argument order, game ids, relic ids, and event ids from 0.1.0 stay the same.
 
 ## Install
 

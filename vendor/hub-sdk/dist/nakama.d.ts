@@ -1,17 +1,13 @@
-/** Local compose defaults. The HTTP key is a dev credential used only to exchange a portal ticket. */
+/** Same-origin Nakama. Ticket redeem is custom auth; every RPC sends the session token. */
 export declare const LOCAL_NAKAMA: {
     readonly serverUrl: "http://127.0.0.1:7350";
-    readonly serverKey: "defaultkey";
-    readonly httpKey: "localhttpkey";
 };
 export interface NakamaRpcOptions {
     token?: string;
-    /** Exchange a portal ticket before a user session exists. */
-    httpKey?: boolean;
     keepalive?: boolean;
 }
 export interface NakamaClient {
-    authenticateDevice(deviceId: string, vars?: Record<string, string>): Promise<{
+    authenticateCustom(id: string, vars?: Record<string, string>): Promise<{
         token: string;
         userId: string;
     }>;
@@ -19,8 +15,6 @@ export interface NakamaClient {
 }
 export interface NakamaClientOptions {
     serverUrl: string;
-    serverKey?: string;
-    httpKey?: string;
     fetchImpl?: typeof fetch;
 }
 export interface ProfileResult {
