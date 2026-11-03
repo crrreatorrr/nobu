@@ -26,4 +26,4 @@ The fix is one array entry, in `dist/types.js` and `dist/types.d.ts`:
 RELIC_IDS = ['hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt']
 ```
 
-Nothing else changed. `GAME_IDS`, `RELIC_BY_GAME` and the `fighter.story_level_complete` event were left alone because NOBU never reports as Sproto Fighter. The whole tree was not re-vendored: newer SDK builds need the Nakama server key passed in, and that would break redeem here. When this tree is next re-synced to hub main, the patch is already upstream and this section can go. `tests/sdk-vendor.test.js` pins the patched content manifest.
+Nothing else changed. `GAME_IDS`, `RELIC_BY_GAME` and the `fighter.story_level_complete` event were left alone because NOBU never reports as Sproto Fighter. The patch sits on top of the 9ce6ade tree above, which already passes the Nakama server key. When this tree is next re-synced to a hub main that includes b065668, the patch is already upstream and this section can go. `tests/sdk-vendor.test.js` pins the patched content manifest.

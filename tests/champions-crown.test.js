@@ -16,7 +16,10 @@ const CROWN = 'nobu_champions_crown';
 const HAT = 'nobu_wizard_hat';
 
 // Unranked profile so gameplay params are on. The mock SDK's init reports ranked: true.
+// Ownership is only read from a live hub session (ownership.js), so mark one as live.
 function own(relics, { ranked = false } = {}) {
+  hub.reach = 'ready';
+  hub.inSession = true;
   hub.profile = { playerId: 'player-1', ranked, relics: [...relics], effects: {} };
 }
 
@@ -113,13 +116,19 @@ describe('ownership', () => {
     expect(loadout.slots.head).toBeNull();
   });
 
-  it('a saved crown is cleared when the Belt is no longer owned', () => {
+  it('a saved crown is hidden, not erased, while a session does not show the Belt', () => {
     loadoutWith(CROWN);
     own(['tinubu_crown']);
     const loadout = new Loadout();
-    expect(loadout.slots.head).toBe(CROWN);
     expect(loadout.resync()).toEqual(["Champion's Crown"]);
-    expect(loadout.slots.head).toBeNull();
+    expect(loadout.cosmeticSlots().head).toBe(null);
+    expect(loadout.effects).toEqual({});
+    expect(loadout.slots.head).toBe(CROWN);
+    // The next session that sees the Belt wears it again, with no re-equip.
+    own(['tidebreaker_belt', 'tinubu_crown']);
+    const next = new Loadout();
+    expect(next.resync()).toEqual([]);
+    expect(next.cosmeticSlots().head).toBe(CROWN);
   });
 
   it('the crown cannot go in another slot', () => {
