@@ -62,9 +62,13 @@ export class Loadout {
     return out;
   }
 
-  // Drop ids the server result does not own. Unknown ids are ignored, not crashed on.
+  // Check the saved choice against the server result. Unknown ids and ids in the wrong
+  // slot are cleared. An item this session does not own stays saved: cosmeticSlots(),
+  // effects and options() already leave it out, and it comes back by itself once a
+  // session sees the relic again. Clearing it here used to strip gear for good after
+  // one session whose relic list was empty or incomplete.
   // Golden Collar and Clown-Nose Collar are both known neck ids, so neither is cleared as unknown.
-  // Returns display names that were cleared, for one toast. Does not write other save fields.
+  // Returns display names this session cannot wear, for one toast. Does not write other save fields.
   resync() {
     const own = readNobuOwnership();
     if (!own.ready) return [];
@@ -75,17 +79,13 @@ export class Loadout {
       const id = this.slots[slot];
       if (!id) continue;
       const def = itemById(id);
-      if (!def) {
-        console.warn('[wardrobe] unknown item', id);
+      if (!def || def.slot !== slot) {
+        if (!def) console.warn('[wardrobe] unknown item', id);
         this.slots[slot] = null;
         changed = true;
         continue;
       }
-      if (def.slot !== slot || !owned.has(id)) {
-        lost.push(def.name);
-        this.slots[slot] = null;
-        changed = true;
-      }
+      if (!owned.has(id)) lost.push(def.name);
     }
     if (changed) this._persist();
     return lost;
