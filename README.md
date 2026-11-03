@@ -15,7 +15,7 @@ Open the printed URL (default http://localhost:5173). `npm run build` makes a st
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
 | Move | Arrows / WASD | Left stick / D-pad |
-| Jump (press again in the air: double jump) | Space | A |
+| Jump (press again in the air: double jump; triple with the Champion's Crown) | Space | A |
 | Bite | J or Shift | X / Y / RB |
 | Slide (on the ground) · Belly flop (in the air) | K or Ctrl | B / LB / triggers |
 | Mega Bark (after beating the Evil Cone) | L or E | Y |
@@ -88,6 +88,21 @@ and four jumps in a row (ground jump + three in the air). The setting is saved; 
   - 3 masks give ~20s of invincibility, with faster music and the mask covering Nobu's face.
 - **Rewards:** break everything and free every dog in a level to earn a Golden Bone.
 - **Progress:** lives start at 4, with game over and continue. Progress is saved in localStorage.
+- **Wardrobe (hub Relic items):** a Relic earned in another hub game unlocks one NOBU item. Open it from the
+  title, the map (`I` / LB) or the pause menu. Each slot holds one item. In Ranked, items are cosmetic only.
+
+  | Item | Slot | Unlocked by | While equipped |
+  | --- | --- | --- | --- |
+  | Wizard Hat | Head | Tinubu's Crown (Sproto) | Spell Bark: Mega Bark unlocked, longer (9 m vs 6.5 m), wider and faster. Bosses are skipped. |
+  | Champion's Crown | Head | Tidebreaker Belt (Sproto Fighter) | Triple jump (one more air jump) and a 1.4x bite radius (0.95 m to 1.33 m). |
+  | Golden Collar | Neck | Genesis Block Shard (People's Bitcoin) | Absorbs one hit per spawn or checkpoint. Pits still kill. |
+  | Clown-Nose Collar | Neck | HPOS10I Core (HPOS10I) | One horizontal air dash (3 m) per jump. |
+
+  The Wizard Hat and the Champion's Crown share the head slot, so Nobu wears one or the other. Cone's Tip is
+  NOBU's own Relic, so it unlocks nothing here. Items live in `src/gear/catalog.js`. The Champion's Crown is a
+  Tripo model (`public/assets/models/nobu_champions_crown.glb`, asset id `model_nobu_champions_crown`). The other
+  meshes are procedural (`src/player/accessories.js`) until a GLB is added as `public/assets/models/<item id>.glb`
+  under the asset id `model_<item id>`. Every item keeps its procedural mesh as the fallback when its GLB is missing.
 
 ## Code map
 
@@ -109,6 +124,7 @@ src/
                        particles (fx.js: cartoon smoke, explosions, dust, shockwaves)
   bosses/              Mecha Bird, Big Cat (+ chase), Evil Cone, shared projectiles + evolution (common.js)
   art/procedural.js    code-drawn textures for the bonus stages and the newer tutorial icons
+  gear/                hub Relic items: catalog, ownership (from hub init), local loadout
   ui/                  HUD, text boxes, pop-ups, menus (DOM)
   audio/               Web Audio synth: every sound effect and all music
   story/script.js      all dialogue, cutscene text, tutorials, death captions
@@ -127,6 +143,10 @@ was reused for every Nobu image.
   - Nobu: Meshy image-to-3D, rigged. Bones are driven procedurally; the Pause/Title menu can switch to the
     primitive "Classic" Nobu.
   - Items, dogs, enemies, bosses and the mask: Tripo image-to-3D from the 2D art.
+  - The Champion's Crown: Tripo image-to-3D from its approved concept. The loader scales a model to a set height
+    with its base at y = 0 and its front facing +z. A GLB whose front faces elsewhere gets a `rot:AXIS:DEG` op in
+    its asset entry (the raw crown faces +x, so it has `rot:y:-90`). The crown loads 0.28 m tall and sits 3 cm
+    higher than the procedural one (`CROWN_GLB` in `src/player/accessories.js`) because its band is narrower.
   - Two-legged enemies and the freed dogs: Meshy rigging with walk/dance clips.
 - `tools/fix_nobu_eyes.py` retouches the GLB texture: the generator painted extra pupils (a third one, plus a crescent
   on a second eye island). `--cleanup` paints out the leftovers and redraws the right pupil as a clean dot.

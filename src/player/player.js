@@ -153,12 +153,26 @@ export class Player {
   // Equipped Relic params. Empty in Ranked, and empty until init has reported ownership.
   get gear() { return this.game.loadout?.effects || {}; }
   // Boss moves, plus Mega Bark from the hat and an air dash from the clown collar. Never writes beaten.
+  // The crown's triple jump and wider bite are read straight from gear (maxAirJumps, biteMult).
   get abilities() {
     const b = save.data.beaten || [];
     return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] || !!this.gear.spell_bark, airDash: !!this.gear.air_dash };
   }
+  // Air jumps per jump: 1 (double jump), +count while the Champion's Crown is on (triple jump).
+  // God mode gives 3; the crown does not stack on top of it.
+  get maxAirJumps() {
+    const extra = Math.max(0, Math.floor(Number(this.gear.extra_air_jumps?.count) || 0));
+    const base = 1 + extra;
+    return this.god ? Math.max(3, base) : base;
+  }
   get canDouble() { return this.airJumps > 0; }
-  set canDouble(v) { this.airJumps = v ? (this.god ? 3 : 1) : 0; }
+  set canDouble(v) { this.airJumps = v ? this.maxAirJumps : 0; }
+  // Bite sphere scale. 1 with nothing on; the Champion's Crown sets bite_radius_mult.
+  get biteMult() {
+    const m = Number(this.gear.bite_radius_mult);
+    return Number.isFinite(m) && m > 0 ? m : 1;
+  }
+  get biteRange() { return TUNING.BITE_RANGE * this.biteMult; }
   get forward() { return _fwd.set(Math.sin(this.facing), 0, Math.cos(this.facing)); }
   get grounded() { return this.body.grounded; }
 
@@ -288,17 +302,7 @@ export class Player {
           this.vel.x = f.x * T.SLIDE_JUMP_SPEED; this.vel.z = f.z * T.SLIDE_JUMP_SPEED;
         }
       } else if (this.canDouble && this.mode === 'normal') {
-        this.airJumps--;
-        this.airDashT = 0;
-        this._refillAirDash();
-        this.jumpBuffer = 0;
-        this.vel.y = T.DOUBLE_JUMP;
-        this.jumpCut = false;
-        this.flipT = 0;
-        this.jumpT = 0;
-        audio.play('doubleJump');
-        this.game.fx?.puff(this.pos.x, this.pos.y + 0.1, this.pos.z, { count: 5, size: 0.3, color: 0xffffff, up: -1.5, speed: 2.2, life: 0.4, grow: 1 });
-        this.game.fx?.shock(this.pos.x, this.pos.y - 0.05, this.pos.z, { radius: 1.1, life: 0.3, k: 0.6, color: 0xeaf6ff });
+        this._airJump();
       } else if (this.mode === 'normal' && !this.ride && this.abilities.glide) {
         // Tail Glide: out of air jumps, press jump again and hold it to helicopter down slowly
         this.glideOn = true;
@@ -410,6 +414,21 @@ export class Player {
     if (this.body.grounded) this.game.fx?.dust(this.pos.x, this.pos.y, this.pos.z, { count: 3, size: 0.24, color: this._dustColor(), speed: 1.8 });
     this.body.grounded = false;
     audio.play('jump');
+  }
+
+  // Double jump, and the crown's third jump. Each one spends one of maxAirJumps.
+  _airJump() {
+    this.airJumps--;
+    this.airDashT = 0;
+    this._refillAirDash();
+    this.jumpBuffer = 0;
+    this.vel.y = TUNING.DOUBLE_JUMP;
+    this.jumpCut = false;
+    this.flipT = 0;
+    this.jumpT = 0;
+    audio.play('doubleJump');
+    this.game.fx?.puff(this.pos.x, this.pos.y + 0.1, this.pos.z, { count: 5, size: 0.3, color: 0xffffff, up: -1.5, speed: 2.2, life: 0.4, grow: 1 });
+    this.game.fx?.shock(this.pos.x, this.pos.y - 0.05, this.pos.z, { radius: 1.1, life: 0.3, k: 0.6, color: 0xeaf6ff });
   }
 
   _dustColor() { return this.game.stage?.theme?.dust ?? 0xf0e8d8; }
@@ -552,11 +571,12 @@ export class Player {
     const f = this.forward;
     const bx = p.x + f.x * 0.75, by = p.y + 0.75, bz = p.z + f.z * 0.75;
     const sliding = this.mode === 'slide' || (!!this.ride && this.mode === 'normal');
+    const biteR = this.biteRange;
     for (const e of stage.entities) {
       if (e.dead || !e.interactive || !e.box) continue;
       if (Math.abs(e.pos.z - p.z) > 8) continue;
       const eb = e.box;
-      if (biting && !this.bitten.has(e) && (sphereBox(bx, by, bz, TUNING.BITE_RANGE, eb) || sphereBox(p.x, p.y + 0.7, p.z, 0.75, eb))) {
+      if (biting && !this.bitten.has(e) && (sphereBox(bx, by, bz, biteR, eb) || sphereBox(p.x, p.y + 0.7, p.z, 0.75, eb))) {
         this.bitten.add(e);
         e.onBite?.(this);
         if (this.mode === 'dead') return;

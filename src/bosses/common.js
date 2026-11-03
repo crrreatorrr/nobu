@@ -181,6 +181,8 @@ export class Projectiles {
     const p = this.game.player;
     const pc = new THREE.Vector3(p.pos.x, p.pos.y + 0.65, p.pos.z);
     const biting = p.biteT >= 0.1 && p.biteT <= 0.75;
+    // The Champion's Crown widens bites on rockets and hairballs by the same factor as on enemies.
+    const biteMult = p.biteMult ?? 1;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const pr = this.list[i];
       pr.life -= dt;
@@ -222,7 +224,7 @@ export class Projectiles {
           const b = pr.mesh.position.clone().addScaledVector(pr.vel, -0.12);
           this.game.fx.smokeCard(b.x, b.y, b.z, { size: 0.16, life: 0.6, colors: [0xffd080, 0x8a8090], grow: 2, g: -0.6, alpha: 0.85 });
         }
-        if (biting && pr.mesh.position.distanceTo(new THREE.Vector3(p.pos.x + p.forward.x * 0.75, p.pos.y + 0.75, p.pos.z + p.forward.z * 0.75)) < 1.1) {
+        if (biting && pr.mesh.position.distanceTo(new THREE.Vector3(p.pos.x + p.forward.x * 0.75, p.pos.y + 0.75, p.pos.z + p.forward.z * 0.75)) < 1.1 * biteMult) {
           this.game.fx.explosion(pr.mesh.position.x, pr.mesh.position.y - 0.5, pr.mesh.position.z, { radius: 1.2 });
           audio.play('chompHit');
           pr.life = 0;
@@ -302,7 +304,7 @@ export class Projectiles {
         if (pr.biteable && biting) {
           const f = p.forward;
           const bc = new THREE.Vector3(p.pos.x + f.x * 0.75, p.pos.y + 0.75, p.pos.z + f.z * 0.75);
-          if (bc.distanceTo(pr.mesh.position) < 1.1) {
+          if (bc.distanceTo(pr.mesh.position) < 1.1 * biteMult) {
             this.game.fx.burst(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, { count: 8, colors: [0xc8742a, 0xa85a20], size: 0.12 });
             audio.play('chompHit');
             pr.life = 0;
