@@ -2,7 +2,7 @@
 // Effects are derived per read and are never stored on the save. Ranked keeps the meshes and drops the params.
 
 import { save } from '../core/save.js';
-import { NOBU_ITEMS, SLOTS, itemById } from './catalog.js';
+import { NOBU_ITEMS, SLOTS, itemById, itemEffects } from './catalog.js';
 import { readNobuOwnership } from './ownership.js';
 
 function emptySlots() {
@@ -27,7 +27,8 @@ export class Loadout {
   get ranked() { return readNobuOwnership().ranked; }
 
   // Ids the wardrobe may offer, including None. Unowned items stay hidden.
-  // Neck order follows the catalog: None, Golden Collar, Clown-Nose Collar.
+  // Order follows the catalog. Neck: None, Golden Collar, Clown-Nose Collar.
+  // Head: None, Wizard Hat, Champion's Crown.
   options(slot) {
     const own = readNobuOwnership();
     if (!own.ready) return [null];
@@ -56,8 +57,7 @@ export class Loadout {
     const out = {};
     for (const id of Object.values(this.slots)) {
       if (!id || !owned.has(id)) continue;
-      const def = itemById(id);
-      if (def?.effect) out[def.effect.id] = def.effect.params;
+      for (const fx of itemEffects(itemById(id))) out[fx.id] = fx.params;
     }
     return out;
   }
@@ -91,7 +91,7 @@ export class Loadout {
     return lost;
   }
 
-  // One id per slot. Assigning neck replaces the other collar.
+  // One id per slot. Assigning neck replaces the other collar; assigning head swaps hat and crown.
   equip(slot, id) {
     if (!SLOTS.includes(slot)) return false;
     const next = id || null;

@@ -1,6 +1,8 @@
 // NOBU Relic items. Gameplay's equip spec (EQ §1.1) is the source for these numbers.
 // Cone's Tip is earned in this game, so it has no NOBU item.
 // Neck holds one id. The cycle is None, Golden Collar, then Clown-Nose Collar.
+// Head holds one id too: None, Wizard Hat, then Champion's Crown. Never both.
+// An item has either one `effect` or a list of `effects`; itemEffects() reads both.
 
 export const SLOTS = ['head', 'neck', 'back', 'body'];
 export const VISIBLE_SLOTS = ['head', 'neck'];
@@ -29,6 +31,28 @@ export const NOBU_ITEMS = [
       },
     },
     cosmetic: { mesh: 'nobu_wizard_hat', fallback: 'procedural' },
+  },
+  {
+    id: 'nobu_champions_crown',
+    game: 'nobu',
+    slot: 'head',
+    name: "Champion's Crown",
+    relic: 'tidebreaker_belt',
+    blurb: 'Triple jump, and a wider bite.',
+    // Effect ids and values match the hub item matrix (server/modules/src/effects.ts).
+    effects: [
+      // One more air jump on top of the double jump: ground + 2 in the air.
+      // God mode already gives 3 air jumps; the crown does not add to that.
+      { id: 'extra_air_jumps', params: { count: 1 } },
+      // Scales the bite sphere (TUNING.BITE_RANGE 0.95 m -> 1.33 m), so the front
+      // reach goes from 1.70 m to 2.08 m. 1.4 sits with the other items: Spell Bark
+      // stretches the bark 9 / 6.5 = 1.38x, and the Clown-Nose dash adds 3 m once per jump.
+      // At 1.4 the crown helps with near misses but does not out-reach the bark.
+      { id: 'bite_radius_mult', params: 1.4 },
+    ],
+    // Procedural until the Higgsfield model lands at public/assets/models/nobu_champions_crown.glb
+    // (asset id model_nobu_champions_crown in tools/asset_list_extra.json).
+    cosmetic: { mesh: 'nobu_champions_crown', fallback: 'procedural' },
   },
   {
     id: 'nobu_golden_collar',
@@ -61,4 +85,11 @@ export const NOBU_ITEMS = [
 export function itemById(id) {
   if (!id) return null;
   return NOBU_ITEMS.find((item) => item.id === id) || null;
+}
+
+// Every { id, params } an item grants while equipped.
+export function itemEffects(def) {
+  if (!def) return [];
+  if (Array.isArray(def.effects)) return def.effects;
+  return def.effect ? [def.effect] : [];
 }

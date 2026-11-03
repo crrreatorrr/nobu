@@ -1,6 +1,7 @@
 // Hats and collars parented to Nobu's sockets. Authored in metres at his 1.5 m size.
 // A missing GLB always falls back to these procedural meshes.
-// Neck holds one mesh: Golden Collar or Clown-Nose Collar.
+// Neck holds one mesh: Golden Collar or Clown-Nose Collar. Head holds one: Wizard Hat or Champion's Crown.
+// GLBs follow the manifest convention: asset id `model_<item id>`, file `models/<item id>.glb`.
 
 import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
@@ -27,6 +28,80 @@ function buildWizardHat() {
   g.userData.kind = 'hat';
   return g;
 }
+
+// Champion's Crown (Tidebreaker Belt). From the approved concept: chunky gold band with five
+// rounded points, teal sea-glass gems, white pearl trim, a small wave emblem on the front.
+// Base sits at y = 0; +z is Nobu's front. dressNobuModel tilts it between the ears.
+// Stand-in until models/nobu_champions_crown.glb exists (see tools/asset_list_extra.json).
+export function buildChampionsCrown() {
+  const g = new THREE.Group();
+  const gold = cloth(0xffc83a, 0x7a4c00);
+  const goldInside = new THREE.MeshLambertMaterial({ color: 0xd99a1e, emissive: 0x4a2c00, side: THREE.DoubleSide });
+  const seaGlass = new THREE.MeshLambertMaterial({ color: 0x35d6c3, emissive: 0x0d5e55 });
+  const pearl = new THREE.MeshLambertMaterial({ color: 0xfdf8ee, emissive: 0x5c564a });
+  const R = 0.15;
+  const base = 0.02;
+  const bandH = 0.075;
+  const top = base + bandH;
+  const at = (a, r) => [Math.sin(a) * r, Math.cos(a) * r];
+
+  // Band: open cylinder (inside visible), with a rounded rim on top.
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.05, bandH, 20, 1, true), goldInside);
+  band.position.y = base + bandH / 2;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(R, 0.014, 6, 24), gold);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = top;
+  g.add(band, rim);
+
+  // Pearl trim round the bottom edge.
+  const pearls = 16;
+  const pearlGeo = new THREE.SphereGeometry(0.019, 8, 6);
+  for (let i = 0; i < pearls; i++) {
+    const [x, z] = at((i / pearls) * Math.PI * 2, R * 1.05 + 0.006);
+    const p = new THREE.Mesh(pearlGeo, pearl);
+    p.position.set(x, base, z);
+    g.add(p);
+  }
+
+  // Five rounded points, the first one at the front.
+  const pointGeo = new THREE.ConeGeometry(0.046, 0.1, 10);
+  const knobGeo = new THREE.SphereGeometry(0.027, 10, 8);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const [x, z] = at(a, R * 0.98);
+    const point = new THREE.Mesh(pointGeo, gold);
+    point.position.set(x, top + 0.045, z);
+    point.rotation.set(Math.cos(a) * 0.12, 0, -Math.sin(a) * 0.12);
+    const knob = new THREE.Mesh(knobGeo, gold);
+    knob.position.set(x * 1.06, top + 0.1, z * 1.06);
+    g.add(point, knob);
+    // Teal sea-glass gem in the band between this point and the next.
+    const [gx, gz] = at(a + Math.PI / 5, R * 1.03 + 0.008);
+    const gem = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), seaGlass);
+    gem.position.set(gx, base + bandH * 0.55, gz);
+    gem.scale.set(1, 1.2, 0.7);
+    gem.lookAt(gx * 2, gem.position.y, gz * 2);
+    g.add(gem);
+  }
+
+  // Wave emblem on the front: gold medallion, teal curl, white crest.
+  const front = R * 1.05 + 0.01;
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.014, 16), gold);
+  disc.rotation.x = Math.PI / 2;
+  disc.position.set(0, base + bandH * 0.5, front);
+  const curl = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0065, 6, 14, Math.PI * 1.4), seaGlass);
+  curl.position.set(-0.004, base + bandH * 0.5, front + 0.009);
+  curl.rotation.z = -0.5;
+  const crest = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 6), pearl);
+  crest.position.set(0.012, base + bandH * 0.5 + 0.016, front + 0.01);
+  g.add(disc, curl, crest);
+
+  g.userData.kind = 'crown';
+  return g;
+}
+
+// Rakish tilt so the crown sits between the ears, not dead level.
+export const CROWN_TILT = { x: -0.1, z: -0.24 };
 
 function buildGoldenCollar() {
   const g = new THREE.Group();
@@ -59,7 +134,8 @@ function buildClownCollar() {
 }
 
 function takeMesh(id, height, fallback) {
-  const loaded = Assets.model(id, height);
+  // Assets only loads manifest GLBs whose id starts with model_ (see art/assets.js).
+  const loaded = Assets.model(`model_${id}`, height);
   return loaded || fallback();
 }
 
@@ -101,8 +177,16 @@ export function dressNobuModel(model, loadout) {
   if (!model) return;
   clearGear(model);
   const show = loadout?.cosmeticSlots?.() || {};
+  // Head holds one id, so the hat and the crown never show together.
   if (show.head === 'nobu_wizard_hat' && model.headSocket) {
     attach(model, model.headSocket, takeMesh('nobu_wizard_hat', 0.55, buildWizardHat), {
+      lift: model.hatLift ?? 0.2,
+      key: 'gearHat',
+    });
+  } else if (show.head === 'nobu_champions_crown' && model.headSocket) {
+    const crown = takeMesh('nobu_champions_crown', 0.22, buildChampionsCrown);
+    crown.rotation.set(CROWN_TILT.x, 0, CROWN_TILT.z);
+    attach(model, model.headSocket, crown, {
       lift: model.hatLift ?? 0.2,
       key: 'gearHat',
     });

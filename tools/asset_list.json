@@ -1087,6 +1087,16 @@
       "prompt": "(user-supplied photo of the Harry Potter / OBAMA backpack)"
     },
     {
+      "id": "backpack_icon",
+      "jobId": "",
+      "url": "",
+      "dest": "items/backpack_icon.webp",
+      "ops": [],
+      "model": "user photo (backpack_front.jpg) on a drawn backpack silhouette: tools/make_backpack_icon.py",
+      "usedFor": "Level complete BREAKABLES icon (the Sonic-with-tulips meme backpack)",
+      "prompt": "(no generation; built locally from the user-supplied photo)"
+    },
+    {
       "id": "sproto_mask",
       "jobId": "",
       "url": "",
@@ -1215,6 +1225,16 @@
       "model": "Tripo H3.1 image-to-3D (textured)",
       "usedFor": "In-game 3D model",
       "prompt": "Image-to-3D from evil_cone sprite (see that entry for its prompt)"
+    },
+    {
+      "id": "model_nobu_champions_crown",
+      "jobId": "",
+      "url": "",
+      "dest": "models/nobu_champions_crown.glb",
+      "ops": [],
+      "model": "PENDING: Higgsfield image-to-3D from the approved Champion's Crown concept (not generated yet; the sandbox network blocks the Higgsfield CDN)",
+      "usedFor": "Champion's Crown head item (Tidebreaker Belt relic). Until this file exists, src/player/accessories.js buildChampionsCrown() draws it procedurally. Loaded via Assets.model('model_nobu_champions_crown', 0.22): normalized to that height, base at y = 0, front facing +z.",
+      "prompt": "Chunky gold cartoon crown with five rounded points, teal sea-glass gems set in the band, a white pearl trim around the base and a small wave emblem on the front. Late-1990s console 3D platformer style, smooth clay-like shapes, bold saturated colors. Fill in the real job id, CDN url and prompt when generated, then run: python3 tools/process_assets.py model_nobu_champions_crown"
     }
   ]
 }

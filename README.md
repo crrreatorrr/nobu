@@ -15,7 +15,7 @@ Open the printed URL (default http://localhost:5173). `npm run build` makes a st
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
 | Move | Arrows / WASD | Left stick / D-pad |
-| Jump (press again in the air: double jump) | Space | A |
+| Jump (press again in the air: double jump; triple with the Champion's Crown) | Space | A |
 | Bite | J or Shift | X / Y / RB |
 | Slide (on the ground) · Belly flop (in the air) | K or Ctrl | B / LB / triggers |
 | Mega Bark (after beating the Evil Cone) | L or E | Y |
@@ -88,6 +88,20 @@ and four jumps in a row (ground jump + three in the air). The setting is saved; 
   - 3 masks give ~20s of invincibility, with faster music and the mask covering Nobu's face.
 - **Rewards:** break everything and free every dog in a level to earn a Golden Bone.
 - **Progress:** lives start at 4, with game over and continue. Progress is saved in localStorage.
+- **Wardrobe (hub Relic items):** a Relic earned in another hub game unlocks one NOBU item. Open it from the
+  title, the map (`I` / LB) or the pause menu. Each slot holds one item. In Ranked, items are cosmetic only.
+
+  | Item | Slot | Unlocked by | While equipped |
+  | --- | --- | --- | --- |
+  | Wizard Hat | Head | Tinubu's Crown (Sproto) | Spell Bark: Mega Bark unlocked, longer (9 m vs 6.5 m), wider and faster. Bosses are skipped. |
+  | Champion's Crown | Head | Tidebreaker Belt (Sproto Fighter) | Triple jump (one more air jump) and a 1.4x bite radius (0.95 m to 1.33 m). |
+  | Golden Collar | Neck | Genesis Block Shard (People's Bitcoin) | Absorbs one hit per spawn or checkpoint. Pits still kill. |
+  | Clown-Nose Collar | Neck | HPOS10I Core (HPOS10I) | One horizontal air dash (3 m) per jump. |
+
+  The Wizard Hat and the Champion's Crown share the head slot, so Nobu wears one or the other. Cone's Tip is
+  NOBU's own Relic, so it unlocks nothing here. Items live in `src/gear/catalog.js`. The meshes are procedural
+  (`src/player/accessories.js`) until a GLB is added as `public/assets/models/<item id>.glb` under the asset id
+  `model_<item id>`. The crown's entry is already in `tools/asset_list_extra.json`.
 
 ## Code map
 
@@ -109,6 +123,7 @@ src/
                        particles (fx.js: cartoon smoke, explosions, dust, shockwaves)
   bosses/              Mecha Bird, Big Cat (+ chase), Evil Cone, shared projectiles + evolution (common.js)
   art/procedural.js    code-drawn textures for the bonus stages and the newer tutorial icons
+  gear/                hub Relic items: catalog, ownership (from hub init), local loadout
   ui/                  HUD, text boxes, pop-ups, menus (DOM)
   audio/               Web Audio synth: every sound effect and all music
   story/script.js      all dialogue, cutscene text, tutorials, death captions
