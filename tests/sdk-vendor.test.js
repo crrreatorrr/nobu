@@ -19,7 +19,7 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 //   810a0d205afa87755d257639dad4880d002da8f9e0b3f3dbe960558a1c274bc0
 // 0.4.0-redeem.1 / hub 9ce6ade plus the local tidebreaker_belt RELIC_IDS patch
 // and its VENDOR.md note (see vendor/hub-sdk/VENDOR.md).
-const CONTENT_MANIFEST_SHA256 = '40ffdb4a0c8bfab7c5102cf6d84c936acc94bf861b49044001369661b85ddd49';
+const CONTENT_MANIFEST_SHA256 = 'ef1dec9403b182cc74ef4bae387c01e3e887c3e70bef9321e886a70c15d2d20b';
 
 function listFiles(dir) {
   const out = [];
