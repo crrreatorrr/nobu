@@ -29,6 +29,13 @@ import { hub } from '../hub/hubBridge.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Let the loading bar paint before the next synchronous build step. rAF stops in a
+// hidden tab, so a short timeout also ends the wait.
+const nextFrame = () => new Promise((r) => {
+  const done = () => { clearTimeout(t); r(); };
+  const t = setTimeout(done, 50);
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(done);
+});
 
 // Time trial targets per level, in seconds: [gold, silver, bronze] dog tags
 export const TRIAL_TARGETS = { 1: [55, 70, 92], 2: [52, 66, 90], 3: [45, 58, 78] };
@@ -92,6 +99,22 @@ export class Session {
     return stage;
   }
 
+  // Compile the new stage's shaders while the loading screen is up, so the first frames
+  // of play don't stutter. Capped, so a slow GPU driver can't hold the load.
+  async _warmUp() {
+    const g = this.game;
+    const r = g.renderer;
+    if (!r || !this.stage?.scene) return;
+    try {
+      const compile = typeof r.compileAsync === 'function'
+        ? r.compileAsync(this.stage.scene, g.camera.cam)
+        : Promise.resolve(r.compile(this.stage.scene, g.camera.cam));
+      await Promise.race([compile, wait(3000)]);
+    } catch (err) {
+      console.warn('[load] shader warm-up skipped', err);
+    }
+  }
+
   _attachActors(info) {
     const g = this.game;
     const stage = this.stage;
@@ -111,26 +134,38 @@ export class Session {
 
   async startLevel() {
     const g = this.game;
+    const ui = g.ui;
+    this.busy = true;
+    this.phase = 'level';
+    ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
+    ui.loadingProgress(0.05, 'Saving progress...');
     const attempt = await hub.beginAttempt(this.level);
     this.attemptId = attempt.id;
     this.attemptDurable = attempt.ok;
-    await hub.bankCarry();
-    this.busy = true;
-    this.phase = 'level';
+    // Never wait on the hub here: a slow or unreachable hub used to leave this
+    // transition on a black screen. bank() at the level end waits for this job.
+    hub.startCarry();
+    ui.loadingProgress(0.15, `Building ${this.def.name}...`);
+    await nextFrame();
     const stage = this._newStage(this.def.theme);
     const info = this.def.build(g, stage, this.tickets);
     stage.finalize();
     this.tickets.finalize();
+    ui.loadingProgress(0.65, 'Placing Nobu...');
+    await nextFrame();
     this.info = info;
     this.chase = info.chase || null;
     this._attachActors(info);
     this.breakablesTotal = stage.entities.filter((e) => e instanceof Breakable && e.countable).length;
     this.dogsTotal = stage.entities.filter((e) => e instanceof ConedDog).length;
+    ui.loadingProgress(0.8, 'Warming up...');
+    await this._warmUp();
     audio.setRate(1);
     audio.playMusic(stage.theme.music);
-    g.ui.showHud(4);
+    ui.fade(0, 0);
+    await ui.hideLoading();
+    ui.showHud(4);
     this._pushHud();
-    await g.ui.fade(0);
     g.player.setRide(info.ride || null);
     if (this.trial) this._setupTrial();
     g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
@@ -355,10 +390,15 @@ export class Session {
     const g = this.game;
     this.phase = 'boss';
     this.tickets.clearFlying?.();
+    g.ui.showLoading('BOSS FIGHT', this.def.name.toUpperCase());
+    g.ui.loadingProgress(0.1, 'Building the arena...');
+    await nextFrame();
     const stage = this._newStage(this.def.bossTheme);
     const info = this.def.arena(g, stage, this.tickets);
     stage.finalize();
     this.tickets.finalize();
+    g.ui.loadingProgress(0.6, 'Waking the boss...');
+    await nextFrame();
     // arena pick-ups don't count toward the level reward
     for (const e of stage.entities) if (e instanceof Breakable) e.countable = false;
     this.info = info;
@@ -370,12 +410,15 @@ export class Session {
     this.bossPhaseCp = 1;
     this._attachActors(info);
     g.player.frozen = true;
+    g.ui.loadingProgress(0.8, 'Warming up...');
+    await this._warmUp();
     audio.playMusic('cutscene');
     // intro shot on the boss
     const bp = boss.pos.clone();
     g.camera.cinematic(new THREE.Vector3(bp.x + 3, Math.max(3, bp.y + 1.5), bp.z + 9), new THREE.Vector3(bp.x, bp.y + 1, bp.z), 2.5);
     g.camera.pos.set(bp.x + 6, bp.y + 4, bp.z + 16);
-    await g.ui.fade(0);
+    g.ui.fade(0, 0);
+    await g.ui.hideLoading();
     audio.play('bossRoar');
     g.camera.shake(0.4, 0.5);
     await g.ui.say(BOSS_TALK[this.def.bossKey].intro);
