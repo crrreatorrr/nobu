@@ -64,6 +64,38 @@ export class UI {
     this.fadeEl = h('div');
     this.fadeEl.id = 'fade';
     root.appendChild(this.fadeEl);
+
+    // level loading screen: sits above the black fade while a stage is built
+    this.loadEl = h('div', 'level-load', '<div class="ll-kicker"></div><div class="big-title ll-title"></div><div class="bar"><div class="fill"></div></div><div class="ll-step hint"></div>');
+    this.loadEl.setAttribute('role', 'progressbar');
+    this.loadEl.setAttribute('aria-valuemin', '0');
+    this.loadEl.setAttribute('aria-valuemax', '100');
+    root.appendChild(this.loadEl);
+    this.loadShownAt = 0;
+  }
+
+  // ---------- level loading ----------
+  showLoading(kicker, title) {
+    this.loadEl.querySelector('.ll-kicker').textContent = kicker;
+    this.loadEl.querySelector('.ll-title').textContent = title;
+    this.loadEl.setAttribute('aria-label', `Loading ${title}`);
+    this.loadingProgress(0, '');
+    this.loadEl.classList.add('show');
+    this.loadShownAt = performance.now();
+  }
+  loadingProgress(frac, step) {
+    const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+    this.loadEl.querySelector('.fill').style.width = `${pct}%`;
+    this.loadEl.setAttribute('aria-valuenow', String(pct));
+    if (step != null) this.loadEl.querySelector('.ll-step').textContent = step;
+  }
+  // Fill the bar, keep the screen up for at least `minMs` so it never just flashes, then fade it out.
+  async hideLoading(minMs = 700) {
+    this.loadingProgress(1, 'Ready!');
+    const left = minMs - (performance.now() - this.loadShownAt);
+    await new Promise((r) => setTimeout(r, Math.max(250, left)));
+    this.loadEl.classList.remove('show');
+    await new Promise((r) => setTimeout(r, 300));
   }
 
   // ---------- HUD ----------

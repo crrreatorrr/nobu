@@ -677,6 +677,7 @@ class HubBridge {
     this.status = '';
     this._sdk = null;
     this._initing = null;
+    this._carryJob = null;
   }
 
   get sdk() {
@@ -805,9 +806,20 @@ class HubBridge {
   }
 
   // Quit, game over, and secret warp do not call this. A finished time trial does.
+  // Level start calls this instead of awaiting bankCarry, so a slow or unreachable hub
+  // never holds the next level on a black screen. bank() waits for the job, so a carry
+  // from an earlier clear still banks before this attempt's own Tickets.
+  startCarry() {
+    const job = this.bankCarry().catch((err) => console.warn('[hub] carry failed', err));
+    this._carryJob = job;
+    job.then(() => { if (this._carryJob === job) this._carryJob = null; });
+    return job;
+  }
+
   async bank(attemptId, amount, durable) {
     const earned = Math.floor(Number(amount)) || 0;
     if (!attemptId || earned <= 0) return;
+    if (this._carryJob) await this._carryJob;
     const attempt = readStore().attempts[attemptId];
     if (!durable || !attempt) {
       console.warn('[hub] earn not sent; attempt id was not saved');
