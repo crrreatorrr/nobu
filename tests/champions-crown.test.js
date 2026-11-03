@@ -6,7 +6,8 @@ import { itemById, itemEffects, NOBU_ITEMS } from '../src/gear/catalog.js';
 import { Loadout } from '../src/gear/loadout.js';
 import { readNobuOwnership } from '../src/gear/ownership.js';
 import { hub } from '../src/hub/hubBridge.js';
-import { buildChampionsCrown, dressNobuModel } from '../src/player/accessories.js';
+import { Assets } from '../src/art/assets.js';
+import { buildChampionsCrown, CROWN_GLB, dressNobuModel } from '../src/player/accessories.js';
 import { Player, TUNING } from '../src/player/player.js';
 import { readyHub, resetWorld } from './helpers.js';
 import { sdk } from './sdkState.js';
@@ -188,6 +189,33 @@ describe('head slot: wizard hat or crown, never both', () => {
     expect(headSocket.children).toHaveLength(0);
     expect(model.gearHat).toBeNull();
     expect(model.allMeshes).toHaveLength(0);
+  });
+
+  it('mounts the GLB crown when loaded: keeps its height, sits a little higher, tilted', () => {
+    // Stand-in for the normalized template Assets._loadModel builds (unit height, base at y = 0).
+    const template = new THREE.Group();
+    template.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 1.1), new THREE.MeshBasicMaterial()));
+    Assets.models.set('model_nobu_champions_crown', template);
+    try {
+      const root = new THREE.Group();
+      const headSocket = new THREE.Group();
+      headSocket.scale.setScalar(0.5); // bone scale is divided out
+      root.add(headSocket);
+      const model = { root, headSocket, neckSocket: null, hatLift: 0.22, allMeshes: [] };
+      dressNobuModel(model, loadoutWith(CROWN));
+      const crown = model.gearHat;
+      expect(crown.userData.kind).toBe('crown');
+      expect(crown.children[0]).not.toBe(template.children[0]); // a clone, not the template
+      expect(crown.scale.y).toBeCloseTo(CROWN_GLB.height / 0.5);
+      expect(crown.position.y).toBeCloseTo((0.22 + CROWN_GLB.lift) / 0.5);
+      expect(crown.rotation.z).not.toBe(0);
+      root.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(crown);
+      expect(box.max.y - box.min.y).toBeGreaterThan(CROWN_GLB.height * 0.95); // tilt adds a little
+      expect(box.max.y - box.min.y).toBeLessThan(CROWN_GLB.height * 1.4);
+    } finally {
+      Assets.models.delete('model_nobu_champions_crown');
+    }
   });
 
   it('builds the procedural crown: gold band, five points, teal gems, pearl trim, front emblem', () => {

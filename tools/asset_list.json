@@ -569,7 +569,7 @@
         "webp:86"
       ],
       "model": "gpt_image_2_5 (medium)",
-      "usedFor": "Black Backpack front decal (in-game) + level complete icon",
+      "usedFor": "Black Backpack front decal fallback (in-game, if backpack_front is missing)",
       "prompt": "Video game breakable item sprite: a chunky cartoon black backpack, zipped and stuffed full, with a front pocket, two padded shoulder straps, a top grab handle and a small round orange coin patch, front three-quarter view. Chunky colorful late-1990s console 3D platformer style, polished PS1-era cartoon game render, smooth clay-like shapes, bold saturated colors, thin black outline. Transparent background, no text."
     },
     {
@@ -1228,13 +1228,15 @@
     },
     {
       "id": "model_nobu_champions_crown",
-      "jobId": "",
-      "url": "",
+      "jobId": "1fe5159c-b1a3-4b41-b0c8-17653ee22b1a",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EhTMTxw0fkqxeeNVPZRAKwzj8d/hf_20261103_002748_1fe5159c-b1a3-4b41-b0c8-17653ee22b1a.glb",
       "dest": "models/nobu_champions_crown.glb",
-      "ops": [],
-      "model": "PENDING: Higgsfield image-to-3D from the approved Champion's Crown concept (not generated yet; the sandbox network blocks the Higgsfield CDN)",
-      "usedFor": "Champion's Crown head item (Tidebreaker Belt relic). Until this file exists, src/player/accessories.js buildChampionsCrown() draws it procedurally. Loaded via Assets.model('model_nobu_champions_crown', 0.22): normalized to that height, base at y = 0, front facing +z.",
-      "prompt": "Chunky gold cartoon crown with five rounded points, teal sea-glass gems set in the band, a white pearl trim around the base and a small wave emblem on the front. Late-1990s console 3D platformer style, smooth clay-like shapes, bold saturated colors. Fill in the real job id, CDN url and prompt when generated, then run: python3 tools/process_assets.py model_nobu_champions_crown"
+      "ops": [
+        "rot:y:-90"
+      ],
+      "model": "Tripo H3.1 image-to-3D (textured PBR, 6k faces) from the approved Champion's Crown concept",
+      "usedFor": "Champion's Crown head item (Tidebreaker Belt relic). Loaded via Assets.model('model_nobu_champions_crown', CROWN_GLB.height = 0.28): base at y = 0, wave emblem facing +z (the raw Tripo mesh faces +x, so ops rotate it -90 deg about y). src/player/accessories.js buildChampionsCrown() is the procedural fallback when this file is missing.",
+      "prompt": "Show only the crown ... Champion's Crown, chunky gold, teal sea-glass gems, wave emblem"
     }
   ]
 }

@@ -680,6 +680,13 @@
       "model": "Tripo H3.1 image-to-3D (textured)",
       "jobId": "7c3f159d-b758-4f3b-ab50-85a590ce6707",
       "prompt": "Image-to-3D from evil_cone sprite (see that entry for its prompt)"
+    },
+    "model_nobu_champions_crown": {
+      "file": "models/nobu_champions_crown.glb",
+      "usedFor": "Champion's Crown head item (Tidebreaker Belt relic). Loaded via Assets.model('model_nobu_champions_crown', CROWN_GLB.height = 0.28): base at y = 0, wave emblem facing +z (the raw Tripo mesh faces +x, so ops rotate it -90 deg about y). src/player/accessories.js buildChampionsCrown() is the procedural fallback when this file is missing.",
+      "model": "Tripo H3.1 image-to-3D (textured PBR, 6k faces) from the approved Champion's Crown concept",
+      "jobId": "1fe5159c-b1a3-4b41-b0c8-17653ee22b1a",
+      "prompt": "Show only the crown ... Champion's Crown, chunky gold, teal sea-glass gems, wave emblem"
     }
   }
 }

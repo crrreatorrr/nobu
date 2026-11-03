@@ -32,7 +32,7 @@ function buildWizardHat() {
 // Champion's Crown (Tidebreaker Belt). From the approved concept: chunky gold band with five
 // rounded points, teal sea-glass gems, white pearl trim, a small wave emblem on the front.
 // Base sits at y = 0; +z is Nobu's front. dressNobuModel tilts it between the ears.
-// Stand-in until models/nobu_champions_crown.glb exists (see tools/asset_list_extra.json).
+// Fallback for when models/nobu_champions_crown.glb (the Tripo model of the same concept) is missing.
 export function buildChampionsCrown() {
   const g = new THREE.Group();
   const gold = cloth(0xffc83a, 0x7a4c00);
@@ -102,6 +102,10 @@ export function buildChampionsCrown() {
 
 // Rakish tilt so the crown sits between the ears, not dead level.
 export const CROWN_TILT = { x: -0.1, z: -0.24 };
+// The GLB crown's band is narrower than the procedural one (0.26 m across at 0.22 m tall), so it is
+// loaded taller and lifted a little: its band then clears the brow and the wave emblem shows,
+// matching where the procedural crown's pearl trim sits.
+export const CROWN_GLB = { height: 0.28, lift: 0.03 };
 
 function buildGoldenCollar() {
   const g = new THREE.Group();
@@ -157,7 +161,8 @@ function attach(model, socket, acc, { lift = 0, key }) {
   const world = new THREE.Vector3();
   socket.getWorldScale(world);
   const s = Math.max(1e-4, Math.abs(world.x));
-  acc.scale.setScalar(1 / s);
+  // Multiply, don't set: a GLB from Assets.model() already carries its height as its scale.
+  acc.scale.multiplyScalar(1 / s);
   acc.position.set(0, lift / s, 0);
   socket.add(acc);
   const meshes = [];
@@ -184,10 +189,12 @@ export function dressNobuModel(model, loadout) {
       key: 'gearHat',
     });
   } else if (show.head === 'nobu_champions_crown' && model.headSocket) {
-    const crown = takeMesh('nobu_champions_crown', 0.22, buildChampionsCrown);
+    const glb = Assets.model('model_nobu_champions_crown', CROWN_GLB.height);
+    const crown = glb || buildChampionsCrown();
+    crown.userData.kind = 'crown';
     crown.rotation.set(CROWN_TILT.x, 0, CROWN_TILT.z);
     attach(model, model.headSocket, crown, {
-      lift: model.hatLift ?? 0.2,
+      lift: (model.hatLift ?? 0.2) + (glb ? CROWN_GLB.lift : 0),
       key: 'gearHat',
     });
   }

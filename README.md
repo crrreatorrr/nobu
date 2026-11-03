@@ -99,9 +99,10 @@ and four jumps in a row (ground jump + three in the air). The setting is saved; 
   | Clown-Nose Collar | Neck | HPOS10I Core (HPOS10I) | One horizontal air dash (3 m) per jump. |
 
   The Wizard Hat and the Champion's Crown share the head slot, so Nobu wears one or the other. Cone's Tip is
-  NOBU's own Relic, so it unlocks nothing here. Items live in `src/gear/catalog.js`. The meshes are procedural
-  (`src/player/accessories.js`) until a GLB is added as `public/assets/models/<item id>.glb` under the asset id
-  `model_<item id>`. The crown's entry is already in `tools/asset_list_extra.json`.
+  NOBU's own Relic, so it unlocks nothing here. Items live in `src/gear/catalog.js`. The Champion's Crown is a
+  Tripo model (`public/assets/models/nobu_champions_crown.glb`, asset id `model_nobu_champions_crown`). The other
+  meshes are procedural (`src/player/accessories.js`) until a GLB is added as `public/assets/models/<item id>.glb`
+  under the asset id `model_<item id>`. Every item keeps its procedural mesh as the fallback when its GLB is missing.
 
 ## Code map
 
@@ -142,6 +143,10 @@ was reused for every Nobu image.
   - Nobu: Meshy image-to-3D, rigged. Bones are driven procedurally; the Pause/Title menu can switch to the
     primitive "Classic" Nobu.
   - Items, dogs, enemies, bosses and the mask: Tripo image-to-3D from the 2D art.
+  - The Champion's Crown: Tripo image-to-3D from its approved concept. The loader scales a model to a set height
+    with its base at y = 0 and its front facing +z. A GLB whose front faces elsewhere gets a `rot:AXIS:DEG` op in
+    its asset entry (the raw crown faces +x, so it has `rot:y:-90`). The crown loads 0.28 m tall and sits 3 cm
+    higher than the procedural one (`CROWN_GLB` in `src/player/accessories.js`) because its band is narrower.
   - Two-legged enemies and the freed dogs: Meshy rigging with walk/dance clips.
 - `tools/fix_nobu_eyes.py` retouches the GLB texture: the generator painted extra pupils (a third one, plus a crescent
   on a second eye island). `--cleanup` paints out the leftovers and redraws the right pupil as a clean dot.

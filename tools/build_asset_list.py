@@ -260,7 +260,7 @@ add("ticket", "61a4402d-7597-4943-ae1e-12c17e75afc7", "20261028_082326", "items/
     "the frame. Chunky colorful late-1990s console 3D platformer style, bold saturated colors, thin black outline. Transparent "
     "background, no other text.")
 add("backpack", "cf4b0277-b12e-4068-920e-eac32922807a", "20261028_082324", "items/backpack.png", SPRITE_OPS, GPT,
-    "Black Backpack front decal (in-game) + level complete icon",
+    "Black Backpack front decal fallback (in-game, if backpack_front is missing)",
     "Video game breakable item sprite: a chunky cartoon black backpack, zipped and stuffed full, with a front pocket, two padded "
     "shoulder straps, a top grab handle and a small round orange coin patch, front three-quarter view. " + STYLE_SPRITE +
     " Transparent background, no text.")
