@@ -14,9 +14,15 @@ Ops (applied in order):
   jpg:Q         save as JPEG at quality Q
   webp:Q        save as WebP (keeps alpha) at quality Q (otherwise PNG)
 
+GLB ops (models are copied as-is unless they list one):
+  rot:AXIS:DEG  wrap the scene in a root node rotated DEG degrees about x, y or z (e.g. rot:y:-90 turns a
+                model whose front faces +x so it faces +z, the convention Assets.model() expects)
+
 Usage: python3 tools/process_assets.py [asset_id ...]   (no ids = all entries)
 """
 import json
+import math
+import struct
 import sys
 import urllib.request
 from pathlib import Path
@@ -93,12 +99,47 @@ def seamless(img):
     return Image.fromarray(out.clip(0, 255).astype(np.uint8), "RGB")
 
 
+def glb_rotate(data, axis, deg):
+    """Return GLB bytes with the default scene's nodes parented to a new rotated root node."""
+    magic, version, _ = struct.unpack_from("<III", data, 0)
+    if magic != 0x46546C67:
+        raise ValueError("not a GLB file")
+    json_len, json_type = struct.unpack_from("<II", data, 12)
+    if json_type != 0x4E4F534A:
+        raise ValueError("GLB has no JSON chunk first")
+    gltf = json.loads(data[20:20 + json_len])
+    rest = data[20 + json_len:]  # BIN chunk (header included), untouched
+    half = math.radians(deg) / 2
+    quat = [0.0, 0.0, 0.0, math.cos(half)]
+    quat["xyz".index(axis)] = math.sin(half)
+    scene = gltf["scenes"][gltf.get("scene", 0)]
+    gltf.setdefault("nodes", []).append({"name": f"rot_{axis}_{deg:g}", "rotation": quat, "children": scene["nodes"]})
+    scene["nodes"] = [len(gltf["nodes"]) - 1]
+    chunk = json.dumps(gltf, separators=(",", ":")).encode()
+    chunk += b" " * (-len(chunk) % 4)
+    total = 12 + 8 + len(chunk) + len(rest)
+    return struct.pack("<III", magic, version, total) + struct.pack("<II", len(chunk), json_type) + chunk + rest
+
+
+def process_glb(entry, raw, dest):
+    data = raw.read_bytes()
+    for op in entry.get("ops", []):
+        name, _, arg = op.partition(":")
+        if name == "rot":
+            axis, _, deg = arg.partition(":")
+            data = glb_rotate(data, axis, float(deg))
+        else:
+            raise ValueError(f"unknown GLB op {op}")
+    dest.write_bytes(data)
+    print(f"  wrote {dest.relative_to(ROOT)} ({len(data)} bytes, ops {entry.get('ops', [])})")
+
+
 def process(entry):
     raw = download(entry)
     dest = OUT / entry["dest"]
     dest.parent.mkdir(parents=True, exist_ok=True)
     if entry["dest"].endswith(".glb"):
-        dest.write_bytes(raw.read_bytes())
+        process_glb(entry, raw, dest)
         return
     img = Image.open(raw)
     img.load()
