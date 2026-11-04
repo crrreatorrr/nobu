@@ -271,3 +271,8 @@ export const BONUS_EXTENSION_TEXT = {
   ride: { split: 'Living Room Split', ramps: 'Toy Box Ramps', tile: 'Kitchen Tile Slide', door: 'Dog-Door Leap', sofa: 'Sofa Summit' },
   cave: { river: 'Underground River', mushrooms: 'Mushroom Bounce Cavern', crystals: 'Crystal Echo', hollow: "Lumi's Nest Hollow" },
 };
+export const L4_TEXT = {
+  name: 'Laundry Day', gate: 'ROOMBA TITAN',
+  sections: { hallway: 'Hallway', laundry: 'Laundry Room', ironing: 'Ironing Board', kitchen: 'Kitchen Counter', stampede: 'Roomba Stampede', basement: 'Basement Stairs', boiler: 'Boiler Room', topShelf: 'Top Shelf', pantry: 'The Pantry' },
+  chainSign: ['CHOMP', 'CHAIN!'], biteSign: ['BITE', 'FAST'],
+};
