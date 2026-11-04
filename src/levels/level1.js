@@ -82,6 +82,8 @@ export function buildLevel1(game, stage, tickets) {
   k.tix(-2.2, 0, 93, -2.2, 0, 100, 4);
   k.tut(101, 'trampoline');
   k.tramp(-2.5, 0, 105);
+  // Permanent step: the ledge remains reachable if the trampoline was bitten first.
+  k.lunch(-2.5, 0, 106.8);
   k.platform(-2.5, 4.4, 110.5, 3, 5.5);
   k.oneUp(-2.5, 4.4, 112.3);
   k.dog(-2.0, 4.4, 109.0, 'pug');
