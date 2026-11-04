@@ -1,6 +1,7 @@
 // A play session for one level: the path stage, then its boss arena (bonus stages end at a goal instead).
 // Owns checkpoints (with Crash-style rollback on death), lives, tickets, masks, invincibility and stats.
 import * as THREE from 'three';
+import { masteryTrialMedal, trialMastery, mergeTrialMastery, perfectRun } from './mastery.js';
 import { addBuddy } from '../entities/buddy.js';
 import { Stage } from '../world/stage.js';
 import { TicketSystem } from '../entities/tickets.js';
@@ -15,7 +16,7 @@ import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
 import { LEVELS, levelDef, LEVEL_NAMES } from '../levels/registry.js';
-import { LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT, SECTION_TEXT } from '../story/script.js';
+import { MASTERY_TEXT, LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT, SECTION_TEXT } from '../story/script.js';
 import { createChain, refreshChain, chainPitch } from './rewards.js';
 import { hitSessionChain, finishSessionChain, updateSessionChain, removeChainDrops } from './chain.js';
 import { missesBySection, boundedMiss } from './hints.js';
@@ -290,28 +291,27 @@ export class Session {
     const g = this.game, t = this.trialT;
     this.trialRunning = false;
     const layout = trialLayout(this.level), variant = trialVariant(this.level, layout);
-    const medal = trialMedal(variant, t);
-    const ms = Math.round(t * 1000);
-    const d = save.data;
+    const ms = Math.round(t * 1000), d = save.data;
+    const godUsed = this.godUsed || !!d.godMode;
+    this.godUsed = godUsed;
+    const medal = masteryTrialMedal(variant, t, { godUsed });
     d.trials ||= {};
     const candidate = d.trials[this.level];
     const prev = (candidate?.layout ?? 1) === layout ? candidate : null;
     const prevMs = Number.isInteger(prev?.ms) ? prev.ms : Number.isFinite(prev?.best) ? Math.round(prev.best * 1000) : null;
-    const best = prevMs == null || ms < prevMs;
-    const deaths = this.deaths | 0;
-    const freezeMs = Math.round(this.freezeMs || 0);
-    // pid ties the record to the hub player that set it. Standalone and god-mode records have
-    // none, so they are never uploaded later.
-    const pid = d.godMode ? null : hub.playerId();
-    if (best) d.trials[this.level] = { best: t, ms, medal, at: Date.now(), deaths, freezeMs, pid, layout };
+    const deaths = this.deaths | 0, freezeMs = Math.round(this.freezeMs || 0);
+    // God-used belongs to this whole run, even after the toggle is turned off.
+    const pid = godUsed ? null : hub.playerId();
+    const incoming = trialMastery(variant, { best: t, ms, medal, at: Date.now(), deaths, freezeMs, pid, layout, godUsed });
+    const best = !!incoming && (prevMs == null || ms < prevMs);
+    const merged = mergeTrialMastery(variant, prev, incoming);
+    if (merged) d.trials[this.level] = merged;
     save.write();
     hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
-    if (!d.godMode && pid) {
-      // This run counts for this player even when another player holds the local best.
-      // The queue skips anything not faster than what it already queued or the hub holds.
-      // A local best this player set earlier is sent instead, in case its first send was lost.
+    if (incoming && !godUsed && pid) {
+      // A local god/practice best never replaces the integer time this clean run posts.
       const rec = d.trials[this.level];
-      const own = !best && rec && (rec.layout ?? 1) === layout && rec.pid === pid && Number.isInteger(rec.ms) && rec.ms <= ms;
+      const own = !best && rec && !rec.godUsed && (rec.layout ?? 1) === layout && rec.pid === pid && Number.isInteger(rec.ms) && rec.ms <= ms;
       if (own) hub.submitScore(rec.ms, this.level, { deaths: rec.deaths | 0, freezeMs: rec.freezeMs | 0 }).catch(() => {});
       else hub.submitScore(ms, this.level, { deaths, freezeMs }).catch(() => {});
     }
@@ -368,7 +368,7 @@ export class Session {
     const missed = this.stage.entities.filter((e) => e instanceof Breakable && e.countable && !e.broken).length;
     await wait(350);
     if (!missed) {
-      g.ui.banner('PERFECT!', 'Not a single backpack missed', 1.8);
+      g.ui.banner('PERFECT!', this.stats?.perfectCandidate ? MASTERY_TEXT.perfectRain : 'Not a single backpack missed', 1.8);
       audio.play('oneUp');
       await wait(1500);
       return;
@@ -451,6 +451,7 @@ export class Session {
       dogs: ents.filter((e) => e instanceof ConedDog && e.freed).length,
       dogsTotal: this.dogsTotal,
     };
+    this.stats.perfectCandidate = perfectRun(this.stats, boneContext(this, this.stats.godUsed), this.def);
     const ctx = boneContext(this);
     if (!ctx.trial && !ctx.remix && !ctx.rush) {
       save.data.lastMiss[this.level] = boundedMiss(this.stats.sectionMiss);

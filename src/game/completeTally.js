@@ -1,7 +1,7 @@
 import { Assets } from '../art/assets.js';
 import { audio } from '../audio/audio.js';
 import { save } from '../core/save.js';
-import { REWARD_TEXT } from '../story/script.js';
+import { MASTERY_TEXT, REWARD_TEXT } from '../story/script.js';
 import { tallyPlan } from './tally.js';
 import { drawTally, soundTally } from './tallyView.js';
 const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,7 +21,7 @@ export function openCompleteTally(game, n, stats, fresh, bonus, { board, hint, m
     <div class="complete-wrap"><img class="complete-nobu" src="${Assets.url('nobu_complete')}"><div class="stats tally-stats">
       ${row('backpacks',Assets.has('backpack_icon') ? 'backpack_icon' : 'backpack')}${row('dogs','dog_corgi_free')}${row('tickets','ticket')}
       ${stats.bestChain >= 5 ? row('bestChain','golden_bone') + (stats.chainRecord ? `<div class="hint tally-record" data-tally="bestRecord">${REWARD_TEXT.chainBest}</div>` : '') : ''}
-      <div data-tally="board">${board}</div><div class="hint tally-hint" data-tally="hint"></div>
+      <div data-tally="board">${board}</div>${stats.perfectFresh ? `<div class="hint perfect-stamp" data-tally="perfect">🐾 ${MASTERY_TEXT.perfect}</div>` : ''}<div class="hint tally-hint" data-tally="hint"></div>
       ${milestones.map((m) => `<div class="hint" data-kennel>${esc(m.text)}</div>`).join('')}
     </div></div><div class="hint" style="margin-top:3vh" data-tally="continue">${REWARD_TEXT.continue}</div>`,'dim');
   game.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #5a2399, #1a0530)';
@@ -39,7 +39,7 @@ export function advanceCompleteTally(game,dt,pressed) {
   if(pressed && !wasFinished && game.tallyCanSkip) {
     game.completeT = game.tally.duration;
     // A skip also finishes any CSS stamp/row transitions already in flight.
-    game.ui.screen.querySelectorAll('.stat-row, [data-tally="board"], [data-bone]').forEach((el) => { el.style.animation = 'none'; el.style.transition = 'none'; });
+    game.ui.screen.querySelectorAll('.stat-row, [data-tally="board"], [data-tally="perfect"], [data-bone]').forEach((el) => { el.style.animation = 'none'; el.style.transition = 'none'; });
     drawCompleteTally(game);
   } else {
     game.completeT += dt;

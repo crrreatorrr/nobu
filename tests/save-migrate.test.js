@@ -58,7 +58,7 @@ describe('save v3 migration', () => {
     load(prior);
     for (const key of ['lives', 'tickets', 'seenIntro', 'finished', 'lastLevel', 'tutorials', 'nobuModel',
       'pixelated', 'godMode', 'loadout', 'bonus', 'colorBones', 'musicVol', 'sfxVol', 'trials']) {
-      expect(save.data[key], key).toEqual(key === 'trials' ? { 1: { ...prior.trials[1], layout: 1 } } : prior[key]);
+      expect(save.data[key], key).toEqual(key === 'trials' ? { 1: { ...prior.trials[1], layout: 1, godUsed: false, bestEligibleMs: 51235 } } : prior[key]);
     }
   });
 

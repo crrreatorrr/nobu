@@ -15,7 +15,7 @@ import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
+import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
@@ -27,6 +27,8 @@ import { noticeKennelMilestones, goodBoyPercent, kennelUnlocks, totalDogs } from
 
 import { Kennel } from './kennel.js';
 import { kennelStatus, missingSecrets, selectedTint } from './kennelData.js';
+import { bankPerfect } from './mastery.js';
+import { trialTargetLine, eligibleTrialLine, bossMedalPanel, perfectPaw } from './masteryView.js';
 import { applyFurTint } from '../player/furTint.js';
 
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
@@ -53,6 +55,7 @@ function bankBoneResults(session, st) {
     if (Object.hasOwn((session.def || levelDef(session.level)).dogs || {}, localId)) d.dogsFreed[`${session.level}:${localId}`] = true;
   }
   if (Object.keys(d.dogsFreed).length) d.open.kennel = true;
+  st.perfectFresh = !(session.def || levelDef(session.level)).bonus && bankPerfect(d, session.level, st.perfectCandidate === true, ctx);
   st.kennelFresh = noticeKennelMilestones(d, LEVELS);
   return fresh;
 }
@@ -395,6 +398,7 @@ export class Game {
       nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
         ${!beaten && !bonus && !meta ? '<div class="cone-cloud"></div>' : ''}
         ${!bonus && save.boneOf(n) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
+        ${!meta && !bonus ? perfectPaw(!!d.perfect?.[n], MASTERY_TEXT) : ''}
         ${!bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
         ${n === this.mapSel ? `<img class="nobu-marker" src="${Assets.url('nobu_head')}">` : ''}
         <div class="dot">${locked ? '🔒' : meta ? '🐾' : bonus ? '★' : n}</div>
@@ -409,12 +413,15 @@ export class Game {
     const tr = !!levelDef(lv).trial && save.beatenOf(lv)
       ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
       : '';
+    const targets = !metaSel && levelDef(lv).trial && save.beatenOf(lv) ? `<div class="hint">${trialTargetLine(trialVariant(lv), d.trials?.[lv])}</div>` : '';
+    const eligible = !metaSel && levelDef(lv).trial && d.trials?.[lv] ? eligibleTrialLine(d.trials[lv], MASTERY_TEXT) : '';
+    const bossList = metaSel ? '' : bossMedalPanel(d, LEVELS, lv, MASTERY_TEXT);
     const world = !!levelDef(lv).trial && save.beatenOf(lv) ? this._worldLine(lv) : '';
     const total = save.totalTrialMs();
     const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
     const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel })}
-      <div class="hint">${status}</div>${snifferLine}${tr}${world}${totalNote}
+      <div class="hint">${status}</div>${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${world}${totalNote}
       <div class="hint" style="margin-top:6px">${metaSel ? esc(KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
@@ -818,7 +825,8 @@ export class Game {
   // Time trial finished at the boss gate: time, dog tag, personal best.
   trialDone(session, t, medal, best) {
     const n = session.level;
-    const [g, s, b, p] = TRIAL_TARGETS[trialVariant(n)];
+    const targets = trialTargetLine(trialVariant(n), ['gold', 'platinum'].includes(medal) ? { medal } : save.data.trials?.[n]);
+    const eligible = eligibleTrialLine(save.data.trials?.[n], MASTERY_TEXT);
     this.state = 'complete';
     this.completeMode = 'trial';
     this.tally = null; this.tallyStats = null;
@@ -832,7 +840,7 @@ export class Game {
       <div class="sub-title">${LEVEL_NAMES[n].toUpperCase()}</div>
       <div class="big-title" style="font-size:72px;margin:2vh 0">${fmtTime(t)}</div>
       <div class="sub-title">${medal ? `${MEDAL[medal]} ${names[medal]}` : 'No tag this time'}${best ? ' · NEW BEST!' : ''}</div>
-      <div class="hint" style="margin-top:2vh">🥇 ${fmtTime(g)} · 🥈 ${fmtTime(s)} · 🥉 ${fmtTime(b)}${p == null ? '' : ` · 💎 ${fmtTime(p)}`}</div>
+      <div class="hint" style="margin-top:2vh">${targets}${eligible ? `<div>${esc(eligible)}</div>` : ''}</div>
       <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
     this.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #23599a, #05183a)';
     this.ui.fade(0);

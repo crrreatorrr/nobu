@@ -241,3 +241,10 @@ export const KENNEL_TEXT = {
 };
 export const CONE_STAGE_POWERS = { 2: 'Floor sweeps · twin lasers · grab · vortex · RUG PULL', 3: 'Shadow clones · SMOG TIDE · combos of three · fastest' };
 export const CAT_STAGE_POWERS = { 2: 'Double pounce · claw scratches · tail-whip · knocks things off the table', 3: 'Triple pounce · zoomies · ghost lives · the edge crumbles' };
+
+export const MASTERY_TEXT = {
+  perfect: 'PERFECT RUN!', perfectSub: 'Every backpack, every dog, no deaths',
+  perfectRain: '...and not a single death! PERFECT RUN', noHit: 'No-Hit', speed: 'Speed',
+  eligibleBest: (time) => `Eligible best ${time}`,
+  bossNames: { bird: 'MECHA BIRD', cat: 'BIG CAT', cone: 'EVIL CONE', titan: 'ROOMBA TITAN', queen: 'PUMP QUEEN' },
+};
