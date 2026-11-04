@@ -147,3 +147,29 @@ export class FallBox extends CrumblePlatform {
   onRespawn() { this.reset(); }
 }
 
+export class SlideBox extends MovingPlatform {
+  constructor(stage, x, y, z, { dir = new THREE.Vector3(1, 0, 0), range = 1.6, speed = 1.5, phase = 0, yaw = 0 } = {}) {
+    super(stage, x, y + .98, z, { w: 1, h: .98, d: 1, dir, range, speed, phase, yaw });
+    this.home.y = y; this.pos.y = y;
+    this.obj.clear();
+    const visual = boxMesh(0x2ad1a0); this.mesh = visual.mesh; this.obj.add(this.mesh);
+    this.kind = 'slidebox'; this.countable = false;
+    this.clock = registerBeatClock(stage); this._sign = null;
+    this.onRespawn();
+  }
+  update() {
+    if(this.distToPlayer()<7)this.game.ui?.tutorial?.('slidebox');
+    this.t = this.clock.t;
+    const angle = this.t * this.speed + this.phase;
+    this.pos.copy(this.home).addScaledVector(this.dir, Math.sin(angle) * this.range);
+    this.obj.position.copy(this.pos);
+    this.solid.setCenter(this.pos.x, this.pos.y, this.pos.z, this.half.hx * 2, .98, this.half.hz * 2);
+    const sign = Math.sign(Math.cos(angle));
+    if (this._sign !== null && this._sign !== sign) audio.play('clang');
+    this._sign = sign;
+  }
+  onRespawn() {
+    this.clock.reset(); this._sign = null; this.update();
+    this.solid.delta.x = this.solid.delta.y = this.solid.delta.z = 0;
+  }
+}
