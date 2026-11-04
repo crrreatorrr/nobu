@@ -71,6 +71,15 @@ describe('development telemetry data', () => {
 });
 
 describe('development-only tooling integration', () => {
+  it.each(['devStrip', 'boxDev'])('keeps synthetic %s sessions out of canonical L1 telemetry', (flag) => {
+    const { game, session } = fixture(); session[flag] = true;
+    const table = vi.spyOn(console, 'table').mockImplementation(() => {});
+    installTuningTools(game, {});
+    game.devTuning.update(session, 5); game.devTuning.death(session, 'fall'); game.devTuning.gate(session);
+    expect(readRecords(localStorage, DEATH_KEY)).toEqual([]);
+    expect(readRecords(localStorage, SECTION_KEY)).toEqual([]);
+    expect(table).not.toHaveBeenCalled();
+  });
   it('records projected deaths, persists sprites across a level rebuild, and flushes the gate once', async () => {
     const { game, session, stage, player } = fixture(), T = {};
     const table = vi.spyOn(console, 'table').mockImplementation(() => {});

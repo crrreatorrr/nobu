@@ -54,6 +54,7 @@ export function installTuningTools(game, T) {
   });
   game.devTuning = {
     death(session, cause) {
+      if (session.devStrip || session.boxDev) return;
       const track = session.stage?.track, player = game.player;
       if (!track) return;
       const point = track.project(player.pos.x, player.pos.z);
@@ -63,10 +64,12 @@ export function installTuningTools(game, T) {
     },
     update(session, dt) {
       if (currentStage !== session.stage) redraw();
+      if (session.devStrip || session.boxDev) return;
       const run = runFor(session);
       if (!run.finished) advanceTimer(session, game.player, dt, run.times, run.context);
     },
     gate(session) {
+      if (session.devStrip || session.boxDev) return;
       const run = runFor(session);
       if (run.finished) return;
       run.finished = true;

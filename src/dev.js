@@ -38,6 +38,7 @@ export function installDevTools(game) {
       await game.ui.fade(1); game.ui.clearScreen();
       game.session?.dispose();
       const session = new Session(game, 1);
+      session.devStrip = true;
       session.def = { ...session.def, name: 'Gameplay prop strip', build(g, stage, tickets) {
         const track = makeTrack(stage, turtle([0, 0, 0], [[140, 0, 0]]));
         const k = makeKit(g, stage, tickets, track);
@@ -83,6 +84,7 @@ export function installDevTools(game) {
       ]);
       await game.ui.fade(1); game.ui.clearScreen(); game.session?.dispose();
       const session = new Session(game, 1);
+      session.devStrip = true;
       session.def = { ...session.def, name: 'Gated helper strip', build: buildGatedTestStrip };
       game.session = session; game.state = 'play'; game.flyingMasks.length = 0;
       let finished = false;
