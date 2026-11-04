@@ -14,26 +14,8 @@ import { makeShadow, placeShadow } from '../entities/fx.js';
 import { advanceHang } from './hang.js';
 import { rideVacuumMesh } from '../entities/ride.js';
 
-export const TUNING = {
-  RUN: 8.0,
-  ACCEL: 95,
-  DECEL: 75,
-  AIR_ACCEL: 42,
-  GRAVITY: 36,
-  FALL_MULT: 1.4,
-  MAX_FALL: 28,
-  JUMP: 12.6,
-  DOUBLE_JUMP: 11.2,
-  COYOTE: 0.11,
-  BUFFER: 0.13,
-  SLIDE_SPEED: 12.5,
-  SLIDE_TIME: 0.5,
-  SLIDE_JUMP_SPEED: 10.5,
-  BITE_TIME: 0.34,
-  BITE_RANGE: 0.95,
-  FLOP_SPEED: 30,
-  STOMP_BOUNCE: 10.5,
-};
+import { TUNING } from '../config/movement.js';
+export { TUNING } from '../config/movement.js';
 
 // Mega Bark with nothing equipped. Spell Bark replaces these while the hat is on.
 export const BARK_BASE = {
