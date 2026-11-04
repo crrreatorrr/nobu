@@ -239,6 +239,9 @@ class AudioEngine {
         this._noise(0.055, 0.16 * volume, 0.025, 'bandpass', 1200, 4000, 1);
         break;
       case 'charge': this._osc('sawtooth', 120 * p, 900 * p, 0.7, 0.12, 0, this.sfxGain, { filter: 'lowpass', freq: 1800 }); this._osc('sine', 240 * p, 1800 * p, 0.7, 0.08); break;
+      case 'catnip':
+        ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => this._osc('triangle', noteFreq(n) * p, noteFreq(n) * p, 0.18, 0.12 * volume, i * 0.045));
+        break;
       case 'laser':
         this._osc('sawtooth', 1400, 700, 0.5, 0.12, 0, this.sfxGain, { filter: 'bandpass', freq: 1600, q: 3, vibrato: 30, vibDepth: 120 });
         this._noise(0.5, 0.15, 0, 'highpass', 3000);
