@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
 import { fencePost } from '../world/decor.js';
 import { crowdLayout } from './kennelData.js';
+import {addGauntletPhotos} from './gauntletPhotos.js';
 
 export class KennelYard {
   constructor(game, data, registry) {
@@ -28,6 +29,7 @@ export class KennelYard {
       for (const z of [-4, 4]) make(new THREE.BoxGeometry(12, .08, .08), 0xc89058, new THREE.Vector3(0, y, z));
       for (const x of [-6, 6]) make(new THREE.BoxGeometry(.08, .08, 8), 0xc89058, new THREE.Vector3(x, y, 0));
     }
+    this.gauntletPhotos=addGauntletPhotos(this.scene,data,this.resources);
     const lowEnd = game.renderer.capabilities.maxTextures < 16 || data.pixelated || game.renderer.getPixelRatio() < (globalThis.devicePixelRatio || 1);
     const layout = crowdLayout(data, registry, lowEnd); this.hidden = layout.hidden;
     this.dogs = layout.dogs.map((dog) => {

@@ -3,7 +3,7 @@ export const KENNEL_MILESTONES = [
   { at: 8, id: 'jukebox' }, { at: 16, id: 'buddy' }, { at: 24, id: 'fur' },
   { at: 32, id: 'gallery' }, { at: 42, id: 'sniffer' }, { at: 'all', id: 'golden' },
 ];
-const entries = (reg) => Object.values(reg?.LEVELS || reg || {}).filter((e) => e.shipped && (e.bonus || /^[1-6]$/.test(String(e.id))));
+const entries = (reg) => Object.values(reg?.LEVELS || reg || {}).filter((e) => e.shipped && !e.gauntlet && (e.bonus || /^[1-6]$/.test(String(e.id))));
 const dogKeys = (reg) => entries(reg).flatMap((e) => Object.keys(e.dogs || {}).map((id) => `${e.id}:${id}`));
 export const totalDogs = (reg) => dogKeys(reg).length;
 export const dogsFreedCount = (save, reg) => reg ? dogKeys(reg).filter((id) => save.dogsFreed?.[id] === true).length : Object.values(save.dogsFreed || {}).filter((v) => v === true).length;
