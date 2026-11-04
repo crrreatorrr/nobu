@@ -6,6 +6,7 @@ export const BUDGET = LEVEL_BUDGETS['2'];
 // Level 2: Scratchpost Canyon — the Big Cat chase along a winding canyon. Camera faces Nobu.
 // Pits, logs, backpack walls, rugs, yarn, a crumbling bridge, a curving plank bridge and a mushroom launch.
 import * as THREE from 'three';
+import { CatArena } from '../bosses/catArena.js';
 import { makeKit, makeTrack, turtle } from './kit.js';
 import { ChaseCat } from '../bosses/bigCat.js';
 import { L2_CHASE_BREAKABLES, L2_CHASE } from './data/l2-chase.js';
@@ -122,7 +123,10 @@ export function buildLevel2(game, stage, tickets) {
 
 export function buildBoss2Arena(game, stage, tickets) {
   const k = makeKit(game, stage, tickets);
-  stage.block(-12.5, -6, -12.5, 12.5, 0, 12.5, 'ground');
+  stage.block(-10.5, -6, -10.5, 10.5, 0, 10.5, 'ground');
+  stage.killY = -6;
+  const catArena = stage.add(new CatArena(stage));
+  stage.catArena = catArena;
   stage.block(-17, -6, -17, -12.5, 4, 17, 'ground');
   stage.block(12.5, -6, -17, 17, 4, 17, 'ground');
   stage.block(-12.5, -6, -17, 12.5, 4, -12.5, 'ground');
@@ -140,6 +144,8 @@ export function buildBoss2Arena(game, stage, tickets) {
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
     camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 12, z: 15.5 }, follow: 0.45 },
-    spheres: [new THREE.Vector3(9, 0, 9), new THREE.Vector3(-9, 0, -9)],
+    ledges: catArena.ledges,
+    catArena,
+    spheres: [new THREE.Vector3(9, 0, 9), new THREE.Vector3(-9, 0, -9), new THREE.Vector3(0, 0, 9)],
   };
 }
