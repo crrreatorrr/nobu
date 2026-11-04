@@ -61,3 +61,8 @@ registered cover bounds before lock/landing. A real World regression verifies th
 walls and roof, no stale old-position solids, and actual Beam/feather interception at the new location.
 All16 Bird tests pass after that correction; H20 arena tests also pass. The final integrated counts
 above include this correction and the real collision/cover regression.
+
+The reviewer also reproduced Stage.update overwriting the escort's root visibility after Bird.ai.
+The blink now uses the Entity.visible flag as well as the root mesh, restoring both at tell end.
+An actual Stage-order regression covers dark/light frames and completion without stopping drone
+updates or altering collision/rewards. All17 Bird-focused tests pass; final full checks are rerunning.

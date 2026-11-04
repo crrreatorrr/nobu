@@ -566,8 +566,8 @@ export class MechaBird extends Boss {
       }
       case 'escort': {
         this.setFlap(12,.4);this.faceTo(this.P,dt);this.animate(dt);
-        for(const d of this.drones)d.obj.visible=Math.floor(this.stateT*16)%2===0;
-        if(this.stateT>=this.tele(.6)){for(const d of this.drones)d.obj.visible=true;this.endAttack();}
+        for(const d of this.drones)d.visible=d.obj.visible=Math.floor(this.stateT*16)%2===0;
+        if(this.stateT>=this.tele(.6)){for(const d of this.drones)d.visible=d.obj.visible=true;this.endAttack();}
         break;
       }
       case 'ultimate': {

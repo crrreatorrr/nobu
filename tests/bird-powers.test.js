@@ -6,6 +6,7 @@ vi.mock('../src/audio/audio.js',()=>({audio:{play:vi.fn()}}));
 import { MechaBird } from '../src/bosses/mechaBird.js';
 import { Projectiles } from '../src/bosses/common.js';
 import { BirdWindLanes, BirdEggCraters,buildBirdArena } from '../src/bosses/birdArena.js';
+import { Stage } from '../src/world/stage.js';
 import { World,moveBody } from '../src/world/physics.js';
 import { audio } from '../src/audio/audio.js';
 function fixture(phase=1){
@@ -57,6 +58,13 @@ describe('Bird powers use actual boss states and projectiles',()=>{
     const feather=vi.spyOn(f.proj,'feather');f.b.beginAttack('aim');step(f,f.b.tele(.85)+.01);expect(feather).toHaveBeenCalledTimes(2);
     for(const d of f.b.drones)d.onBite(f.p);expect(f.stage.entities.filter(e=>e.birdDroneDrop)).toHaveLength(1);expect(f.stage.entities.find(e=>e.birdDroneDrop).countable).toBe(false);
     f.b.beginAttack('escort');for(const d of f.b.drones)d.onBite(f.p);expect(f.stage.entities.filter(e=>e.birdDroneDrop)).toHaveLength(1);
+  });
+  it('preserves the escort blink through actual Stage entity visibility ordering',()=>{
+    const f=fixture(3);f.stage.entities.push(f.b);f.b.beginAttack('escort');
+    Object.assign(f.stage,{time:0,wind:{value:0},activeRange:75,sun:{position:new THREE.Vector3(),target:{position:new THREE.Vector3()}},_ambient(){},_emit(){}});
+    Stage.prototype.update.call(f.stage,.08,f.p);expect(f.b.drones.every(d=>d.visible===false && d.obj.visible===false)).toBe(true);
+    Stage.prototype.update.call(f.stage,.05,f.p);expect(f.b.drones.every(d=>d.visible===true && d.obj.visible===true)).toBe(true);
+    Stage.prototype.update.call(f.stage,f.b.tele(.6),f.p);expect(f.b.drones.every(d=>d.visible===true && d.obj.visible===true)).toBe(true);
   });
   it.each([1,2,3])('ultimate stage%s uses its full sequence and guarantees a dive punish',phase=>{
     const f=fixture(phase),feather=vi.spyOn(f.proj,'feather'),rockets=vi.spyOn(f.proj,'missile'),beam=vi.spyOn(f.b.beam,'set');f.b.beginAttack('ultimate');
