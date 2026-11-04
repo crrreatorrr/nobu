@@ -7,7 +7,8 @@ export function masteryTargets(variant, table = TRIAL_TARGETS) {
   const row = table[variant];
   return row ? [row[0], row[1], row[2], row[3] ?? PLATINUM_LAYOUT1[variant]] : null;
 }
-const validMs = (variant, ms) => Number.isInteger(ms) && ms >= TRIAL_FLOOR_MS[variant] && ms <= TRIAL_CEIL_MS;
+const validRecordMs = (variant, ms) => Number.isInteger(ms) && ms >= TRIAL_FLOOR_MS[variant];
+const validMs = (variant, ms) => validRecordMs(variant, ms) && ms <= TRIAL_CEIL_MS;
 const minMs = (a, b) => a == null ? b : b == null ? a : Math.min(a, b);
 export const platinumEligible = (ctx = {}) => !(ctx.god || ctx.godUsed || ctx.remix || ctx.rush || ctx.dda || ctx.ddaUsed);
 export function masteryTrialMedal(variant, seconds, ctx = {}, table = TRIAL_TARGETS) {
@@ -24,10 +25,10 @@ export function masteryTrialMedal(variant, seconds, ctx = {}, table = TRIAL_TARG
 // clean run can still earn its own tag without discarding a faster practice time.
 export function trialMastery(variant, record, table = TRIAL_TARGETS) {
   const layout = Number(/v(\d+)$/.exec(String(variant))?.[1] || 1);
-  if (!record || (record.layout ?? 1) !== layout || !validMs(variant, record.ms)) return null;
+  if (!record || (record.layout ?? 1) !== layout || !validRecordMs(variant, record.ms)) return null;
   const godUsed = record.godUsed === true;
   const ownEligible = !godUsed ? record.ms : null;
-  const savedEligible = validMs(variant, record.bestEligibleMs) && record.bestEligibleMs >= record.ms ? record.bestEligibleMs : null;
+  const savedEligible = validRecordMs(variant, record.bestEligibleMs) && record.bestEligibleMs >= record.ms ? record.bestEligibleMs : null;
   const bestEligibleMs = minMs(ownEligible, savedEligible);
   let medal = masteryTrialMedal(variant, record.ms / 1000, { godUsed }, table);
   const platinum = masteryTargets(variant, table)?.[3];

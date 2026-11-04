@@ -27,3 +27,8 @@ it('preserves Classic eligibility metadata in layout1 normalization and New Game
   save.data.trialsClassic = sanitizeTrials({ 1: rec(45000, true, { bestEligibleMs: 49000 }) }, 1); save.write(); save.reset(); save.load();
   expect(save.data.trialsClassic[1]).toMatchObject({ ms: 45000, godUsed: true, bestEligibleMs: 49000, medal: 'platinum', layout: 1 });
 });
+
+it('retains an older slow local record above the hub ceiling without inventing a tag', () => {
+  load(rec(1801000, false)); expect(save.data.trials[1]).toMatchObject({ ms: 1801000, medal: null, godUsed: false });
+  save.write(); save.load(); expect(save.data.trials[1].ms).toBe(1801000);
+});
