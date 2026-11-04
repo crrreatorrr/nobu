@@ -72,8 +72,8 @@ describe('M0 difficulty configuration', () => {
     b.stageAura = () => {}; b.ai = () => {};
     b.update([0, 13, 10, 7.5][phase]);
     expect(b.charge).toBe(0.5);
-    expect(b.chargeTimes).toEqual([0, 26, 20, 15]);
+    expect(b.chargeTimes).toEqual([0, 26, 20, 15, 12]);
     b.chargeTimes[phase] = 99;
-    expect(ULT_CHARGE).toEqual([0, 26, 20, 15]);
+    expect(ULT_CHARGE).toEqual([0, 26, 20, 15, 12]);
   });
 });

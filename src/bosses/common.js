@@ -6,7 +6,9 @@ import { audio } from '../audio/audio.js';
 import { canvasTex, rand } from '../core/util.js';
 import { toon } from '../player/nobuPrims.js';
 import { TUNING } from '../player/player.js';
-import { BOSS, FLOOR, ULT_CHARGE } from '../config/difficulty.js';
+import { BOSS, BOSS_PHASE_CHECKPOINTS, FLOOR, ULT_CHARGE } from '../config/difficulty.js';
+import { chainBlocked, clearChain, pickChain, startChain, endAttack } from './chain.js';
+import { segmentDistanceSq, segmentBoxTime } from './geometry.js';
 
 import { Assets } from '../art/assets.js';
 
@@ -14,6 +16,11 @@ import { Assets } from '../art/assets.js';
 const _pc = new THREE.Vector3();
 const _bite = new THREE.Vector3();
 const _axis = new THREE.Vector3();
+const _previous = new THREE.Vector3();
+const _want = new THREE.Vector3();
+const _look = new THREE.Vector3();
+const NO_COVER = [];
+const PERSISTENT_PROJECTILES = new Set(['wave', 'drop', 'roller', 'claw', 'scratch', 'cable', 'wake']);
 
 // Put a Higgsfield GLB body inside an animated rig group, hiding the primitive meshes of `hideRoots`.
 export function attachGlb(parent, id, height, offsetY = 0, hideRoots = []) {
@@ -183,6 +190,63 @@ export class Projectiles {
     return this._add({ kind: 'claw', mesh, vel: d.multiplyScalar(speed), dir: d.clone(), life, r: 1.2, groundY, death: 'angel' });
   }
 
+  coconut(pos, dir, o = {}) { return this.roller(pos, dir, { radius: 0.7, color: 0x7a4a22, life: 4, bound: 11.5, ...o }); }
+  debris(pos, dir, speed = 10) {
+    const pr = this.cone(pos, dir, speed);
+    pr.mesh.geometry = new THREE.BoxGeometry(0.35, 0.12, 0.5);
+    pr.mesh.material = toon(0xd4c0a0);
+    return pr;
+  }
+  falling(x, z, { kind = 'crate', groundY = 0, delay = 0.9, r = 1, onLand } = {}) {
+    const pr = this.dropCone(x, groundY, z, Math.max(FLOOR.teleSec, delay), r);
+    const colors = { backpack: 0x4a9aff, cat: 0xef9060, leg: 0x8686aa, crate: 0xd5aa70, cage: 0x9999bb };
+    pr.mesh.geometry = kind === 'leg' ? new THREE.CylinderGeometry(0.4, 0.5, 2, 8) : new THREE.BoxGeometry(1.4, 1.6, 1.4);
+    pr.mesh.material = toon(colors[kind] ?? colors.crate);
+    pr.death = 'flat'; pr.onLand = onLand;
+    return pr;
+  }
+  cage(x, z, { groundY = 0, delay = 0.9, duration = 4, trap = 2 } = {}) {
+    const pr = this.falling(x, z, { kind: 'cage', groundY, delay, r: 1.1 });
+    pr.cage = true; pr.coverDuration = duration; pr.trapDuration = trap;
+    pr.mesh.material.wireframe = true;
+    pr.cover = this.stage.world.addBox(x, groundY, z, 1.6, 1.8, 1.6, { kind: 'moving' });
+    pr.cover.enabled = false;
+    (this.stage.scene.userData.bossCover ||= []).push(pr.cover);
+    return pr;
+  }
+  scratch(a, b, life = 3) {
+    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.35, length), new THREE.MeshBasicMaterial({ color: 0xff66bb, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+    mesh.rotation.set(-Math.PI / 2, 0, -Math.atan2(b.x - a.x, b.z - a.z));
+    mesh.position.set((a.x + b.x) / 2, a.y + 0.03, (a.z + b.z) / 2);
+    return this._add({ kind: 'scratch', mesh, a: a.clone(), b: b.clone(), life, groundY: a.y, death: 'angel' });
+  }
+  cableArc(pivot, len, a0, a1, w = 0.5, { life = 1, groundY = pivot.y } = {}) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, len), toon(0xffbb55));
+    return this._add({ kind: 'cable', mesh, pivot: pivot.clone(), len, a0, a1, width: w, life, duration: life, groundY, death: 'angel' });
+  }
+  slowHomer(pos, { dir = _want.set(0, 0, 1), ...o } = {}) {
+    const pr = this.missile(pos, dir, { speed: 4.5, turn: 1.2, life: 5, ...o });
+    pr.coned = true; pr.r = 0.32;
+    return pr;
+  }
+  wakeRing(x, z, { groundY = 0, life = 5 } = {}) {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 2.2, 40, 1, true), new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+    mesh.position.set(x, groundY + 1.1, z);
+    return this._add({ kind: 'wake', mesh, groundY, life, death: 'angel' });
+  }
+
+  _remove(pr) {
+    this.stage.scene.remove(pr.mesh);
+    if (pr.marker) this.stage.scene.remove(pr.marker);
+    if (pr.cover) {
+      pr.cover.enabled = false;
+      const covers = this.stage.scene.userData.bossCover;
+      const index = covers.indexOf(pr.cover);
+      if (index >= 0) covers.splice(index, 1);
+    }
+  }
+
   update(dt) {
     const p = this.game.player;
     const pc = _pc.set(p.pos.x, p.pos.y + 0.65, p.pos.z);
@@ -191,9 +255,22 @@ export class Projectiles {
     const biteMult = p.biteMult ?? 1;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const pr = this.list[i];
+      _previous.copy(pr.mesh.position);
       pr.life -= dt;
       let hit = false;
-      if (pr.kind === 'wave') {
+      if (pr.kind === 'scratch') {
+        hit = p.pos.y - pr.groundY < 0.4 && segmentDistanceSq(p.pos.x, p.pos.z, pr.a.x, pr.a.z, pr.b.x, pr.b.z) < 0.175 ** 2;
+        pr.mesh.material.opacity = Math.min(0.8, pr.life);
+      } else if (pr.kind === 'cable') {
+        const angle = pr.a0 + (pr.a1 - pr.a0) * (1 - Math.max(0, pr.life) / pr.duration);
+        const ex = pr.pivot.x + Math.sin(angle) * pr.len, ez = pr.pivot.z + Math.cos(angle) * pr.len;
+        pr.mesh.position.set((pr.pivot.x + ex) / 2, pr.groundY + 0.2, (pr.pivot.z + ez) / 2);
+        pr.mesh.rotation.y = angle;
+        hit = p.pos.y - pr.groundY < 0.6 && segmentDistanceSq(p.pos.x, p.pos.z, pr.pivot.x, pr.pivot.z, ex, ez) < (pr.width / 2) ** 2;
+      } else if (pr.kind === 'wake') {
+        const d = Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z);
+        hit = d > 3.2 && d < 3.6 && p.pos.y - pr.groundY < 2.2 && !(p.dustDashT > 0);
+      } else if (pr.kind === 'wave') {
         pr.R += pr.speed * dt;
         pr.mesh.scale.set(pr.R, pr.R, 1);
         pr.mesh.material.opacity = Math.min(0.85, pr.life * 2);
@@ -214,17 +291,25 @@ export class Projectiles {
             this.game.camera.shake(0.25, 0.2);
             this.game.fx.puff(pr.mesh.position.x, pr.groundY + 0.2, pr.mesh.position.z, { count: 6, size: 0.5, color: 0xe8e0ff, speed: 3 });
             const d = Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z);
-            if (d < pr.r && p.pos.y - pr.groundY < 1.6) hit = true;
-            pr.life = 0.5;
+            if (pr.cage) {
+              if (d < 1.1 && p.pos.y - pr.groundY < 1.2) p.trap(pr.trapDuration);
+              pr.cover.enabled = true;
+              pr.marker.visible = false;
+              pr.life = pr.coverDuration;
+            } else {
+              if (d < pr.r && p.pos.y - pr.groundY < 1.6) hit = true;
+              pr.life = 0.5;
+            }
+            pr.onLand?.(pr);
           }
         }
       } else if (pr.kind === 'missile') {
         pr.t += dt;
         // steer toward Nobu's chest with a limited turn rate
-        const want = pc.clone().sub(pr.mesh.position).normalize().multiplyScalar(pr.speed);
+        const want = _want.copy(pc).sub(pr.mesh.position).normalize().multiplyScalar(pr.speed);
         pr.vel.lerp(want, Math.min(1, pr.turn * dt)).setLength(pr.speed);
         pr.mesh.position.addScaledVector(pr.vel, dt);
-        pr.mesh.lookAt(pr.mesh.position.clone().add(pr.vel));
+        pr.mesh.lookAt(_look.copy(pr.mesh.position).add(pr.vel));
         pr.flame.scale.set(1, 1, 0.8 + Math.random() * 0.5);
         if (Math.random() < dt * 30) {
           const b = pr.mesh.position.clone().addScaledVector(pr.vel, -0.12);
@@ -235,7 +320,8 @@ export class Projectiles {
           audio.play('chompHit');
           pr.life = 0;
         } else if (pc.distanceTo(pr.mesh.position) < pr.r + 0.38 || pr.mesh.position.y < pr.groundY + 0.25 || pr.life <= 0) {
-          this._boom(pr.mesh.position, 1.6, pr.groundY);
+          if (pr.coned) { if (pc.distanceTo(pr.mesh.position) < 0.7) p.cone(3); }
+          else this._boom(pr.mesh.position, 1.6, pr.groundY);
           pr.life = 0;
         }
       } else if (pr.kind === 'egg') {
@@ -318,20 +404,24 @@ export class Projectiles {
         }
         if (pr.life > 0 && pc.distanceTo(pr.mesh.position) < pr.r + 0.38) hit = true;
       }
+      if (pr.kind === 'feather') {
+        for (const cover of this.stage.scene.userData.bossCover || NO_COVER) {
+          if (cover.enabled && segmentBoxTime(_previous, pr.mesh.position, cover) !== Infinity) { pr.life = 0; hit = false; break; }
+        }
+      }
       if (hit && !p.dead) {
         p.hurt(pr.death, pr.mesh.position.x, pr.mesh.position.z);
-        if (pr.kind !== 'wave' && pr.kind !== 'drop' && pr.kind !== 'roller' && pr.kind !== 'claw') pr.life = 0;
+        if (!PERSISTENT_PROJECTILES.has(pr.kind)) pr.life = 0;
       }
       if (pr.life <= 0) {
-        this.stage.scene.remove(pr.mesh);
-        if (pr.marker) this.stage.scene.remove(pr.marker);
+        this._remove(pr);
         this.list.splice(i, 1);
       }
     }
   }
 
   clear() {
-    for (const pr of this.list) { this.stage.scene.remove(pr.mesh); if (pr.marker) this.stage.scene.remove(pr.marker); }
+    for (const pr of this.list) this._remove(pr);
     this.list.length = 0;
   }
 
@@ -349,6 +439,7 @@ export class Projectiles {
 // A glowing line from a source to a point on the floor; the hot spot on the floor burns.
 export class Beam {
   constructor(scene, color = 0xff3050) {
+    this.scene = scene;
     this.group = new THREE.Group();
     const unit = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true).translate(0, 0.5, 0).rotateX(Math.PI / 2);
     this.core = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -378,6 +469,9 @@ export class Beam {
   hide() { this.group.visible = false; }
   // true when Nobu stands in the hot spot (jumping clears it)
   hits(p, r = 0.75) {
+    for (const cover of this.scene.userData.bossCover || NO_COVER) {
+      if (cover.enabled && segmentBoxTime(this.from, this.to, cover) !== Infinity) return false;
+    }
     return Math.hypot(p.pos.x - this.to.x, p.pos.z - this.to.z) < r && p.pos.y - this.to.y < 0.9;
   }
   dispose(scene) { scene.remove(this.group); }
@@ -405,6 +499,7 @@ export class Boss extends Entity {
   constructor(stage, x, y, z, { name, portrait, key }) {
     super(stage, x, y, z);
     this.key = key;
+    this.phaseCheckpoints = BOSS_PHASE_CHECKPOINTS[key] ?? true;
     this.name = name;
     this.portrait = portrait;
     this.maxHp = this.D.hp; // Old Bird/Cat 6, Cone 9.
@@ -429,12 +524,15 @@ export class Boss extends Entity {
     this.ulting = false;
     // evolution: every new stage the boss transforms (cinematic + new parts + aura) and hits harder and faster
     this.stageLook = 1;
-    this.stageScale = [1, 1, 1.12, 1.24];
-    this.stageColors = [0, 0, 0xff8a1a, 0xff2a6a];
-    this.stageNames = { 2: 'EVOLVED', 3: 'FINAL FORM' };
-    this.stagePowers = { 2: 'New attacks · faster', 3: 'Every attack · fastest' };
+    this.stageScale = [1, 1, 1.12, 1.24, 1.32];
+    this.stageColors = [0, 0, 0xff8a1a, 0xff2a6a, 0xff2a3a];
+    this.stageNames = { 2: 'EVOLVED', 3: 'FINAL FORM', 4: 'FINAL FORM' };
+    this.stagePowers = { 2: 'New attacks · faster', 3: 'Every attack · fastest', 4: 'Every attack · fastest' };
     this.baseGlow = new THREE.Color(0, 0, 0);
     this.evolving = null;
+    this.sinceHurt = 9;
+    this.tookHitThisFight = false;
+    clearChain(this);
   }
 
   // Shared difficulty reads; the new tell/chain/DDA hooks remain unused in M0.
@@ -443,6 +541,11 @@ export class Boss extends Entity {
   get W() { return Math.max(FLOOR.windowSec, this.D.window[this.phase - 1] + this.dda.window); }
   tele(base) { return Math.max(FLOOR.teleSec, base * this.D.tele[this.phase - 1] * this.dda.tele); }
   get chainLen() { return this.D.chain[this.phase - 1]; }
+  pickChain() { return pickChain(this); }
+  startChain(combo) { return startChain(this, combo); }
+  endAttack() { return endAttack(this); }
+  clearChain() { clearChain(this); }
+  onPlayerHurt() { this.sinceHurt = 0; this.tookHitThisFight = true; }
 
   // The group that grows each stage (subclasses point this at their model root).
   get evolveRoot() { return this.rig?.root || this.rig || this.obj; }
@@ -461,6 +564,7 @@ export class Boss extends Entity {
 
   // Transformation cinematic for a new stage. Resolves when the animation is done.
   evolve(n) {
+    this.clearChain();
     return new Promise((resolve) => {
       this.evolving = { n, t: 0, resolve, burst: false };
       audio.play('charge');
@@ -537,12 +641,12 @@ export class Boss extends Entity {
     if (this.stageLook < 2 || this.defeated) return;
     const c = this.stageColors[this.stageLook];
     const p = this.pos, gy = this.ground ?? p.y;
-    const rate = this.stageLook === 3 ? 16 : 6;
+    const rate = this.stageLook >= 3 ? 16 : 6;
     if (Math.random() < dt * rate) {
       const a = rand(0, Math.PI * 2), r = rand(0.8, 1.8);
       this.fx.sparkle(p.x + Math.cos(a) * r, p.y + rand(0.3, 2.6), p.z + Math.sin(a) * r, { count: 1, color: c, size: 0.45, speed: 0.6, up: 2.5, life: 0.8 });
     }
-    if (this.stageLook === 3 && Math.random() < dt * 7) {
+    if (this.stageLook >= 3 && Math.random() < dt * 7) {
       const a = rand(0, Math.PI * 2), r = rand(0.5, 1.5);
       this.fx.smokeCard(p.x + Math.cos(a) * r, Math.max(gy + 0.1, p.y - 0.5), p.z + Math.sin(a) * r, {
         vx: 0, vy: rand(2, 3.5), vz: 0, size: rand(0.5, 0.9), life: 0.7, colors: [0xffffff, c, 0x401020], grow: 0.4, g: 0, drag: 0.98, alpha: 0.75, fadeAt: 0.3,
@@ -553,7 +657,7 @@ export class Boss extends Entity {
   get ultReady() { return this.charge >= 1 && !this.ulting; }
 
   // call when the ultimate starts / ends
-  beginUlt() { this.ulting = true; }
+  beginUlt() { this.clearChain(); this.ulting = true; }
   endUlt() { this.ulting = false; this.charge = 0; }
 
   // Power-up flourish while charging the ultimate: glowing body, sparks pulled in, pulsing rings on the floor.
@@ -577,7 +681,7 @@ export class Boss extends Entity {
 
   get proj() { return this.game.session.projectiles; }
 
-  setState(s) { this.state = s; this.stateT = 0; }
+  setState(s) { this.state = s; this.stateT = 0; if (chainBlocked(this)) this.clearChain(); }
 
   // collect materials for hit flash
   collectMeshes() {
@@ -617,6 +721,7 @@ export class Boss extends Entity {
 
   // restart the current phase after Nobu dies (phase checkpoints)
   resetToPhase(phase) {
+    this.clearChain();
     this.phase = phase;
     this.hp = this.maxHp - (phase - 1) * this.phaseHp;
     this.vulnerable = false;
@@ -631,6 +736,7 @@ export class Boss extends Entity {
   }
 
   update(dt) {
+    this.sinceHurt += dt;
     this.hitCool = Math.max(0, this.hitCool - dt);
     this.stateT += dt;
     this.flash(dt);
@@ -644,7 +750,7 @@ export class Boss extends Entity {
     }
     // the ultimate recharges silently: no gauge on screen, the boss's own shimmer is the only tell
     if (this.active && !this.defeated && !this.ulting && this.charge < 1) {
-      this.charge = Math.min(1, this.charge + dt / this.chargeTimes[Math.min(3, this.phase)]);
+      this.charge = Math.min(1, this.charge + dt / this.chargeTimes[Math.min(this.stages, this.phase)]);
       if (this.charge >= 1) audio.play('charge');
     }
     this.stageAura(dt);

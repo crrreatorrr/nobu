@@ -2,6 +2,10 @@
 // H21-H23 switch this on together with those powers after their playtests.
 export const M2_ON = false;
 
+// Bird/Cat retain their original restart policy until the H20 owner decision.
+// Session also honors an explicit per-instance phaseCheckpoints override.
+export const BOSS_PHASE_CHECKPOINTS = { bird: false, cat: false, cone: true, titan: true, queen: true };
+
 export const LEVEL_TIER = { 1: 1, ride: 1.5, 2: 2, cave: 2.5, 3: 3, 4: 4, 6: 4.5, 5: 5 };
 // Authored level hazards do not read these multipliers yet: applying them to the
 // existing levels would change their tuning during a behavior-preserving refactor.
@@ -26,4 +30,4 @@ export const BOSS = {
 };
 
 export const FLOOR = { teleSec: 0.40, windowSec: 0.90 };
-export const ULT_CHARGE = [0, 26, 20, 15]; // Old common.js chargeTimes, still 1-based.
+export const ULT_CHARGE = [0, 26, 20, 15, 12]; // 1-based; the Queen has a fourth stage.
