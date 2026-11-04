@@ -94,3 +94,7 @@ Mystery outcomes, restore/rebreak stability, lit Cat and trampoline fallback/zer
 New Mystery tests add stable seed/slot vectors and 100000-seed distribution tolerance1.5 percentage
 points. New budget tests build actual stages/arenas and reject an injected over-cap source.
 Browser WebGL verified both L1 slots open, an actual fall death and timed respawn restore them, reopening preserves both results and seed, and a fresh level entry changes the seed. T.budget measured all five real stages with zero declaration differences. Evidence: `/tmp/nobu-h12-browser-results.json`. L2 forced-Cat scripted keyboard probes passed both authored slots: the same wall bite opens Mystery and its rightmost wall pack; the Cat remains alive with its fuse, then explodes after Nobu escapes without damage. The second continuation uses held double-jump over the existing Pill Bot/pit. Evidence: `/tmp/nobu-h12-wall-browser-results.json`; script `/tmp/nobu-h12-wall-browser.mjs`. These are bounded actual-input/runtime checks, not human full-stage play. Full human playthroughs remain unrun.
+
+## Final integrated verification
+
+On H10 main 8c503b8, all 57 files / 567 tests pass; production build and whitespace checks pass. Independent re-review passed all 23 budget tests, including the four real Session checkpoint/respawn regressions, with no technical blocker. Owner approval of the fixed caps remains required before merge.
