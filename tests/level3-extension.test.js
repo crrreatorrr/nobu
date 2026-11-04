@@ -279,3 +279,22 @@ test('Packaging uses actual finite left-side GameCamera targets and right maps f
  zone.apply(262);expect(camera.mode).toBe('track');expect(camera.sideAxis).toBe(false);
 });
 
+
+test('Packaging opt-in ignores Up in actual Player movement and keeps Right advancing on the actual track',async()=>{
+ const {stage,game,info}=build(),tr=stage.track;
+ const [{Player},{GameCamera},{input}]=await Promise.all([import('../src/player/player.js'),import('../src/camera/camera.js'),import('../src/core/input.js')]);
+ const noop=()=>{},p=Object.create(Player.prototype);
+ Object.assign(p,{game,pos:new THREE.Vector3(),vel:new THREE.Vector3(),root:new THREE.Group(),model:{},wings:{},halo:{},stars:{},deathCone:{position:new THREE.Vector3()},_animate:noop,_updateShadow:noop});
+ p.body={pos:p.pos,vel:p.vel,h:1.3,hw:.3,hd:.3};game.player=p;game.stage=stage;
+ const camera=game.camera=new GameCamera(1.375);stage.defaultCamera=info.camera;
+ const zone=stage.entities.find(e=>e.constructor.name==='CamZone'&&e.mode==='side');
+ const pressed=vi.spyOn(input,'pressed').mockReturnValue(false),held=vi.spyOn(input,'held').mockReturnValue(false);
+ const prepare=()=>{p.spawnAt(tr.toWorld(209,0,0),tr.yaw(209));p.body.grounded=true;zone.active=false;zone.apply(209);camera.snap(p);camera.update(.01,p);};
+ try{
+  prepare();expect(camera.opts.ignoreDepth).toBe(true);input.state.x=0;input.state.y=1;
+  p.update(.1,stage,camera.basis);expect(p.body.u).toBeCloseTo(0,5);expect(p.vel.dot(tr.right(209))).toBeCloseTo(0,5);
+  prepare();input.state.x=1;input.state.y=0;p.update(.1,stage,camera.basis);
+  expect(p.body.s).toBeGreaterThan(209.5);expect(p.body.u).toBeCloseTo(0,5);
+  zone.apply(262);expect(camera.opts.ignoreDepth).not.toBe(true);
+ }finally{pressed.mockRestore();held.mockRestore();input.state.x=input.state.y=0;}
+});

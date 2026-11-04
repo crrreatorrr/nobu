@@ -48,7 +48,7 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
   k.tix(-2.2,0,103,-2.2,0,118,4); k.tix(0,0,125,0,0,143,5); k.tix(0,0,161,0,0,167,4);
 
   // Packaging Line uses the merged helper's side-control/camera contract.
-  k.section(206,261,LABELS.packaging); k.camZone(206,261,'side',{side:-1,dist:11,height:2.2,ahead:0});
+  k.section(206,261,LABELS.packaging); k.camZone(206,261,'side',{side:-1,dist:11,height:2.2,ahead:0,ignoreDepth:true});
   // Cutaway banks keep the low side camera above foreground scenery. Track
   // collision uses the same authored left/right widths, independent of h.
   k.walls([[205,4.3,4.3,3.4],[206,4.3,4.3,.4],[207,1.6,1.6,.4],[260,1.6,1.6,.4],[261,4.3,4.3,.4],[262,4.3,4.3,3.4]]);
