@@ -102,7 +102,7 @@ export const LEVEL_INTRO = {
 export const BETWEEN = {
   1: [
     ['mask', 'You took that bird\'s rotor trick! NEW MOVE: TAIL GLIDE. Out of jumps? Press SPACE again and HOLD it to helicopter down.'],
-    ['mask', 'Nice! Pro tip: a SLIDE + JUMP goes way farther than a normal jump. Ctrl or K, then SPACE.'],
+    ['mask', 'Pro tip: hold SPACE to jump farther. A SLIDE + JUMP gives a small burst of speed. Ctrl or K, then SPACE.'],
     ['mask', 'Also: break every backpack and free every dog in a level to earn a Golden Bone. Shiny. Very shiny.'],
   ],
   2: [
@@ -128,6 +128,10 @@ export const TUTORIALS = {
   smogvent: { img: 'nobu_head', title: 'SMOG VENT', text: 'Mega Bark clears the smog.' },
   smogventLocked: { img: 'nobu_head', title: 'SMOG VENT', text: 'A stronger bark could clear this smog.' },
   zoomiegate: { img: 'nobu_head', title: 'ZOOMIE GATE', text: 'This shutter needs a faster sprint.' },
+  blinkbox: { img: 'backpack', title: 'BLINK BOX', text: "Blue boxes blink on a beat. Listen for the tick, then jump. Don't stand there when it ticks twice!" },
+  fallbox: { img: 'backpack', title: 'FALL BOX', text: 'Cracked boxes drop the moment you land. Keep those paws moving.' },
+  slidebox: { img: 'backpack', title: 'MOVING BOX', text: 'Moving boxes give you a ride. Jump when the gap is short.' },
+  bouncechain: { img: 'backpack', title: 'BOUNCE CHAIN', text: 'Bounce, bounce, bounce! Hold jump to go long.' },
   bite: { img: 'nobu_head', title: 'BITE!', text: 'Press <span class="key">J</span> or <span class="key">SHIFT</span> to bite. Chomp backpacks for Golden Tickets!' },
   jump: { img: 'nobu_title', title: 'JUMP!', text: '<span class="key">SPACE</span> to jump, again in mid-air to double jump. Hold for higher.' },
   dog: { img: 'dog_shiba_coned', title: 'TRAPPED DOG', text: 'Bite or jump near a coned dog to pop the cone off. Free them all!' },

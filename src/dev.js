@@ -95,6 +95,53 @@ export function installDevTools(game) {
     },
     armPity() { return game.session?.stage?.pityTestSpot?.arm() ?? false; },
     checkGates,
+    // await T.boxes(); T.boxAt('P6'); T.gauntletCheck(); T.die() tests normal rollback.
+    async boxes({ teach = false } = {}) {
+      const [{ Session }, { buildBoxDevStrip }] = await Promise.all([
+        import('./game/session.js'), import('./levels/boxDevStrip.js'),
+      ]);
+      await game.ui.fade(1); game.ui.clearScreen(); game.session?.dispose();
+      const session = new Session(game, 1);
+      session.boxDev = true;
+      session.def = { ...session.def, name: 'Box timing strip', build: (g, stage, tickets) => buildBoxDevStrip(g, stage, tickets, { teach }) };
+      // Exercise post-Bird patterns without modifying the save or granting moves outside this strip.
+      if (!game.player._boxDevAbilities) {
+        const get = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(game.player), 'abilities').get;
+        Object.defineProperty(game.player, 'abilities', { configurable: true, get() {
+          return game.session?.boxDev ? { ...get.call(this), glide: true } : get.call(this);
+        } });
+        game.player._boxDevAbilities = true;
+      }
+      // The strip is for mechanics, with no Ticket/1UP awards or results submission.
+      session.addTickets = () => {}; session.addLife = () => {};
+      game.session = session; game.state = 'play'; game.flyingMasks.length = 0;
+      // Direct dialogue advancement is deterministic even when software rendering misses key taps.
+      let pending = true, failure;
+      const done = session.startLevel().catch(error => { failure = error; }).finally(() => { pending = false; });
+      while (pending) {
+        if (game.ui.dialog) game.ui._nextLine();
+        await T.sleep(100);
+      }
+      await done;
+      if (failure) throw failure;
+      return game.stage.boxStrip.map(({ id, d0 }) => ({ id, d0 }));
+    },
+    boxAt(id) {
+      const section = game.stage?.boxStrip?.find(p => p.id === id || p.id === id + '-teach');
+      if (!section) throw new Error('Start T.boxes() and select a pattern id');
+      T.at(section.d0 - 3);
+      game.player.spawnAt(game.player.pos.clone(), game.player.facing);
+      game.session.checkpoint(game.player.pos);
+      for (const entity of game.stage.entities) entity.onRespawn?.();
+      game.stage.update(0, game.player); // Refresh culling immediately, including when the game is paused.
+      return T.info();
+    },
+    async gauntletCheck() {
+      const { validatePattern } = await import('./levels/gauntletMath.js');
+      const problems = (game.stage?.timedPatterns || []).flatMap(p => validatePattern(p).map(issue => ({ id: p.id, ...issue })));
+      for (const problem of problems) console.warn('[gauntlet]', problem);
+      return problems;
+    },
     warp(d, x = 0) { const p = game.player; p.pos.set(x, 0.5, -d); p.vel.set(0, 0, 0); game.camera.snap(p); return T.info(); },
     async boss() {
       game.session.reachBossGate();

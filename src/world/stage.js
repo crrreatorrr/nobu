@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Assets } from '../art/assets.js';
 import { World, Solid } from './physics.js';
+import { advanceBeatClocks } from '../entities/boxes.js';
 
 export const THEMES = {
   1: {
@@ -275,6 +276,7 @@ export class Stage {
     this.time += dt;
     this.wind.value = this.time;
     this.world.beginFrame();
+    advanceBeatClocks(this, dt);
     if (player) {
       // keep the shadow frustum centred on Nobu
       const p = player.pos;
