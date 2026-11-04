@@ -36,7 +36,7 @@ reset identity and once-per-stage reward, projectile clear adapter, phase1 wind 
 consumption and the ultimate's guaranteed punish. No new media/vendor/permissions/deployment changes.
 
 Final integrated verification on main **8c503b8**: npm ci passed; `npm test -- --maxWorkers=2`
-passed **56 files / 558 tests**; `npm run build` passed **120 modules**, retaining the existing Vite
+passed **56 files / 559 tests**; `npm run build` passed **120 modules**, retaining the existing Vite
 large-chunk advisory. `git diff --check` passed. No shared arena/projectile code was modified.
 
 Chromium/SwiftShader loaded the actual game, normal Session boss arena and GLB Bird. Programmatic
@@ -59,10 +59,10 @@ Independent review caught a stale H20 cage-cover coordinate: tracking the visibl
 the future collision/beam-cover object. The Bird adapter now moves both the visual target and the
 registered cover bounds before lock/landing. A real World regression verifies the moved captive-safe
 walls and roof, no stale old-position solids, and actual Beam/feather interception at the new location.
-All16 Bird tests pass after that correction; H20 arena tests also pass. The final integrated counts
+All17 Bird tests pass after that correction; H20 arena tests also pass. The final integrated counts
 above include this correction and the real collision/cover regression.
 
 The reviewer also reproduced Stage.update overwriting the escort's root visibility after Bird.ai.
 The blink now uses the Entity.visible flag as well as the root mesh, restoring both at tell end.
 An actual Stage-order regression covers dark/light frames and completion without stopping drone
-updates or altering collision/rewards. All17 Bird-focused tests pass; final full checks are rerunning.
+updates or altering collision/rewards. All17 Bird-focused tests pass. The final full suite passed56files/559tests and the build passed120modules after this correction.
