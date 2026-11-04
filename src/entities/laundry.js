@@ -65,8 +65,8 @@ export class DustBunny extends Mouse {
   behave(dt){
     if(this.fleeT>0){
       this.fleeT=Math.max(0,this.fleeT-dt);
-      _direction.copy(this.pos).sub(this.player.pos).setY(0);if(_direction.lengthSq()<.01)_direction.set(this.opts.side||1,0,0);_direction.normalize();
-      this.pos.addScaledVector(_direction,4*dt);this.facing=Math.atan2(_direction.x,_direction.z);
+      _direction.copy(this.pos).sub(this.player.pos).setY(0);if(_direction.lengthSq()<.01)_direction.set((this.opts.side||1)*(this.stage.track?.mirror?-1:1),0,0);_direction.normalize();
+      this.pos.addScaledVector(_direction,4*this.movementMultiplier*dt);this.facing=Math.atan2(_direction.x,_direction.z);
       const tr=this.stage.track;if(tr){const q=tr.project(this.pos.x,this.pos.z,-1,this._projection||={}),wall=tr.wallAt(q.s);if(wall)tr.toWorld(q.s,Math.max(-wall.left+.5,Math.min(wall.right-.5,q.u)),this.pos.y-tr.heightAt(q.s),this.pos);}
       this.followGround();this.glbMotion(dt,true,2.2);
       if(!this.fleeT){this.home.copy(this.pos);this.off=0;}
@@ -77,7 +77,7 @@ export class DustBunny extends Mouse {
     if(!this.alive)return;
     if(this.half){this.knock(p.pos);return;}
     this.knock(p.pos);this.dead=true;this.visible=false;this.obj.visible=false;
-    for(const side of [-1,1])this.spawned.push(this.stage.add(new DustBunny(this.stage,this.pos.x+side*.35,this.pos.y,this.pos.z,{...this.opts,half:true,side})));
+    for(const side of [-1,1])this.spawned.push(this.stage.add(new DustBunny(this.stage,this.pos.x+side*.35*(this.stage.track?.mirror?-1:1),this.pos.y,this.pos.z,{...this.opts,half:true,side})));
   }
   onRespawn(){
     const old=this.spawned;

@@ -17,6 +17,8 @@ const {Detour}=await import('../src/levels/environmentKit.js');
 const {FactoryDetourRecovery}=await import('../src/levels/factoryControllers.js');
 const {TopplingPost,YarnAvalanche}=await import('../src/entities/canyonHazards.js');
 const {makeKit}=await import('../src/levels/kit.js');
+const {Chaser}=await import('../src/entities/chaser.js');
+const {DustBunny,Iron}=await import('../src/entities/laundry.js');
 afterEach(()=>vi.restoreAllMocks());
 function fixture(mirror){
   const noop=()=>{};
@@ -50,6 +52,23 @@ it('reflects side-camera selection and keeps Packaging ignoreDepth unchanged',()
   const {x,y}=pair(f=>new CamZone(f.stage,f.track,10,30,'side',{side:-1,ignoreDepth:true}));
   expect(x.opts.side).toBe(-1);expect(y.opts.side).toBe(1);expect(y.opts.ignoreDepth).toBe(true);
 });
+it('reflects real chase corner steering and retains speed, gap and checkpoint restart',()=>{
+  const {a,b,x,y}=pair(f=>{
+    f.track.ground(-20,120);f.game.player.dead=false;f.game.player.die=vi.fn();
+    return new Chaser(f.stage,f.track,5,79,{model:'smog_wall',speed:6.4,catchUpSpeed:9});
+  });
+  x.begin(5,0);y.begin(5,0);
+  for(let i=0;i<240;i++){
+    const s=20+i*.15,u=Math.sin(i/29)*1.4;
+    for(const f of [a,b]){f.game.player.body.s=s;f.game.player.body.u=f.track.authorU(u);f.game.player.pos.copy(f.track.authorToWorld(s,u));}
+    x.update(.02);y.update(.02);near(x.pos,y.pos);
+    expect(y.speed).toBeCloseTo(x.speed,10);expect(y.s).toBeCloseTo(x.s,10);
+    expect(y.u).toBeCloseTo(-x.u,10);expect(y.heading).toBeCloseTo(-x.heading,8);expect(y.lean).toBeCloseTo(-x.lean,8);
+  }
+  for(const f of [a,b])f.game.session.cp.pos.copy(f.track.authorToWorld(45,1));
+  x.onRespawn();y.onRespawn();near(x.pos,y.pos);expect(y.waitT).toBe(x.waitT);expect(y.s).toBeCloseTo(x.s,10);
+  expect(a.game.player.die).not.toHaveBeenCalled();expect(b.game.player.die).not.toHaveBeenCalled();
+});
 it('triggers an off-center Zoomie plate at its reflected physical u',()=>{
   const {a,b,x,y}=pair(f=>makeKit(f.game,f.stage,null,f.track).zoomieGate(2,0,30,{plateD:20}));
   for(const [f,gate] of [[a,x],[b,y]]){
@@ -78,6 +97,17 @@ it('reflects Lumi nests and shoulder-follow positions while retaining energy tim
   const {x,y}=pair(f=>new Glowworm(f.stage,f.track,[10,30],{nestU:2.6}));
   x.nests.forEach((n,i)=>near(n.pos,y.nests[i].pos));
   for(let i=0;i<20;i++){x.update(.05);y.update(.05);near(x.pos,y.pos);expect(y.energy).toBe(x.energy);}
+});
+it('reflects authored Iron motion, hitboxes and puff positions at equal times',()=>{
+  const {x,y}=pair(f=>new Iron(f.stage,f.track,20,45,{x:2,y:1,period:5.6}));
+  for(let i=0;i<150;i++){x.update(.04);y.update(.04);near(x.pos,y.pos);expect(y.size.w).toBeCloseTo(x.size.w,10);expect(y.size.d).toBeCloseTo(x.size.d,10);expect(y.motion.leg).toBe(x.motion.leg);}
+});
+it('reflects a half Dust Bunny fallback flee while tier scaling leaves its flee clock unchanged',()=>{
+  const {a,b,x,y}=pair(f=>new DustBunny(f.stage,...f.track.authorToWorld(35,1).toArray(),{half:true,side:1}));
+  expect(x.movementMultiplier).toBe(1);expect(y.movementMultiplier).toBe(1.24);
+  y.movementMultiplier=1;
+  a.game.player.pos.copy(x.pos);b.game.player.pos.copy(y.pos);
+  x.behave(.1);y.behave(.1);near(x.pos,y.pos);expect(y.fleeT).toBe(x.fleeT);
 });
 it('reflects seeded yarn volleys and post fall direction with unchanged safe-lane and tell clocks',()=>{
   const {a,b,x,y}=pair(f=>new YarnAvalanche(f.stage,f.track,60,{until:20,every:2,speed:6,lanes:[-2.8,0,2.8],skip:'shadow'}));
