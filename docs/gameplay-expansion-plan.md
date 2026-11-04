@@ -31,10 +31,14 @@ The plan, in priority order:
    stage, a stage hazard in the arena and a stronger ultimate at each stage. The bosses are placed on a
    difficulty ladder: each stage is harder than the last, and each boss is harder than the one before.
    `tests/difficulty.test.js` checks that both orders hold.
-4. **Difficulty as data (section 4).** Move the difficulty numbers into a `src/config/difficulty.js` tier
+4. **Longer existing levels (section 6.3).**
+   - Levels 1–3 and both bonus stages grow by about 30–40%, with 2–3 new sections each.
+   - Each also gets a detour route and +2 dogs (+1 for each bonus stage).
+   - Extended levels go on new trial boards (`1v2`, `2v2`, `3v2`); the old boards are kept as "Classic."
+5. **Difficulty as data (section 4).** Move the difficulty numbers into a `src/config/difficulty.js` tier
    table. Formalise the Crash-style hidden DDA ladder, which already starts with the pity mask. Add opt-in
    mastery layers: Platinum Tags, no-hit boss medals and Smog Remixes.
-5. **Later (section 8):** a roadmap of further levels, a mini-boss and a boss rush, all built from the
+6. **Later (section 8):** a roadmap of further levels, a mini-boss and a boss rush, all built from the
    same kit.
 
 ---
@@ -187,8 +191,8 @@ The game is about rescuing dogs, so the meta reward should show the dogs.
   | 25 | **Sniffer:** a bark on the map lists the room or section of each missing Hidden Bone and dog (the anti-grind hint, after Astro Bot's radar bird) |
   | all | Golden Kennel cutscene and a Nobu dance on the title screen |
 
-- After the two new levels the dog count is about 27. The table assumes 2 dogs per bonus stage and 5 per
-  new level.
+- With the extensions and the two new levels there are about **37 dogs**: L1 7, L2 5, L3 7, Roomba
+  Rush 3, Glowworm Grotto 3, L4 5 and L5 5. The milestones are spread across that total.
 
 ### 3.6 Move-gated secrets (chapter loop and backtracking)
 
@@ -236,9 +240,9 @@ The counter is a percent with explicit weights, so 100% is reachable without mas
   - Bone Boards: 5 main levels × 6 slots = 30.
   - Bonus-stage boards: 2 × 3 = 6.
   - Colored bones: 4.
-  - Dogs: 1 point per 3 dogs, about 9.
+  - Dogs: 1 point per 3 dogs, about 12.
   - Kennel milestones: 6.
-  - Total: 75 points, scaled to 100%.
+  - Total: about 78 points, scaled to 100%.
 - **Above 100% is the mastery track**, up to 200%: Platinum Tags, no-hit boss medals, Remix bones and the
   boss rush.
 - Mastery points are **never needed for the story or the secret ending.** The secret ending needs 80%.
@@ -342,6 +346,9 @@ for 4.6.
 | 4 Laundry Day | 4 | spin drums, ziplines, toaster launchers, mid-level stampede | 8–12 |
 | 5 Pump & Dump | 5 | market platforms, Pump Pill stepping stones, rug-pull collapse | 10–15 |
 
+The extended L1–L3 keep their tier. Their target death counts rise about 30% with length, and the
+last new section of each level is the hardest one.
+
 ### 4.5 Mastery layers (opt-in, never gating)
 
 - **Platinum Tag:** a fourth trial tier at about the dev-best time + 5%. It sits locally above gold;
@@ -391,7 +398,10 @@ modes.
 
 ---
 
-## 6. The two new levels (Chapter 2: "The Smog Returns")
+## 6. New and extended levels
+
+Sections 6.0–6.2 cover the two new levels (Chapter 2: "The Smog Returns"). Section 6.3 extends the
+existing levels and bonus stages.
 
 ### 6.0 Story and unlocks
 
@@ -461,6 +471,127 @@ modes.
   proposal is 13 000 ms.
 - **The Golden Bone never needs Moon Jump.** Dog 3 must be on the main path in normal mode. Move the
   Moon Ledge dog to the remix if needed (rule from 3.6).
+
+---
+
+### 6.3 Extending Levels 1–3 and both bonus stages
+
+Every existing stage gets about 30–40% longer. Each one gains **new sections on the main path**, plus
+**one detour** that leaves the path and rejoins it. All of it is built from the same kit and the
+placeholder assets.
+
+| Stage | Length to the boss gate or goal, now → extended | New sections | Detour | New dogs | New breakables (approx.) |
+| --- | --- | --- | --- | --- | --- |
+| L1 Bark Jungle | 313 m → ~435 m | Canopy Walk, Coconut Run | The Burrow | +2 (5 → 7) | +18 |
+| L2 Scratchpost Canyon | ~302 m → ~420 m | Switchbacks, Yarn Avalanche, Cardboard Fort breather | Cat Flap Alley | +2 (3 → 5) | +16 |
+| L3 Cone Factory | 243 m → ~350 m | Packaging Line (2.5D), Vat Overflow | Maintenance Ducts | +2 (5 → 7) | +16 |
+| Roomba Rush | 312 m → ~400 m | Kitchen Tile Slide, Dog-Door Leap | Living Room / Kitchen split | +1 | +10 |
+| Glowworm Grotto | 252 m → ~330 m | Crystal Echo, Underground River | none (it is already a dark maze) | +1 | +10 |
+
+Once L1 is extended to about 435 m, Level 4 (about 300 m) and Level 5 (about 280 m) would be shorter
+than the first level. Give each one a detour of its own, built like the ones below, so they come out at
+about 380 m and 360 m. They stay harder because of their tier, not their length.
+
+#### How a level is extended (the technique)
+
+- **Main-path sections use splice points.** Each level gets one or two `SPLICE` distances. Everything
+  authored after a splice moves later by `EXT` metres through an offset helper. Level 2 already authors
+  this way with `D(d) = d + O`, so its change is the smallest.
+  - **L1:** splice before the final fork at d 287, and once more after the coconut hill at d 240.
+  - **L3:** splice after the hammer hall at d 136, and once more before the final stretch at d 206.
+  - The new sections go into the gaps. More `turtle` moves extend the spline.
+  - Appending control points can move the last ~20 m of the old spline slightly. Re-check the fork and
+    gate area after the change.
+- **Detours** use the same idea as the Treat Tray: content in the same stage at a different height. A
+  pipe, burrow or flap moves Nobu to a short route built above or below the track, and a mushroom or
+  lift returns him at a later `d`.
+  - The Burrow grows out of the existing belly-flop pocket at L1 d 226, `y = -4.5`.
+  - The others use new `k.detour(entryD, exitD, { y, build })` helpers.
+  - Detours never sit on the trial route, so they can be as long as they need to be.
+- **Rules for every extension:**
+  - Teach, test, twist, combine (pillar 3). The **last new section before the gate is the hardest**: the
+    level's final exam.
+  - A Snacks checkpoint at least every `TIER.snacksGap` metres, plus a pity-checkpoint spot in each new
+    section (4.3).
+  - The Golden Bone never needs a later move (3.6). Move-gated objects only guard Hidden Bones.
+  - **Bones already earned are never taken away.** A player whose Golden Bone came from the old layout
+    keeps it. New breakables count toward the Golden Bone only for players who haven't earned it yet.
+  - Every new Ticket source counts toward the per-level Ticket cap (3.10). The cap rises with length, and
+    the owner signs off on it.
+
+#### L1 Bark Jungle: two new sections and a detour (tier 1, so they stay gentle)
+
+| Where | Section | Beats | Rewards |
+| --- | --- | --- | --- |
+| After coconut hill (new d 240–300) | **Canopy Walk** | **Teaches ziplines** before Level 4 tests them: vines between treetop platforms, first over low ground where a fall costs nothing, then over a pit. A squirrel **ambush** drops from the leaves. A Zoomie Gate on a branch (post-Cat). | Mystery Backpack on a branch. Dog 6 (pug) at a vine end. Snacks. A Moon Ledge above the canopy (post-game Hidden Bone). |
+| Before the fork (new d 345–395) | **Coconut Run** | A **35–40 m giant-coconut chase** toward the camera (`k.chase` with `CoconutRoller` at 5× scale). It is a gentle first chase, the Crash 1 "Boulders" moment, and it sets up the Level 2 chase. Two lanes, one log and a backpack wall to bite through. | Ticket line on the safe lane. DDA slows the coconut after deaths (4.3), exactly as Crash did with the boulder. |
+| Detour from d 226 | **The Burrow** | The belly-flop pocket becomes a 30 m tunnel under the coconut hill: dark (`k.dark`), Shellbacks and lunchbox steps. A Dust Wall at the end (post-Titan). | Dog 7 (dalmatian). The **Hidden Bone** behind the Dust Wall. |
+
+#### L2 Scratchpost Canyon: chase extensions (tier 2)
+
+| Where | Section | Beats | Rewards |
+| --- | --- | --- | --- |
+| After the crumbling bridge (new D 170–215) | **Switchbacks** | The canyon climbs in two tiers. The Big Cat **cuts the corner** by leaping between tiers, so it gains on you at every turn. Taking the inside line is the skill. Rug (Nitro) gaps in the backpack walls. | Dog 4 (corgi) on the inside line. Snacks at the top. |
+| Before the last stretch (new D 290–335) | **Yarn Avalanche** | Giant yarn balls roll **toward** Nobu while the cat is still behind him: threats from both sides. Lanes are shown by the balls' shadows. Last section, so it's the hardest. | A Zipped Backpack in the safe lane. |
+| Mid-chase | **Cardboard Fort** (a breather) | A 12 m cardboard box Nobu runs into. The cat's paw swipes through the flaps but can't reach. It pauses the chase without stopping it, and holds a Snacks. | Snacks, tickets and a Mystery Backpack. |
+| Detour | **Cat Flap Alley** | A flap in the canyon wall leads to a narrow side alley **above** the chase, with small cats (Cat TNT) asleep along it: walk past or bite fast. It rejoins 40 m later, ahead of the Big Cat. | Dog 5 (shiba). The **Hidden Bone** (Tail Glide gap). |
+
+The chase speed in `bigCat.js` (`ChaseCat`) has to be retuned for the longer run, and checked with the
+DDA slow-down.
+
+#### L3 Cone Factory: hard extensions (tier 3)
+
+| Where | Section | Beats | Rewards |
+| --- | --- | --- | --- |
+| After the hammer hall (new d 136–185) | **Packaging Line** | A **2.5D side-on run** (`camera.setMode('side')`): conveyors, cone-stamping presses (`Crusher`), and boxes riding the belt as moving steps. It previews the side-on idea from the roadmap. | Dog 6 (pug) in a box on the belt. Snacks. |
+| Before the final stretch (new d 255–305) | **Vat Overflow** | Hitting the Bone Switch **raises the vat liquid** (`k.rising`). Climb crane-hook platforms (`MovingPlatform`, axis `y`) faster than it rises. Drones harass you on the way up. The level's final exam. | 1UP at the top. Pity checkpoint halfway up. |
+| Detour | **Maintenance Ducts** | Low pipes you must **slide** under to enter (an early move, so no gating). It is a short crawl with a fan lift, Pill Bots and a lint roller puzzle. | Dog 7 (corgi). The **Hidden Bone** behind a Smog Vent (Mega Bark). |
+
+#### Bonus stages
+
+- **Roomba Rush:**
+  - **Kitchen Tile Slide:** a `slippery` floor, which the physics already supports, where steering
+    carries momentum.
+  - **Dog-Door Leap:** a ramp jump through the dog door to the goal.
+  - **Split:** left through the living room (more backpacks, more cables) or right through the kitchen
+    (faster, more cats). The two routes rejoin before the slide.
+- **Glowworm Grotto:**
+  - **Crystal Echo:** bite crystals to light them for 5 s. They act as stepping stones you can only see
+    while lit. Bark isn't guaranteed this early, so it stays bite.
+  - **Underground River:** moving rafts on a current.
+  - +1 dog each.
+
+#### What lengthening does to time trials and the hub boards
+
+A longer level is slower to run. **Old public trial times become impossible to beat**, and medal targets
+and hub floors become wrong. The plan:
+
+- **Version the boards.** Extended levels post to new variants `"1v2"`, `"2v2"` and `"3v2"`.
+  - The hub already keys the trial floor by the variant string (`variantFor` and `NOBU_FLOOR_MS` in
+    `metaverse-hub/server/modules/src/leaderboard.ts`), so this is a data change there plus a
+    re-vendor here.
+  - The old variants stay as **"Classic" all-time boards**, read-only.
+- **Save:**
+  - `trials[level]` gains `layout: 2`.
+  - Bests from layout 1 move to `trialsClassic[level]` and are shown on the map as "Classic best."
+  - The score queue drops any layout-1 rows it hasn't sent yet. Unsent rows can't be posted to the
+    new board.
+  - `trials-bounds.test.js` and `score-queue.test.js` get layout cases.
+- **New targets (first pass, set from dev-best runs before release):**
+
+  | Level | Gold / Silver / Bronze (s) | Platinum (s) | Proposed hub floor (ms) |
+  | --- | --- | --- | --- |
+  | L1 | 76 / 96 / 125 | 69 | 20000 |
+  | L2 | 72 / 92 / 124 | 66 | 20000 |
+  | L3 | 64 / 82 / 110 | 58 | 17000 |
+
+- **Order:**
+  1. The hub PR adds the `v2` variants.
+  2. Then NOBU ships the extended levels.
+  3. Until the hub is live, extended trials stay local (like L4 and L5).
+- **Alternative (not recommended):** keep the trial route the same length and put all new content in
+  detours. Old boards stay valid, but the main path doesn't actually get longer, which is not what was
+  asked.
 
 ---
 
@@ -663,6 +794,11 @@ These refactors come first. None of them changes behaviour.
   - Add them to the board variant list, then re-vendor `hub-sdk` here.
   - Until then, `TRIAL_LEVELS` stays `[1, 2, 3]`, so L4 and L5 trials are local only and never queued
     for upload.
+- **Versioned boards for the extended L1–L3 (6.3):**
+  - Add `"1v2"`, `"2v2"` and `"3v2"` to `NOBU_FLOOR_MS`.
+  - `variantFor` already accepts any string key that is in that table.
+  - NOBU sends `meta.level` as `"1v2"` and so on for layout-2 runs.
+  - The old variants stay readable as "Classic."
 - **Ticket earn:** `level_end` carries `meta.level` as a string. Confirm that the hub's `level_end` rule
   doesn't allow-list level ids before L4/L5 earns go live. Nothing seen in `leaderboard.ts` suggests it
   does, but check `schema.ts` rules.
@@ -681,6 +817,8 @@ These run under `npm test` (Vitest, pure logic only).
 | `mystery.test.js` | Seeded rolls are the same across rollback; the weights |
 | `level-budget.test.js` | Max Tickets per level stays at or under the cap (with Mystery Backpacks counted) |
 | `save-migrate.test.js` | v2 to v3 keeps everything; trial bests untouched |
+| `trial-layout.test.js` | Layout-1 bests move to `trialsClassic`; unsent layout-1 queue rows are dropped; layout-2 runs post to the `v2` variants with the new floors |
+| `bone-keep.test.js` | A Golden Bone earned on layout 1 survives the extension; new breakables only count for players who haven't earned it yet |
 | `registry.test.js` | Unlock chain 1 → … → 5; ids 1–3 unchanged; bonus unlocks unchanged |
 
 Also run the existing `npm test` and `npm run build`. In-browser checks need manual playtests: there is
@@ -697,13 +835,14 @@ Each milestone is one PR from a `claude/<slug>` branch, reviewed by a different 
 | M0 | **Groundwork** | 10.1 items 1–6 | All existing tests pass, the new tests pass, play is unchanged in a manual run of L1–L3 and both bonus stages |
 | M1 | **Reward loops** | Chomp Chain, Bone Board, tally, next-goal hint, Mystery Backpacks (2 in L1–L3), Good Boy % | The board shows for L1–L3; the tally plays; the budget test passes |
 | M2 | **Boss powers** | 7.2–7.4 new powers and arena changes for the Bird, Cat and Cone; `chain` runner; medals; boss DDA | The difficulty test passes; each new power is playtested once per stage |
+| M2b | **Extended L1–L3 + bonus stages** | 6.3 splice points, new sections, detours, +dogs, retuned chase speed, layout-2 trial targets | Each stage playtested start to finish; old Golden Bones kept; extended trials stay local until the hub `v2` variants are live |
 | M3 | **Level 4 + Roomba Titan** | 6.1, 7.5, Dust Dash, Dust Walls in L1–L4, green path | Story unlock works; median deaths on first play are near 4.4 |
 | M4 | **Level 5 + Pump Queen** | 6.2, 7.6, Moon Jump, Moon Ledges in L1–L5, yellow path, true ending | Full playthrough 1 → 5; secret ending at 80% |
 | M5 | **Kennel + mastery** | Kennel, milestones, Platinum Tags, Perfect Run, Smog Remixes, Boss Rush | The 200% track is complete |
-| M6 | **Hub follow-up** | L4/L5 trial boards (needs the hub PR first) | Scores post for levels 4 and 5 |
+| M6 | **Hub follow-up** | L4/L5 trial boards and the `v2` variants for L1–L3 (needs the hub PR first) | Scores post for every level on the right board |
 
-M1 and M2 can run in parallel after M0, because they touch different files (session/UI vs bosses).
-M3 needs both.
+M1, M2 and M2b can run in parallel after M0, because they touch different files (session/UI, bosses
+and level files). M3 needs all three, because L1's Canopy Walk teaches the ziplines that L4 tests.
 
 ---
 
@@ -722,7 +861,11 @@ M3 needs both.
    mastery-only and outside the base 100%, so they don't add grind for completionists.
 5. **Ticket budget.** The new levels add Ticket sources to the hub economy. The caps in 3.10 need the
    owner's sign-off on per-level maximums.
-6. **Pump Queen tone.** She is a satirical pump.fun caricature in keeping with the existing minions. Keep
+6. **Trial board reset for L1–L3.** Extending the levels means new boards (`v2`); the current public
+   times become "Classic." Public scores launched recently, so tell players before it ships.
+   **Recommendation:** version the boards, and show Classic bests on the map so nobody's record
+   disappears.
+7. **Pump Queen tone.** She is a satirical pump.fun caricature in keeping with the existing minions. Keep
    her fictional, with no real token names or people.
 
 ---
