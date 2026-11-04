@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { KennelYard } from '../src/game/kennelScene.js';
-import { checkDogMetadata } from '../src/game/kennelChecks.js';
+import { checkDogMetadata, installKennelChecks } from '../src/game/kennelChecks.js';
 import { ConedDog } from '../src/entities/dogs.js';
 import { Assets } from '../src/art/assets.js';
 const registry = { 1: { id: 1, shipped: true, dogs: Object.fromEntries(Array.from({ length: 17 }, (_, i) => [`shiba-${String.fromCharCode(97 + i)}`, 'Yard'])) } };
@@ -27,4 +27,16 @@ it('checks actual ConedDog identity, static section and missing authored dogs wi
   expect(checkDogMetadata(session)).toEqual([]);
   session.def.dogs['shiba-a'] = 'Other'; expect(checkDogMetadata(session)[0].problem).toBe('dog section mismatch');
   dog.dogId = '1:pug-z'; expect(checkDogMetadata(session).map((e) => e.problem)).toEqual(['dog id mismatch', 'missing authored dog']);
+});
+
+it('runs metadata validation after awaited Game start, chains existing wrappers and ignores synthetic strips', async () => {
+  const report = vi.fn(), game = { startLevel: vi.fn(async (id) => {
+    game.session = { phase: 'level', level: id, def: { dogs: { 'shiba-a': 'Start' } }, stage: { entities: [], track: { sections: [] } } };
+    return id;
+  }) };
+  installKennelChecks(game, report); expect(await game.startLevel(1)).toBe(1);
+  expect(report).toHaveBeenCalledWith('[kennel metadata]', expect.objectContaining({ problem: 'missing authored dog' }));
+  const original = game.startLevel; const outer = { startLevel: async () => { game.session.devStrip = true; return 9; }, get session() { return game.session; } };
+  report.mockClear(); installKennelChecks(outer, report); expect(await outer.startLevel()).toBe(9); expect(report).not.toHaveBeenCalled();
+  expect(original).toBe(game.startLevel);
 });

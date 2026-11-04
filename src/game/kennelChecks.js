@@ -15,3 +15,15 @@ export function checkDogMetadata(session) {
   for (const id of Object.keys(def.dogs)) if (!seen.has(id)) errors.push({ level, id, problem: 'missing authored dog' });
   return errors;
 }
+
+export function installKennelChecks(game, report = (...args) => console.error(...args)) {
+  if (!import.meta.env.DEV) return;
+  const startLevel = game.startLevel.bind(game);
+  game.startLevel = async (...args) => {
+    const result = await startLevel(...args), session = game.session;
+    if (session?.phase === 'level' && !session.devStrip && !session.boxDev) {
+      for (const issue of checkDogMetadata(session)) report('[kennel metadata]', issue);
+    }
+    return result;
+  };
+}
