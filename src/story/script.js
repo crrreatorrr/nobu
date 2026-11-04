@@ -2,6 +2,7 @@
 // Nobu never speaks. Everyone else does.
 
 export const SPEAKERS = {
+  queen: { name: 'THE PUMP QUEEN', portrait: 'portrait_queen', blip: 'blip' },
   mask: { name: 'SPROTO MASK', portrait: 'sproto_mask', blip: 'blip' },
   titan: { name: 'ROOMBA TITAN', portrait: 'portrait_titan', blip: 'blipLow' },
   bird: { name: 'MECHA BIRD', portrait: 'portrait_bird', blip: 'blip' },
@@ -45,6 +46,18 @@ export const ENDING = [
 ];
 
 export const BOSS_TALK = {
+queen: {
+  intro: [
+    ['queen', 'Well well. The little Akita who keeps crashing my charts.'],
+    ['queen', 'Who do you think pumped the Evil Cone? Me, darling. Every cone on this island is my bag.'],
+    ['queen', 'Now be a good boy and buy the top.'],
+    ['mask', 'She only opens up at the top of a PUMP. Hop the pills to reach her CROWN!'],
+  ],
+  phase2: [['queen', 'Don\'t you feel it, puppy? The FOMO? Come closer...'], ['mask', 'That beam pulls you in! ZOOMIES out, or GLIDE to a candle!']],
+  phase3: [['queen', 'Bubbles never pop, sweetie. Number go up.'], ['mask', 'Pop her bubble with a MEGA BARK, then bite!']],
+  phase4: [['queen', 'Fine! RUG PULL! Everybody out!'], ['mask', 'She\'s walled in! SLIDE, then BITE to DUST DASH through!']],
+  death: [['queen', 'No no no... it\'s just a dip... buy the dip... somebody buy the dip...']],
+},
 titan: {
   intro: [
     ['titan', 'BEEP. FOREIGN OBJECT DETECTED. CLASSIFICATION: DOG. CLASSIFICATION: DIRT.'],
@@ -144,6 +157,7 @@ export const BETWEEN = {
 };
 
 export const TUTORIALS = {
+  moonJump: { img: 'nobu_head', title: 'NEW MOVE: MOON JUMP!', text: 'Hold SLIDE without moving, then JUMP. To the moon!' },
   dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
 
   crystals: { img: 'nobu_head', title: 'CRYSTAL ECHO', text: 'Bite crystals to light the path. The platforms stay solid when their light fades.' },
@@ -310,3 +324,6 @@ export const MAIN_UNLOCK_TEXT = {
   6: ['NEW STAGE', 'SMOG RAPIDS'],
   5: ['NEW STAGE', 'PUMP & DUMP PIPELINE'],
 };
+
+export const QUEEN_STAGE_POWERS = { 2: 'FOMO beam · parachute airdrops · faster candles', 3: 'Bubble shield · candle crash · crumbling ring', 4: 'Liquidation · Dust Dash wake · chains of four' };
+export const QUEEN_TICKER_TEXT = { pump: '▲ PUMP ▲', dump: '▼ DUMP ▼', zero: '$0.00' };
