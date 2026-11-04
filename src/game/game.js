@@ -13,7 +13,7 @@ import { Loadout } from '../gear/loadout.js';
 import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
-import { MAP_ORDER, levelDef, isOpen } from '../levels/registry.js';
+import { MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
 import { INTRO, RESCUE, ENDING, BETWEEN } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
@@ -336,10 +336,10 @@ export class Game {
       const p = levelDef(n).mapPos;
       const bonus = levelDef(n).bonus;
       const locked = !isOpen(n, d);
-      const beaten = bonus ? !!d.bonus?.[n]?.beaten : d.beaten[n - 1];
+      const beaten = bonus ? !!d.bonus?.[n]?.beaten : save.beatenOf(n);
       nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
         ${!beaten && !bonus ? '<div class="cone-cloud"></div>' : ''}
-        ${!bonus && d.bones[n - 1] ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
+        ${!bonus && save.boneOf(n) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
         ${!bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
         ${n === this.mapSel ? `<img class="nobu-marker" src="${Assets.url('nobu_head')}">` : ''}
         <div class="dot">${locked ? '🔒' : bonus ? '★' : n}</div>
@@ -350,11 +350,11 @@ export class Game {
     const head = bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
     const status = bonusSel
       ? (d.bonus?.[lv]?.beaten ? `Cleared! Best tickets: ${d.bonus[lv].best}` : lv === 'ride' ? 'A runaway robot vacuum is loose in the house. Ride it!' : 'Pitch dark. Stay close to Lumi the glowworm.')
-      : d.beaten[lv - 1] ? `Cleared! Dogs best: ${d.bestDogs[lv - 1]} · ${d.bones[lv - 1] ? 'Golden Bone earned' : 'Golden Bone: break everything + free every dog'}` : 'The cone smog still hangs over this place...';
-    const tr = !bonusSel && d.beaten[lv - 1]
+      : save.beatenOf(lv) ? `Cleared! Dogs best: ${save.bestDogsOf(lv)} · ${save.boneOf(lv) ? 'Golden Bone earned' : 'Golden Bone: break everything + free every dog'}` : 'The cone smog still hangs over this place...';
+    const tr = !bonusSel && save.beatenOf(lv)
       ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[lv][0])}`}</div>`
       : '';
-    const world = !bonusSel && d.beaten[lv - 1] ? this._worldLine(lv) : '';
+    const world = !bonusSel && save.beatenOf(lv) ? this._worldLine(lv) : '';
     const total = save.totalTrialMs();
     const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
@@ -495,7 +495,7 @@ export class Game {
     if (input.pressed('exchange')) { audio.play('select'); this.openExchange(); return; }
     if (input.pressed('hub')) { audio.play('select'); this.exitToHub(); return; }
     if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); this.startLevel(this.mapSel); }
-    else if (input.pressed('trial') && levelDef(this.mapSel).trial && d.beaten[this.mapSel - 1]) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
+    else if (input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
 
@@ -705,14 +705,17 @@ export class Game {
 
   // ---------------- level complete ----------------
   levelCleared(session) {
-    const n = session.level;
+    const n = levelDef(session.level).id;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
     const d = save.data;
     const bone = st.breakables > 0 && st.broken >= st.breakables && st.dogs >= st.dogsTotal;
-    d.beaten[n - 1] = true;
+    save.setBeaten(n);
     d.unlocked = Math.max(d.unlocked, Math.min(3, n + 1));
-    d.bestDogs[n - 1] = Math.max(d.bestDogs[n - 1], st.dogs);
-    if (bone) d.bones[n - 1] = true;
+    for (let id = 1; id <= d.unlocked; id++) d.open[id] = true;
+    if (n === 1) d.open.ride = true;
+    if (n === 2) d.open.cave = true;
+    save.setBestDogs(n, st.dogs);
+    if (bone) save.setBone(n);
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     // rescue scene first, then the results screen
@@ -757,6 +760,7 @@ export class Game {
     const d = save.data;
     d.bonus ||= {};
     d.bonus[n] = { beaten: true, best: Math.max(d.bonus[n]?.best || 0, st.tickets) };
+    d.open[n] = true;
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     this._showComplete(n, st, false, true);
@@ -843,7 +847,7 @@ export class Game {
     this.ui.setScreen(`<div style="position:absolute;top:6vh;width:100%;text-align:center"><div class="big-title">THE END</div>
       <div class="credits" style="margin:2vh auto 0">Nobu saved every dog on the island.<br>
       Art generated with Higgsfield · Code in Three.js · All sound synthesized live<br>
-      Thanks for playing! Golden Bones: ${save.data.bones.filter(Boolean).length}/3</div></div>
+      Thanks for playing! Golden Bones: ${playOrder().filter((id) => save.boneOf(id)).length}/${playOrder().length}</div></div>
       <div class="press-start" style="bottom:6vh">PRESS ANY KEY</div>`);
     this.ui.fade(0);
   }

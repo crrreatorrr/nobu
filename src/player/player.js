@@ -160,8 +160,7 @@ export class Player {
   // Boss moves, plus Mega Bark from the hat and an air dash from the clown collar. Never writes beaten.
   // The crown's triple jump and wider bite are read straight from gear (maxAirJumps, biteMult).
   get abilities() {
-    const b = save.data.beaten || [];
-    return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] || !!this.gear.spell_bark, airDash: !!this.gear.air_dash };
+    return { glide: save.beatenOf(1), zoom: save.beatenOf(2), bark: save.beatenOf(3) || !!this.gear.spell_bark, airDash: !!this.gear.air_dash };
   }
   // Air jumps per jump: 1 (double jump), +count while the Champion's Crown is on (triple jump).
   // God mode gives 3; the crown does not stack on top of it.

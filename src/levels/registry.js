@@ -10,9 +10,9 @@ import { BigCatBoss } from '../bosses/bigCat.js';
 import { EvilCone } from '../bosses/evilCone.js';
 import { LEVEL_DOGS } from './metadata.js';
 
-const mainOpen = (id) => (data) => id <= data.unlocked;
-const bonusOpen = (id, after) => (data) => !!data.beaten?.[after]
-  || !!data.bonus?.[id]?.found || !!data.bonus?.[id]?.beaten;
+const mainOpen = (id) => (data) => data.v >= 3 ? !!data.open?.[id] : id <= data.unlocked;
+const bonusOpen = (id, after) => (data) => data.v >= 3 ? !!data.open?.[id]
+  : !!data.beaten?.[after] || !!data.bonus?.[id]?.found || !!data.bonus?.[id]?.beaten;
 
 export const LEVELS = {
   1: {

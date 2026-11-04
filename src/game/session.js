@@ -238,6 +238,7 @@ export class Session {
     g.player.frozen = true;
     save.data.bonus ||= {};
     save.data.bonus[target] = { ...(save.data.bonus[target] || {}), found: true };
+    save.data.open[target] = true;
     save.write();
     audio.play('whoosh');
     audio.play('oneUp');
