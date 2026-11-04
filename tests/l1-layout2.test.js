@@ -238,3 +238,9 @@ test('canonical L1 follows the selected trial layout and defaults to approved co
  buildLevel1(g,stage,tickets);const layout=trialLayout(1);expect(stage.entities.filter(e=>e instanceof ConedDog)).toHaveLength(layout===2?9:5);
  if(layout===2){expect(stage.l1Extension.corrections).toBe(true);expect(stage.l1Extension.gauntletProblems).toEqual([]);}
 });
+
+test('Burrow return can recover skipped main-road Golden targets across the old gap in either direction',async()=>{
+ const{s}=build();
+ expect(await realJump(s,[1.2,0,247.2],[1.2,0,239],{doubleAt:.45}),'back to Sphere/Cat/Rug on the old hill using the base double jump').toBe(true);
+ expect(await realJump(s,[1.2,0,239],[1.2,0,247.2],{doubleAt:.45}),'forward return to Canopy after recovering skipped targets').toBe(true);
+});
