@@ -7,9 +7,6 @@ import { audio } from '../audio/audio.js';
 import { clamp } from '../core/util.js';
 import { onCatStageDispose, materialSet, disposeMaterials, disposeProcedural } from './catResources.js';
 
-// Owner decision pending: literal pool only draws chains in stage3.
-export const CAT_STAGE2_CHAINS = false;
-
 class TableCat extends Cat {
   constructor(...args) { super(...args); this.ownedMaterials = materialSet(this.obj); }
   update(dt) {

@@ -135,14 +135,16 @@ test('punish guarantee, table cooldown, chain tells, phase reset and copy stay c
   boss.resetToPhase(1); expect(boss.powers.ghosts).toHaveLength(0); expect(boss.powers.catnip).toBeNull(); expect(boss.powers.dot.visible).toBe(false); expect(boss.stage.catArena.phase).toBe(1);
 });
 
-test('literal stage2 pool and proposed chain-enabled option are separately testable', () => {
-  const { boss } = fixture(2); Object.defineProperty(boss, 'chainLen', { value: 2 });
-  const rng = vi.spyOn(Math, 'random').mockReturnValue(.9999);
+test('literal pool selects chains only at stage3 while retaining the authored stage2 combos', () => {
+  const { boss } = fixture(2); const rng = vi.spyOn(Math, 'random');
   try {
-    boss.sinceVuln = 0; boss.chooseAttack(8); expect(boss.state).toBe('table'); expect(boss.chained).toBe(false);
-    boss.stage2Chains = true; boss.attackHistory = []; boss.lastAttack = ''; boss.sinceVuln = 0; boss.setState('stalk'); boss.chooseAttack(8);
-    expect(boss.chained).toBe(true); expect(['claws', 'tailspin']).toContain(boss.state);
-    const next = boss.chainQ[0]; boss.endAttack(); expect(boss.state).toBe(next === 'pounce' ? 'countdown' : 'cough');
+    for (let i = 0; i < 100; i++) {
+      rng.mockReturnValue(i / 100); boss.clearChain(); boss.sinceVuln = 0; boss.lastAttack = ''; boss.attackHistory = []; boss.setState('stalk');
+      boss.chooseAttack(8); expect(boss.chained).toBe(false);
+    }
+    expect(boss.CHAINS[2]).toEqual([['claws', 'pounce'], ['tailspin', 'cough']]);
+    boss.clearChain(); boss.setState('stalk'); boss.phase = 3; boss.sinceVuln = 0; boss.lastAttack = ''; rng.mockReturnValue(.9999);
+    boss.chooseAttack(8); expect(boss.chained).toBe(true); expect(boss.state).toBe('yarn');
   } finally { rng.mockRestore(); }
 });
 

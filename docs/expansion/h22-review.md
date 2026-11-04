@@ -2,13 +2,9 @@
 
 Source: H22, bosses-spec §§0/1/3/9.2, expansion plan §7.3. Based on main09e0e2a (H20). Owner choice remains full restart at stage1. ChaseCat and the level2 chase builder are unchanged.
 
-## Owner decision before merge
+## Literal pool priority
 
-The stage2 attack catalogue and CHAINS table specify claws→pounce and tailspin→cough, with chainLen2. The literal pool in §3.3 adds the chain token only at stage3. Those instructions conflict.
-
-`CAT_STAGE2_CHAINS=false` in catPowers.js currently follows the literal pool. Stage2 draws pounce/cough/yarn/dot/claws/tailspin/table as specified; its defined combos are not randomly selected. The tested alternative sets the flag true, adding one stage2 chain token and enabling the two stated combos. Each attack retains its full tell, and only its recovery pause is skipped; the shared H20 half-second damage grace and punish/ultimate exclusions still apply. Every constituent attack counts toward the existing pounce-opening guarantee. Stage2 tables, scratches, ledges, double pounces and all stage3 behavior are unchanged by this choice.
-
-Recommendation: enable the specified stage2 combos, matching both its chainLen2 tuning and attack catalogue. The owner must choose before this flag changes or H22 merges.
+The stage2 catalogue and CHAINS table define claws→pounce and tailspin→cough, with chainLen2, while the literal §3.3 pool adds the chain token only at stage3. H22 explicitly requires that pool, so this implementation follows it: stage2 does not randomly draw chains. The authored CHAINS[2] table remains available to the shared runner and is tested directly. There is no alternative activation flag or additional owner decision. Stage3 selects its specified chains; full tells, half-second hit grace and punish/ultimate exclusions remain enforced.
 
 ## Resulting behavior
 
@@ -22,6 +18,6 @@ Recommendation: enable the specified stage2 combos, matching both its chainLen2 
 
 ## Verification
 
-Focused tests cover exact ring area/coverage and absence of overlapping outer ground, safe permanent floor beyond tailspin reach for a grid of edge boss positions, moving ledge/ring reset, actual arena construction, dot locks and wall bonus, all tell callsites, table payloads/TNT spacing, ghost snapshots/conflict delays/caps, catnip timing, exact punish bonuses, and both stage2 pool alternatives. All new content uses existing assets/procedural placeholders; no GLBs/images/audio media or vendor changes.
+Focused tests cover exact ring area/coverage and absence of overlapping outer ground, safe permanent floor beyond tailspin reach for a grid of edge boss positions, moving ledge/ring reset, actual arena construction, dot locks and wall bonus, all tell callsites, table payloads/TNT spacing, ghost snapshots/conflict delays/caps, catnip timing, exact punish bonuses, and the exact stage2/stage3 pool selection and direct authored chain execution. All new content uses existing assets/procedural placeholders; no GLBs/images/audio media or vendor changes.
 
 npm ci passed. An intermediate full run passed47 files /508 tests with maxWorkers2 and production build passed. The final focused17 Cat tests pass after added ghost-flight safety, exact edge targeting and actual frenzy/defeat coverage. A subsequent full run passed47 files /513 tests and build. Independent review then requested owned-resource cleanup and exact ghost replay traces;20 focused tests now pass, including repeated retirement/reset and actual Stage.dispose integration. Final full-suite/build after these fixes is pending. ChaseCat and buildLevel2 bodies were compared byte-for-byte with09e0e2a and are identical. Bounded WebGL forced-state smoke passed dot/wall bonus, table payloads, stage3 catnip/crumble/Frenzy ghost trace, phase1 retry and actual Session.dispose. Evidence `/tmp/nobu-h22-browser-results.json`; rendered screenshot `/tmp/nobu-h22-stage3.png`. The harness freezes the player and forces attack states. Human fight playthroughs are unrun: visual readability, discovering the wall bonus by accident, catnip feel and an80-second Speed-target run are not claimed by unit tests. The automated geometry checks do not replace those manual checklist items.

@@ -12,7 +12,7 @@ import { audio } from '../audio/audio.js';
 import { textTexture } from '../entities/fx.js';
 import { damp, rand, clamp, pick } from '../core/util.js';
 import { TUNING } from '../player/player.js';
-import { CatPowers, CAT_STAGE2_CHAINS } from './catPowers.js';
+import { CatPowers } from './catPowers.js';
 import { CAT_STAGE_POWERS } from '../story/script.js';
 
 // rig layout (model units: 4 tall, facing +z). The model is a low crouch: only the paws poke out
@@ -276,7 +276,6 @@ export class BigCatBoss extends Boss {
     this.powers = new CatPowers(this);
     this.CHAINS = { 2: [['claws', 'pounce'], ['tailspin', 'cough']], 3: [['yarn', 'claws'], ['dot', 'pounce'], ['claws', 'pounce']] };
     this.attackHistory = [];
-    this.stage2Chains = CAT_STAGE2_CHAINS;
   }
 
   // Stage 2 (FERAL): bristling back spikes and bared claws.
@@ -637,7 +636,6 @@ export class BigCatBoss extends Boss {
     if (toP < 4.2 && this.sinceVuln < 2 && Math.random() < .5) { this.beginAttack('swipeUp'); return; }
     const pool = ['pounce', 'pounce', 'cough', 'yarn', 'dot'];
     if (this.phase >= 2) pool.push('claws', 'tailspin', 'pounce', 'table');
-    if (this.phase === 2 && this.stage2Chains) pool.push('chain');
     if (this.phase >= 3) pool.push('zoomies', 'claws', 'yarn', 'dot', 'chain');
     const eligible = pool.filter((a) => a !== 'table' || !this.attackHistory.slice(-2).includes('table'));
     let a = this.sinceVuln >= 2 ? (this.phase >= 3 && Math.random() < .5 ? 'zoomies' : 'pounce') : pick(eligible);
