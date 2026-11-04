@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { World, rideGround } from '../src/world/physics.js';
+import { World, rideGround, moveBody } from '../src/world/physics.js';
+import { Player } from '../src/player/player.js';
 import { ArenaTiles, CandlePillar, Pedestal, ConveyorZone } from '../src/bosses/arena.js';
 import { Projectiles, Beam, pullToward } from '../src/bosses/common.js';
 import { segmentDistanceSq, segmentBoxTime } from '../src/bosses/geometry.js';
@@ -94,6 +95,45 @@ describe('new shared projectiles', () => {
     expect(cage.cover.enabled).toBe(false);
     expect(stage.scene.userData.bossCover).toHaveLength(0);
     expect(beam.hits(player)).toBe(true);
+  });
+  it.each([[0, 0, 0], [1.05, 0, 0], [0, 1.05, 0], [0.77, 0.77, 0], [-0.77, -0.77, 0], [0, 0, 1.19]])(
+    'captures at x=%s z=%s y=%s without collision ejecting the captive, then permits escape', (x, z, y) => {
+      const { stage, game, player } = fixture();
+      player.pos.set(x, y, z);
+      Object.assign(player.body, { pos: player.pos, vel: player.vel, hw: 0.36, hd: 0.36, h: 1.3 });
+      player.trap = vi.fn(sec => Player.prototype.trap.call(player, sec));
+      stage.world.addBox(0, -1, 0, 20, 1, 20);
+      const projectiles = new Projectiles(game, stage), cage = projectiles.cage(0, 0);
+      projectiles.update(0.9);
+      expect(player.trap).toHaveBeenCalledOnce();
+      expect(player.mode).toBe('trapped');
+      for (let i = 0; i < 60; i++) {
+        player.vel.y -= 36 / 120;
+        moveBody(stage.world, player.body, 1 / 120);
+        cage.cageCover.update();
+        expect(player.pos.x).toBeCloseTo(x, 8); expect(player.pos.z).toBeCloseTo(z, 8);
+      }
+      expect(player.pos.y).toBeCloseTo(0);
+      expect(cage.cageCover.roof.enabled).toBe(true);
+      // The trap's expiry or slide reaction releases movement; the collision
+      // exit remains open independently of the status timer.
+      player.mode = 'normal'; player.trapT = 0;
+      const alongX = Math.abs(x) >= Math.abs(z);
+      player.vel.set(alongX ? 4 : 0, 0, alongX ? 0 : 4);
+      for (let i = 0; i < 90; i++) moveBody(stage.world, player.body, 1 / 120);
+      expect(alongX ? player.pos.x : player.pos.z).toBeGreaterThan(1.5);
+      projectiles.clear();
+      expect(cage.cageCover.solids.every(s => !s.enabled)).toBe(true);
+    });
+  it('retains physical walls for outside bodies while its captive has an exit', () => {
+    const { stage, game, player } = fixture();
+    player.body.hw = 0.36; player.body.hd = 0.36; player.body.h = 1.3;
+    stage.world.addBox(0, -1, 0, 20, 1, 20);
+    const projectiles = new Projectiles(game, stage); projectiles.cage(0, 0); projectiles.update(0.9);
+    const outsider = { pos: new THREE.Vector3(0, 0, -2), vel: new THREE.Vector3(0, 0, 4),
+      hw: 0.36, hd: 0.36, h: 1.3, grounded: true };
+    for (let i = 0; i < 60; i++) moveBody(stage.world, outsider, 1 / 120);
+    expect(outsider.pos.z).toBeLessThan(-1.15);
   });
   it('keeps scratch lines and rings alive after contact, with jump and Dust Dash counters', () => {
     const { stage, game, player } = fixture(); const projectiles = new Projectiles(game, stage);

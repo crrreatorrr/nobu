@@ -4,6 +4,69 @@ import * as THREE from 'three';
 import { Entity } from '../entities/entity.js';
 import { toon } from '../player/nobuPrims.js';
 
+// A landed cage remains cover without creating a solid through its captive.
+// Keep projectile cover separate from the hollow physical bars. An occupied
+// cage has a body-width exit corridor, so ending the trap never strands Nobu.
+export class CageCover {
+  constructor(stage, x, y, z) {
+    this.stage = stage; this.x = x; this.y = y; this.z = z;
+    this.box = { min: { x: x - 0.8, y, z: z - 0.8 }, max: { x: x + 0.8, y: y + 1.8, z: z + 0.8 }, enabled: false };
+    this.solids = [];
+    this.roof = null;
+    this.occupant = null;
+  }
+  _box(x0, z0, x1, z1, y, height) {
+    if (x1 - x0 < 0.001 || z1 - z0 < 0.001) return;
+    const solid = this.stage.world.addBox(this.x + (x0 + x1) / 2, y, this.z + (z0 + z1) / 2,
+      x1 - x0, height, z1 - z0, { kind: 'moving', ref: this });
+    this.solids.push(solid);
+    return solid;
+  }
+  activate(player) {
+    this.box.enabled = true;
+    const body = player.body;
+    const hw = body?.hw ?? 0.36, hd = body?.hd ?? 0.36;
+    const dx = player.pos.x - this.x, dz = player.pos.z - this.z;
+    const intersects = Math.abs(dx) < 0.8 + hw && Math.abs(dz) < 0.8 + hd &&
+      player.pos.y < this.y + 1.8 && player.pos.y + (body?.h ?? 1.3) > this.y;
+    if (!intersects) {
+      this._box(-0.8, -0.8, 0.8, 0.8, this.y, 1.8);
+      return;
+    }
+    this.occupant = player;
+    const alongX = Math.abs(dx) >= Math.abs(dz);
+    const center = alongX ? dz : dx;
+    const halfLane = (alongX ? hd : hw) + 0.1;
+    const lo = center - halfLane, hi = center + halfLane;
+    // Clip each wall against the full exit corridor. At a diagonal capture this
+    // also removes the intersecting corner, instead of ejecting the captive.
+    for (const wall of [[-0.8, -0.8, -0.7, 0.8], [0.7, -0.8, 0.8, 0.8], [-0.8, -0.8, 0.8, -0.7], [-0.8, 0.7, 0.8, 0.8]]) {
+      const [x0, z0, x1, z1] = wall;
+      if (alongX) {
+        this._box(x0, z0, x1, Math.min(z1, lo), this.y, 1.7);
+        this._box(x0, Math.max(z0, hi), x1, z1, this.y, 1.7);
+      } else {
+        this._box(x0, z0, Math.min(x1, lo), z1, this.y, 1.7);
+        this._box(Math.max(x0, hi), z0, x1, z1, this.y, 1.7);
+      }
+    }
+    this.roof = this._box(-0.8, -0.8, 0.8, 0.8, this.y + 1.7, 0.1);
+    this.roof.enabled = false;
+    this.update();
+  }
+  update() {
+    if (!this.roof || this.roof.enabled || !this.box.enabled) return;
+    const p = this.occupant, body = p.body;
+    const outside = Math.abs(p.pos.x - this.x) >= 0.8 + (body?.hw ?? 0.36) ||
+      Math.abs(p.pos.z - this.z) >= 0.8 + (body?.hd ?? 0.36);
+    if (outside || p.pos.y + (body?.h ?? 1.3) <= this.roof.min.y || p.pos.y >= this.roof.max.y) this.roof.enabled = true;
+  }
+  clear() {
+    this.box.enabled = false;
+    for (const solid of this.solids) this.stage.world.remove(solid);
+  }
+}
+
 export class ArenaTiles extends Entity {
   constructor(stage, { cols = 6, rows = 6, size = 4, y = 0, x = 0, z = 0 } = {}) {
     super(stage, x, y, z);

@@ -9,6 +9,7 @@ import { TUNING } from '../player/player.js';
 import { BOSS, BOSS_PHASE_CHECKPOINTS, FLOOR, ULT_CHARGE } from '../config/difficulty.js';
 import { chainBlocked, clearChain, pickChain, startChain, endAttack } from './chain.js';
 import { segmentDistanceSq, segmentBoxTime } from './geometry.js';
+import { CageCover } from './arena.js';
 
 import { Assets } from '../art/assets.js';
 
@@ -209,8 +210,8 @@ export class Projectiles {
     const pr = this.falling(x, z, { kind: 'cage', groundY, delay, r: 1.1 });
     pr.cage = true; pr.coverDuration = duration; pr.trapDuration = trap;
     pr.mesh.material.wireframe = true;
-    pr.cover = this.stage.world.addBox(x, groundY, z, 1.6, 1.8, 1.6, { kind: 'moving' });
-    pr.cover.enabled = false;
+    pr.cageCover = new CageCover(this.stage, x, groundY, z);
+    pr.cover = pr.cageCover.box;
     (this.stage.scene.userData.bossCover ||= []).push(pr.cover);
     return pr;
   }
@@ -240,7 +241,7 @@ export class Projectiles {
     this.stage.scene.remove(pr.mesh);
     if (pr.marker) this.stage.scene.remove(pr.marker);
     if (pr.cover) {
-      pr.cover.enabled = false;
+      pr.cageCover.clear();
       const covers = this.stage.scene.userData.bossCover;
       const index = covers.indexOf(pr.cover);
       if (index >= 0) covers.splice(index, 1);
@@ -293,7 +294,7 @@ export class Projectiles {
             const d = Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z);
             if (pr.cage) {
               if (d < 1.1 && p.pos.y - pr.groundY < 1.2) p.trap(pr.trapDuration);
-              pr.cover.enabled = true;
+              pr.cageCover.activate(p);
               pr.marker.visible = false;
               pr.life = pr.coverDuration;
             } else {
@@ -404,6 +405,7 @@ export class Projectiles {
         }
         if (pr.life > 0 && pc.distanceTo(pr.mesh.position) < pr.r + 0.38) hit = true;
       }
+      pr.cageCover?.update();
       if (pr.kind === 'feather') {
         for (const cover of this.stage.scene.userData.bossCover || NO_COVER) {
           if (cover.enabled && segmentBoxTime(_previous, pr.mesh.position, cover) !== Infinity) { pr.life = 0; hit = false; break; }
