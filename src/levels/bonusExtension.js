@@ -12,7 +12,7 @@ export function raisedFloor(k, a, b, { x = 0, y = 0, w = 3.2, depth = .4 } = {})
 }
 export class EchoCrystal extends Entity {
   constructor(stage, position, lights, time) {
-    super(stage, ...position.toArray()); this.lights = lights; this.duration = time; this.remaining = 0;
+    super(stage, ...position.toArray()); this.lights = lights; this.duration = time; this.remaining = 0; this.alwaysActive = true;
     this.setBox(.9,1.3,.9);
     this.mesh = new THREE.Mesh(new THREE.OctahedronGeometry(.48), new THREE.MeshBasicMaterial({color:0x8affdf,fog:false}));
     this.mesh.position.y = .65; this.obj.add(this.mesh);
@@ -65,7 +65,10 @@ export function buildRideExtension(k,game,stage) {
   section(k,130,180,'ride','split'); section(k,255,295,'ride','ramps');
   section(k,379,419,'ride','tile'); section(k,419,447,'ride','door'); section(k,175,205,'ride','sofa');
   F(130,180); raisedFloor(k,135,175,{x:0,y:1.2,w:.8,depth:1.2});
-  for(const {kind,x,y,d} of [...RIDE_EXTENSION_BREAKABLES,...RIDE_SOFA_BREAKABLES]) k[kind](x,y,d);
+  for(const row of [...RIDE_EXTENSION_BREAKABLES,...RIDE_SOFA_BREAKABLES]) {
+    const {kind,x,y,d}=row,entity=k[kind](x,y,d);
+    if(RIDE_SOFA_BREAKABLES.includes(row))entity.detour=true;
+  }
   k.dog(-3.2,0,154,'pug').dogId='ride:pug-a';
   k.cable(152,{w:4,x:-2.4});
   k.tix(-2.6,0,142,-2.6,0,158,5); k.tix(2.6,0,138,2.6,0,172,10);
@@ -79,6 +82,7 @@ export function buildRideExtension(k,game,stage) {
   F(419,429);F(429,434,{y:[0,2.2]});F(441,447);k.pitySnacks(0,0,423);
   k.platform(-3,4,438,3.6,.4,4);k.platform(3,4,438,3.6,.4,4);
   k.tix(0,0,421,0,0,428,4);k.tixArc(0,2.2,434,0,441,2.6,5);
+  const sofaEntityStart=stage.entities.length,sofaTicketStart=game.tickets.list.length;
   // A permanent shallow stair-ramp supplies the helper's allowed non-launch fallback.
   for(let i=0;i<20;i++) k.platform(-2.6,(i+1)*2.6/20,171+(i+.5)*4/20,2.2,.36,.25);
   raisedFloor(k,175,205,{x:-2.6,y:2.6,w:3.2,depth:1.2});
@@ -87,9 +91,11 @@ export function buildRideExtension(k,game,stage) {
   k.tix(-2.6,3,176,-2.6,3,202,6);
   placeHiddenBone(k,game,stage,-2.6,4.2,200);
   const loop=stage.add(new SofaLoop(stage,k)); (stage.detours??=[]).push(loop);
+  for(const entity of stage.entities.slice(sofaEntityStart))entity.detour=true;
+  for(const ticket of game.tickets.list.slice(sofaTicketStart))ticket.detour=true;
   return loop;
 }
-export function buildCaveExtension(k,game,stage,{ wideHollow = false } = {}) {
+export function buildCaveExtension(k,game,stage,{ wideHollow = true } = {}) {
   const F=(a,b,o={})=>k.floor(a,b,{w:8.6,...o});
   section(k,135,180,'cave','river');section(k,227,270,'cave','mushrooms');
   section(k,319,359,'cave','crystals');section(k,267,285,'cave','hollow');
@@ -125,8 +131,9 @@ export function buildCaveExtension(k,game,stage,{ wideHollow = false } = {}) {
   k.tix(0,.6,324,0,1.2,336,4);k.tix(0,2.2,345,0,2.2,349,2);
   // The source places the exit beneath the return floor. Its launch clears the
   // main surface, and the Hidden can be bitten from the uncovered Hollow.
+  const hollowEntityStart=stage.entities.length,hollowTicketStart=game.tickets.list.length;
   if (wideHollow) {
-    // Proposed safety correction; activation requires the owner's placement decision.
+    // Owner-approved safety correction: catch falls from all three lunchbox steps.
     raisedFloor(k,267,270,{x:-2.4,y:-4.5,w:3.4,depth:2});
     raisedFloor(k,270,283,{x:0,y:-4.5,w:8.6,depth:2});
     raisedFloor(k,283,285,{x:-2.4,y:-4.5,w:3.4,depth:2});
@@ -134,4 +141,6 @@ export function buildCaveExtension(k,game,stage,{ wideHollow = false } = {}) {
   k.dog(-2.6,-4.5,273,'dalmatian').dogId='cave:dalmatian-a';
   k.mystery(-2.2,-4.5,277,{slot:0});k.tixRing(-2.4,-4.5,279,1,6);
   k.mushroom(-2.4,-4.5,283,{power:17});placeHiddenBone(k,game,stage,-2.4,-4.5,284.5);
+  for(const entity of stage.entities.slice(hollowEntityStart))entity.detour=true;
+  for(const ticket of game.tickets.list.slice(hollowTicketStart))ticket.detour=true;
 }

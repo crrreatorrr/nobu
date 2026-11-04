@@ -26,7 +26,10 @@ const { buildBonusRide, buildBonusRideCandidate } = await import('../src/levels/
 const { buildBonusCave, buildBonusCaveCandidate } = await import('../src/levels/bonusCave.js');
 const { measureTicketBudget } = await import('../src/game/measureTicketBudget.js');
 const { ticketBudget, checkTicketBudget } = await import('../src/game/ticketBudget.js');
-const { LEVEL_BUDGETS } = await import('../src/levels/data/budgets.js');
+const LEGACY_BONUS_BUDGETS = {
+ ride:{field:55,packs:35,zipped:8,jackpots:0,bark:0,trampoline:0,mystery:0,arena:0,coconut:false},
+ cave:{field:39,packs:55,zipped:16,jackpots:0,bark:15,trampoline:0,mystery:0,arena:0,coconut:false},
+};
 const { BONUS_BUDGETS_V2, CAVE_SPLICES, RIDE_SPLICES, shiftDistance, shiftSpans } = await import('../src/levels/data/bonus-layout2.js');
 const { EchoCrystal, SofaLoop } = await import('../src/levels/bonusExtension.js');
 vi.spyOn(Stage.prototype,'decor').mockImplementation(()=>{});
@@ -44,7 +47,7 @@ function build(id,candidate=true,roll=.001,options={}) {
 }
 test('old builders retain their authored economic payload and two dog IDs',()=>{
  for(const id of ['ride','cave']){
-  const {stage,measured}=build(id,false);expect(measured).toEqual(LEVEL_BUDGETS[id]);
+  const {stage,measured}=build(id,false);expect(measured).toEqual(LEGACY_BONUS_BUDGETS[id]);
   expect(stage.entities.filter(e=>e.dogId).length).toBe(2);
  }
 });
@@ -232,6 +235,9 @@ test('real Player bite and Stage visibility lifecycle preserve crystal timing an
  Stage.prototype.update.call(context,.1,p);expect(c.lights.every(e=>e.obj.visible&&e.visible&&e.solid.enabled)).toBe(true);
  Stage.prototype.update.call(context,5,p);Stage.prototype.update.call(context,.01,p);
  expect(c.lights.every(e=>!e.obj.visible&&e.visible===false&&e.solid.enabled)).toBe(true);
+ c.onBite();const near=p.pos.clone();p.pos.z-=200;
+ Stage.prototype.update.call(context,5.1,p);expect(c.remaining).toBe(0);p.pos.copy(near);
+ Stage.prototype.update.call(context,.01,p);expect(c.lights.every(e=>!e.obj.visible&&e.solid.enabled)).toBe(true);
  c.onBite();c.onRespawn();Stage.prototype.update.call(context,.01,p);
  expect(c.lights.every(e=>!e.obj.visible&&e.solid.enabled)).toBe(true);
 });
@@ -244,6 +250,113 @@ test('literal right lunchbox fall misses the Hollow; proposed width catches all 
    const body=bodyAt(stage,d,u,-2),trace=fly(stage,body,{speed:0,seconds:1.2});
    expect(trace.some(p=>p.grounded&&Math.abs(p.y+4.5)<.12)).toBe(wideHollow||u<0);
    expect(stage.track.groundAt(d,u)).toBeNull(); // Lower safety floor never masks main geometry.
+  }
+ }
+});
+const {simJump}=await import('../src/levels/gauntletMath.js');
+function worldJump(stage,from,to,{velocity=TUNING.JUMP,cut=false,margin=1}={}) {
+ const start=from.clone(),end=to.clone(),trace=simJump({velocity,cut,dy:end.y-start.y});
+ if(!trace)return {ok:false,reason:'height'};
+ const delta=end.clone().sub(start).setY(0),distance=delta.length();
+ if(distance+margin>trace.air*TUNING.RUN)return {ok:false,reason:'distance',distance,reach:trace.air*TUNING.RUN};
+ const body={pos:start,vel:new THREE.Vector3(),hw:.3,hd:.3,h:1.3,grounded:false},speed=delta.multiplyScalar(1/trace.air);
+ let head=false;body.onHead=()=>{head=true;};
+ for(const sample of trace.samples.slice(1)) {
+  body.vel.set(speed.x,sample.vy,speed.z);moveBody(stage.world,body,1/60);
+  if(head)return {ok:false,reason:'head'};
+  if(body.grounded&&sample.vy<0) return {ok:body.pos.clone().sub(end).setY(0).length()<.9&&Math.abs(body.pos.y-end.y)<.12,reason:'landing',pos:body.pos.toArray(),distance,reach:trace.air*TUNING.RUN};
+ }
+ return {ok:false,reason:'no landing'};
+}
+test('full Mushroom Cavern chain lands on actual curved receivers with one metre movement reserve',()=>{
+ const {stage,game}=build('cave'),tr=stage.track;game.fx=new Proxy({},{get:()=>()=>{}});
+ const point=(d,u,y)=>tr.toWorld(d,u,y);
+ const launch=d=>stage.entities.find(e=>e.constructor.name==='BouncePad'&&Math.abs(tr.project(e.pos.x,e.pos.z).s-d)<.1).power*1.15;
+ const route=[
+  [point(233.4,0,.8),point(237.2,0,4.2),launch(233),true],
+  [point(238,0,4.2),point(242.35,-1.25,-.2),TUNING.JUMP,false],
+  [point(242.35,-1.25,-.2),point(247.65,1.25,.2),launch(242),true],
+  [point(247.65,1.25,.2),point(253.5,-.7,.6),launch(248),true],
+  [point(253.5,-.7,.6),point(258,-1,0),launch(254),true],
+ ];
+ for(const [a,b,velocity,cut]of route){const result=worldJump(stage,a,b,{velocity,cut});expect(result,`${tr.project(a.x,a.z).s}→${tr.project(b.x,b.z).s} ${JSON.stringify(result)}`).toMatchObject({ok:true});}
+ const relays=stage.entities.filter(e=>e.constructor.name==='MushroomRelay');expect(relays).toHaveLength(2);
+ for(const relay of relays){
+  const source=stage.entities.find(e=>e.constructor.name==='BouncePad'&&e.pos.distanceTo(relay.pos)<.01);
+  source.onLand({bounce:vi.fn(),forward:new THREE.Vector3(0,0,-1),vel:new THREE.Vector3()});
+  expect(relay.light.intensity).toBe(3);relay.update(1.99);expect(relay.light.intensity).toBe(3);
+  relay.update(.02);expect(relay.light.intensity).toBe(0);relay.onRespawn();expect(relay.remaining).toBe(0);
+ }
+});
+
+test('canonical registry metadata matches actual bonus dogs, Hidden placements and detour miss sections',async()=>{
+ const {LEVELS}=await import('../src/levels/registry.js');
+ const {sectionName}=await import('../src/game/hints.js');
+ for(const id of ['ride','cave']) {
+  const {stage,tickets}=build(id),def=LEVELS[id];
+  expect(measureTicketBudget(stage,tickets)).toEqual(BONUS_BUDGETS_V2[id]);
+  const dogs=stage.entities.filter(e=>e.dogId);
+  expect(dogs.map(e=>e.dogId).sort()).toEqual(Object.keys(def.dogs).map(key=>`${id}:${key}`).sort());
+  for(const dog of dogs){const d=stage.track.project(dog.pos.x,dog.pos.z).s;expect(sectionName(stage.sections,d,dog)).toBe(def.dogs[dog.dogId.slice(id.length+1)]);}
+  const hidden=stage.entities.find(e=>e.constructor.name==='HiddenBone'),d=stage.track.project(hidden.pos.x,hidden.pos.z).s;
+  expect(sectionName(stage.sections,d,hidden)).toBe(def.hidden.section);
+  if(id==='ride') {
+   const sofa=stage.entities.filter(e=>e instanceof Backpack&&Math.abs(e.pos.y-stage.track.heightAt(stage.track.project(e.pos.x,e.pos.z).s)-2.6)<.1);
+   expect(sofa).toHaveLength(2);expect(sofa.every(e=>e.detour&&sectionName(stage.sections,stage.track.project(e.pos.x,e.pos.z).s,e)==='Sofa Summit')).toBe(true);
+   expect(dogs.find(e=>e.dogId==='ride:pug-a').detour).not.toBe(true);
+  }
+ }
+});
+function riverPosition(entity,time) {
+ if(entity.fixed)return entity.fixed.clone();
+ if(entity.constructor.name==='LilyPad')return entity.home.clone().add(new THREE.Vector3(0,Math.sin(time*2)*.04,0));
+ return entity.home.clone().addScaledVector(entity.dir,Math.sin(time*entity.speed+entity.phase)*entity.range);
+}
+function riverJump(f,source,target,time,doubleAt=null,landingOffset=0) {
+ const {stage,game}=f,tr=stage.track;
+ const rafts=stage.entities.filter(e=>['MovingPlatform','LilyPad'].includes(e.constructor.name)&&tr.project(e.home.x,e.home.z).s>135&&tr.project(e.home.x,e.home.z).s<175);
+ const place=t=>{stage.world.beginFrame();for(const e of rafts){e.t=t;e.sink=0;e.update(0);}};
+ game.player.body={grounded:false};place(time);
+ const edge=(entity,p,sign)=> {
+  if(entity.fixed)return p;
+  const d=tr.project(p.x,p.z).s,amount=entity.dim?entity.dim.d*.24:.36;
+  return p.addScaledVector(tr.tangent(d,new THREE.Vector3()),amount*sign);
+ };
+ const start=edge(source,riverPosition(source,time),1);
+ let end=riverPosition(target,time),trace;
+ for(let i=0;i<4;i++) {
+  trace=simJump({dy:end.y-start.y,doubleAt});if(!trace)return false;
+  end=edge(target,riverPosition(target,time+trace.air),-1);
+  if(!target.fixed)end.addScaledVector(tr.right(tr.project(end.x,end.z).s,new THREE.Vector3()),landingOffset);
+ }
+ const delta=end.clone().sub(start).setY(0),distance=delta.length();
+ if(distance+1>trace.air*TUNING.RUN)return false;
+ const body={pos:start,vel:new THREE.Vector3(),hw:.3,hd:.3,h:1.3,grounded:false};game.player.body=body;
+ let head=false;body.onHead=()=>{head=true;};
+ const horizontal=delta.multiplyScalar(1/trace.air);
+ for(const sample of trace.samples.slice(1)) {
+  place(time+sample.t);body.vel.set(horizontal.x,sample.vy,horizontal.z);moveBody(stage.world,body,1/60);
+  if(head||body.pos.y<stage.killYAt(body.pos,body))return false;
+  if(body.grounded&&sample.vy<0) {
+   const expected=target.fixed?body.ground?.kind==='track':body.ground===target.solid;
+   return expected&&body.pos.clone().sub(end).setY(0).length()<1;
+  }
+ }
+ return false;
+}
+test('River dynamic receivers offer real World landings across endpoint phases with one metre reserve and no wait on sinking lilies',()=>{
+ const f=build('cave'),tr=f.stage.track;f.game.fx=new Proxy({},{get:()=>()=>{}});
+ const find=(kind,d)=>f.stage.entities.find(e=>e.constructor.name===kind&&Math.abs(tr.project(e.home.x,e.home.z).s-d)<.1);
+ const route=[{fixed:tr.toWorld(136.7,0,0)},find('MovingPlatform',141),find('MovingPlatform',149),find('MovingPlatform',155),
+ {fixed:tr.toWorld(159.3,1.2,0)},find('LilyPad',164),find('LilyPad',167.5),find('MovingPlatform',171),{fixed:tr.toWorld(175.5,0,0)}];
+ for(const phase of [0,Math.PI/2/1.4,Math.PI/1.4,3*Math.PI/2/1.4,Math.PI/2/1.6,Math.PI/1.6,3*Math.PI/2/1.6,Math.PI/2/1.8,Math.PI/1.8,3*Math.PI/2/1.8,8,12]) {
+  for(let i=0;i<route.length-1;i++) {
+   const source=route[i],target=route[i+1],canWait=source.constructor?.name!=='LilyPad';let ok=false;
+   for(let wait=0;wait<=(canWait?10:0)&&!ok;wait+=.1)for(const airJump of [null,.4,.55]) {
+    for(const offset of [0,-.5,.5])if(riverJump(f,source,target,phase+wait,airJump,offset)){ok=true;break;}
+    if(ok)break;
+   }
+   expect(ok,`river leg${i} phase${phase}; base jump/double only, wait${canWait}`).toBe(true);
   }
  }
 });
