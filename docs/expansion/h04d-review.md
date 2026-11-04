@@ -1,8 +1,9 @@
 # H04d candidate corrections and pending integration
 
-These are proposals, **not owner-approved changes**. `AUTHORED_PATTERNS` preserves the source literals;
-`PROPOSED_PATTERNS` and `PROPOSED_TEACH_PATTERNS` are opt-in review candidates. No existing level uses them.
-Do not ship the raw unsafe patterns or advertise H04d complete before approval and integration.
+The owner approved the tested corrections on **2026-11-04** with “Use the tested corrections.”
+`PATTERNS` and `TEACH_PATTERNS` are now the canonical shipping exports. `AUTHORED_PATTERNS` preserves
+unsafe source literals only as regression fixtures. The PROPOSED aliases remain for review history.
+Shared wiring and dev-strip verification are being completed below.
 
 ## Concrete design decisions
 
@@ -14,11 +15,11 @@ Do not ship the raw unsafe patterns or advertise H04d complete before approval a
 | P7 tier 2 | Fall delay.45 | Authored delay.50 | Universal tier2 tell.50 starts on contact; configured delay remains exact |
 | P16 tier 4 | Arrow16 tap, prose accepts gaps≤7.3; fall delay.32 | Explicit held arrow route; actual moving landing tested, delay.40 | Tap reach6.533×.92=6.011; held7.467×.92=6.869; tier4 tell.40 |
 
-FallBox's default.45 and the player movement constants are unchanged. Only the candidate pattern options
+FallBox's default.45 and the player movement constants are unchanged. Only the approved pattern options
 raise delays. A source-configured .30/.32/.38 delay still disables collision at that exact time; such an
 authored pattern fails its tell check where it conflicts with the tier. No global delay correction hides it.
 
-Teaching variants also require explicit review where the source's gentler values were insufficient:
+The same approval covers teaching variants where the source's gentler values were insufficient:
 
 | Teach | Source | Candidate |
 | --- | --- | --- |
@@ -33,7 +34,7 @@ Teaching variants also require explicit review where the source's gentler values
 | P14 | Gentler values unspecified | Rise2.5 per double; final exit y6 |
 | P16 | Gentler values unspecified | Fall replaced by permanent lunchbox (fall is taught in P7); final exit24.1; safe floor |
 
-All candidate placements are actual builder inputs. `placePattern` consumes exactly the tested data,
+All approved placements are actual builder inputs. `placePattern` consumes exactly the tested data,
 including lower stair supports, all six stack backpacks, Rugs and TNT wall pieces. Stacks explicitly
 use `k.pack(..., rawTickets)` so the old k.stack default cannot leak random Tickets into gauntlets.
 

@@ -1,5 +1,4 @@
-// Reviewable authored placements. Original literals stay available for regression checks.
-// Proposed corrections are opt-in until the owner approves the placement/design changes.
+// Owner approved the tested corrections on 2026-11-04. Original literals remain regression fixtures.
 const p = (kind, dd, y = 0, params = {}) => ({ kind, dd, x: 0, y, params, countable: ['pack','rug','cat','switch','stack'].includes(kind) });
 const step = (from,to,move='held') => ({from,to,move});
 function line(id,tier,pieces,moves=[],floor='pit') {
@@ -43,8 +42,8 @@ function build(proposed=false) {
 }
 export const AUTHORED_PATTERNS=build(false);
 export const PROPOSED_PATTERNS=build(true);
-// Until approval, consumers must explicitly choose a reviewed proposal; no silently corrected placements.
-// No default shipping library is exported before owner review.
+// Canonical runtime exports use the owner-approved, validated placements.
+export const PATTERNS=PROPOSED_PATTERNS;
 
 export const PROPOSED_TEACH_PATTERNS=PROPOSED_PATTERNS.map(original=>{
   const t=structuredClone(original);t.id+='-teach';t.tier=1;t.floor='floor';
@@ -72,6 +71,8 @@ export const PROPOSED_TEACH_PATTERNS=PROPOSED_PATTERNS.map(original=>{
   if(original.id==='P16'){t.pieces[2].kind='lunch';t.pieces.at(-1).dd=24.1;}
   return t;
 });
+
+export const TEACH_PATTERNS=PROPOSED_TEACH_PATTERNS;
 
 // Builders and the validator consume the same placements, including countable pieces.
 export function placePattern(k, pattern, d0=0, { gauntlet=false }={}) {
