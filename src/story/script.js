@@ -54,9 +54,10 @@ export const BOSS_TALK = {
       ['cat', 'Ohhh, look who ran all this way. You\'re cornered, little puppy.'],
       ['cat', 'The Evil Cone pays me in tuna to put that Akita in a cone. Easiest job ever.'],
       ['mask', 'When it counts 3-2-1, MOVE! If it misses the pounce, jump on its HEAD or bite it!'],
+      ['mask', 'See that red dot? It CANNOT resist it. Lead it into a wall!'],
     ],
-    phase2: [['cat', 'Hsssss! Lucky. Now I pounce TWICE. Cats always land on their feet.']],
-    phase3: [['cat', 'MROWR! No more playing. Nine lives, puppy. How many do YOU have?']],
+    phase2: [['cat', 'Hsssss! Lucky. Now I pounce TWICE. Cats always land on their feet.'], ['cat', 'Oops. Did I knock that off the shelf? I meant to.']],
+    phase3: [['cat', 'MROWR! No more playing. Nine lives, puppy. How many do YOU have?'], ['mask', 'Catnip! Bite it and the cat goes wild: faster, but dizzier!']],
   },
   cone: {
     intro: [
@@ -239,3 +240,4 @@ export const KENNEL_TEXT = {
     ...Object.entries(level.dogs.reduce((sections, dog) => ({ ...sections, [dog.section]: (sections[dog.section] || 0) + 1 }), {})).map(([section, n]) => `${n} ${n === 1 ? 'dog' : 'dogs'} near ${section}`)].filter(Boolean).join(' · '),
 };
 export const CONE_STAGE_POWERS = { 2: 'Floor sweeps · twin lasers · grab · vortex · RUG PULL', 3: 'Shadow clones · SMOG TIDE · combos of three · fastest' };
+export const CAT_STAGE_POWERS = { 2: 'Double pounce · claw scratches · tail-whip · knocks things off the table', 3: 'Triple pounce · zoomies · ghost lives · the edge crumbles' };
