@@ -79,7 +79,7 @@ describe('per-level layout upgrades', () => {
     expect(done).toHaveBeenCalledWith(session, 85, 'platinum', true);
     bank.mockRestore();
   });
-  it('renders the fourth target and its label without changing Classic targets', () => {
+  it('renders each layout fourth target and its label once gold is earned', () => {
     const screen = vi.fn(), game = { ui: { setScreen: screen, screen: { style: {} }, fade: vi.fn() } };
     Game.prototype.trialDone.call(game, { level: 1 }, 85, 'platinum', true);
     expect(screen.mock.calls[0][0]).toContain('PLATINUM TAG!');
@@ -87,7 +87,7 @@ describe('per-level layout upgrades', () => {
     expect(screen.mock.calls[0][0]).not.toContain('undefined');
     versions.LAYOUT[1] = 1;
     Game.prototype.trialDone.call(game, { level: 1 }, 54, 'gold', true);
-    expect(screen.mock.calls[1][0]).not.toContain('💎');
+    expect(screen.mock.calls[1][0]).toContain('💎 0:50.00');
   });
   it('keeps exact Classic/v2 floors and medal targets', () => {
     expect(trialVariant(1)).toBe('1v2');
@@ -144,4 +144,15 @@ describe('queue upgrade and production deployment gate', () => {
     await hub.trialTop(1); await hub.trialTopClassic(1);
     expect(sdk.calls.board).toHaveLength(2);
   });
+});
+it('merges archived Classic clean eligibility independently from the current god-used v2 record',()=>{
+ load({v:3,trials:{1:{ms:85000,best:85,layout:2,godUsed:true,pid:null}},trialsClassic:{1:{ms:45000,best:45,layout:1,godUsed:true,pid:null,bestEligibleMs:49000}}});
+ expect(save.data.trials[1]).toMatchObject({ms:85000,godUsed:true,bestEligibleMs:null,medal:'gold',layout:2});
+ expect(save.data.trialsClassic[1]).toMatchObject({ms:45000,godUsed:true,bestEligibleMs:49000,medal:'platinum',layout:1});
+ save.write();save.load();expect(save.data.trials[1].medal).toBe('gold');expect(save.data.trialsClassic[1].medal).toBe('platinum');
+});
+it('archives a newly upgraded god practice best and merges an existing slower clean Classic tag',()=>{
+ load({v:3,trials:{1:{ms:45000,best:45,layout:1,godUsed:true,pid:null}},trialsClassic:{1:{ms:49000,best:49,layout:1,godUsed:false,pid:'clean-player'}}});
+ expect(save.data.trials[1]).toBeUndefined();
+ expect(save.data.trialsClassic[1]).toMatchObject({ms:45000,godUsed:true,pid:null,bestEligibleMs:49000,medal:'platinum',layout:1});
 });

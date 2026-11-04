@@ -13,6 +13,7 @@ export function tallyPlan(stats, fresh = [], hint = '', milestones = []) {
   t += 0.5;
   steps.push({ key: 'board', start: t, duration: 0 });
   for (const key of fresh) { t += 0.4; steps.push({ key: 'stamp', bone: key, start: t, duration: 0.3 }); }
+  if (stats.perfectFresh) { t += 0.4; steps.push({ key: 'perfect', start: t, duration: 0.3 }); }
   t += 0.6;
   steps.push({ key: 'hint', start: t, duration: hint.length / 40, text: hint });
   t += hint.length / 40 + 0.4;

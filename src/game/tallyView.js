@@ -36,6 +36,7 @@ export function soundTally(screen, plan, before, after) {
     else if(e.event === 'show') {
       if(e.key === 'bestChain') audio.play('chainUp');
       if(e.key === 'kennel') audio.play('chime');
+      if(e.key === 'perfect') audio.play('invincible');
       if(e.key === 'stamp') {
         audio.play('stamp');
         const stamps = plan.steps.filter((s) => s.key === 'stamp');

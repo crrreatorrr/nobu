@@ -28,3 +28,12 @@ it('silently skips repeat tallies to the final state and needs a second press to
  expect(g.ui.screen.querySelector('[data-tally="continue"]').style.visibility).toBe('visible');
  expect(advanceCompleteTally(g,.1,true)).toBe(true);expect(play).not.toHaveBeenCalled();
 });
+it('stamps a new Perfect relic after the board, plays invincible once, and skips its animation cleanly',()=>{
+ const g=game();openCompleteTally(g,1,{broken:2,breakables:2,dogs:1,dogsTotal:1,tickets:0,bestChain:0,perfectFresh:true},['golden'],false,{board:'<img data-bone="golden">',hint:'Done'});
+ const stamp=g.tally.steps.find(s=>s.key==='stamp'),perfect=g.tally.steps.find(s=>s.key==='perfect'),hint=g.tally.steps.find(s=>s.key==='hint');
+ expect(perfect.start).toBeGreaterThan(stamp.start);expect(perfect.start).toBeLessThan(hint.start);
+ advanceCompleteTally(g,perfect.start+.01,false);expect(audio.play.mock.calls.filter(([key])=>key==='invincible')).toHaveLength(1);
+ expect(g.ui.screen.querySelector('[data-tally="perfect"]').textContent).toContain('PERFECT RUN!');
+ save.data.tutorials.tallySeen=true;g.tallyCanSkip=true;advanceCompleteTally(g,.1,true);
+ expect(g.ui.screen.querySelector('[data-tally="perfect"]').style.animation).toBe('none');
+});

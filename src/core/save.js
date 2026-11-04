@@ -1,6 +1,7 @@
 // Progress persistence in localStorage (every access wrapped; the game runs fine without it).
 import { TRIAL_FLOOR_MS, TRIAL_LEVELS, trialMedal, trialLayout, trialVariant } from '../config/trials.js';
 import { LEVEL_IDS, LEVEL_DOGS } from '../levels/metadata.js';
+import { trialMastery, mergeTrialMastery } from '../game/mastery.js';
 import { KENNEL_MILESTONES, kennelUnlocks } from '../game/progress.js';
 
 const KEY = 'nobu-saviour-dog-save-v1';
@@ -69,7 +70,7 @@ function sanitizeTrial(level, e, layout = trialLayout(level)) {
   if (Number.isInteger(e.deaths) && e.deaths >= 0) out.deaths = e.deaths;
   if (Number.isFinite(e.freezeMs) && e.freezeMs >= 0) out.freezeMs = Math.round(e.freezeMs);
   out.pid = typeof e.pid === 'string' && e.pid ? e.pid : null;
-  return out;
+  return trialMastery(variant, { ...out, godUsed: e.godUsed === true, bestEligibleMs: e.bestEligibleMs, pid: e.godUsed === true ? null : out.pid });
 }
 
 export function sanitizeTrials(raw, layout) {
@@ -90,7 +91,7 @@ export function migrateTrialLayouts(trials, classic) {
   for (const level of TRIAL_LEVELS) {
     if (trialLayout(level) === 1) continue;
     const old = sanitizeTrial(level, trials?.[level], 1);
-    if (old && (!archive[level] || old.ms < archive[level].ms)) archive[level] = old;
+    if (old) archive[level] = mergeTrialMastery(trialVariant(level, 1), archive[level], old);
   }
   return { trials: current, trialsClassic: archive };
 }
@@ -206,7 +207,7 @@ function sanitize(d) {
 
 function mergeTrials(mine, disk) {
   const out = { ...mine };
-  for (const [id, e] of Object.entries(disk)) if (!out[id] || e.ms < out[id].ms) out[id] = e;
+  for (const [id, e] of Object.entries(disk)) out[id] = mergeTrialMastery(trialVariant(id, e.layout ?? 1), out[id], e);
   return out;
 }
 

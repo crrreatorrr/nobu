@@ -351,3 +351,7 @@ html, body {
 .tally-record { color: var(--gold); animation: tally-record .55s infinite alternate; }
 @keyframes tally-record { to { opacity: .45; } }
 @keyframes tally-shake { 0%,100% { transform: translateX(0); } 25%,75% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+
+/* A saved Perfect Run is a cosmetic map stamp, independent of trial tags. */
+.perfect-paw { position: absolute; right: -9px; top: -14px; font-size: 24px; filter: drop-shadow(0 1px 2px #000); }
+.perfect-stamp.show { animation: bone-stamp .3s both; color: #fff1a8; }

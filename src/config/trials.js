@@ -1,3 +1,4 @@
+import { PLATINUM_LAYOUT1 } from './masteryTargets.js';
 import { LAYOUT, HUB_LAYOUT } from './trialLayouts.js';
 export { LAYOUT, HUB_LAYOUT };
 
@@ -15,7 +16,7 @@ export const TRIAL_FLOOR_MS = Object.freeze({ 1: 15000, 2: 15000, 3: 12000, '1v2
 export const TRIAL_CEIL_MS = 1_800_000;
 
 /** Time trial targets per level, in seconds: [gold, silver, bronze] dog tags. */
-export const TRIAL_TARGETS = Object.freeze({ 1: [55, 70, 92], 2: [52, 66, 90], 3: [45, 58, 78],
+export const TRIAL_TARGETS = Object.freeze({ 1: [55, 70, 92, PLATINUM_LAYOUT1[1]], 2: [52, 66, 90, PLATINUM_LAYOUT1[2]], 3: [45, 58, 78, PLATINUM_LAYOUT1[3]],
   '1v2': [94, 120, 158, 86], '2v2': [90, 114, 156, 82], '3v2': [77, 100, 134, 70] });
 
 export const trialLayout = (level) => LAYOUT[Number(level)] ?? 1;
@@ -32,7 +33,8 @@ export function canUploadTrial(variant) {
 export function trialMedal(level, t) {
   const g = TRIAL_TARGETS[level];
   if (!g) return null;
-  return g[3] != null && t <= g[3] ? 'platinum' : t <= g[0] ? 'gold' : t <= g[1] ? 'silver' : t <= g[2] ? 'bronze' : null;
+  const ms = Math.round(t * 1000), target = g.map((seconds) => Math.round(seconds * 1000));
+  return g[3] != null && ms <= target[3] ? 'platinum' : ms <= target[0] ? 'gold' : ms <= target[1] ? 'silver' : ms <= target[2] ? 'bronze' : null;
 }
 
 export const fmtTime = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;

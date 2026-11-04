@@ -47,7 +47,7 @@ describe('case 6: trial score and window.__nobu', () => {
       meta: { level: 1, deaths: 0, freezeMs: 0, v: 1 },
     });
     expect(typeof sdk.calls.score[0].meta.build).toBe('string');
-    expect(save.data.trials[1]).toMatchObject({ best: 50, ms: 50000, medal: 'gold', pid: 'player-1' });
+    expect(save.data.trials[1]).toMatchObject({ best: 50, ms: 50000, medal: 'platinum', pid: 'player-1' });
 
     const worse = trialSession(60);
     worse._finishTrial();
