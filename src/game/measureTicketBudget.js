@@ -19,7 +19,7 @@ export function measureTicketBudget(stage, tickets, arena = 0) {
     else if (e instanceof Trampoline) result.trampoline += e.ticketsMax;
     else if (e instanceof GoodBoyRoute) result.jackpots += e.jackpot;
     else if (e instanceof BarkRock) result.bark += e.tickets;
-    else if (e instanceof CoconutRoller) result.coconut = true;
+    else if (e instanceof CoconutRoller && e.reward !== false) result.coconut = true;
   }
   if (stage.gauntlet) result.firstClearWhole = GAUNTLET_FIRST_CLEAR_TICKETS;
   return result;

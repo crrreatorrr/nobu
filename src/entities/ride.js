@@ -45,7 +45,7 @@ export function rideVacuumMesh() {
 }
 
 // Base for things that wreck the ride (or trip Nobu on foot).
-class Hazard extends Entity {
+export class Hazard extends Entity {
   constructor(stage, x, y, z, death = 'angel') {
     super(stage, x, y, z);
     this.death = death;

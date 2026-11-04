@@ -12,7 +12,7 @@ import { NobuGlb } from './nobuGlb.js';
 import { dressNobuModel, setCollarGlow } from './accessories.js';
 import { makeShadow, placeShadow } from '../entities/fx.js';
 import { advanceHang } from './hang.js';
-import { rideVacuumMesh } from '../entities/ride.js';
+import { stepRide, setPlayerRide } from './rideMotion.js';
 import { applyBossFling } from './bossFling.js';
 import { MOON_JUMP, advanceMoonCharge, cancelMoonCharge } from './moonJump.js';
 export { MOON_JUMP } from './moonJump.js';
@@ -174,6 +174,7 @@ export class Player {
   // Air jumps per jump: 1 (double jump), +count while the Champion's Crown is on (triple jump).
   // God mode gives 3; the crown does not stack on top of it.
   get maxAirJumps() {
+    if (this.ride?.airJumps !== undefined) return Math.max(0, this.ride.airJumps | 0);
     const extra = Math.max(0, Math.floor(Number(this.gear.extra_air_jumps?.count) || 0));
     const base = 1 + extra;
     return this.god ? Math.max(3, base) : base;
@@ -267,21 +268,8 @@ export class Player {
       this.vel.z = this.dashVZ;
       this.vel.y = 0;
     } else if (this.mode === 'normal' && this.ride && stage.track) {
-      // vacuum ride: it drives itself along the track; left / right steers, jump hops the whole thing
-      const R = this.ride;
-      rideF = stage.track.tangent(this.body.s ?? 0, this._rideF ||= new THREE.Vector3());
-      R.speedK = Math.min(1, (R.speedK ?? 0) + dt / 1.4);
-      const sp = R.speed * R.speedK, steer = st.x;
-      R.sp = sp;
-      const lat = steer * 6.8;
-      this._approach(rideF.x * sp - rideF.z * lat, rideF.z * sp + rideF.x * lat, 70 * dt);
-      this.targetFacing = Math.atan2(rideF.x, rideF.z) - steer * 0.35;
-      this.facing = dampAngle(this.facing, this.targetFacing, 10, dt);
-      this.bank = damp(this.bank || 0, steer * 0.3, 8, dt);
-      for (const b of R.mesh.userData.brushes || []) b.rotation.y += dt * 30;
-      R.whirrT = (R.whirrT ?? 0) - dt;
-      if (grounded && R.whirrT <= 0) { R.whirrT = 0.55; audio.play('whirr'); }
-      if (grounded && Math.random() < 0.18) this.game.fx?.dust(this.pos.x - rideF.x * 0.75, this.pos.y, this.pos.z - rideF.z * 0.75, { count: 1, size: 0.18, color: this._dustColor(), speed: 0.8, life: 0.3, dirX: -rideF.x * 2, dirZ: -rideF.z * 2 });
+      // The ride keeps its original auto-forward controls; raft options are explicit.
+      rideF = stepRide(this, stage, st.x, dt);
     } else if (this.mode === 'normal' && this.moonHold) {
       this._approach(0, 0, T.DECEL * dt);
     } else if (this.mode === 'normal') {
@@ -411,13 +399,13 @@ export class Player {
     const preX = this.pos.x, preZ = this.pos.z;
     for (let i = 0; i < steps; i++) moveBody(stage.world, this.body, h);
     this.vel.x -= px; this.vel.z -= pz;
-    if (rideF && this.ride.sp > 3) {
+    if (rideF && this.ride.sp > 3 && (this.ride.meshKind !== 'raft' || wasGrounded)) {
       // the ride rammed something solid: crash (a mask or god mode just hops it over)
       const moved = (this.pos.x - preX) * rideF.x + (this.pos.z - preZ) * rideF.z;
       this.ride.stuck = moved < this.ride.sp * dt * 0.3 ? (this.ride.stuck || 0) + dt : 0;
       if (this.ride.stuck > 0.1) {
         this.ride.stuck = 0;
-        this.hurt('flat');
+        if (this.ride.meshKind !== 'raft') this.hurt('flat');
         if (this.mode !== 'dead') { this.vel.y = 11; this.body.grounded = false; this.ride.speedK = 0.4; }
       }
     }
@@ -450,7 +438,7 @@ export class Player {
     if (this.pos.y < stage.killYAt(this.pos, this.body) && this.mode !== 'dead') {
       const wy = stage.track?.waterAt(this.body.s ?? 0);
       if (wy != null) { this.game.fx?.splash(this.pos.x, wy, this.pos.z); audio.play('land'); }
-      this.die('fall');
+      this.die(wy != null && stage.waterDeath && !this.god ? stage.waterDeath : 'fall');
     }
 
     this._animate(dt);
@@ -467,7 +455,7 @@ export class Player {
   _jump(v) {
     this.airDashT = 0;
     this._refillAirDash();
-    this.vel.y = v;
+    this.vel.y = v * (this.ride?.hop ?? 1);
     this.jumpBuffer = 0;
     this.coyote = 0;
     this.jumpCut = false;
@@ -899,14 +887,8 @@ export class Player {
     this.root.rotation.y = this.facing;
   }
 
-  // Vacuum ride (bonus stage): cfg = { speed } or null to get off
-  setRide(cfg) {
-    if (this.ride) { this.root.remove(this.ride.mesh); this.ride = null; }
-    if (!cfg) return;
-    this._rideMesh ||= rideVacuumMesh();
-    this.root.add(this._rideMesh);
-    this.ride = { speed: cfg.speed ?? 10.5, lift: cfg.lift ?? 0.42, mesh: this._rideMesh, speedK: 0 };
-  }
+  // Ride defaults preserve the vacuum; per-span raft metadata is opt-in.
+  setRide(cfg) { setPlayerRide(this, cfg); }
 
   victory() {
     this.mode = 'victory';
