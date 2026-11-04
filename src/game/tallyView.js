@@ -29,8 +29,10 @@ export function drawTally(screen, plan, time, stats) {
 export function soundTally(screen, plan, before, after) {
   for(const e of tallyEvents(plan,before,after)) {
     if(e.event === 'tick') {
-      for(let n=e.from+1;n<=e.to;n++) audio.play(e.key === 'dogs' ? 'ticket' : 'blip',1+n/Math.max(1,e.n));
-    } else if(e.event === 'type' && Math.floor(e.to/3) > Math.floor(e.from/3)) audio.play('blip');
+      for(let n=e.from+1;n<=e.to;n++) audio.play(e.key === 'dogs' ? 'ticket' : 'blip',e.key === 'dogs' ? 1 : 1+n/Math.max(1,e.n));
+    } else if(e.event === 'type') {
+      for(let n=Math.floor(e.from/3)+1;n<=Math.floor(e.to/3);n++) audio.play('blip');
+    }
     else if(e.event === 'show') {
       if(e.key === 'bestChain') audio.play('chainUp');
       if(e.key === 'kennel') audio.play('chime');

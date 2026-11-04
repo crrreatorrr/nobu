@@ -30,7 +30,7 @@ export function tallyEvents(plan, before, after) {
   const a = tallyFrame(plan, before), b = tallyFrame(plan, after), events = [];
   b.forEach((s, i) => {
     if (s.visible && !a[i].visible) events.push({ ...s, event: 'show' });
-    if (s.value > a[i].value) events.push({ ...s, event: 'tick', from: a[i].value, to: s.value });
+    if (['backpacks', 'dogs', 'tickets'].includes(s.key) && s.value > a[i].value) events.push({ ...s, event: 'tick', from: a[i].value, to: s.value });
     if (s.shown > a[i].shown) events.push({ ...s, event: 'type', from: a[i].shown, to: s.shown });
   });
   return events;

@@ -27,6 +27,7 @@ it('plays each count tick and stamp once, final oneUp once, with no delayed call
  const {screen,stats,plan}=fixture(), play=vi.spyOn(audio,'play').mockImplementation(()=>{});
  soundTally(screen,plan,0,plan.duration);
  expect(play.mock.calls.filter(c=>c[0]==='ticket')).toHaveLength(1);
+ expect(play.mock.calls.filter(c=>c[0]==='blip')).toHaveLength(6);
  expect(play.mock.calls.filter(c=>c[0]==='stamp')).toHaveLength(2);
  expect(play.mock.calls.filter(c=>c[0]==='oneUp')).toHaveLength(1);
  expect(play.mock.calls.filter(c=>c[0]==='chainUp')).toHaveLength(1);

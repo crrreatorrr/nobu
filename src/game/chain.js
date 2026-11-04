@@ -9,6 +9,8 @@ export function removeChainDrops(session, after = -Infinity) {
   stage.entities = stage.entities.filter((e) => {
     if (!e.chainDrop || !(e.chainSeq > after)) return true;
     e.dead = true; e.obj?.removeFromParent();
+    // The sphere geometry/glow material are shared; only its shadow owns a material.
+    e.shadow?.material?.dispose();
     return false;
   });
 }
