@@ -661,7 +661,13 @@ export class Game {
         ${fx ? `<div class="ward-fx ${ranked ? 'off' : ''}">${esc(fx)}</div>` : ''}
       </div>`;
     }).join('');
-    const banner = ranked ? '<div class="wardrobe-ranked">RANKED · gear is cosmetic only</div>' : '';
+    let banner = ranked ? '<div class="wardrobe-ranked">RANKED · gear is cosmetic only</div>' : '';
+    if (!this.loadout.linked) {
+      const note = hub.reach === 'pending'
+        ? 'Connecting to the hub…'
+        : 'No hub connection, so Relic gear is unavailable. Enter NOBU through the hub portal.';
+      banner += `<div class="wardrobe-offline">${esc(note)}</div>`;
+    }
     this.ui.setScreen(`<div class="wardrobe-panel"><div class="sub-title">WARDROBE</div>${banner}${rows}
       <div class="hint" style="margin-top:14px">↑↓ slot · ←→ item · ENTER close</div></div>`, 'dim');
   }

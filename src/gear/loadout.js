@@ -26,6 +26,10 @@ export class Loadout {
 
   get ranked() { return readNobuOwnership().ranked; }
 
+  // False while this session cannot read Relics (standalone, hub refused, or still
+  // connecting). The wardrobe then says why it has nothing to offer.
+  get linked() { return readNobuOwnership().ready; }
+
   // Ids the wardrobe may offer, including None. Unowned items stay hidden.
   // Order follows the catalog. Neck: None, Golden Collar, Clown-Nose Collar.
   // Head: None, Wizard Hat, Champion's Crown.

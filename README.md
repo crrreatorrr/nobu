@@ -105,6 +105,9 @@ and four jumps in a row (ground jump + three in the air). The setting is saved; 
   they are public on the hub board and permanent.
 - **Wardrobe (hub Relic items):** a Relic earned in another hub game unlocks one NOBU item. Open it from the
   title, the map (`I` / LB) or the pause menu. Each slot holds one item. In Ranked, items are cosmetic only.
+  Items come from the hub session, so the wardrobe says so when NOBU has no hub connection. A production
+  build needs `VITE_NAKAMA_SERVER_KEY`; under `vite dev`, or when a build is served from `localhost`
+  (for example from the dev hub's `public/play/nobu/`), NOBU uses the local stack's stock key instead.
 
   | Item | Slot | Unlocked by | While equipped |
   | --- | --- | --- | --- |

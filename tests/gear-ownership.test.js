@@ -32,12 +32,14 @@ describe('Relic gear ownership', () => {
     expect(readNobuOwnership()).toMatchObject({ ready: true, itemIds: [HAT] });
     expect(loadout.options('head')).toEqual([null, HAT]);
     expect(loadout.cosmeticSlots().head).toBe(HAT);
+    expect(loadout.linked).toBe(true);
   });
 
   it('a session with no hub link is "unknown" and keeps the saved hat', async () => {
     sdk.relics.add('tinubu_crown');
     await standalone();
     expect(hub.inSession).toBe(false);
+    expect(new Loadout().linked).toBe(false);
     expect(readNobuOwnership().ready).toBe(false);
     const loadout = new Loadout();
     expect(loadout.resync()).toEqual([]);

@@ -235,6 +235,7 @@ html, body {
   min-width: min(460px, 46vw);
 }
 .wardrobe-ranked { margin: 8px 0 4px; color: var(--gold); font-size: 18px; font-weight: 800; text-align: center; }
+.wardrobe-offline { margin: 8px auto 4px; max-width: 420px; opacity: 0.8; font-size: 16px; font-weight: 700; text-align: center; }
 .ward-row { margin-top: 12px; opacity: 0.72; }
 .ward-row.sel { opacity: 1; }
 .ward-slot { font-size: 16px; font-weight: 800; letter-spacing: 1px; opacity: 0.8; }
