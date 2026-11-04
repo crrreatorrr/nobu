@@ -99,6 +99,9 @@ describe('detour runtime and geometry',()=>{
       const info=buildEnvironmentStrip(game,stage,{add:vi.fn()});
       expect(stage.entities.some(e=>e instanceof Chaser)).toBe(true);expect(stage.entities.some(e=>e instanceof RisingHazard)).toBe(true);expect(stage.entities.some(e=>e instanceof DarkZone)).toBe(true);
       expect(stage.detours).toHaveLength(1);const sky=stage.sections.find(s=>s.detour);expect(sky.name).toBe('Sky Loop');expect(sky.d0).toBe(80);expect(sky.d1).toBeGreaterThan(104);expect(stage.sections).toBe(stage.track.sections);expect(stage.track.groundAt(90,1.5).y).toBe(0);expect(info.camera.mode).toBe('track');expect(validateDetours(stage)).toBe(true);
+      expect(stage.entities.find(e => e.countable && e.pos.y >= 9).detour).toBe(true);
+      expect(stage.entities.find(e => e.countable && e.pos.y < 1).detour).not.toBe(true);
+      expect(stage.track.groundAt(-7.6, 0).y).toBe(0);
     } finally {canvas.mockRestore();}
   });
   it('keeps canonical named sections searchable with inclusive starts and exclusive ends',()=>{

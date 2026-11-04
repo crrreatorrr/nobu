@@ -4,9 +4,9 @@ export function buildEnvironmentStrip(game, stage, tickets) {
   const track = makeTrack(stage,turtle([0,0,0],[[240,0,0]]));
   const k = makeKit(game,stage,tickets,track);
   k.section(0,240,'Environment Strip');
-  k.floor(-8,184); k.floor(184,189,{y:-3}); k.floor(214,240);
-  k.walls([[-8,4.3,4.3,2.6],[150,4.3,4.3,2.6],[155,4.3,4.3,1.1],[175,4.3,4.3,1.1],[180,4.3,4.3,2.6],[240,4.3,4.3,2.6]]);
-  k.backstop(-8);k.backstop(240);
+  k.floor(-18,184); k.floor(184,189,{y:-3}); k.floor(214,240);
+  k.walls([[-18,4.3,4.3,2.6],[150,4.3,4.3,2.6],[155,4.3,4.3,1.1],[175,4.3,4.3,1.1],[180,4.3,4.3,2.6],[240,4.3,4.3,2.6]]);
+  k.backstop(-18);k.backstop(240);
   k.snacks(3,0,16); k.chase(20,60,{model:'giant_coconut',scale:1,speed:6.7}); k.log(38); k.snacks(3,0,64);
   k.detour(80,82,{y:10,entry:'pipe',build(kd){
     kd.section('Sky Loop');

@@ -169,7 +169,10 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
     track.sections.sort((a,b)=>a.d0-b.d0);
     if (result?.start) detour.startPos.copy(result.start);
     const collect = (e,set) => { if(e.solid)set.add(e.solid); for(const part of e.parts || [])if(part.solid)set.add(part.solid); };
-    for (const e of stage.entities.slice(before)) collect(e,detour.solids);
+    for (const e of stage.entities.slice(before)) {
+      e.detour = true;
+      collect(e, detour.solids);
+    }
     // returnLeg is the authoring marker between outbound and return platforms (L4/L5 examples).
     for (const leg of detour.returnLegs) for (const e of stage.entities.slice(leg.from)) collect(e,leg.solids);
     if (opts.entry === 'burrow') {
