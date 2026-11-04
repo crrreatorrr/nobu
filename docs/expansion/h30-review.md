@@ -43,3 +43,13 @@ Waterfall Hollow uses the actual Session bonus-round entry/exit snapshot and rol
 Focused tests cover layout1 preservation, exact 540 trigger / 547 end (539m from spawn), measured225.28m added spline length, nine stable dogs, ungated countables, original-main lighting, strict box raw-fail/candidate-pass proofs, actual forward chase pack collision, supported checkpoint positions, actual local Coconut lifecycle and actual Session raised-round rollback. Actual curved receiver landings and the Burrow mushroom exit using the basic double jump are checked. Browser/manual checks and final integrated suite remain pending. No full first-time playthrough, natural Golden clear or final trial timing is claimed.
 
 The Zoomie timer proposal concerns opening and crossing its authored side lane. The source floor remains open around the narrow shutter; no enclosure or absolute collection lock for its extra Tickets is claimed or added.
+
+## Review fixes and assisted browser evidence
+
+The authored boss-gate trigger is540, visual gate538 and END547. With spawn1, the trial path is539m; the earlier shorthand “gate539” confused path distance with the trigger coordinate. No owner design change is needed for this arithmetic correction.
+
+Independent review found a retry lock after a successful Hollow visit followed by death before checkpoint509. Local `onRespawn` now preserves the shared detour reset and clears `used`: restored dogs/Mystery/1UP can be revisited. An actual Session success→respawn at checkpoint457→reentry regression passes.
+
+Assisted Chromium checks on gameplay commit4ad1ff4 passed: camera warning/activation/deferred restoration,13m pursuer head start and1.6s delay,2.25m coconut radius, visible grey/caged Burrow reward rejecting collection before the real save-backed Dust unlock, actual Dust contact opening it, Hollow loss/keep returns and successful-visit→death→reward restoration→reentry. No page errors or external writes occurred. Evidence: `/tmp/nobu-h30-browser-results.json`. Chromium and its local Vite server were closed after the bounded run. Screenshots of Canopy, Burrow, Hollow and Temple were inspected; they show the new areas and player framing. The first harness run had two bookkeeping/setup errors, corrected before the passing recheck.
+
+These checks use assisted placement and direct real runtime APIs. They do not constitute a full input recording, natural first-visit Golden clear, calibrated death-rate test, or verified trial medal times. Those manual checks remain unrun.
