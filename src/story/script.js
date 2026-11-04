@@ -248,3 +248,6 @@ export const MASTERY_TEXT = {
   eligibleBest: (time) => `Eligible best ${time}`,
   bossNames: { bird: 'MECHA BIRD', cat: 'BIG CAT', cone: 'EVIL CONE', titan: 'ROOMBA TITAN', queen: 'PUMP QUEEN' },
 };
+
+export const TITAN_STAGE_POWERS = { 2: 'Suction · Mini-Roombas · rotating rug', 3: 'Reflected charges · falling legs · Lights Out' };
+export const TITAN_FLOP_HINT = 'BELLY FLOP the button!';
