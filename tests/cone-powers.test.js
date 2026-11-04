@@ -58,8 +58,10 @@ describe('Cone tiled arena fairness and rollback',()=>{
     coneArena.onRespawn();expect(tiles.tiles.every(t=>t.solid.enabled)).toBe(true);
   });
   it('raises pedestals only inS3 overone second and never overlaps floor-changing attacks',()=>{
-    const {coneArena:a,player}=fixture();for(const p of a.pedestals){p.update(2);expect(p.top).toBe(0);}
-    a.setPhase(3,true);for(const p of a.pedestals){p.update(.5);expect(p.top).toBe(.6);p.update(.5);expect(p.top).toBe(1.2);}
+    const {coneArena:a,player,stage}=fixture();for(const p of a.pedestals){p.update(2);expect(p.top).toBe(0);expect(p.solid.enabled).toBe(false);expect(p.visible).toBe(false);}
+    a.setPhase(2);a.startRug('rows',player,.4,2);a.tiles.update(.5);
+    expect(stage.world.groundBelow(4.2,1,-.5)).toBe(-Infinity); // No buried podium may bridge a flipped S2 row.
+    a.setPhase(3,true);for(const p of a.pedestals){p.update(.5);expect(p.top).toBe(.6);expect(p.solid.enabled).toBe(true);p.update(.5);expect(p.top).toBe(1.2);}
     expect(a.startRug('checker',player,.7,3)).toBe(true);expect(a.startSmog({tell:.84,aimTime:.56,eye:player.pos})).toBe(false);
     a.tiles.reset();expect(a.startSmog({tell:.84,aimTime:.56,eye:player.pos})).toBe(true);expect(a.startRug('rows',player,.7,3)).toBe(false);
     a.onRespawn();expect(a.smog).toBeNull();expect(a.fog.visible).toBe(false);
@@ -73,6 +75,7 @@ describe('Cone tiled arena fairness and rollback',()=>{
     a.stopSmog();a.startSmog({tell:1.19,duration:6,ultimate:true,eye:player.pos});
     const safe=a.pedestals.filter(p=>p.safe);expect(safe).toHaveLength(2);expect(safe[0].pos.distanceTo(safe[1].pos)).toBeCloseTo(4.2*Math.SQRT2);
     for(const p of a.pedestals)p.update(1);expect(a.pedestals.filter(p=>p.top===.6)).toHaveLength(2);
+    expect(a.pedestals.every(p=>p.solid.enabled)).toBe(true);
   });
   it('lands every5.94m adjacent pedestal hop through actual keyboard-shaped Player movement, with and without Crown',()=>{
     save.reset();save.data.godMode=false;save.data.beaten={};

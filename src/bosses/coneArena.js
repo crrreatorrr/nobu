@@ -71,6 +71,8 @@ export class ConePedestal extends Pedestal {
   _place() {
     this.pos.y = this.top; this.obj.position.copy(this.pos);
     this.solid.setCenter(this.pos.x, this.top - this.depth, this.pos.z, this.size, this.depth, this.size);
+    this.solid.enabled = this.enabled;
+    this.visible = this.enabled; this.obj.visible = this.enabled;
     this.glow.material.color.setHex(this.safe ? 0xb8ffdd : 0x6c3d7a);
     this.mesh.material.color.setHex(this.safe ? 0x79938a : 0x553961);
   }
