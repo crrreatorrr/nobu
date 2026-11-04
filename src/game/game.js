@@ -914,7 +914,7 @@ export class Game {
       <div class="hint">${st.broken} / ${st.breakables} · ${GAUNTLET_TEXT.deaths(st.deaths)} · ${fmtTime(st.ms / 1000)}</div>
       ${row.bestMs ? `<div class="hint">${GAUNTLET_TEXT.localBest} ${fmtTime(row.bestMs / 1000)}</div>` : ''}
       ${result.tickets ? `<div class="hint">${GAUNTLET_TEXT.firstClear}</div>` : ''}
-      <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
+      <div class="hint" style="margin-top:3vh">${GAUNTLET_TEXT.continue}</div>`, 'dim');
     this.ui.fade(0);
   }
 

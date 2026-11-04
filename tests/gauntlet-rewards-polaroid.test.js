@@ -51,6 +51,23 @@ test('procedural rewards cleanly restore shared model materials in competitive p
  const decorated=p.gauntletLook.groups;updateGauntletLook(p,data,{trial:true},.1);expect(mesh.material).toBe(original);expect(decorated.every(g=>!g.parent)).toBe(true);expect(p.gauntletLook.trails).toEqual([]);
  clearGauntletLook(p);expect(p.gauntletLook).toBe(null);expect(socket.children).toHaveLength(0);
 });
+test('earned trails stay behind Nobu in world space at all four cardinal facings',()=>{
+ const root=new THREE.Group(),model=new THREE.Group();root.add(model);
+ const player={root,model:{root:model},vel:new THREE.Vector3(1,0,0),facing:0};
+ const data={gauntlets:{g3:{allBoxes:true}}};
+ try{
+  for(const facing of[0,Math.PI/2,Math.PI,-Math.PI/2]){
+   player.facing=facing;root.rotation.y=facing;
+   updateGauntletLook(player,data,{},0);root.updateWorldMatrix(true,true);
+   const forward=new THREE.Vector3(Math.sin(facing),0,Math.cos(facing));
+   for(const[index,particle]of player.gauntletLook.trails.entries()){
+    const offset=particle.getWorldPosition(new THREE.Vector3()).sub(root.getWorldPosition(new THREE.Vector3()));
+    expect(offset.dot(forward)).toBeCloseTo(-(index+1)*.15);
+    expect(new THREE.Vector2(offset.x,offset.z).length()).toBeCloseTo((index+1)*.15);
+   }
+  }
+ }finally{clearGauntletLook(player);}
+});
 test('Kennel photo wall shows earned Clears only, gold only for Flawless, with independently disposed resources',()=>{
  const s=new THREE.Scene(),resources=new Set(),wall=addGauntletPhotos(s,{gauntlets:{g1:{clear:true},g2:{clear:true,flawless:true},g3:{found:true}}},resources);
  expect(wall.children).toHaveLength(4);expect(wall.children[0].material.color.getHex()).toBe(0xffffff);expect(wall.children[2].material.color.getHex()).toBe(0xffd23f);expect(resources.size).toBe(8);

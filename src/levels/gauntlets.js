@@ -1,3 +1,4 @@
+import { GAUNTLET_TEXT } from '../story/script.js';
 import * as THREE from 'three';
 import {Entity} from '../entities/entity.js';
 import {GauntletMetronome} from '../entities/gauntletMetronome.js';
@@ -65,7 +66,7 @@ export function buildGauntlet(id,game,stage,tickets,{corrections=true,decor=true
   k.backstop(-8);k.backstop(info.end);
   for(const p of patterns){place(k,p);k.water(p.pieces[0].dd,p.pieces.find(q=>q.kind==='floorStart').dd,{y:id==='g1'?-6:-7,color:id==='g2'?0x903acc:0x3aa8d8});}
   if(id==='g1'){
-    k.floor(-8,20);k.sign(-2.8,0,2,['BOX','GAUNTLET']);
+    k.floor(-8,20);k.sign(-2.8,0,2,GAUNTLET_TEXT.startSign);
     for(const[d,h]of[[8.5,1],[12,2],[15.5,3]])for(let i=0;i<h;i++)k.lunch(0,i,d);
     k.pack(0,3,15.5,0);k.guideArc(0,1,8.5,0,15.5,2.5);
     k.floor(36.5,50);checkpoint(k,0,0,44);k.pack(-2,0,47,0);k.pack(2,0,47,0);k.pitySnacks(0,0,39);

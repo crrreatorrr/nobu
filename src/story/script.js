@@ -353,6 +353,10 @@ export const QUEEN_STAGE_POWERS = { 2: 'FOMO beam · parachute airdrops · faste
 export const QUEEN_TICKER_TEXT = { pump: '▲ PUMP ▲', dump: '▼ DUMP ▼', zero: '$0.00' };
 // H46: gauntlet-only presentation; medals never use a Bone Board.
 export const GAUNTLET_TEXT = {
+  names: { g1: 'Jungle Crates', g2: 'Assembly Rush', g3: 'Hamper Hop' },
+  startSign: ['BOX', 'GAUNTLET'],
+  polaroid: 'POLAROID!', polaroidGrey: 'POLAROID', polaroidFound: 'A Box Gauntlet is on the map.',
+  continue: 'Press any key',
   title: 'BOX GAUNTLET', clear: 'CLEAR', allBoxes: 'ALL BOXES', flawless: 'FLAWLESS',
   firstClear: 'First clear: 5 Tickets', localBest: 'LOCAL BEST',
   deaths: (n) => `Deaths: ${n}`,

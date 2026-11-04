@@ -5,6 +5,7 @@ import { Assets } from '../art/assets.js';
 import { save } from '../core/save.js';
 import { audio } from '../audio/audio.js';
 import { GAUNTLET_INFO } from '../levels/data/gauntlets.js';
+import { GAUNTLET_TEXT } from '../story/script.js';
 export function polaroidContext(session,data){return !session.trial&&!session.remix&&!session.bossRush&&!session.rush&&!session.ranked&&!session.medalMode&&!session.medalRun&&!session.boardRun&&!session.godUsed&&!data.godMode;}
 export class Polaroid extends Entity {
   constructor(stage,x,y,z,{id}={}){
@@ -25,14 +26,14 @@ export class Polaroid extends Entity {
     this.visual.position.y=.65+Math.sin(this.t*2)*.12;this.visual.rotation.y=this.t*.7;
     if(this.visible&&this.distToPlayer()<7){
       this.game.ui.tutorial?.('polaroid');
-      if(!this.available&&!this.greySeen){this.greySeen=true;audio.play('fade',1,{volume:.3});this.game.ui.banner('POLAROID','Reach it without a scratch.',1.8);}
+      if(!this.available&&!this.greySeen){this.greySeen=true;audio.play('fade',1,{volume:.3});this.game.ui.banner(GAUNTLET_TEXT.polaroidGrey,GAUNTLET_TEXT.grey,1.8);}
     }
   }
   onTouch(){
     this.update(0);if(!this.available)return false;
     const row=(save.data.gauntlets||={})[this.id]||={};row.found=row.polaroid=true;
     save.write();this.visible=this.obj.visible=false;this.available=false;
-    this.game.ui.banner('POLAROID!','A Box Gauntlet is on the map.',2);audio.play('oneUp');return true;
+    this.game.ui.banner(GAUNTLET_TEXT.polaroid,GAUNTLET_TEXT.polaroidFound,2);audio.play('oneUp');return true;
   }
 }
 export function installPolaroidHelper(k,stage){k.polaroid=(x,y,d,id)=>stage.add(new Polaroid(stage,...k.W(x,y,d).toArray(),{id}));return k;}

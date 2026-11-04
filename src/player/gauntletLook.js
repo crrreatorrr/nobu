@@ -45,5 +45,6 @@ export function updateGauntletLook(player,data,session={},dt=0){
  const look=player.gauntletLook;look.t+=dt;
  if(look.blink)look.blink.emissiveIntensity=.4+.6*Math.abs(Math.sin(look.t*Math.PI*2));
  const moving=Math.hypot(player.vel?.x||0,player.vel?.z||0)>.5;
- look.trails.forEach((m,i)=>{m.visible=moving;m.position.set(-Math.sin(player.facing)*(i+1)*.15,.3+Math.sin(look.t*9-i)*.08,-Math.cos(player.facing)*(i+1)*.15);});
+ // Player.root already rotates with facing: keep the trail behind its local forward axis.
+ look.trails.forEach((m,i)=>{m.visible=moving;m.position.set(0,.3+Math.sin(look.t*9-i)*.08,-(i+1)*.15);});
 }
