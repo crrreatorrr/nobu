@@ -34,7 +34,7 @@ Actual payer maxima after guide conversion: field121 raw, packs192, Zipped14, Go
 
 Iron, SteamFan, Dust Bunny splitting and ambush add no Ticket payers. Oranges remain actual CoconutRoller instances. Cookie Jar entry/exit remain TreatTray instances, and ordinary bonus-round payers are measured. All new visuals are procedural placeholders; no new media or vendor changes were made.
 
-H41 supplies `src/levels/boss4Arena.js`, exporting `buildBoss4Arena`, with at most7 raw arena pickups. Registry activation waits for the real boss and arena. The root supplied the actual Level4 theme, tutorials, green Bone palette and an eight-bar synthesized score at112bpm.
+H41 supplies `src/levels/boss4Arena.js`, exporting `buildBoss4Arena`, with at most7 raw arena pickups. The registry now activates Level4 with that real arena and Roomba Titan. The root supplied the actual Level4 theme, tutorials, green Bone palette and an eight-bar synthesized score at112bpm.
 
 ## Verification
 
@@ -45,7 +45,7 @@ On source commit `d2188be`:
 - `npm run build`: passed,120 modules, with the existing bundle-size warning.
 - `git diff --cached --check`: passed.
 
-The level remains unshipped, so production intentionally does not import its builder. Vitest imports and executes the actual builder and all local helpers. Physics checks cover moving drum boarding/riding, both drum exits and the high rescue shelf, Top Shelf's outbound jumps, both toaster launches, candidate Cereal/Boiler receiver geometry, timing windows, checkpoint support, rising-water margins/reset, payer caps, Dust locking and chase stop budgets. These are feasibility proofs, not full input recordings.
+The early checks above ran while the builder remained unshipped. Final activation now imports the actual builder, arena and boss in production; Vitest executes the builder and all local helpers. Physics checks cover moving drum boarding/riding, both drum exits and the high rescue shelf, Top Shelf's outbound jumps, both toaster launches, candidate Cereal/Boiler receiver geometry, timing windows, checkpoint support, rising-water margins/reset, payer caps, Dust locking and chase stop budgets. These are feasibility proofs, not full input recordings.
 
 The first bounded assisted browser run used a clean profile and actual Stage4 plus the builder, with no registry activation or fake boss. Runtime drum carrying, zipline grab/progression and locked Dust rejection passed. Page errors, console errors, banking calls and attempted external writes were all empty. Chrome and Vite were closed immediately afterward. Evidence: `/tmp/nobu-h40-browser-results.json` and `/tmp/nobu-h40-{drum,clothesline,ironing,cereal,dust,boiler}.png`.
 
@@ -72,7 +72,7 @@ A complete real Player route lands all five live boxes and the exit using actual
 
 With every timing box physically disabled, an adversarial World sweep tests27 earned-move Glide/Zoomies cases and1,260 late-jump/Crown/air-dash combinations. None cross the sealed lane. A high approach from8m with Moon-strength launch and extra air jumps also fails; removing the upper end closure makes that roof shortcut succeed, proving the closure is the relevant protection. Walking back from the roof reaches the existing entry floor safely.
 
-Evidence: `/tmp/h40-cereal-bypass-search.json`, `/tmp/h40-cereal-live-route.json`, `/tmp/h40-cereal-input-window.json`, and `/tmp/h40-cereal-player-route.json`. These are simulations; the final sealed-cabinet browser check and independent review remain pending.
+Evidence: `/tmp/h40-cereal-bypass-search.json`, `/tmp/h40-cereal-live-route.json`, `/tmp/h40-cereal-input-window.json`, and `/tmp/h40-cereal-player-route.json`. These are simulations; the successful sealed-cabinet keyboard browser check and independent review are recorded below.
 
 ## Sealed lane browser verification
 
@@ -81,3 +81,8 @@ On frozen source845f95d, a real keyboard-event controller completed all five liv
 Evidence: `/tmp/nobu-h40-sealed-browser-results.json`, `/tmp/nobu-h40-cereal-entry.png`, `/tmp/nobu-h40-cereal-middle.png`, `/tmp/nobu-h40-cereal-exit.png`, and `/tmp/nobu-h40-cereal-keyboard-exit.png`.
 
 After that check, cosmetic cleanup removes only repeated internal outlines from tiled roof/side surfaces. The cabinet's outer frames and five cross-baffles remain outlined; collision tiles, materials and controls are unchanged. This reduces visual clutter and draw calls without changing the tested physical route. Independent geometry review was approved by the root subject to the successful browser check above.
+
+
+## Integrated activation
+
+The registry ships Level4 with its real Titan arena/boss, seven stable dogs, named sections, Dust hidden-goal metadata, theme and fixed budget. Chapter2 retains the original Cone credits and opens Laundry for old completed saves. Trial targets are98/125/160seconds and90seconds for Platinum, with a24000ms floor. Actual Session trial completion persists and reloads a Level4 Platinum locally; enqueue and queue-flush tests reject its public upload until the separate H70 deployment gate is cleared.
