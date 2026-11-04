@@ -45,6 +45,20 @@ export const ENDING = [
   { img: 'story_ending', speaker: 'SPROTO MASK', text: '...honestly? Iconic. THE END. (Golden Bones still waiting, if you\'re a completionist.)' },
 ];
 
+export const QUEEN_ENDING = [
+  { img: 'story_ending', speaker: '', text: 'The pipeline falls quiet. Every ticker reads $0.00. Somewhere, a tail starts wagging.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'No more pumps. No more cones. Just one very good dog with a MOON JUMP.' },
+];
+
+export const SECRET_ENDING = [
+  { img: 'story_ending', speaker: '', text: 'Back at the Kennel, the rescued dogs gather beneath the stars. Nobu has brought more than a victory home.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'Look at this pack, Nobu. Every rescue, every adventure... this is what being a good boy was for.' },
+  { img: 'story_ending', speaker: '', text: 'Nobu says nothing. He leaps toward the moon. The whole Kennel joins in the zoomies.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'TO THE MOON, GOOD BOYS. THE TRUE END.' },
+];
+
+export const SECRET_ENDING_HINT = (percent) => `GOOD BOY ${percent}% · reach 80% for the true ending`;
+
 export const BOSS_TALK = {
 queen: {
   intro: [
