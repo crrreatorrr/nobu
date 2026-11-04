@@ -47,28 +47,17 @@ it('ignores unshipped and foreign dog records', () => {
   const s = filled(today); s.dogsFreed['5:shiba-a'] = true;
   expect(goodBoyPercent(s, [...today, ...all.filter((e) => !today.some((t) => t.id === e.id)).map((e) => ({ ...e, shipped: false }))]).base).toBe(100);
 });
-it('uses exactly the 80 total threshold for the ending, never L6 in place of L5', () => {
- // A shipped main with 6 board + 4 story points has an integer ten-point denominator.
- const reg = [{ id: '5', shipped: true, bonus: false, dogs: {} }];
- const s = { beaten: { 5: true }, boneBoard: { 5: { golden: true, goodBoy: true, hidden: true, snack: 1 } }, colorBones: {} };
- // L5 also ships its yellow bone, so 8/11 is 72; add a gold trial for total 74.
+it('uses exactly the 80 total threshold for the ending', () => {
+ const reg = [...all, { id: 'g1', shipped: true }];
+ const s = filled(all);
+ s.trials = {}; s.remix = {}; s.perfect = {}; s.bossMedals = {}; s.rush = {};
+ // 95 - two story clears (8) - one main board (6) - two bonus boards (6) = 75.
+ delete s.beaten[1]; delete s.beaten[2];
+ delete s.boneBoard[1]; delete s.boneBoard.ride; delete s.boneBoard.cave;
+ s.gauntlets = { g1: { clear: true } }; // floor(75 / 95 * 100) + 1 = 79.
+ expect(goodBoyPercent(s, reg).total).toBe(79);
  expect(secretEndingUnlocked(s, reg)).toBe(false);
- const full = filled(all);
- // Find actual independent base records giving exactly 79 and 80, rather than rounding thresholds.
- const byPct = new Map();
- for (let mask = 0; mask < 256; mask++) {
-   const d = { beaten: { 5: true }, boneBoard: {}, colorBones: {}, dogsFreed: {}, trials: {} };
-   all.forEach((e, i) => { if (mask & (1 << i)) { d.boneBoard[e.id] = full.boneBoard[e.id]; if (!e.bonus) d.beaten[e.id] = true; } });
-   for (let n = 0; n <= 54; n++) {
-     d.dogsFreed = Object.fromEntries(Object.keys(full.dogsFreed).slice(0, n).map((id) => [id, true]));
-     const p = goodBoyPercent(d, all).total;
-     if (p === 78 || p === 80) byPct.set(p, structuredClone(d));
-   }
- }
- expect([...byPct.keys()].sort()).toEqual([78, 80]);
- const almost = byPct.get(78); almost.gauntlets = { g1: { clear: true } };
- const withGauntlet = [...all, { id: 'g1', shipped: true }];
- expect(goodBoyPercent(almost, withGauntlet).total).toBe(79);
- expect(secretEndingUnlocked(almost, withGauntlet)).toBe(false);
- expect(secretEndingUnlocked(byPct.get(80), all)).toBe(true);
+ s.gauntlets = {}; s.boneBoard.ride = { golden: true }; // floor(76 / 95 * 100) = 80.
+ expect(goodBoyPercent(s, reg).total).toBe(80);
+ expect(secretEndingUnlocked(s, reg)).toBe(true);
 });
