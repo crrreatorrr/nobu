@@ -377,7 +377,7 @@ test('Hollow camera applies only below the path and restores on emergence or che
  for(const d of [273,277,281]) {
   game.player.pos.copy(tr.toWorld(d,-2.6,0));game.player.body.s=d;zone.update();expect(game.camera.opts).toBe(info.camera);
   game.player.pos.copy(tr.toWorld(d,-2.6,-4.5));zone.update();expect(game.camera.opts).toBe(zone.opts);expect(zone.opts.height).toBe(9);expect(zone.opts.ahead).toBe(2.5);
-  game.camera.snap(game.player);const ndc=game.player.pos.clone().add(new THREE.Vector3(0,1,0)).project(game.camera.cam);
+  game.camera.snap(game.player);game.camera.cam.updateMatrixWorld(true);const ndc=game.player.pos.clone().add(new THREE.Vector3(0,1,0)).project(game.camera.cam);
   expect(Math.abs(ndc.x)).toBeLessThan(.8);expect(Math.abs(ndc.y)).toBeLessThan(.8);
   game.player.pos.copy(tr.toWorld(d,-2.6,0));zone.update();expect(game.camera.opts).toBe(info.camera);
  }
