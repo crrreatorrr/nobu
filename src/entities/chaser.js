@@ -4,6 +4,7 @@ import { Entity } from './entity.js';
 import { audio } from '../audio/audio.js';
 import { damp, clamp } from '../core/util.js';
 import { Assets } from '../art/assets.js';
+import { toon } from '../player/nobuPrims.js';
 
 export { chaseSpeed } from '../config/chase.js';
 import { chaseSpeed } from '../config/chase.js';
@@ -15,7 +16,7 @@ class PursuerRig {
   constructor({ model = 'giant_coconut', scale = 1, count = 1, lanes = [0] }) {
     this.root = new THREE.Group(); this.parts = []; this.gait = 0;
     let template;
-    if (model === 'giant_coconut') template = new THREE.Mesh(new THREE.SphereGeometry(2.5, 20, 16), new THREE.MeshStandardMaterial({ color: 0x6a4020, roughness: 1 }));
+    if (model === 'giant_coconut') template = new THREE.Mesh(new THREE.SphereGeometry(2.25, 10, 8), toon(0x6a4020));
     else if (model === 'smog_wall') {
       template = new THREE.Group();
       const pixels = new Uint8Array(32 * 32 * 4);
@@ -31,7 +32,7 @@ class PursuerRig {
       for (const x of [-.9, .9]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(.18), new THREE.MeshBasicMaterial({ color: 0xff2030 })); eye.position.set(x, 3, 1); template.add(eye); }
     } else template = Assets.model(model, 1) || new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, .7, 16), new THREE.MeshStandardMaterial({ color: 0x7a8590 }));
     for (let i = 0; i < count; i++) { const p = template.userData.skinned ? cloneSkinned(template) : template.clone(true); p.scale.multiplyScalar(scale); p.position.x = lanes[i % lanes.length] ?? 0; p.userData.chaseScale = p.scale.clone(); this.parts.push(p); this.root.add(p); }
-    if (model === 'giant_coconut') for (const p of this.parts) p.position.y = 2.5 * scale;
+    if (model === 'giant_coconut') for (const p of this.parts) p.position.y = 2.25 * scale;
     this.wheels = [];
     this.root.traverse(p => { if (/wheel|brush/i.test(p.name)) this.wheels.push(p); });
     this.model = model; this.scale = scale;
@@ -41,7 +42,7 @@ class PursuerRig {
     for (const wheel of this.wheels) wheel.rotation.x += dt * speed * 8;
     for (let i = 0; i < this.parts.length; i++) {
       const p = this.parts[i];
-      if (mode === 'run' && this.model === 'giant_coconut') p.rotation.x += dt * speed * 3;
+      if (mode === 'run' && this.model === 'giant_coconut') p.rotation.x += dt * speed * 8 / (2.25 * this.scale);
       else if (mode === 'run') p.position.y = Math.sin(this.gait + i) * .06;
     }
   }

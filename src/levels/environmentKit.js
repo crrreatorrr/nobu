@@ -155,7 +155,7 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
       if (k.section) return k.section(a,b,name,{detour:true});
       const section = { d0:a,d1:b,name,detour:true }; track.sections.push(section); track.sections.sort((a,b)=>a.d0-b.d0); (stage.sections ||= []).push(section); return section;
     };
-    kd.dark = (a,b,o={}) => k.dark(a,b,{...o,minY:base-1});
+    kd.dark = (a,b,o={}) => k.dark(a,b,{...o,minY:base-1,baseY:base});
     kd.camZone = (a,b,mode,o={}) => k.camZone(a,b,mode,{...o,minY:base-1});
     const result = opts.build(kd);
     if (result?.start) detour.startPos.copy(result.start);

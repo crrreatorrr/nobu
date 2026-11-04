@@ -81,10 +81,10 @@ export class RisingHazard extends Entity {
   fairness(surfaces) { return surfaces.filter(({ d, y, arrival }) => d >= this.d0 && d <= this.d1 && y - Math.min(this.y1, this.y0 + this.rate * arrival) < 1.5); }
 }
 export class DarkZone extends Entity {
-  constructor(stage, track, d0, d1, { radius = 4, minY } = {}) {
+  constructor(stage, track, d0, d1, { radius = 4, minY, baseY = 0 } = {}) {
     super(stage, 0, 0, 0);
     Object.assign(this, { track, d0, d1, minY }); this.alwaysActive = true; this.interactive = false; this.blend = 0; this.inside = false;
-    this.lumi = stage.add(new Glowworm(stage, track, [d0, d0 + (d1 - d0) / 2, Math.max(d0, d1 - 6)]));
+    this.lumi = stage.add(new Glowworm(stage, track, [d0, d0 + (d1 - d0) / 2, Math.max(d0, d1 - 6)], { baseY }));
     this.lumi.zoneRadius = radius; this.lumi.sleep(true);
     this.base = { fog: stage.scene.fog.color.clone(), near: stage.scene.fog.near, far: stage.scene.fog.far, sun: stage.sun.intensity, hemi: stage.hemi.intensity, rim: stage.rim.intensity };
     this.cave = new THREE.Color(THEMES.cave.fog);

@@ -22,14 +22,14 @@ function glowTexture() {
 }
 
 export class Glowworm extends Entity {
-  constructor(stage, track, nests) {
+  constructor(stage, track, nests, { baseY = 0 } = {}) {
     super(stage, 0, 0, 0);
     this.track = track;
     this.alwaysActive = true;
     this.interactive = false;
     // nests: track distances where Lumi rests and refuels
     this.nests = nests.slice().sort((a, b) => a - b).map((d) => ({ d, pos: track.toWorld(d, 2.6, 0, new THREE.Vector3()), used: -99 }));
-    this.nests.forEach((n) => { n.pos.y = (track.groundAt(n.d, 2.6)?.y ?? track.heightAt(n.d)); });
+    this.nests.forEach((n) => { n.pos.y = baseY + (track.groundAt(n.d, 2.6)?.y ?? track.heightAt(n.d)); });
     // body: three glowing segments and a head with eyes
     // beacon visuals ignore the black fog so Lumi can be spotted from far down the cave
     const mat = new THREE.MeshBasicMaterial({ color: GREEN, fog: false });
