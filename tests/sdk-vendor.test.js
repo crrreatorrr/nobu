@@ -21,8 +21,10 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 //   ef1dec9403b182cc74ef4bae387c01e3e887c3e70bef9321e886a70c15d2d20b
 // 0.4.0-redeem.1 / hub main 6d7176f (Belt and sproto-fighter upstream, no local patch):
 //   af71e57e79fd86f577d6cb47b53af4ccde4471bac2a79e1bbc52fcc3afb939a4
-// 0.5.0 / hub 441b7c4 (realtime, ScoreResult, getLeaderboard).
-const CONTENT_MANIFEST_SHA256 = '7d994bb3744c3d2f59e3bfa6e235b728554b7644a4f4b521b9fb7fd1033b7b76';
+// 0.5.0 / hub 441b7c4 (realtime, ScoreResult, getLeaderboard):
+//   7d994bb3744c3d2f59e3bfa6e235b728554b7644a4f4b521b9fb7fd1033b7b76
+// 0.5.0 / hub 1c8b72e (early match data kept for the new match handle).
+const CONTENT_MANIFEST_SHA256 = '1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b';
 
 function listFiles(dir) {
   const out = [];

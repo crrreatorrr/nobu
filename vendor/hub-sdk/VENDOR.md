@@ -1,10 +1,10 @@
 # Vendored @metaverse/hub-sdk
 
 - repo: https://github.com/crrreatorrr/metaverse-hub
-- branch: claude/loving-galileo-ndy2tu (hub main 6d7176f plus the SDK 0.5.0 commit, ahead of `contract/hub-v1`)
-- sha: 441b7c4
+- branch: claude/loving-galileo-ndy2tu
+- sha: 2c25ae6
 - package: packages/hub-sdk @ 0.5.0
-- built with: `npm ci && npm run build -w @metaverse/hub-sdk`
+- built with: `node scripts/vendor-sdk.mjs`
 
 Layout matches the previous vendor tree (`package.json`, `README.md`, `dist/**/*.js`, `dist/**/*.d.ts`, now with the `dist/realtime/` folder). No source maps are included, and `sourceMappingURL` lines are stripped.
 
