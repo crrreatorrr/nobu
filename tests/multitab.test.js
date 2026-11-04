@@ -115,7 +115,7 @@ describe('v3 progress shared with older and newer tabs', () => {
     expect(save.data.bestDogs).toEqual({ 1: 4, 2: 3 });
     expect(save.data.bestChain).toEqual({ 1: 16, 2: 18 });
     expect(save.data.bossMedals.cat).toEqual({ clear: true, noHit: true, speed: true, bestMs: 70000 });
-    expect(save.data.kennel).toEqual({ seen: 3, buddy: 'pug', tint: 'shadow' });
+    expect(save.data.kennel).toEqual({ seen: 3, buddy: 'pug', tint: 'shadow', goldenSeen: false, seenMilestones: {} });
     expect(save.data.dogsFreed).toEqual({ '1:shiba-a': true, '2:pug-a': true });
     expect(save.data.open[6]).toBe(true);
     expect(save.data.chainBadges[2]).toBe(true);

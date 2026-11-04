@@ -117,7 +117,7 @@ describe('save v3 migration', () => {
     expect(save.data.dogsFreed).toEqual({ '1:shiba-a': true, '6:corgi-b': true });
     expect(save.data.bossMedals).toEqual({ queen: { clear: true, noHit: false, speed: true, bestMs: 12345 } });
     expect(save.data.rush).toEqual({ clear: true, noHit: false, bestMs: null });
-    expect(save.data.kennel).toEqual({ seen: 6, buddy: null, tint: 'shadow' });
+    expect(save.data.kennel).toEqual({ seen: 6, buddy: null, tint: 'shadow', goldenSeen: false, seenMilestones: {} });
     expect(save.data.colorBones).toEqual({ green: true, yellow: true, purple: true });
     expect(save.data.secretSeen).toBe(false);
   });
