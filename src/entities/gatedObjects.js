@@ -138,6 +138,8 @@ export class ZoomieGate extends Entity {
     for (let i = 0; i < 4; i++) { const toe = new THREE.Mesh(dotGeo, black); toe.position.set((i - 1.5) * 0.22, 0.07, -0.18 + Math.abs(i - 1.5) * 0.05); this.plate.add(toe); }
     const paw = mesh(0.5, 0.02, 0.45, black, 0.05); this.plate.add(paw);
     this.solid = solid(stage, this.pos, 2.2, 2.6, 0.3, yaw, this, 'moving'); this.interactive = false;
+    this.solidW = this.solid.max.x - this.solid.min.x;
+    this.solidD = this.solid.max.z - this.solid.min.z;
   }
   update(dt) {
     const p = this.player, s = p.body.s;
@@ -150,15 +152,18 @@ export class ZoomieGate extends Entity {
     const wanted = this.timer > 0 ? 2.6 : 0;
     const old = this.raise;
     // Keep the returning shutter away from an overlapping player.
-    const occupied = Math.abs(p.pos.x - this.pos.x) < 1.5 && Math.abs(p.pos.z - this.pos.z) < 1.5 && p.pos.y < this.pos.y + 2.6 && p.pos.y > this.pos.y - 1;
+    const hw = p.body.hw ?? 0.36, hd = p.body.hd ?? 0.36;
+    const occupied = p.pos.x + hw > this.pos.x - this.solidW / 2 && p.pos.x - hw < this.pos.x + this.solidW / 2
+      && p.pos.z + hd > this.pos.z - this.solidD / 2 && p.pos.z - hd < this.pos.z + this.solidD / 2
+      && p.pos.y < this.pos.y + 2.6 && p.pos.y + (p.body.h ?? 1.6) > this.pos.y;
     if (wanted > this.raise || !occupied) this.raise = wanted > this.raise ? Math.min(wanted, this.raise + dt * 2.6 / 0.15) : Math.max(wanted, this.raise - dt * 2.6 / 0.12);
     this.shutter.position.y = 1.3 + this.raise;
-    this.solid.setCenter(this.pos.x, this.pos.y + this.raise + 1.3, this.pos.z);
+    this.solid.setCenter(this.pos.x, this.pos.y + this.raise, this.pos.z, this.solidW, 2.6, this.solidD);
     if (old > 0 && this.raise === 0) audio.play('clang');
   }
   onRespawn() {
     this.timer = 0; this.raise = 0; this.shutter.position.y = 1.3;
-    this.solid.setCenter(this.pos.x, this.pos.y + 1.3, this.pos.z);
+    this.solid.setCenter(this.pos.x, this.pos.y, this.pos.z, this.solidW, 2.6, this.solidD);
     // Session calls entity hooks before moving the player back to the checkpoint.
     const cp = this.session.cp?.pos, track = this.stage.track;
     this.previousS = cp && track ? track.project(cp.x, cp.z).s : this.player.body.s;

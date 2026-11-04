@@ -41,7 +41,9 @@ export class MysteryBackpack extends ZippedBackpack {
     else if (result === 'oneUp') { this.session.addLife(1); this.fx.burst(x, y + 1, z, { count: 20, colors: [0xffd23f, 0xffffff], speed: 5 }); }
     else {
       const Cls = result === 'cat' ? Cat : result === 'tramp' ? Trampoline : BlueSphere;
-      const e = new Cls(this.stage, x, y, z); e.countable = false;
+      // Mystery's only Ticket outcome is its capped 9-raw roll. A normal trampoline
+      // defaults to 10 untagged raw Tickets, which would exceed that declared budget.
+      const e = new Cls(this.stage, x, y, z, result === 'tramp' ? { tickets: 0 } : undefined); e.countable = false;
       this.stage.add(e); this.spawned.push(e);
       if (result === 'cat') { e.arm(); e.update(0); this.game.ui.banner(MYSTERY_SURPRISE.title, MYSTERY_SURPRISE.sub, 1.5); }
     }

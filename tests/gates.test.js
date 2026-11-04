@@ -4,7 +4,7 @@ vi.mock('../src/art/assets.js', () => ({ Assets: { model: () => null, tex: () =>
 vi.mock('../src/core/util.js', async (original) => ({ ...(await original()), canvasTex: () => new THREE.Texture() }));
 vi.mock('../src/audio/audio.js', () => ({ audio: { play: vi.fn() } }));
 vi.mock('../src/story/script.js', () => ({ MYSTERY_SURPRISE: { title: 'SURPRISE!', sub: 'RUN!' } }));
-import { World } from '../src/world/physics.js';
+import { World, moveBody } from '../src/world/physics.js';
 import { ConedDog } from '../src/entities/dogs.js';
 import { DustWall, MoonLedge, SmogVent, ZoomieGate, PitySnacks } from '../src/entities/gatedObjects.js';
 import { MysteryBackpack } from '../src/entities/mysteryBackpack.js';
@@ -16,9 +16,9 @@ import { Stage } from '../src/world/stage.js';
 import { buildGatedTestStrip } from '../src/levels/gatedTestStrip.js';
 
 function fixture(abilities = {}) {
-  const player = { pos: new THREE.Vector3(0, 1, 0), vel: new THREE.Vector3(), body: { s: 0, u: 0, grounded: true }, abilities, dead: false };
+  const player = { pos: new THREE.Vector3(0, 1, 0), vel: new THREE.Vector3(), body: { s: 0, u: 0, grounded: true }, abilities, dead: false, hurt: vi.fn() };
   const session = { level: 1, runSeed: 123, nextSeq: vi.fn(() => 1), onBreak: vi.fn(), checkpoint: vi.fn(), addLife: vi.fn() };
-  const game = { player, session, fx: { burst: vi.fn(), puff: vi.fn(), dust: vi.fn() }, camera: { shake: vi.fn() }, ui: { tutorial: vi.fn(), banner: vi.fn() }, tickets: { spawnFlying: vi.fn() } };
+  const game = { player, session, maskPickup: vi.fn(), fx: { burst: vi.fn(), puff: vi.fn(), dust: vi.fn(), sparkle: vi.fn(), explosion: vi.fn(), ring: vi.fn() }, camera: { shake: vi.fn() }, ui: { tutorial: vi.fn(), banner: vi.fn() }, tickets: { spawnFlying: vi.fn() } };
   const stage = { game, world: new World(), entities: [], theme: { platform: 'test' }, add(e) { this.entities.push(e); return e; } };
   const track = new Track(turtle([0, 0, 0], [[60, 90, 0]]));
   const k = addGatedHelpers({ track, W: (x, y, d) => track.toWorld(d, x, y), yawAt: (d) => track.yaw(d) }, game, stage);
@@ -86,6 +86,30 @@ describe('move-gated geometry and bookkeeping', () => {
     expect(gate.timer).toBeCloseTo(2.35);
     expect(gateReachable(22, 2.5, 8)).toBe(false); expect(gateReachable(22, 2.5, 12.4 * 0.9)).toBe(true);
   });
+  it.each([[0, 'z'], [Math.PI / 2, 'x'], [Math.PI / 4, 'z']])('keeps yaw %s shutter bounds finite and physically blocks only while down', (yaw, axis) => {
+    const { stage, player } = fixture({ zoom: true });
+    player.pos.set(5, 0, 5);
+    const gate = new ZoomieGate(stage, 0, 0, 0, { yaw, plateD: 10, platePos: new THREE.Vector3(0, 0, 10) });
+    const cross = () => {
+      const body = { pos: { x: 0, y: 0, z: 0 }, vel: { x: 0, y: 0, z: 0 }, hw: 0.36, hd: 0.36, h: 1.5, grounded: false };
+      body.pos[axis] = 2; body.vel[axis] = -8;
+      for (let i = 0; i < 12; i++) moveBody(stage.world, body, 0.05);
+      return body;
+    };
+    const finite = () => expect([...Object.values(gate.solid.min), ...Object.values(gate.solid.max), ...Object.values(gate.solid.delta)].every(Number.isFinite)).toBe(true);
+    gate.update(0.01); finite();
+    expect(gate.solid.max.x - gate.solid.min.x).toBeCloseTo(Math.abs(Math.cos(yaw)) * 2.2 + Math.abs(Math.sin(yaw)) * 0.3);
+    expect(cross().pos[axis]).toBeGreaterThan(0);
+    player.body.s = 11; gate.update(0.15); finite();
+    expect(gate.solid.min.y).toBeCloseTo(2.6); expect(gate.solid.max.y).toBeCloseTo(5.2);
+    expect(cross().pos[axis]).toBeLessThan(-2);
+    player.pos.set(0, 0, 0); gate.update(3); finite();
+    expect(gate.timer).toBe(0); expect(gate.raise).toBeCloseTo(2.6); // Occupied closing volume waits.
+    player.pos.set(5, 0, 5); gate.update(0.12); finite();
+    expect(gate.solid.min.y).toBe(0); expect(cross().pos[axis]).toBeGreaterThan(0);
+    gate.onRespawn(); finite(); expect(gate.solid.min.y).toBe(0); expect(gate.solid.max.y).toBe(2.6);
+    expect(cross().pos[axis]).toBeGreaterThan(0);
+  });
   it('finds countable rewards inside actual declared transformed gate regions, allowing optional rewards', () => {
     const { k, stage } = fixture(); const box = k.gatedArea(-1, 1, -1, 3, 22, 26);
     const gate = k.dustWall(0, 0, 20, { gatedBox: box }); const p = k.W(0, 0, 24);
@@ -121,6 +145,23 @@ describe('pity and Mystery pickups', () => {
   it('trampoline rolls require an authored ledge and otherwise become spheres', () => {
     const { stage, session } = fixture(); let seed = 0; while (rollMystery(seed, 1, 0) !== 'tramp') seed++;
     session.runSeed = seed; const m = new MysteryBackpack(stage, 0, 0, 0, { slot: 0 }); m.onSlide(); expect(m.result).toBe('sphere');
+  });
+  it.each(['tickets', 'sphere', 'cat', 'tramp', 'oneUp'])('keeps the complete %s outcome within 9 raw Tickets without Snack-eligible trampoline payouts', (result) => {
+    const { stage, session, player, game } = fixture();
+    let seed = 0; while (rollMystery(seed, 1, 0) !== result) seed++;
+    session.runSeed = seed;
+    const m = new MysteryBackpack(stage, 0, 0, 0, { slot: 0, tramp: true }); m.onBite();
+    if (result === 'tramp') {
+      const trampoline = m.spawned[0]; player.bounce = vi.fn();
+      for (let i = 0; i < 20; i++) trampoline.onLand(player);
+      expect(player.bounce).toHaveBeenCalledTimes(20); // It remains a usable trampoline.
+      trampoline.onBite(); trampoline.restore(); trampoline.onLand(player); trampoline.onExplosion();
+      expect(game.tickets.spawnFlying).not.toHaveBeenCalled();
+    } else if (result === 'sphere') m.spawned[0].onExplosion();
+    else if (result === 'cat') { m.spawned[0].onSlide(); m.spawned[0].onExplosion(); }
+    const payouts = game.tickets.spawnFlying.mock.calls;
+    expect(payouts.reduce((sum, args) => sum + args[3], 0)).toBeLessThanOrEqual(9);
+    expect(payouts.every((args) => args[4] === 'mystery')).toBe(true);
   });
   it('records sorted canonical sections with explicit tuple adapter', () => {
     const { k, track, stage } = fixture(); k.section(20, 40, 'Lily Pond'); k.section(0, 20, 'Opening');
