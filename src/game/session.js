@@ -494,6 +494,7 @@ export class Session {
     await g.ui.hideLoading();
     audio.play('bossRoar');
     g.camera.shake(0.4, 0.5);
+    await boss.intro?.();
     await g.ui.say(BOSS_TALK[this.def.bossKey].intro);
     g.camera.endCinematic();
     g.player.frozen = false;
