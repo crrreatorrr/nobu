@@ -271,7 +271,7 @@ export class Projectiles {
         hit = p.pos.y - pr.groundY < 0.6 && segmentDistanceSq(p.pos.x, p.pos.z, pr.pivot.x, pr.pivot.z, ex, ez) < (pr.width / 2) ** 2;
       } else if (pr.kind === 'wake') {
         const d = Math.hypot(p.pos.x - pr.mesh.position.x, p.pos.z - pr.mesh.position.z);
-        hit = d > 3.2 && d < 3.6 && p.pos.y - pr.groundY < 2.2 && !(p.dustDashT > 0);
+        hit = pr.active !== false && d > 3.2 && d < 3.6 && p.pos.y - pr.groundY < 2.2 && !(p.dustDashT > 0);
       } else if (pr.kind === 'wave') {
         pr.R += pr.speed * dt;
         pr.mesh.scale.set(pr.R, pr.R, 1);
