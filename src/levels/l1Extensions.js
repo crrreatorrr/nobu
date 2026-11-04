@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Entity } from '../entities/entity.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { L1_CHASE_RAW_ITEMS,L1_CHASE_CANDIDATE_ITEMS,L1_TEMPLE_RAW_PATTERN,L1_TEMPLE_CANDIDATE_PATTERN } from './data/l1-layout2.js';
+import { armCanopySquirrel } from './l1Ambush.js';
 import { L1CoconutChase } from './l1CoconutChase.js';
 import { validatePattern } from './gauntletMath.js';
 
@@ -24,7 +25,7 @@ export function buildL1Extensions(k,game,stage,{labels,corrections=false}={}) {
   const moon=k.moonLedge(2.6,9,CW+52,{w:2.4,dd:2.4,gatedBox:k.gatedArea(1.3,3.9,8.8,11,CW+50.5,CW+53.5)});
   const extra=k.oneUp(2.6,9,CW+52);extra.countable=false;gatedTickets(()=>k.tixRing(2.6,9.4,CW+52,.7,10));
   k.zipline(-.6,4.4,CW+50,0,1.6,CW+58,{speed:9});k.floor(CW+58,CW+75);
-  k.squirrel(.6,0,CW+63);k.snacks(-2.6,0,CW+60);k.tix(-2.4,0,CW+64,-2.4,0,CW+73,5);
+  armCanopySquirrel(k.squirrel(.6,0,CW+63),CW+59);k.snacks(-2.6,0,CW+60);k.tix(-2.4,0,CW+64,-2.4,0,CW+73,5);
   k.packs([[2.4,CW+68],[-2.4,CW+70],[0,CW+72]]);
   gatedTickets(()=>k.tix(2.6,.2,CW+(corrections?73:61),2.6,.2,CW+(corrections?75:64),3));
   k.walls([[CW+17,4.3,4.3,2.6],[CW+19,5.2,5.2,2.6],[CW+57,5.2,5.2,2.6],[CW+59,4.3,4.3,2.6]]);
@@ -50,7 +51,8 @@ export function buildL1Extensions(k,game,stage,{labels,corrections=false}={}) {
   k.snacks(-2.6,0,ST+71);k.tix(-2.4,0,ST+66,-2.4,0,ST+75,4);
   k.floor(ST+76,ST+82);k.floor(ST+82,ST+86,{y:-1.2,depth:2});k.water(ST+86,ST+92,{y:-1});k.floor(ST+92,ST+95);
   const pattern=corrections?L1_TEMPLE_CANDIDATE_PATTERN:L1_TEMPLE_RAW_PATTERN;
-  stage.timedPatterns.push(pattern);
+  const worldPattern={...pattern,pieces:pattern.pieces.map(p=>({...p,dd:undefined,d:ST+p.dd,y:p.kind==='floorEnd'||p.kind==='floorStart'?k.track.groundAt(ST+p.dd,p.x).y:k.track.heightAt(ST+p.dd)+p.y}))};
+  stage.timedPatterns.push(worldPattern);
   for(const p of pattern.pieces){if(p.kind==='blink')k.blinkBox(p.x,p.y,ST+p.dd,{...p.params,tier:1});else if(p.kind==='lunch')k.lunch(p.x,p.y,ST+p.dd);}
   k.bounceChain(pattern.pieces.filter(p=>p.kind==='pack').map(p=>[p.x,p.y,ST+p.dd]),{tier:1});
   if(corrections){k.guideArc(-1,.4,ST+82,1,ST+86,1.2,8);k.guideArc(0,.4,ST+87,1.2,ST+92,1.8,8);}
@@ -67,7 +69,7 @@ export function buildL1Extensions(k,game,stage,{labels,corrections=false}={}) {
   if(bone){const collect=bone.collect.bind(bone);bone.collect=()=>{if(wall.broken)return collect();game.ui.tutorial('dustwall');};}
   for(const e of stage.entities.slice(before))e.detour=true;
   buildWaterfallHollow(k,game,stage,labels);
-  stage.l1Extension={layout:2,corrections,gauntletProblems:validatePattern(pattern),chaseItems};
+  stage.l1Extension={layout:2,corrections,gauntletProblems:validatePattern(worldPattern),chaseItems};
 }
 
 function buildWaterfallHollow(k,game,stage,labels) {

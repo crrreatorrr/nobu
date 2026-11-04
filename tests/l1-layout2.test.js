@@ -133,3 +133,68 @@ test('actual Hollow round keeps successful haul and rolls back real dog/packs on
  expect(g.player.pos.equals(kept)).toBe(true);expect(dog.freed).toBe(true);expect(detour.used).toBe(true);
  for(const pos of [lost,kept,detour.round.start])expect(s.world.groundBelow(pos.x,pos.y+.1,pos.z,.2)).toBeGreaterThan(-Infinity);
 });
+
+async function realJump(stage,from,to,options={}){
+ const {simJump}=await import('../src/levels/gauntletMath.js');
+ const start=stage.track.toWorld(from[2],from[0],from[1]),end=stage.track.toWorld(to[2],to[0],to[1]),trace=simJump({...options,dy:end.y-start.y});
+ if(!trace||end.clone().sub(start).setY(0).length()/trace.air>8)return false;
+ const body={pos:start.clone(),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:false},speed=end.clone().sub(start).setY(0).multiplyScalar(1/trace.air);
+ let head=false;body.onHead=()=>{head=true;};
+ for(const sample of trace.samples.slice(1)){
+  body.vel.set(speed.x,sample.vy,speed.z);moveBody(stage.world,body,1/60);
+  if(head)return false;
+  if(body.grounded&&sample.vy<0)return body.pos.distanceTo(end)<1.6;
+ }
+ return false;
+}
+test('lands the actual curved Temple receivers, Canopy crumble chain and Burrow exit without intermediate contact',async()=>{
+ const {s}=build(),tr=s.track;
+ for(const b of s.timedBoxes)if(b.entity.solid)b.entity.solid.enabled=true;
+ for(const e of s.entities)if(e.constructor.name==='FlipPlank'&&e.solid)e.solid.enabled=true;
+ const pattern=s.timedPatterns.find(p=>p.id==='l1-temple-candidate');
+ for(const step of pattern.route){
+  const a=pattern.pieces[step.from],b=pattern.pieces[step.to],surface=p=>[p.x,p.y-tr.heightAt(p.d)+(['blink','lunch'].includes(p.kind)?.98:p.kind==='pack'?1:0),p.d];
+  expect(await realJump(s,surface(a),surface(b),step.move==='bounceHeld'?{velocity:10.5*1.15}:{}),`Temple ${a.d}→${b.d}`).toBe(true);
+ }
+ for(const [a,b] of [[ [1,1.8,292],[-.6,1.8,295] ],[[-.6,1.8,295],[-.6,2.2,298.5]],[[.6,1.6,458.8],[.6,.6,461]],[[.6,.6,461],[.6,.6,464.5]],[[.6,.6,464.5],[.6,.6,468]],[[.6,.6,468],[.6,.6,471.5]],[[.6,.6,471.5],[.6,0,474.5]]]){
+  expect(await realJump(s,a,b),`${a[2]}→${b[2]}`).toBe(true);
+ }
+ // Hold vertical over the trench until feet clear its side wall, then steer right.
+ const {simJump}=await import('../src/levels/gauntletMath.js');
+ const start=tr.toWorld(251,-2.5,-3.7),end=tr.toWorld(255,1.2,0),trace=simJump({velocity:17*1.15,cut:true,doubleAt:.45,dy:end.y-start.y});
+ const body={pos:start.clone(),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:false};let landed=false;
+ for(const sample of trace.samples.slice(1)){
+  const v=end.clone().sub(body.pos).setY(0);if(v.length()>8/60)v.setLength(8);else v.multiplyScalar(60);
+  if(body.pos.y<end.y+.1&&sample.vy>0)v.set(0,0,0);
+  body.vel.set(v.x,sample.vy,v.z);moveBody(s.world,body,1/60);
+  if(body.grounded&&sample.vy<0){landed=body.pos.distanceTo(end)<1.6;break;}
+ }
+ if(!landed)fs.writeFileSync('/tmp/h30-mushroom-fail.json',JSON.stringify({start:start.toArray(),end:end.toArray(),body:{pos:body.pos.toArray(),grounded:body.grounded,ground:body.ground?.kind},trace:trace.samples,solids:s.world.all.filter(a=>body.ground===a).map(a=>({min:a.min,max:a.max,ref:a.ref?.constructor.name}))}));
+ expect(landed,'mushroom exit clears the trench wall before steering onto the right floor').toBe(true);
+});
+
+test('Canopy squirrel waits above the exit, drops on the authored trigger, and rearms on retry',()=>{
+ const {g,s}=build(),e=s.entities.find(e=>e.canopyAmbush);
+ expect(e).toBeDefined();g.player.body.s=307;e.update(.1);expect(e.visible).toBe(false);expect(e.interactive).toBe(false);
+ g.player.body.s=308;e.update(.1);expect(e.visible).toBe(true);expect(e.canopyAmbush.mode).toBe('fall');
+ for(let i=0;i<60;i++)e.update(1/60);expect(e.canopyAmbush.mode).toBe('active');expect(e.interactive).toBe(true);
+ e.reset();e.onRespawn();expect(e.visible).toBe(false);expect(e.interactive).toBe(false);expect(e.pos.y-e.home.y).toBe(5);
+});
+
+test('Hollow return can walk laterally to every skipped payer, activate altar stairs and reach the upper dog and Zipped',async()=>{
+ const {validateDetours}=await import('../src/levels/environmentKit.js');
+ const {g,s}=build(),tr=s.track;expect(validateDetours(s)).toBe(true);
+ const start=s.l1Hollow.kept,body={pos:start.clone(),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:false};
+ // A reversible route down the left of the altar avoids the Cat and pack stack.
+ const goals=[[-1,497],[-1.8,497],[-1,502],[3.6,502],[3.6,500],[3.6,502],[.2,502.7]];
+ for(const [u,d]of goals){const target=tr.toWorld(d,u,0);let arrived=false;
+  for(let i=0;i<180;i++){const delta=target.clone().sub(body.pos).setY(0);if(delta.length()<.18){arrived=true;break;}delta.setLength(Math.min(8,delta.length()*60));body.vel.set(delta.x,Math.max(-28,body.vel.y-36/60),delta.z);moveBody(s.world,body,1/60);}
+  expect(arrived,`return route to u${u},d${d}`).toBe(true);expect(body.grounded).toBe(true);
+ }
+ // The upper altar route is supplied by a guaranteed first-visit Bone Switch.
+ const boneSwitch=s.entities.find(e=>e.constructor.name==='BoneSwitch'&&tr.project(e.pos.x,e.pos.z).s>490);
+ expect(boneSwitch).toBeDefined();vi.useFakeTimers();boneSwitch.press(g.player);await vi.runAllTimersAsync();vi.useRealTimers();
+ for(const [a,b]of [[[-2.8,0,497],[-1.6,1.4,500]],[[-1.6,1.4,500],[.6,2.8,502.5]],[[.6,2.8,502.5],[3.4,4.2,505.5]]])expect(await realJump(s,a,b,a[2]===502.5?{doubleAt:.25}:{}),`altar ${a[2]}→${b[2]}`).toBe(true);
+ const dog=s.entities.find(e=>e.dogId==='1:corgi-b'),zip=s.entities.find(e=>e.kind==='zipped'&&tr.project(e.pos.x,e.pos.z).s>500);
+ for(const target of [dog,zip])expect(s.world.groundBelow(target.pos.x,target.pos.y+.1,target.pos.z,.15)).toBeCloseTo(target.pos.y,1);
+});
