@@ -183,3 +183,4 @@ export const PROP_TEXT = { rugPull: 'RUG PULL!', arrows: ['▼', '■', '▲'] }
 
 export const MYSTERY_SURPRISE = { title: 'SURPRISE!', sub: 'RUN!' };
 export const TRIAL_TEXT = { classicBest: 'Classic best', classicWorld: 'Classic WR', platinumTag: 'PLATINUM TAG!' };
+export const ENVIRONMENT_TEXT = { rising: "IT'S RISING!" };

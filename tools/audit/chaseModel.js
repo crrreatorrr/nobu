@@ -1,19 +1,29 @@
+import { chaseSpeed } from '../../src/config/chase.js';
 // Pure port of the Golden Bone audit. A segment begins at initial spawn or a checkpoint RESPawn;
 // touching Snacks does not teleport/reset ChaseCat on a deathless run. This is a feasibility
 // model (stationary break estimates, 8 m/s running), not an input recording or a playtest.
 const damp = (x, target, k, dt) => x + (target - x) * (1 - Math.exp(-k * dt));
-export function run({ start, catStart, delay, stops = [], until, blocked = [] }) {
-  let ps = start, cs = catStart, speed = 2.5, wait = delay, leap = 0, minGap = Infinity;
+export function run({ start, catStart, delay, stops = [], until, blocked = [], pits = [], speed: speed0 = 6.7, catchUp = 1, dda = 1, model, scale = 1 }) {
+  let ps = start, cs = catStart, speed = 2.5, wait = delay, leap = 0, pitWait = 0, pitEnd = 0, minGap = Infinity;
   const pending = stops.map((stop) => ({ ...stop, left: stop.dur }));
   const dt = 1 / 240;
   while (ps < until) {
     const stop = pending.find((item) => ps >= item.d && item.left > 0);
     if (stop) stop.left -= dt; else ps += 8 * dt;
     if (wait > 0) { wait -= dt; continue; }
+    if (pitWait > 0) {
+      pitWait -= dt;
+      if (pitWait <= 0) cs = Math.min(ps - 2.4, Math.max(pitEnd, ps - 13));
+      continue;
+    }
     const gap = ps - cs;
-    const target = gap < 5 ? 6.7 : gap < 9 ? 6.7 + (gap - 5) * 0.375 : Math.min(10.5, 8.2 + (gap - 9) * 0.575);
+    const target = chaseSpeed(gap, speed0, catchUp, dda);
     if (leap > 0) leap -= 8 * dt; else speed = damp(speed, target, 2, dt);
-    if (leap <= 0 && blocked.some(([a, b]) => cs + 2.8 >= a && cs + 2.8 <= b)) {
+    if (model !== 'smog_wall' && leap <= 0 && blocked.some(([a, b]) => cs + 2.8 >= a && cs + 2.8 <= b)) {
+      if (model === 'giant_coconut' && pits.some(([a,b])=>cs+2.8>=a && cs+2.8<=b)) {
+        pitWait = .6; pitEnd = pits.find(([a,b])=>cs+2.8>=a && cs+2.8<=b)[1] + 1.4;
+        continue;
+      }
       speed = Math.max(speed, 7.5); leap = 4;
     }
     cs += speed * dt;

@@ -66,3 +66,16 @@ describe('Scratchpost Canyon checkpoint rollback feasibility', () => {
     expect(run({ ...segment }).dead).toBe(false);
   });
 });
+
+
+describe('segment chase budget options', () => {
+  const coconut = { start: 30, catStart: 17, delay: 1.2, until: 80, model: 'giant_coconut', scale: 5, speed: 7, catchUp: 1 };
+  it('simulates a second model/scale fixture and catches an overlong stop', () => {
+    expect(run(coconut).dead).toBe(false);
+    expect(run({ ...coconut, stops: [{ d: 40, dur: 8 }] }).dead).toBe(true);
+    expect(run({ ...coconut, scale: 2 })).toEqual(run(coconut));
+  });
+  it('DDA increases the stop budget', () => {
+    expect(budget({ ...coconut, dda: .92 }, [], 45)).toBeGreaterThan(budget(coconut, [], 45));
+  });
+});
