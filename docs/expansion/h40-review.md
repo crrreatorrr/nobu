@@ -86,3 +86,10 @@ After that check, cosmetic cleanup removes only repeated internal outlines from 
 ## Integrated activation
 
 The registry ships Level4 with its real Titan arena/boss, seven stable dogs, named sections, Dust hidden-goal metadata, theme and fixed budget. Chapter2 retains the original Cone credits and opens Laundry for old completed saves. Trial targets are98/125/160seconds and90seconds for Platinum, with a24000ms floor. Actual Session trial completion persists and reloads a Level4 Platinum locally; enqueue and queue-flush tests reject its public upload until the separate H70 deployment gate is cleared.
+
+
+## Final integrated evidence
+
+Exact source `7e443287154705b6bf1d89ebafa5d57f4817a9cd`, rebased on main `a561d2f3` (including extended L1), has32 shipped dogs overall. The full maxWorkers2 run passed77 files/783 assertions but exited1 because two worker processes timed out before starting. The affected `save-scores.test.js` and `trials-bounds.test.js` subsequently passed together with maxWorkers1:2 files/9 tests. Combined coverage is79 files/792 passed assertions, with the full-run infrastructure errors disclosed rather than treated as a clean exit. Exact PR CI remains a merge gate. Production build passed154 modules; whitespace check passed.
+
+The actual shipped-registry browser smoke on that same source passed old Cone save → real Chapter2 cutscene → map4 → actual Level4 (7dogs,60countables,sealed lane) → real three-stage Titan intro/arena. Actual trial start/finish persisted and reloaded89.5s as Platinum. Page errors, console errors and attempted external writes were empty. The single zero-Ticket trial-bank call was intercepted locally; no external banking occurred. Chrome/Vite were closed and the GPU released. Evidence: `/tmp/nobu-h40-shipped-flow-results.json`, `/tmp/nobu-h40-shipped-flow.png`. The trial results screenshot was visually inspected.
