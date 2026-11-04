@@ -1,3 +1,4 @@
+import { chaseDda } from '../entities/chaser.js';
 import { Entity } from '../entities/entity.js';
 import { TopplingPost, YarnAvalanche } from '../entities/canyonHazards.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
@@ -25,7 +26,9 @@ function loopRound(detour,k,game,stage,{start,exit,startD,exitD,exitX=0,floorY})
 export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=true}={}) {
   for(const [base,len,key] of [[SB,60,'switchbacks'],[CF,14,'fort'],[SF,90,'forest'],[YA,55,'avalanche']]) if(labels[key])k.section(base,base+len,labels[key]);
   k.floor(SB,SB+60,{w:9.2});k.floor(SB+16,SB+20,{w:9.2,y:[0,1.5]});k.floor(SB+36,SB+40,{w:9.2,y:[0,1.5]});
-  k.tut(SB+1,'cutcorner');k.tix(-2.6,0,SB+4,-2.6,0,SB+12,4);k.tix(2.6,0,SB+28,2.6,0,SB+34,3);k.mouse(0,0,SB+29,{range:3.4,speed:5});k.tix(2.6,0,SB+47,2.6,0,SB+56,5);
+  k.pitySnacks(-2.6,0,SB+35);
+  const hazard=e=>{const update=e.update.bind(e);e.update=dt=>update(dt*chaseDda(game.session));return e;};
+  k.tut(SB+1,'cutcorner');k.tix(-2.6,0,SB+4,-2.6,0,SB+12,4);k.tix(2.6,0,SB+28,2.6,0,SB+34,3);hazard(k.mouse(0,0,SB+29,{range:3.4,speed:5}));k.tix(2.6,0,SB+47,2.6,0,SB+56,5);
   for(const d of [SB+8,SB+28,SB+48])k.post(-5.3,0,d,5);
   k.floor(CF,CF+14,{w:9.2});k.walls([[CF,4.6,4.6,3.2],[CF+.5,3,3,3.6],[CF+13.5,3,3,3.6],[CF+14,4.6,4.6,3.2]]);
   k.tixRing(1.4,.4,CF+8,1,6);k.trigger(CF+1,()=>chase.hold());k.trigger(CF+13,()=>chase.begin(CF-1,1));
@@ -33,7 +36,7 @@ export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=t
   k.floor(SF,SF+90,{w:9.2});
   for(const [x,d,w,period,phase]of[[0,12,8.6,4,0],[-2.2,26,4.2,3.4,0],[2.2,29,4.2,3.4,1.7],[0,68,8.6,3,.6],[-2.2,78,4.2,3,1.5]])stage.add(new TopplingPost(stage,...k.W(x,0,SF+d).toArray(),{w,d:1.6,period,phase,yaw:k.yawAt(SF+d)}));
   k.tix(0,0,SF+4,0,0,SF+10,3);k.floor(SF+44,SF+50,{x:2.6,w:2,y:[0,2.4],style:'platform'});k.tix(2.6,2.8,SF+50,2.6,2.8,SF+57,4);
-  k.pitySnacks(-2.6,0,SF+62);k.yarn(-2.4,0,SF+72,{range:3.2,speed:5.2});k.yarn(2.4,0,SF+82,{range:3.2,speed:5.6});
+  k.pitySnacks(-2.6,0,SF+62);hazard(k.yarn(-2.4,0,SF+72,{range:3.2,speed:5.2}));hazard(k.yarn(2.4,0,SF+82,{range:3.2,speed:5.6}));
   k.tix(-2.6,0,SF+64,-2.6,0,SF+70,4);k.tix(0,0,SF+80,0,0,SF+89,5);
   // Later-move alcove: authored reward is non-countable and uses the shared jackpot source.
   const dustWall=k.dustWall(-4,0,SF+46,{w:1.8,h:2.6,gatedBox:k.gatedArea(-4.5,-3.5,0,2,SF+47,SF+50)});
@@ -47,6 +50,17 @@ export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=t
   for(const arrow of arrows){const land=arrow.onLand.bind(arrow);arrow.onLand=p=>{const result=land(p);const f=k.fwdAt(k.track.project(arrow.pos.x,arrow.pos.z).s);f.y=0;f.normalize();const forward=p.vel.dot(f);if(forward<8)p.vel.addScaledVector(f,8-forward);return result;};}
   k.bounceChain([corrections?[CANYON_BOUNCE_ITEM.x,CANYON_BOUNCE_ITEM.d]:[1.2,YA+53]],{y:0});k.floor(YA+54,YA+55,{w:9.2});
   buildFlap(k,game,stage,labels);buildRiver(k,game,stage,labels);
+  for(const spot of stage.entities.filter(e=>e.kind==='pitysnacks')){
+    const onRespawn=spot.onRespawn.bind(spot);
+    spot.onRespawn=()=>{
+      onRespawn();
+      const s=game.session,cp=s.cp?.pos;if(!cp||s.deathsAtCp<7||chaseDda(s)===1)return;
+      const start=k.track.project(cp.x,cp.z).s,end=k.track.project(spot.pos.x,spot.pos.z).s;
+      if(end<=start)return;
+      const interrupted=stage.entities.some(e=>e.kind==='snacks'&&(()=>{const d=k.track.project(e.pos.x,e.pos.z).s;return d>start+.2&&d<end;})());
+      if(!interrupted)spot.arm();
+    };
+  }
   stage.canyonExtension={layout:2,chase,arrows};
 }
 function buildFlap(k,game,stage,labels){

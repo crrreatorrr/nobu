@@ -135,6 +135,21 @@ test('data exports account for every countable and exact dog location in the can
 });
 
 test('the two-lane yarn stage alternates single balls and authored hazard DDA stays off in trials',()=>{
- const{stage,game}=fixture();const roller=stage.entities.filter(e=>e instanceof YarnAvalanche)[1];game.player.pos.set(999,0,999);game.player.body.s=roller.until;roller.timer=0;roller.update(0);expect(roller.balls.map(b=>b.u)).toEqual([-2.4]);roller.timer=0;roller.update(0);expect(roller.balls.map(b=>b.u)).toEqual([-2.4,2.4]);
+ const{stage,game}=fixture();const roller=stage.entities.filter(e=>e instanceof YarnAvalanche)[1];expect(roller.radius).toBe(1.2);expect(roller.mat.map).toBeTruthy();game.player.pos.set(999,0,999);game.player.body.s=roller.until;roller.timer=0;roller.update(0);expect(roller.balls.map(b=>b.u)).toEqual([-2.4]);roller.timer=0;roller.update(0);expect(roller.balls.map(b=>b.u)).toEqual([-2.4,2.4]);
  const post=stage.entities.find(e=>e instanceof TopplingPost);post.t=0;game.session.deathsAtCp=5;post.update(.1);expect(post.t).toBeCloseTo(.092);game.session.trial=true;post.update(.1);expect(post.t).toBeCloseTo(.192);
+});
+
+test('the actual shifted Vacuum Dock safely clears all six old and new rugs',async()=>{
+ const{Rug,VacuumSwitch}=await import('../src/entities/breakables.js'),{stage,game}=fixture();game.fx=new Proxy(game.fx,{get:(o,k)=>o[k]??(()=>{})});const dock=stage.entities.find(e=>e instanceof VacuumSwitch),rugs=stage.entities.filter(e=>e instanceof Rug);
+ expect(rugs).toHaveLength(6);expect(stage.track.project(dock.pos.x,dock.pos.z).s).toBeCloseTo(542,1);for(const rug of rugs)expect(stage.track.project(rug.pos.x,rug.pos.z).s).toBeLessThan(542);
+ dock.press();dock.update(1.3);expect(rugs.every(e=>e.broken)).toBe(true);expect(game.player.dead).toBe(false);
+});
+
+test('authored pity checkpoint arms after seven ordinary deaths, stays in its CP segment and excludes competitive modes',()=>{
+ for(const mode of [null,'trial','remix','medalRun','rush']){
+ const{stage,game}=fixture(),spot=stage.entities.find(e=>e.kind==='pitysnacks'&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-234.5)<.1);game.fx=new Proxy(game.fx,{get:(o,k)=>o[k]??(()=>{})});
+ expect(stage.entities.filter(e=>e.kind==='pitysnacks')).toHaveLength(3);game.session.cp={pos:stage.track.toWorld(232.5)};game.session.deathsAtCp=6;spot.onRespawn();expect(spot.armed).toBe(false);
+ game.session.deathsAtCp=7;if(mode)game.session[mode]=true;spot.onRespawn();expect(spot.armed).toBe(mode===null);
+ }
+ const{stage,game}=fixture();game.session.deathsAtCp=7;game.session.cp={pos:stage.track.toWorld(201.5)};const spot=stage.entities.find(e=>e.kind==='pitysnacks'&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-234.5)<.1);spot.onRespawn();expect(spot.armed).toBe(false);
 });

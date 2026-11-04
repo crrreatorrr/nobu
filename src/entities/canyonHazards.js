@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { chaseDda } from './chaser.js';
 import { Entity } from './entity.js';
+import { YarnBall } from './enemies.js';
 import { CoconutRoller } from './props.js';
 import { audio } from '../audio/audio.js';
 import { scratchPost } from '../world/decor.js';
@@ -40,8 +41,9 @@ export class TopplingPost extends Entity {
 // Shares CoconutRoller's capped ticket category, but uses authored giant yarn volleys.
 export class YarnAvalanche extends CoconutRoller {
   constructor(stage,track,d,opts) {
-    super(stage,track,d,opts);this.skip=opts.skip;this.scale=opts.scale??2;this.radius=.45*this.scale;this.volley=0;
-    this.geo=new THREE.SphereGeometry(this.radius,12,10);this.mat=new THREE.MeshLambertMaterial({color:0xc37cb2,wireframe:false});
+    super(stage,track,d,opts);this.skip=opts.skip;this.scale=opts.scale??2;this.radius=.6*this.scale;this.volley=0;
+    // Borrow the existing YarnBall mesh/material, without adding an extra enemy.
+    const template=new YarnBall(stage,0,0,0,{r:this.radius});this.geo=template.ball.geometry;this.mat=template.ball.material;
     this.shadows=[];
     for(const lane of this.lanes){
       const vertices=[],indices=[];
