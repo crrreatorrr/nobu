@@ -4,14 +4,14 @@ export const GAUNTLET_COSMETICS={g1:{allBoxes:'crate-collar',flawless:'crate-ban
 // Called at the ordinary level_end transaction, before its single save.write().
 // Returns whole Tickets; callers must not feed this through raw-pickup conversion.
 export function awardGauntlet(data,id,{broken,total,deaths,ms,godUsed=false,trial=false,remix=false,rush=false,ranked=false,medal=false,board=false}={}){
-  if(!Object.hasOwn(GAUNTLET_COSMETICS,id)||data.godMode||godUsed||trial||remix||rush||ranked||medal||board)return{tickets:0,medals:[]};
+  if(!Object.hasOwn(GAUNTLET_COSMETICS,id)||data.godMode||godUsed||trial||remix||rush||ranked||medal||board)return{id,tickets:0,medals:[]};
   const row=(data.gauntlets||={})[id]||={},medals=[];
   const all=Number.isInteger(total)&&total>0&&broken===total;
   for(const[flag,earned]of[['clear',true],['allBoxes',all],['flawless',all&&deaths===0]])if(earned&&!row[flag]){row[flag]=true;medals.push(flag);}
   row.noDeath=!!row.flawless;
   if(Number.isInteger(ms)&&ms>=1000)row.bestMs=row.bestMs==null?ms:Math.min(row.bestMs,ms);
   const tickets=row.firstPaid?0:GAUNTLET_FIRST_CLEAR_TICKETS;row.firstPaid=true;
-  return{tickets,medals,record:row};
+  return{id,tickets,medals,record:row};
 }
 export function gauntletCosmetics(data,{competitive=false,godMode=data.godMode}={}){
   if(competitive||godMode)return[];

@@ -13,11 +13,11 @@ const {validatePattern}=await import('../src/levels/gauntletMath.js');
 const {Breakable}=await import('../src/entities/entity.js');
 const {Snacks,Backpack}=await import('../src/entities/breakables.js');
 const {measureTicketBudget}=await import('../src/game/measureTicketBudget.js');
-export function fixture(id='g1',corrections=true){
+export function fixture(id='g1',corrections=true,options={}){
  const g={player:{pos:new THREE.Vector3(1000,0,0),body:{s:0,u:0},abilities:{}},ui:{tutorial:vi.fn(),banner:vi.fn()},fx:new Proxy({},{get:()=>()=>{}}),camera:{shake(){}}};
  let seq=0;g.session={level:id,deaths:0,deathsAtCp:0,nextSeq:()=>++seq,onBreak:vi.fn(),reachGoal:vi.fn(),setCheckpoint:vi.fn()};
  const s=new Stage(g,GAUNTLET_INFO[id].theme),t=new TicketSystem(g,s);g.tickets=g.session.tickets=t;g.stage=g.session.stage=s;
- const info=buildGauntlet(id,g,s,t,{corrections,decor:false});t.finalize();return{g,s,t,info};
+ const info=buildGauntlet(id,g,s,t,{corrections,decor:false,...options});t.finalize();return{g,s,t,info};
 }
 for(const[id,def]of Object.entries(GAUNTLET_INFO)){
  test(`${id} actual curved placements strictly meet every tier`,()=>{const{s}=fixture(id);expect(s.gauntletInfo.problems).toEqual([]);});
@@ -104,5 +104,171 @@ test('actual Player.update and Backpack.onLand clear both bounce bridges in a fo
   }
   heldSpy.mockRestore();pressedSpy.mockRestore();input.state.x=input.state.y=0;
   expect(packs.every(e=>e.broken)).toBe(true);expect(f.session.levelTickets).toBe(0);
+ }
+});
+test('canonical first-clear15raw credits5whole with normal100Ticket life line/HUD feedback and no repeat faucet',async()=>{
+ const{session,g}=sessionFixture();save.data.tickets=99;save.write();session.lifeLine=0;const lives=save.data.lives;
+ session.addTickets(15,'gauntlet-first-clear');expect(save.data.tickets).toBe(99);
+ session.gauntletT=10;await session.reachGoal();expect(session.fieldRaw).toBe(15);expect(session.levelTickets).toBe(5);expect(save.data.tickets).toBe(104);expect(save.data.lives).toBe(lives+1);
+ expect(g.ui.setHud).toHaveBeenCalledWith('tickets',104);expect(g.ui.setHud).toHaveBeenCalledWith('lives',lives+1);expect(session.snack.raw).toBe(0);
+ session.addTickets(15,'gauntlet-first-clear');session.addTickets(99,'jackpot');expect(save.data.tickets).toBe(104);
+});
+test('actual TNT pounce clears every wall pack and Vacuum Dock clears every Rug on the curved stage',()=>{
+ const{g,s,session}=sessionFixture('g2'),tr=s.track,cat=s.entities.find(e=>e.kind==='cat'),wall=s.entities.filter(e=>e instanceof Backpack&&Math.abs(tr.project(e.pos.x,e.pos.z).s-136.6)<.1);
+ expect(wall).toHaveLength(6);cat.arm();cat.update(3.01);expect(wall.every(e=>e.broken)).toBe(true);
+ const dock=s.entities.find(e=>e.kind==='vacswitch'),rugs=s.entities.filter(e=>e.kind==='rug');dock.press();for(let i=0;i<90;i++)dock.update(1/60);expect(rugs).toHaveLength(4);expect(rugs.every(e=>e.broken)).toBe(true);
+ expect(session.fieldRaw).toBe(0);expect(session.levelTickets).toBe(0);expect(g.tickets.flying).toHaveLength(0);
+});
+
+test('actual Player arrow receivers and G3 ceiling admit the advertised tap/held launch without head collision',()=>{
+ for(const id of ['g1','g2','g3']){
+  const f=sessionFixture(id),p=actor(f),tr=f.s.track;
+  for(const pattern of f.s.gauntletInfo.patterns)for(const step of pattern.route.filter(r=>r.move.startsWith('arrow'))){
+   const a=pattern.pieces[step.from],b=pattern.pieces[step.to];
+   const launch=f.s.entities.find(e=>e.constructor.name==='Lunchbox'&&Math.abs(tr.project(e.pos.x,e.pos.z).s-a.dd)<.05);
+   const held=step.move==='arrowHeld',heldSpy=vi.spyOn(input,'held').mockImplementation(key=>key==='jump'&&held),pressedSpy=vi.spyOn(input,'pressed').mockReturnValue(false);
+   let target=tr.toWorld(b.dd,b.x||0,(b.y||0)+(['lunch','arrow','slide','blink','fall'].includes(b.kind)?.98:b.kind==='pack'?1:0));
+   const slider=b.kind==='slide'&&f.s.timedBoxes.find(q=>q.kind==='slide'&&q.d===b.dd)?.entity;
+   // The moving window explicitly permits waiting for the receiver's near phase.
+   if(slider){slider.clock.t=(Math.PI*2-Math.PI/6)/(b.params.speed);slider.update(0);target=slider.pos.clone().add(new THREE.Vector3(0,.98,0));}
+   if(b.kind==='floorStart')target=tr.toWorld(b.dd+.3,b.x||0,b.y||0);
+   p.spawnAt(launch.pos.clone().add(new THREE.Vector3(0,.98,0)),tr.yaw(a.dd));launch.onLand(p,-1);
+   const r=reach(step.move,target.y-p.pos.y,a.params.power),v=target.clone().sub(p.pos).setY(0).multiplyScalar(1/r.air);expect(v.length(),`${id} ${a.dd} launch`).toBeLessThanOrEqual(8);
+   p.vel.x=v.x;p.vel.z=v.z;input.state.x=v.x/8;input.state.y=v.z/8;
+   let landed=null,head=false;const onLand=p.body.onLand;p.body.onLand=(solid,impact,was)=>{landed=p.pos.clone();onLand(solid,impact,was);};p.body.onHead=()=>{head=true;};
+   for(let i=0;i<150&&!landed&&!head;i++)p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});
+   expect(head,`${id} arrow${a.dd} headroom`).toBe(false);expect(landed?.distanceTo(target),`${id} arrow${a.dd} landing`).toBeLessThan(.9);
+   p.body.onLand=onLand;heldSpy.mockRestore();pressedSpy.mockRestore();input.state.x=input.state.y=0;
+  }
+ }
+});
+test('actual G3 ladder lands beside its perched pack and bites it without a placement correction',async()=>{
+ const {simJump}=await import('../src/levels/gauntletMath.js');
+ for(const corrections of [false,true]){
+  const f=fixture('g3',corrections),p=actor(f),tr=f.s.track,source=tr.toWorld(73,0,3.98),target=tr.toWorld(77,0,6.98),trace=simJump({doubleAt:20/60,dy:target.y-source.y}),velocity=target.clone().sub(source).setY(0).multiplyScalar(1/trace.air);
+  f.g.onPlayerDeath=vi.fn();const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockReturnValue(false);
+  p.spawnAt(source,tr.yaw(73));p._jump(TUNING.JUMP);p.vel.x=velocity.x;p.vel.z=velocity.z;input.state.x=velocity.x/8;input.state.y=velocity.z/8;
+  let landed=false,head=false;p.body.onHead=solid=>{head=true;solid.ref?.onHeadHit?.(p);};
+  for(let frame=0;frame<100&&!p.dead;frame++){
+   if(frame===20)p._airJump();p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});
+   if(p.body.grounded&&p.pos.y>target.y-.1){landed=true;break;}
+  }
+  held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;
+  expect({head,landed,dead:p.dead},`corrections=${corrections}`).toMatchObject({head:false,landed:true,dead:false});
+  const topPack=f.s.entities.find(e=>e instanceof Backpack&&Math.abs(tr.project(e.pos.x,e.pos.z).s-77)<.1);
+  expect(p.pos.distanceTo(target)).toBeLessThan(1);p._startBite();p.biteT=.3;Player.prototype._interact.call(p,f.s);expect(topPack.broken).toBe(true);
+
+ }
+});
+const {audio}=await import('../src/audio/audio.js');
+test('gauntlet blink metronome follows the real shared clock, does not multiply sibling cues, and resets on retry',()=>{
+ const{g,s}=fixture('g3'),metronome=s.entities.find(e=>e.constructor.name==='GauntletMetronome'),blink=s.timedBoxes.find(e=>e.kind==='blink').entity;
+ g.player.pos.copy(blink.pos);audio.play.mockClear();metronome.update();metronome.update();expect(audio.play.mock.calls.filter(c=>c[0]==='tick')).toHaveLength(1);
+ blink.clock.t=.95;metronome.update();expect(audio.play.mock.calls.filter(c=>c[0]==='tick')).toHaveLength(1);
+ blink.clock.t=1.81;metronome.update();expect(audio.play.mock.calls.filter(c=>c[0]==='tick')).toHaveLength(2);
+ metronome.onRespawn();blink.clock.reset();metronome.update();expect(audio.play.mock.calls.filter(c=>c[0]==='tick')).toHaveLength(3);
+});
+test('G3 Glide Drop uses actual earned Glide input and lands on the real Lunch receiver',async()=>{
+ const{simJump}=await import('../src/levels/gauntletMath.js');const f=sessionFixture('g3'),p=actor(f),tr=f.s.track;
+ save.data.beaten['1']=true;const from=tr.toWorld(88,0,7),to=tr.toWorld(102,0,.98),r=simJump({doubleAt:.3,glide:true,dy:to.y-from.y}),v=to.clone().sub(from).setY(0).multiplyScalar(1/r.air);
+ p.spawnAt(from,tr.yaw(88));p._jump(TUNING.JUMP);p.vel.x=v.x;p.vel.z=v.z;input.state.x=v.x/8;input.state.y=v.z/8;
+ let frame=0,glided=false,landing=null;const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockImplementation(k=>k==='jump'&&(frame===18||frame===20));
+ const onLand=p.body.onLand;p.body.onLand=(solid,impact,was)=>{landing=p.pos.clone();onLand(solid,impact,was);};
+ for(frame=0;frame<400&&!landing;frame++){p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});glided ||= p.gliding;}
+ held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;
+ expect(glided).toBe(true);expect(landing?.distanceTo(to)).toBeLessThan(.9);expect(p.dead).toBe(false);
+});
+test('G3 source roof permits a late double skip, while the extended roof blocks that route',()=>{
+ for(const corrections of [false,true]){
+ save.data.beaten['1']=true;
+ const f=fixture('g3',corrections),p=actor(f),tr=f.s.track,launch=f.s.entities.find(e=>e.constructor.name==='Lunchbox'&&Math.abs(tr.project(e.pos.x,e.pos.z).s-159.5)<.05),pack=f.s.entities.find(e=>e instanceof Backpack&&Math.abs(tr.project(e.pos.x,e.pos.z).s-171.5)<.05),target=pack.pos.clone().add(new THREE.Vector3(0,1,0));
+ let frame=0;const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockImplementation(k=>k==='jump'&&(frame===16||frame===18));f.g.onPlayerDeath=vi.fn();
+ p.spawnAt(launch.pos.clone().add(new THREE.Vector3(0,.98,0)),tr.yaw(159.5));launch.onLand(p,-1);let head=false,sliderContact=false;p.body.onHead=()=>{head=true;};const land=p.body.onLand;p.body.onLand=(solid,...args)=>{sliderContact ||= solid===f.s.timedBoxes.find(q=>q.kind==='slide'&&q.d===167).entity.solid;land(solid,...args);};
+ for(frame=0;frame<220&&!pack.broken&&!p.dead;frame++){
+  const delta=target.clone().sub(p.pos).setY(0),speed=Math.min(8,delta.length()*30);delta.normalize().multiplyScalar(speed);input.state.x=delta.x/8;input.state.y=delta.z/8;
+  p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});
+ }
+ held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;
+ expect(pack.broken&&!sliderContact,`corrections=${corrections}`).toBe(!corrections);
+ }
+});
+test('existing track walls contain the side-and-Glide roof escape attempt without extra wall geometry',()=>{
+ {
+  const f=fixture('g3',true),p=actor(f),tr=f.s.track,launch=f.s.entities.find(e=>e.constructor.name==='Lunchbox'&&Math.abs(tr.project(e.pos.x,e.pos.z).s-159.5)<.05),pack=f.s.entities.find(e=>e instanceof Backpack&&Math.abs(tr.project(e.pos.x,e.pos.z).s-171.5)<.05);
+  save.data.beaten['1']=true;f.g.onPlayerDeath=vi.fn();let frame=0;const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockImplementation(k=>k==='jump'&&(frame===48||frame===50));
+  p.spawnAt(launch.pos.clone().add(new THREE.Vector3(0,.98,0)),tr.yaw(159.5));launch.onLand(p,-1);let waypoint=0,escaped=false;
+  const goals=[tr.toWorld(159.5,5.5,0),tr.toWorld(175,5.5,0),pack.pos.clone()];
+  for(frame=0;frame<650&&!pack.broken&&!p.dead;frame++){
+   const target=goals[waypoint],delta=target.clone().sub(p.pos).setY(0);if(delta.length()<.25&&waypoint<2)waypoint++;
+   const speed=Math.min(8,delta.length()*30);delta.normalize().multiplyScalar(speed);input.state.x=delta.x/8;input.state.y=delta.z/8;
+   p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});escaped ||= Math.abs(p.body.u)>5;
+  }
+  held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;
+  expect({escaped,broken:pack.broken}).toEqual({escaped:false,broken:false});
+ }
+});
+test('lower G3 exit ceiling preserves actual Slider-to-pack held jump with normal headroom',async()=>{
+ const{simJump}=await import('../src/levels/gauntletMath.js'),f=sessionFixture('g3'),p=actor(f),tr=f.s.track,slider=f.s.timedBoxes.find(q=>q.kind==='slide'&&q.d===167).entity,pack=f.s.entities.find(e=>e instanceof Backpack&&Math.abs(tr.project(e.pos.x,e.pos.z).s-171.5)<.05);
+ slider.clock.t=Math.PI/4;slider.update(0);const from=slider.pos.clone().add(new THREE.Vector3(0,.98,0)),to=pack.pos.clone().add(new THREE.Vector3(0,1,0)),r=simJump({dy:to.y-from.y}),v=to.clone().sub(from).setY(0).multiplyScalar(1/r.air);
+ const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockReturnValue(false);let head=false;p.body.onHead=()=>{head=true;};
+ p.spawnAt(from,tr.yaw(167));p._jump(TUNING.JUMP);p.vel.x=v.x;p.vel.z=v.z;input.state.x=v.x/8;input.state.y=v.z/8;
+ for(let frame=0;frame<150&&!pack.broken;frame++)p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});
+ held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;expect(head).toBe(false);expect(pack.broken).toBe(true);
+});
+test('new laundry prop materials dispose once while their asset/Kit materials remain borrowed',()=>{
+ const{g}=fixture('g3'),s=new Stage(g,'house'),t=new TicketSystem(g,s);buildGauntlet('g3',g,s,t);
+ const prop=s.entities.find(e=>e.obj?.children.some(o=>o.type==='Group'&&o.children.some(m=>m.geometry?.type==='BoxGeometry'&&m.geometry.parameters.height===4)));
+ expect(prop).toBeTruthy();const materials=new Set();prop.obj.traverse(o=>{if(o.material)materials.add(o.material);});const spies=[...materials].map(m=>vi.spyOn(m,'dispose'));
+ s.dispose();s.dispose();expect(spies.every(spy=>spy.mock.calls.length===1)).toBe(true);
+});
+test('actual G2 Nitro hop route clears all four rotated Rug hitboxes before the Dock removes them',async()=>{
+ const{simJump}=await import('../src/levels/gauntletMath.js'),f=sessionFixture('g2'),p=actor(f),tr=f.s.track,pattern=f.s.gauntletInfo.patterns.find(q=>q.id==='g2-P12');
+ p._interact=Player.prototype._interact;f.g.onPlayerDeath=vi.fn();const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockReturnValue(false);
+ for(const step of pattern.route.filter(s=>s.move!=='run')){
+  const a=pattern.pieces[step.from],b=pattern.pieces[step.to],top=q=>q.y+(q.kind==='lunch'?.98:0),from=tr.toWorld(a.dd-(a.kind==='floorEnd'?1.2:0),a.x||0,top(a)),to=tr.toWorld(b.dd,b.x||0,top(b)),r=simJump({dy:to.y-from.y}),v=to.clone().sub(from).setY(0).multiplyScalar(1/r.air);
+  p.spawnAt(from,tr.yaw(a.dd));p._jump(TUNING.JUMP);p.vel.x=v.x;p.vel.z=v.z;input.state.x=v.x/8;input.state.y=v.z/8;let landed=false;
+  for(let frame=0;frame<150&&!p.dead;frame++){p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});if(p.body.grounded){landed=true;break;}}
+  expect({dead:p.dead,landed},`${a.dd}→${b.dd}`).toEqual({dead:false,landed:true});expect(p.pos.distanceTo(to)).toBeLessThan(.9);
+ }
+ held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;expect(f.s.entities.filter(e=>e.kind==='rug').every(e=>!e.broken)).toBe(true);
+});
+test('all gauntlet Pity respawn spots have real support; G1 ramp spot uses actual ramp height',()=>{
+ for(const id of ['g1','g2','g3']){const{s}=fixture(id);for(const e of s.entities.filter(e=>e.constructor.name==='PitySnacks'))expect(s.world.groundBelow(e.pos.x,e.pos.y+.1,e.pos.z),`${id} Pity at${s.track.project(e.pos.x,e.pos.z).s}`).toBeCloseTo(e.pos.y,3);}
+ const{s}=fixture('g1',false),spot=s.entities.find(e=>e.constructor.name==='PitySnacks'&&Math.abs(s.track.project(e.pos.x,e.pos.z).s-128)<.1);
+ expect(s.world.groundBelow(spot.pos.x,spot.pos.y+.1,spot.pos.z)).toBeLessThan(spot.pos.y-.1);
+});
+test('G3 raised finale receiver preserves its normal held bounce to the backed goal pad',()=>{
+ const f=sessionFixture('g3'),p=actor(f),tr=f.s.track,pack=f.s.entities.find(e=>e instanceof Backpack&&Math.abs(tr.project(e.pos.x,e.pos.z).s-171.5)<.05),target=tr.toWorld(175.9,0,3);
+ const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockReturnValue(false);
+ p.spawnAt(pack.pos.clone().add(new THREE.Vector3(0,1,0)),tr.yaw(171.5));pack.onLand(p,-1);const r=reach('bounceHeld',target.y-p.pos.y),v=target.clone().sub(p.pos).setY(0).multiplyScalar(1/r.air);p.vel.x=v.x;p.vel.z=v.z;input.state.x=v.x/8;input.state.y=v.z/8;
+ let landed=false,head=false;p.body.onHead=()=>{head=true;};for(let frame=0;frame<180&&!landed;frame++){p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});landed=p.body.grounded;}
+ held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;expect(head).toBe(false);expect(landed).toBe(true);expect(p.pos.distanceTo(target)).toBeLessThan(.9);
+});
+test('G3 corrected finale rejects late Double+Glide skips across18 press times and4 actual moving-slider start phases',()=>{
+ const f=fixture('g3'),p=actor(f),tr=f.s.track,launch=f.s.entities.find(e=>e.constructor.name==='Lunchbox'&&Math.abs(tr.project(e.pos.x,e.pos.z).s-159.5)<.05),pack=f.s.entities.find(e=>e instanceof Backpack&&Math.abs(tr.project(e.pos.x,e.pos.z).s-171.5)<.05),slider=f.s.timedBoxes.find(q=>q.kind==='slide'&&q.d===167).entity;
+ save.data.beaten['1']=true;f.g.onPlayerDeath=vi.fn();let frame=0,pressAt=0;const held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump'),pressed=vi.spyOn(input,'pressed').mockImplementation(k=>k==='jump'&&(frame===pressAt||frame===pressAt+2));
+ for(const phase of [0,Math.PI/2,Math.PI,Math.PI*1.5])for(pressAt=12;pressAt<=80;pressAt+=4){
+  pack.restore();slider.clock.t=phase/2;slider.update(0);p.spawnAt(launch.pos.clone().add(new THREE.Vector3(0,.98,0)),tr.yaw(159.5));launch.onLand(p,-1);let contacted=false;
+  const target=pack.pos.clone().add(new THREE.Vector3(0,1,0));p.body.onLand=(solid,impact,was)=>{contacted ||= solid===slider.solid;Player.prototype._onLand.call(p,solid,impact,was);};
+  for(frame=0;frame<220&&!pack.broken&&!p.dead&&!contacted;frame++){
+   const delta=target.clone().sub(p.pos).setY(0),speed=Math.min(8,delta.length()*30);delta.normalize().multiplyScalar(speed);input.state.x=delta.x/8;input.state.y=delta.z/8;
+   f.s.world.beginFrame();advanceBeatClocks(f.s,1/60);slider.update(1/60);p.update(1/60,f.s,{right:new THREE.Vector3(1,0,0),forward:new THREE.Vector3(0,0,1)});
+  }
+  expect(pack.broken&&!contacted,`phase${phase},Doubleframe${pressAt}`).toBe(false);
+ }
+ held.mockRestore();pressed.mockRestore();input.state.x=input.state.y=0;
+});
+test('abandoning a goal while its claim lock waits cannot award, bank or freeze the next screen',async()=>{
+ const{session,g}=sessionFixture();let run;vi.stubGlobal('navigator',{locks:{request:(_name,callback)=>new Promise(resolve=>{run=()=>resolve(callback());})}});hub.bank.mockClear();
+ try{const goal=session.reachGoal();session.dispose();g.session=null;g.player.frozen=false;run();const result=await goal;expect(result.cancelled).toBe(true);expect(save.data.gauntlets.g1).toBeUndefined();expect(hub.bank).not.toHaveBeenCalled();expect(g.gauntletCleared).not.toHaveBeenCalled();expect(g.player.frozen).toBe(false);}finally{vi.unstubAllGlobals();}
+});
+test('a committed goal still settles after disposal but cannot complete or freeze the replacement screen',async()=>{
+ const{session,g}=sessionFixture();hub.bank.mockClear();const original=save.withGauntletEnd.bind(save),method=vi.spyOn(save,'withGauntletEnd').mockImplementation(async(...args)=>{const result=await original(...args);session.dispose();g.session=null;g.player.frozen=false;return result;});
+ try{const result=await session.reachGoal();expect(result).toMatchObject({tickets:5,claimDurable:true});expect(hub.bank).toHaveBeenCalledWith('gauntlet-proof',5,true);expect(g.gauntletCleared).not.toHaveBeenCalled();expect(g.player.frozen).toBe(false);}finally{method.mockRestore();}
+});
+test('quota failure retains best-effort local feedback but cannot repeat external bank across reloads',async()=>{
+ for(let attempt=0;attempt<2;attempt++){
+  const{session}=sessionFixture();hub.bank.mockClear();const write=vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new DOMException('quota','QuotaExceededError');});
+  try{const result=await session.reachGoal();expect(result).toMatchObject({tickets:5,claimDurable:false});expect(save.data.tickets).toBe(5);expect(hub.bank).not.toHaveBeenCalled();}finally{write.mockRestore();}
  }
 });

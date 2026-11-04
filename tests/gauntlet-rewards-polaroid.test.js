@@ -14,7 +14,7 @@ test('Polaroid greys after any death including after a checkpoint, and a fresh a
  g.session={deaths:0};p.update(0);expect(p.onTouch()).toBe(true);expect(save.data.gauntlets.g1.found).toBe(true);
  save.load();expect(save.data.gauntlets.g1.found).toBe(true);expect(photo().p.visible).toBe(false);
 });
-for(const mode of ['trial','remix','bossRush','medalRun','boardRun','godUsed'])test(`Polaroid never unlocks in ${mode}`,()=>{
+for(const mode of ['trial','remix','bossRush','rush','ranked','medalMode','medalRun','boardRun','godUsed'])test(`Polaroid never unlocks in ${mode}`,()=>{
  const{g,p}=photo();g.session[mode]=true;p.update(0);expect(p.visible).toBe(false);expect(p.onTouch()).toBe(false);expect(save.data.gauntlets).toEqual({});
 });
 test('God mode hides Polaroid without a death',()=>{save.data.godMode=true;expect(photo().p.onTouch()).toBe(false);});
@@ -32,7 +32,7 @@ test('three gauntlets add exactly nine mastery points and grant only earned proc
  expect(masteryPoints(save.data,registry)).toBe(9);expect(gauntletCosmetics(save.data)).toHaveLength(6);expect(gauntletCosmetics(save.data,{competitive:true})).toEqual([]);
 });
 test('invalid time cannot poison local best and God-used/trial/remix cannot award medals or Tickets',()=>{
- for(const context of [{godUsed:true},{trial:true},{remix:true}])expect(awardGauntlet(save.data,'g1',{broken:12,total:12,deaths:0,ms:10000,...context}).tickets).toBe(0);
+ for(const context of [{godUsed:true},{trial:true},{remix:true},{rush:true},{ranked:true},{medal:true},{board:true}])expect(awardGauntlet(save.data,'g1',{broken:12,total:12,deaths:0,ms:10000,...context}).tickets).toBe(0);
  expect(save.data.gauntlets).toEqual({});awardGauntlet(save.data,'g1',{broken:12,total:12,deaths:0,ms:Infinity});expect(save.data.gauntlets.g1.bestMs).toBeUndefined();
 });
 
@@ -54,4 +54,8 @@ test('procedural rewards cleanly restore shared model materials in competitive p
 test('Kennel photo wall shows earned Clears only, gold only for Flawless, with independently disposed resources',()=>{
  const s=new THREE.Scene(),resources=new Set(),wall=addGauntletPhotos(s,{gauntlets:{g1:{clear:true},g2:{clear:true,flawless:true},g3:{found:true}}},resources);
  expect(wall.children).toHaveLength(4);expect(wall.children[0].material.color.getHex()).toBe(0xffffff);expect(wall.children[2].material.color.getHex()).toBe(0xffd23f);expect(resources.size).toBe(8);
+});
+test('Polaroid stage disposal frees its owned materials once and preserves the borrowed host texture',()=>{
+ const{p}=photo(),a=vi.spyOn(p.frameMaterial,'dispose'),b=vi.spyOn(p.photoMaterial,'dispose'),map=vi.spyOn(p.photoMaterial.map,'dispose');
+ p.stage.dispose();p.stage.dispose();expect(a).toHaveBeenCalledOnce();expect(b).toHaveBeenCalledOnce();expect(map).not.toHaveBeenCalled();
 });

@@ -313,9 +313,10 @@ export const save = {
   },
   // Gauntlets have no run pickups: reconcile the latest durable wallet before
   // claiming the once-only reward, without replacing lives, checkpoints or run state.
-  withGauntletEnd(mutator) {
+  withGauntletEnd(mutator, { shouldCommit = () => true } = {}) {
     if (typeof mutator !== 'function' || mutator.constructor.name === 'AsyncFunction') throw new TypeError('Gauntlet transaction must be synchronous');
     return withOriginLock('nobu-gauntlet-end-v1', () => {
+      if (!shouldCommit()) return { cancelled: true, tickets: 0, medals: [], claimDurable: false };
       const raw = readDisk();
       if (raw) {
         const latest = sanitize({ ...fresh(), ...migrateSave(raw) });
@@ -325,7 +326,9 @@ export const save = {
       const result = mutator(data);
       if (result && typeof result.then === 'function') throw new TypeError('Gauntlet transaction must be synchronous');
       this.write();
-      return result;
+      const persisted = readDisk();
+      const claimDurable = ['g1', 'g2', 'g3'].includes(result?.id) && persisted?.gauntlets?.[result.id]?.firstPaid === true;
+      return { ...result, claimDurable };
     });
   },
   // New game clears story progress; trial and mastery records stay permanent.

@@ -56,9 +56,10 @@ get('g1-P2').route[4].move='bounceHeld';
 const relay=get('g1-P10');relay.pieces.push(piece('lunch',101.5));relay.route=[hop(0,1),hop(1,5,'arrowTap'),hop(5,2),hop(2,3,'arrowTap'),hop(3,4,'arrowTap')];
 get('g2-P16').route[3].move='arrowHeld';
 get('g3-P3').pieces[5].dd=25.8;
+get('g3-P16').pieces[5].y=2.8;
 export const GAUNTLET_INFO={
-  g1:{id:'g1',name:'Jungle Crates',host:1,tier:1.5,theme:1,end:158,goal:154,count:12,moves:[[22,0,0],[24,14,0],[24,-14,0],[24,10,.6],[24,-10,0],[24,0,1.4],[24,0,0]]},
-  g2:{id:'g2',name:'Assembly Rush',host:3,tier:3.5,theme:3,end:180,goal:176,count:20,moves:[[22,0,0],[24,20,0],[24,-20,0],[26,0,0],[24,16,0],[24,-16,0],[26,0,0],[20,0,0]]},
-  g3:{id:'g3',name:'Hamper Hop',host:4,tier:4.5,theme:'house',end:186,goal:182,count:12,moves:[[22,0,0],[24,-16,0],[24,16,0],[24,0,1],[24,-18,0],[24,18,0],[26,0,1],[22,0,0]]},
+  g1:{id:'g1',name:'Jungle Crates',host:1,tier:1.5,theme:1,music:'level1',end:158,goal:154,count:12,moves:[[22,0,0],[24,14,0],[24,-14,0],[24,10,.6],[24,-10,0],[24,0,1.4],[24,0,0]]},
+  g2:{id:'g2',name:'Assembly Rush',host:3,tier:3.5,theme:3,music:'level3',end:180,goal:176,count:20,moves:[[22,0,0],[24,20,0],[24,-20,0],[26,0,0],[24,16,0],[24,-16,0],[26,0,0],[20,0,0]]},
+  g3:{id:'g3',name:'Hamper Hop',host:4,tier:4.5,theme:'house',music:'level4',end:186,goal:182,count:12,moves:[[22,0,0],[24,-16,0],[24,16,0],[24,0,1],[24,-18,0],[24,18,0],[26,0,1],[22,0,0]]},
 };
 export const POLAROID_SPOTS={g1:[1.4,4.5,175.4],g2:[-2.8,1,65.5],g3:[2.4,4.2,205]};

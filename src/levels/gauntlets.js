@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {Entity} from '../entities/entity.js';
+import {GauntletMetronome} from '../entities/gauntletMetronome.js';
+import {ownGauntletMaterials} from '../entities/gauntletResources.js';
 import { makeKit,makeTrack,turtle } from './kit.js';
 import { GAUNTLET_INFO,GAUNTLET_PATTERNS,GAUNTLET_SOURCE_PATTERNS } from './data/gauntlets.js';
 import { validatePattern } from './gauntletMath.js';
@@ -28,10 +30,15 @@ function place(k,p){
   const floors=p.pieces.filter(q=>q.kind==='floor');
   if(floors.length===2)k.floor(floors[0].dd,floors[1].dd,{w:3,y:floors[0].y});
 }
+function ceiling(k,stage,top,d,width,length,depth){
+  const e=k.platform(0,top,d,width,length,depth);
+  const material=new THREE.MeshBasicMaterial({color:0x88a4c4,wireframe:true,transparent:true,opacity:.35,depthWrite:false});
+  e.obj.traverse(o=>{if(o.isMesh)o.material=material;});ownGauntletMaterials(stage,[material]);return e;
+}
 function stack(k,x,y,d,h){for(let i=0;i<h;i++)k.pack(x,y+i,d,0);}
 function checkpoint(k,x,y,d){const e=k.snacks(x,y,d);e.countable=false;return e;}
 function decorate(k,stage,info){
-  const prop=obj=>{const e=new Entity(stage,...obj.position.toArray());e.interactive=false;obj.position.set(0,0,0);e.obj.add(obj);stage.add(e);};
+  const prop=obj=>{const materials=new Set();obj.traverse(o=>{if(o.material)materials.add(o.material);});ownGauntletMaterials(stage,materials);const e=new Entity(stage,...obj.position.toArray());e.interactive=false;obj.position.set(0,0,0);e.obj.add(obj);stage.add(e);};
   if(info.id==='g1'){
     k.banks(-8,info.end,(x,y,d)=>{k.palm(x,y,d,5);k.bush(x,y,d,1.3);},{every:12});
     k.edges(-8,info.end,(x,y,d)=>k.fern(x,y,d,.7));k.grass(-8,info.end,{every:3});
@@ -63,7 +70,7 @@ export function buildGauntlet(id,game,stage,tickets,{corrections=true,decor=true
     k.pack(0,3,15.5,0);k.guideArc(0,1,8.5,0,15.5,2.5);
     k.floor(36.5,50);checkpoint(k,0,0,44);k.pack(-2,0,47,0);k.pack(2,0,47,0);k.pitySnacks(0,0,39);
     k.floor(61,70);k.pack(0,0,66,0);k.floor(86.5,96);checkpoint(k,0,0,92);k.pitySnacks(0,0,88);
-    k.floor(113,124,{y:2});stack(k,0,2,118,2);k.floor(124,130,{y:[2,0]});k.pitySnacks(0,0,128);
+    k.floor(113,124,{y:2});stack(k,0,2,118,2);k.floor(124,130,{y:[2,0]});k.pitySnacks(0,corrections?2/3:0,128);
     k.floor(147,158,{y:4});k.pack(-2,4,151,0);k.pack(2,4,151,0);
   }else if(id==='g2'){
     k.floor(-8,8);k.pack(-2.5,0,4,0);k.pack(2.5,0,4,0);k.floor(28.5,36);k.pack(0,0,31,0);
@@ -75,9 +82,14 @@ export function buildGauntlet(id,game,stage,tickets,{corrections=true,decor=true
     k.floor(-8,6);k.floor(29.5,36);k.pack(0,0,33,0);
     k.floor(57.6,66);checkpoint(k,0,0,62);stack(k,-2.5,0,64,2);k.pack(0,7,77,0);
     k.floor(80,88,{y:7});k.pitySnacks(0,7,84);k.floor(110,118);checkpoint(k,0,0,114);
-    k.floor(144.5,150,{y:1});k.pitySnacks(0,1,147);k.platform(0,9.5,163,3,6);
+    k.floor(144.5,150,{y:1});k.pitySnacks(0,1,147);
+    if(corrections){
+      ceiling(k,stage,12,163.5,8.6,7,3);
+      ceiling(k,stage,12,169,8.6,4,6.5);
+    }else k.platform(0,9.5,163,3,6);
     k.floor(175.5,186,{y:3});k.pack(-2,3,179,0);k.pack(2,3,179,0);
   }
+  stage.add(new GauntletMetronome(stage));
   k.trigger(info.goal,()=>game.session.reachGoal());
   if(decor)decorate(k,stage,info);
   stage.gauntletInfo={...info,patterns,problems:gauntletProblems(patterns,track)};

@@ -372,6 +372,7 @@ export class Session {
   }
 
   async _finishGauntlet() {
+    if (this.disposed || this.game.session !== this) return { cancelled: true, tickets: 0, medals: [] };
     this.busy = true;
     this.game.player.frozen = true;
     const result = await save.withGauntletEnd(() => {
@@ -390,9 +391,12 @@ export class Session {
         this.addTickets(this._gauntletClearRaw, 'gauntlet-first-clear');
       }
       return result;
-    });
+    }, { shouldCommit: () => !this.disposed && this.game.session === this });
+    if (result.cancelled) return result;
     // The same level_end bank used by other stages; this amount is already whole Tickets.
-    hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch(err => console.warn('[hub] bank failed', err));
+    if (this.attemptDurable && result.claimDurable) hub.bank(this.attemptId, this.levelTickets, true).catch(err => console.warn('[hub] bank failed', err));
+    // A committed claim still settles after leaving, but must never change the new screen.
+    if (this.disposed || this.game.session !== this) return result;
     this.game.player.frozen = true;
     audio.setRate(1);
     audio.play('checkpoint');
@@ -922,6 +926,7 @@ export class Session {
   }
 
   dispose() {
+    this.disposed = true;
     clearGauntletLook(this.game.player);
     if (this.def?.gauntlet) audio.setRate(1);
     if (this.stage) this.stage.dispose();
