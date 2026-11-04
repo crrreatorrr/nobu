@@ -2,6 +2,7 @@
 // In the console: await T.go(1) starts level 1; T.warp(120) jumps to distance 120; T.boss() skips to the boss.
 import { gatedCountables } from './game/gateRules.js';
 import { installTuningTools } from './dev/tuning.js';
+import { inspectTicketBudget } from './game/devTicketBudget.js';
 
 export function installDevTools(game) {
   const checkGates = () => {
@@ -146,6 +147,7 @@ export function installDevTools(game) {
       for (const problem of problems) console.warn('[gauntlet]', problem);
       return problems;
     },
+    budget() { return inspectTicketBudget(game); },
     warp(d, x = 0) { const p = game.player; p.pos.set(x, 0.5, -d); p.vel.set(0, 0, 0); game.camera.snap(p); return T.info(); },
     async boss() {
       game.session.reachBossGate();

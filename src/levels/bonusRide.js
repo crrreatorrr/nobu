@@ -1,6 +1,8 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['ride'];
 // Bonus stage: Roomba Rush. Nobu rides a runaway robot vacuum through the Owner's House.
 // It drives itself; left/right steers, jump hops the whole vacuum. Bash backpacks and mice, jump cables
 // and gaps, dodge toy piles, table legs, cats and rugs. A Vacuum Dock near the end pops every rug.

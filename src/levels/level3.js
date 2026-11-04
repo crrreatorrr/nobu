@@ -1,6 +1,8 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['3'];
 // Level 3: the Cone Factory — a short, hard, twisting route through the factory. Every enemy and breakable type,
 // conveyors, crushers, swinging cone hammers, an updraft fan, a Bone Switch bridge and a belly-flop secret.
 import * as THREE from 'three';
@@ -24,6 +26,8 @@ export function buildLevel3(game, stage, tickets) {
 
   // --- intake hall ---
   F(-8, 22);
+  // TODO H32: relocate into the extended factory side paths.
+  k.mystery(-3.1, 0, 15);
   k.packs([[-2.6, 6], [2.6, 6]]);
   k.tut(8, 'vacuum');
   k.vacuum(0, 0, 12, { range: 3, speed: 4 });
@@ -118,6 +122,7 @@ export function buildLevel3(game, stage, tickets) {
 
   // --- final stretch + belly flop secret ---
   F(206, 218);
+  k.mystery(-3.2, 0, 209);
   F(218, 222, { x: 1.8, w: 5 });
   F(222, END);
   k.cracked(-2.5, 0, 220, { w: 3.6, d: 4 });

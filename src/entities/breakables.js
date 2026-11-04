@@ -20,7 +20,7 @@ export function explode(stage, x, y, z, r, { kind = 'flat', source = null, color
   game.fx.ring(x, y, z, { color: 0xf0e0c8, radius: r * 0.8, count: 10, size: 0.5 });
   game.camera.shake(0.5, 0.35);
   audio.play('explosion');
-  for (const e of stage.entities) {
+  for (const e of [...stage.entities]) {
     if (e === source || e.dead || !e.onExplosion) continue;
     const dx = e.pos.x - x, dz = e.pos.z - z, dy = e.pos.y - y;
     if (dx * dx + dz * dz + dy * dy * 0.5 < r * r) e.onExplosion(source);
@@ -67,6 +67,7 @@ export class Backpack extends Breakable {
   constructor(stage, x, y, z, { tickets } = {}) {
     super(stage, x, y, z);
     this.kind = 'backpack';
+    this.authoredTickets = tickets ?? null; // null: budget uses the random maximum, five.
     this.tickets = tickets ?? randInt(1, 5);
     this.model = backpackModel();
     this.model.rotation.y = rand(-0.25, 0.25);
@@ -293,7 +294,12 @@ export class Trampoline extends Breakable {
   }
   onSlide() { this.onBite(); }
   onExplosion() { this.onBite(); }
-  onRestore() { this.ticketsLeft = this.ticketsMax; this.spent = false; }
+  onCheckpoint() { this.ticketCheckpoint = { left: this.ticketsLeft, spent: this.spent }; }
+  onRestore() {
+    this.ticketsLeft = this.ticketCheckpoint?.left ?? this.ticketsMax;
+    this.spent = this.ticketCheckpoint?.spent ?? false;
+  }
+  onRespawn() { if (!this.broken) this.onRestore(); }
 }
 
 // ---------- Snacks: checkpoint ----------
@@ -652,7 +658,15 @@ export class ZippedBackpack extends Backpack {
     }
     super.break(player, how);
   }
-  onRestore() { this.hits = this.maxHits; this.tickets = 8; this.tags.forEach((t) => (t.visible = true)); }
+  onCheckpoint() {
+    if (this.kind !== 'mystery') this.ticketCheckpoint = { hits: this.hits, tickets: this.tickets };
+  }
+  onRestore() {
+    this.hits = this.ticketCheckpoint?.hits ?? this.maxHits;
+    this.tickets = this.ticketCheckpoint?.tickets ?? this.authoredTickets;
+    this.tags.forEach((t, i) => (t.visible = i < this.hits));
+  }
+  onRespawn() { if (!this.broken) this.onRestore(); }
 }
 
 // ---------- Vacuum Dock switch: a robot vacuum zooms out and pops every rug in the stage ----------

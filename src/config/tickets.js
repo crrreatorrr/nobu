@@ -26,3 +26,11 @@ export function wholeTicketsFromRaw(raw) {
 export function rawTicketsForWhole(whole) {
   return Math.max(0, whole) * SCALE_DENOMINATOR;
 }
+
+/** Fixed authoring ceilings, proposed from the measured layout-1 density.
+ * Owner sign-off is required before H12 merges; see docs/expansion/h12-review.md.
+ * Never derive these from a level's current budget: an over-cap edit must fail. */
+export const LEVEL_TICKET_CAP = Object.freeze({
+  1: 131, 2: 107, 3: 86, ride: 110, cave: 89,
+  4: 184, 6: 159, 5: 162,
+});

@@ -1,6 +1,8 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['cave'];
 // Bonus stage: Glowworm Grotto. Pitch dark; Lumi the glowworm lights a circle around Nobu and fades over
 // time. When the glow runs out Lumi waits at the next glow nest, a faint beacon in the dark.
 // Shellbacks, Lid Knights, steel lunchbox stepping stones, arrow launches and crumbling ledges.
