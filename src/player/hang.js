@@ -12,7 +12,7 @@ export function advanceHang(player, dt, jump, jumpPower) {
   player.hang = null;
   player.vel.copy(line.velocity).multiplyScalar(jump ? 1 : 0.6);
   player.vel.y += jump ? jumpPower * 0.85 : 6;
-  player.canDouble = true; player.jumpCut = false; player.jumpT = 0;
+  player.canDouble = true; player.jumpCut = !jump; player.jumpT = 0;
   player.jumpBuffer = 0; player.coyote = 0;
   line.blockGrabT = 0.25;
   return true;
