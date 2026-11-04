@@ -60,6 +60,14 @@ describe('development telemetry data', () => {
     player.pos.y = 0; player.body.ground = {}; stage.detours[0].solids.add(player.body.ground);
     expect(sectionFor(stage, player).name).toBe('Sky Walk');
   });
+  it('attributes an airborne fall to its detour until the player lands on the main path', () => {
+    const { stage, player } = fixture(), context = {}; player.body.s = 15; player.pos.y = 10;
+    expect(sectionFor(stage, player, 15, context).name).toBe('Sky Walk');
+    player.pos.y = -10;
+    expect(sectionFor(stage, player, 15, context).name).toBe('Sky Walk');
+    player.body.grounded = true; player.pos.y = 0;
+    expect(sectionFor(stage, player, 15, context).name).toBe('Box Run');
+  });
 });
 
 describe('development-only tooling integration', () => {

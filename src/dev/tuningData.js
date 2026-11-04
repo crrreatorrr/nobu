@@ -29,16 +29,22 @@ export function appendDeath(storage, death) {
 
 // A detour can occupy the same track distance as the main path. Use its actual
 // support/height/lateral context, rather than treating sectionAt(s) as sufficient.
-export function sectionFor(stage, player, d = player?.body?.s) {
+export function sectionFor(stage, player, d = player?.body?.s, context) {
   const track = stage?.track;
   if (!track || !Number.isFinite(d)) return null;
-  const onDetour = (stage.detours || []).some((detour) => {
+  let onDetour = (stage.detours || []).some((detour) => {
     if (detour.solids?.has(player?.body?.ground)) return true;
     const offset = player?.pos?.y - track.heightAt(d);
     if (detour.y > 0) return offset >= detour.y - 1;
     if (detour.y < 0) return offset <= detour.y + 1;
     return Math.abs(player?.body?.u ?? 0) > 4.3;
   });
+  // Keep the branch while airborne: a fatal fall below a sky platform is still
+  // a sky-section death. Landing on the main path clears it.
+  if (context) {
+    if (!player?.body?.grounded && context.detour !== undefined && !onDetour) onDetour = context.detour;
+    context.detour = onDetour;
+  }
   let found = null;
   for (const section of track.sections || []) {
     if (!!section.detour !== onDetour || d < section.d0 || d >= section.d1) continue;
@@ -60,10 +66,10 @@ export function deathCounts(rows, level, sections = []) {
   return counts;
 }
 
-export function advanceTimer(session, player, dt, times) {
+export function advanceTimer(session, player, dt, times, context) {
   if (!Number.isFinite(dt) || dt <= 0 || session.phase !== 'level' || session.busy || session.over ||
       session.dying || session.bonusRound || player.dead || player.frozen || session.game.ui?.talking) return;
-  const name = sectionFor(session.stage, player)?.name;
+  const name = sectionFor(session.stage, player, player.body.s, context)?.name;
   if (name) times[name] = (times[name] || 0) + dt;
 }
 

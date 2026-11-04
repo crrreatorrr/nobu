@@ -10,7 +10,7 @@ export function installTuningTools(game, T) {
   let currentStage = null;
   const runs = new WeakMap();
   const runFor = (session) => {
-    if (!runs.has(session)) runs.set(session, { times: Object.create(null), finished: false });
+    if (!runs.has(session)) runs.set(session, { times: Object.create(null), context: {}, finished: false });
     return runs.get(session);
   };
   const rows = () => readRecords(storage, DEATH_KEY).filter(isDeath);
@@ -58,13 +58,13 @@ export function installTuningTools(game, T) {
       if (!track) return;
       const point = track.project(player.pos.x, player.pos.z);
       appendDeath(storage, { level: session.level, d: point.s, x: point.u, cause, t: Date.now(),
-        section: sectionFor(session.stage, player, point.s)?.name });
+        section: sectionFor(session.stage, player, point.s, runFor(session).context)?.name });
       redraw();
     },
     update(session, dt) {
       if (currentStage !== session.stage) redraw();
       const run = runFor(session);
-      if (!run.finished) advanceTimer(session, game.player, dt, run.times);
+      if (!run.finished) advanceTimer(session, game.player, dt, run.times, run.context);
     },
     gate(session) {
       const run = runFor(session);
