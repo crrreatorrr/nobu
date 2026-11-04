@@ -207,3 +207,64 @@ it('does not award or write a God-assisted complete run even after God is switch
   expect(save.data.rush.clear).toBe(false); expect(write).not.toHaveBeenCalled();
   noExternalWrites();
 });
+
+it('cancels only its real UI dialogue on dispose and releases the awaiting intro', async () => {
+  const { UI } = await import('../src/ui/ui.js');
+  const { game, session } = fixture();
+  game.ui = new UI(document.createElement('div'));
+  game.ui.hideLoading = vi.fn(async () => {});
+  const start = session.startLevel();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(game.ui.talking).toBe(true);
+  const owned = game.ui.dialog;
+  session.dispose();
+  await start;
+  expect(game.ui.talking).toBe(false);
+  expect(game.ui.tb.classList.contains('show')).toBe(false);
+  const later = game.ui.say([['narrator', 'A new mode owns this dialogue.']]);
+  expect(game.ui.cancelSay(owned)).toBe(false);
+  expect(game.ui.talking).toBe(true);
+  game.ui.cancelSay(game.ui.dialog);
+  await later;
+});
+
+it('launches Rush from Game without writing a story bookmark, lives or Hub attempt', async () => {
+  const { game, session } = fixture();
+  const write = vi.spyOn(save, 'write');
+  const before = JSON.stringify(save.data);
+  game.flyingMasks = [];
+  const start = Game.prototype.startLevel.call(game, 'rush');
+  await vi.advanceTimersByTimeAsync(1);
+  await start;
+  expect(game.session).toBeInstanceOf(RushSession);
+  sessions.push(game.session);
+  expect(session.disposed).toBe(true);
+  expect(JSON.stringify(save.data)).toBe(before);
+  expect(write).not.toHaveBeenCalled();
+  expect(hub.beginAttempt).not.toHaveBeenCalled();
+});
+
+it('shows dedicated Rush results without individual boss medals or economic writes', () => {
+  const { game, session } = fixture();
+  const write = vi.spyOn(save, 'write');
+  Game.prototype.rushCompleted.call(game, session, {eligible:true,noHit:true,ms:123456});
+  expect(game.state).toBe('complete');
+  expect(game.completeNext).toEqual({n:'rush',bonus:true});
+  expect(game.ui.setScreen.mock.calls[0][0]).toContain('NO-HIT CLEAR!');
+  expect(write).not.toHaveBeenCalled();
+  expect(hub.bank).not.toHaveBeenCalled();
+});
+
+it('retires a deferred Game launch before it can create a stale Rush arena', async () => {
+  const {game,session} = fixture();
+  let fadeDone;
+  game.ui.fade = vi.fn(() => new Promise(resolve => {fadeDone = resolve;}));
+  const start = Game.prototype.startLevel.call(game,'rush');
+  expect(session.disposed).toBe(true);
+  game._launchEpoch++;
+  game.state='map';
+  fadeDone();
+  expect(await start).toBe(false);
+  expect(game.session).toBe(session);
+  expect(game.state).toBe('map');
+});

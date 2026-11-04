@@ -16,12 +16,14 @@ Only Rush clear, No-Hit and minimum total fight time are recorded. There is no R
 
 Game integration must use `rushAvailable(save.data)`, create a RushSession and assign `game.session`
 before awaiting `startLevel()`. Its own startup also enforces Queen completion. Game supplies
-`rushCompleted(session, {record,eligible,ms,noHit})`; that hook presents results only. An optional
-`ui.rushTime(elapsedSeconds,currentBossIndex)` receives elapsed timing. The root-owned map/pause/result
-copy and entry must use `session.rush`, because `session.def` is the current boss descriptor. The
+`rushCompleted(session, {record,eligible,ms,noHit})`; that hook presents results only. The existing
+`ui.trialTime` displays fight time and the current boss count. The map/pause/result
+copy and entry use `session.rush`, because `session.def` is the current boss descriptor. The
 `rush` registry descriptor must not import RushSession: the base Session imports the registry, so
-keeping the constructor import in Game avoids a class-initialization cycle. Preserve the ordinary
-`lastLevel` bookmark and dispose Rush on quit/map/title/Hub transitions.
+keeping the constructor import in Game avoids a class-initialization cycle. Game preserves the ordinary
+`lastLevel` bookmark and disposes Rush on quit/map/title/Hub transitions. A launch epoch retires
+a pending fade before it can start a stale session. Rush-owned dialogue is canceled through the
+identity-scoped `UI.cancelSay(expectedDialog)`; it cannot close a newer mode's dialogue.
 
 ## Approved implementation choices
 
@@ -62,3 +64,11 @@ Rush entry, so the new module graph is exercised by the actual Session tests unt
 No browser or human full Rush has been run in this component pass. A bounded five-arena browser run,
 actual map/result/quit integration, final independent review, full tests/build and exact CI/merge
 remain required. This is not an unassisted five-fight or No-Hit clear.
+
+Integrated activation snapshot: the meta map entry is Queen-gated, shows saved clear/No-Hit/best,
+and routes to a dedicated result card without story completion or trial boards. Real UI cancellation,
+Game launch/result and launch-fade retirement add four regressions (19 Session tests; 27 Rush tests
+across three files). The focused Session/registry/migration pass is 3 files / 52 tests. Production
+build passes with 174 modules; the usual bundle-size warning remains. Migration/registry expected
+map fixtures now exclude meta entries where they mean story/bonus content. Full suite and bounded
+browser remain pending coordinator review/window; an unaided full Rush remains unrun.

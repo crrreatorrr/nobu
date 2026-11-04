@@ -363,3 +363,16 @@ export const GAUNTLET_TEXT = {
   enter: 'G / RB · Enter gauntlet', grey: 'Reach it without a scratch.',
   tutorial: "A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip.",
 };
+
+
+export const RUSH_TEXT = {
+  title: 'CONE GAUNTLET', description: 'Five bosses · masks carry · no assistance · unlimited retries',
+  locked: 'Beat the Pump Queen to unlock the Cone Gauntlet', controls: '◀ ▶ choose · SPACE / ENTER play · ESC title',
+  clear: 'BOSS RUSH CLEAR!', noHit: 'NO-HIT CLEAR!', ineligible: 'God Mode · no Rush record',
+  record: 'CLEAR MEDAL', noHitRecord: 'NO-HIT MEDAL', best: 'Best', continue: 'Press any key',
+};
+export const REMIX_TEXT = {
+  banner: { title: 'SMOG REMIX', subtitle: 'Mirrored · no assistance · earn its own Golden Bone' },
+  complete: { title: 'SMOG REMIX CLEAR!', earned: 'REMIX GOLDEN BONE!', missed: 'Every backpack and every dog in one run', already: 'Remix Golden Bone already earned' },
+  toggle: 'SMOG REMIX', locked: 'Beat the Pump Queen to unlock Smog Remixes',
+};

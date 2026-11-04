@@ -183,6 +183,13 @@ export class UI {
       this.tb.classList.add('show');
     });
   }
+  cancelSay(expectedDialog) {
+    if (!expectedDialog || this.dialog !== expectedDialog) return false;
+    this.dialog = null;
+    this.tb.classList.remove('show');
+    expectedDialog.resolve();
+    return true;
+  }
   get talking() { return !!this.dialog; }
   _nextLine() {
     const d = this.dialog;

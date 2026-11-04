@@ -34,6 +34,8 @@ export class RushSession extends Session {
   _nextEpoch() {
     const epoch = ++this._epoch;
     this._cancelWaiters();
+    this.game.ui.cancelSay?.(this._dialog);
+    this._dialog = null;
     // Retire animation promises too: disposed arenas no longer receive the
     // updates which would ordinarily resolve their intro/evolve animations.
     this.boss?.introResolve?.();
@@ -51,6 +53,13 @@ export class RushSession extends Session {
       }, ms);
       this._waiters.set(timer, resolve);
     });
+  }
+
+  async _say(lines) {
+    const pending = this.game.ui.say(lines);
+    const dialog = this._dialog = this.game.ui.dialog;
+    await pending;
+    if (this._dialog === dialog) this._dialog = null;
   }
 
   _newStage(theme) {
@@ -104,7 +113,7 @@ export class RushSession extends Session {
     if (!this._alive(epoch)) return;
     await this.boss.intro?.();
     if (!this._alive(epoch)) return;
-    await g.ui.say(BOSS_TALK[this.def.bossKey].intro);
+    await this._say(BOSS_TALK[this.def.bossKey].intro);
     if (!this._alive(epoch)) return;
     g.camera.endCinematic();
     g.player.frozen = false;
@@ -132,7 +141,7 @@ export class RushSession extends Session {
     await boss.evolve(phase);
     if (!this._alive(epoch) || g.player.dead) return;
     const lines = BOSS_TALK[this.def.bossKey][`phase${phase}`];
-    if (lines) await g.ui.say(lines);
+    if (lines) await this._say(lines);
     if (!this._alive(epoch) || g.player.dead) return;
     g.camera.endCinematic();
     const sphere = this.info.spheres?.[phase - 1];
@@ -210,7 +219,7 @@ export class RushSession extends Session {
     this.godUsed = this.run.godUsed;
     if (this.game.state === 'pause') return;
     super.update(dt);
-    this.game.ui.rushTime?.(this.run.elapsed, this.run.index);
+    this.game.ui.trialTime?.(`${Math.floor(this.run.elapsed / 60)}:${(this.run.elapsed % 60).toFixed(2).padStart(5, '0')} · ${Math.min(5, this.run.index + 1)}/5`);
   }
 
   // No ordinary reward, checkpoint, level-completion or rollback route is valid in Rush.
