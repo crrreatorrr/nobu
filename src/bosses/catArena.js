@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Entity } from '../entities/entity.js';
 import { toon } from '../player/nobuPrims.js';
+import { onCatStageDispose, disposeProcedural } from './catResources.js';
 
 // Cat's rectangular edge band is independent of the shared square ArenaTiles.
 // Exact coverage: 21m permanent centre, 2m edge, total25m. Corner tiles belong
@@ -29,6 +30,7 @@ export class CatArena extends Entity {
       return { x, z: -10, y: -.5, mesh, solid };
     });
     this.setPhase(1); this._syncLedges();
+    onCatStageDispose(stage, () => this.dispose());
   }
   setPhase(phase) {
     const alreadyRaised = this.phase >= 2 && phase >= 2;
@@ -61,6 +63,7 @@ export class CatArena extends Entity {
       if (t.timer >= 4.6) this._restore(t);
     }
   }
+  dispose() { if (this.disposed) return; this.disposed = true; disposeProcedural(this.obj); }
   reset() { this.setPhase(1); }
   onRespawn() { this.reset(); }
 }

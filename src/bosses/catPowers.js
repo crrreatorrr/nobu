@@ -5,15 +5,27 @@ import { Assets } from '../art/assets.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
 import { clamp } from '../core/util.js';
+import { onCatStageDispose, materialSet, disposeMaterials, disposeProcedural } from './catResources.js';
 
 // Owner decision pending: literal pool only draws chains in stage3.
 export const CAT_STAGE2_CHAINS = false;
 
 class TableCat extends Cat {
+  constructor(...args) { super(...args); this.ownedMaterials = materialSet(this.obj); }
+  update(dt) {
+    const previous = this.count.material.map; super.update(dt);
+    if (previous !== this.count.material.map) previous.dispose();
+  }
+  retire() {
+    this.hide(); this.obj.parent?.remove(this.obj);
+    if (this.disposed) return; this.disposed = true;
+    this.count.material.map.dispose(); disposeMaterials(this.ownedMaterials);
+  }
   pounce() {
     if (this.dead) return;
     this.markBroken(); this.hide(); this.count.visible = false; audio.play('pounce');
     explode(this.stage, this.pos.x, this.pos.y + .4, this.pos.z, 2.3, { kind: 'flat', source: this, color: 0xffb070 });
+    this.retire();
   }
 }
 class Catnip extends Entity {
@@ -25,16 +37,35 @@ class Catnip extends Entity {
     this.setBox(1.1, 1.2, 1.1); this.t = 0;
   }
   update(dt) { this.t += dt; if (this.t >= .25) { this.t = 0; this.fx.sparkle(this.pos.x, .7, this.pos.z, { count: 1, color: 0x8aff80 }); } }
-  onBite() { if (this.dead) return; this.dead = true; this.obj.visible = false; this.use(); }
+  retire() { this.dead = true; this.obj.visible = false; if (!this.disposed) { this.disposed = true; disposeProcedural(this.obj); } }
+  onBite() { if (this.dead) return; this.retire(); this.use(); }
 }
 
 export function ghostConflicts(target, boss) {
   return boss.marker.visible && target.distanceTo(boss.marker.position) < 4.2;
 }
 function ghostModel() {
-  const root = Assets.model('model_ghost_cat', 1) || new THREE.Mesh(new THREE.SphereGeometry(.8, 12, 8), toon(0x80ffff));
-  root.traverse((o) => { if (o.isMesh) { const mats = Array.isArray(o.material) ? o.material : [o.material]; o.material = mats.map((m) => { const c = m.clone(); c.color?.setHex(0x80ffff); c.transparent = true; c.opacity = .45; c.depthWrite = false; return c; }); if (!Array.isArray(mats) || mats.length === 1) o.material = o.material[0]; } });
-  return root;
+  const asset = Assets.model('model_ghost_cat', 1);
+  const root = asset || new THREE.Mesh(new THREE.SphereGeometry(.8, 12, 8), toon(0x80ffff));
+  const geometries = new Set(asset ? [] : [root.geometry]);
+  const materials = new Set(), clones = new Map();
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    const clone = (source) => {
+      if (!clones.has(source)) {
+        const c = asset ? source.clone() : source; c.color?.setHex(0x80ffff); c.transparent = true; c.opacity = .45; c.depthWrite = false;
+        clones.set(source, c); materials.add(c);
+      }
+      return clones.get(source);
+    };
+    o.material = Array.isArray(o.material) ? o.material.map(clone) : clone(o.material);
+  });
+  return { root, materials, geometries };
+}
+function retireGhost(g) {
+  g.mesh.parent?.remove(g.mesh);
+  if (g.disposed) return; g.disposed = true;
+  disposeMaterials(g.materials); for (const geometry of g.geometries) geometry.dispose();
 }
 
 export class CatPowers {
@@ -45,15 +76,22 @@ export class CatPowers {
     this.silhouette = boss.rig.root.clone(true);
     this.silhouette.traverse((o) => { if (o.isMesh) { const list = Array.isArray(o.material) ? o.material : [o.material]; const cloned = list.map((m) => { const c = m.clone(); c.transparent = true; c.opacity = .3; c.depthWrite = false; c.blending = THREE.AdditiveBlending; return c; }); o.material = Array.isArray(o.material) ? cloned : cloned[0]; } });
     this.silhouette.visible = false; boss.stage.scene.add(this.silhouette); this.history = [];
+    this.silhouetteMaterials = materialSet(this.silhouette);
+    onCatStageDispose(boss.stage, () => this.dispose());
   }
   phase() { this.b.stage.catArena?.setPhase(this.b.phase); if (this.b.phase === 3 && !this.catnip) this.growCatnip(); }
   reset() {
-    for (const g of this.ghosts) this.b.stage.scene.remove(g.mesh);
-    for (const e of this.spawned) e.hide?.();
-    if (this.catnip) { this.catnip.dead = true; this.catnip.obj.visible = false; }
-    this.ghosts = []; this.spawned = []; this.trails = []; this.lastLeap = null;
+    for (const g of this.ghosts) retireGhost(g);
+    for (const e of this.spawned) { if (e.retire) e.retire(); else e.hide?.(); }
+    this.catnip?.retire();
+    this.ghosts = []; this.spawned = []; this.trails = []; this.lastLeap = null; this.recording = null;
     this.catnip = null; this.catnipT = 0; this.catnipWait = 0; this.dot.visible = false;
     this.silhouette.visible = false; this.history = []; this.mode = null;
+  }
+  dispose() {
+    if (this.disposed) return; this.disposed = true; this.reset();
+    this.dot.parent?.remove(this.dot); this.silhouette.parent?.remove(this.silhouette);
+    this.dot.geometry.dispose(); this.dot.material.dispose(); disposeMaterials(this.silhouetteMaterials);
   }
   freeSpot() {
     const b = this.b;
@@ -69,11 +107,19 @@ export class CatPowers {
       this.catnip = null; this.catnipT = 8; this.catnipWait = 20; audio.play('catnip');
     })); audio.play('chime');
   }
-  recordLeap(from, target, duration) { this.lastLeap = { from: from.clone(), target: target.clone(), duration }; }
+  recordLeap(from, target, duration, apex = 5) { this.lastLeap = { from: from.clone(), target: target.clone(), duration, apex }; }
+  startLeap(from, target, duration, apex = 5) {
+    this.recording = { from: from.clone(), target: target.clone(), duration, apex, samples: [{ t: 0, pos: from.clone() }] };
+  }
+  sampleLeap(time, position, complete = false) {
+    const trace = this.recording; if (!trace) return;
+    if (complete || time - trace.samples.at(-1).t >= 1 / 240) trace.samples.push({ t: time, pos: position.clone() });
+    if (complete) { trace.duration = time; this.lastLeap = trace; this.recording = null; }
+  }
   ghost() {
     if (!this.lastLeap || this.ghosts.length >= 2) return false;
-    const leap = this.lastLeap, mesh = ghostModel(); mesh.position.copy(leap.from); this.b.stage.scene.add(mesh);
-    this.ghosts.push({ ...leap, mesh, wait: 1.5, t: 0 }); audio.play('meow', 1.4); return true;
+    const leap = this.lastLeap, model = ghostModel(), mesh = model.root; mesh.position.copy(leap.from); this.b.stage.scene.add(mesh);
+    this.ghosts.push({ ...leap, mesh, materials: model.materials, geometries: model.geometries, wait: 1.5, t: 0 }); audio.play('meow', 1.4); return true;
   }
   scratchStar() {
     const b = this.b;
@@ -87,10 +133,14 @@ export class CatPowers {
     for (const g of [...this.ghosts]) {
       if (g.wait > 0) { g.wait -= dt; if (g.wait <= 0 && ghostConflicts(g.target, b)) g.wait = .5; if (g.wait > 0) continue; }
       if (ghostConflicts(g.target, b)) { g.wait = .5; continue; }
-      g.t += dt; const k = Math.min(1, g.t / g.duration); g.mesh.position.lerpVectors(g.from, g.target, k); g.mesh.position.y += Math.sin(k * Math.PI) * 5;
+      g.t += dt; const k = Math.min(1, g.t / g.duration); if (g.samples) {
+        let i = 1; while (i < g.samples.length - 1 && g.samples[i].t < g.t) i++;
+        const a = g.samples[i - 1], c = g.samples[i];
+        g.mesh.position.lerpVectors(a.pos, c.pos, Math.min(1, Math.max(0, (g.t - a.t) / (c.t - a.t))));
+      } else { g.mesh.position.lerpVectors(g.from, g.target, k); g.mesh.position.y += Math.sin(k * Math.PI) * g.apex; }
       if (k >= 1) {
         if (!b.player.dead && Math.hypot(b.player.pos.x - g.target.x, b.player.pos.z - g.target.z) < 1.8 && b.player.pos.y - g.target.y < 1.4) b.player.hurt('flat', g.target.x, g.target.z);
-        b.stage.scene.remove(g.mesh); this.ghosts.splice(this.ghosts.indexOf(g), 1);
+        retireGhost(g); this.ghosts.splice(this.ghosts.indexOf(g), 1);
       }
     }
     for (const t of [...this.trails]) {
@@ -138,9 +188,10 @@ export class CatPowers {
       const tell = b.tele(.55);
       if (this.waypoint === 4 && this.t < tell - .3) this.target.copy(b.player.pos).setY(b.home.y);
       this.dot.position.set(this.target.x, .06, this.target.z); b.marker.visible = true; b.marker.position.copy(this.dot.position); b.rig.pose('crouch', dt); b.faceTo(this.target, dt);
-      if (this.t >= tell) { this.from = b.pos.clone(); this.step = 'leap'; this.t = 0; this.recordLeap(this.from, this.target, .75 / b.sp); audio.play('pounce'); }
+      if (this.t >= tell) { this.from = b.pos.clone(); this.step = 'leap'; this.t = 0; this.startLeap(this.from, this.target, .75 / b.sp); audio.play('pounce'); }
     } else {
       const k = Math.min(1, this.t / (.75 / b.sp)); b.pos.lerpVectors(this.from, this.target, k); b.pos.y = b.home.y + Math.sin(k * Math.PI) * 5; b.rig.pose('leap', dt, k);
+      this.sampleLeap(this.t, b.pos, k >= 1);
       if (k >= 1) {
         const hit = this.land();
         if (this.waypoint < 4) { this.step = 'move'; this.nextWaypoint(); }

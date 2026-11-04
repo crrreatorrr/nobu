@@ -207,3 +207,57 @@ test('stage3 damage releases a saved-pounce ghost, and defeat removes every Cat 
   expect(game.session.onBossDefeated).toHaveBeenCalledWith(boss);
   expect(boss.powers.ghosts).toHaveLength(0); expect(model.parent).toBeNull(); expect(nip.dead).toBe(true);
 });
+
+test('final Frenzy ghost replays the recorded path at several times when catnip expires midflight', () => {
+  const { boss } = fixture(3), p = boss.powers;
+  boss.setState('frenzy'); boss.did = true; boss.fz = 'leap'; boss.fzT = 0; boss.frenzyLeft = 1;
+  boss.leapFrom.set(-4, 0, -4); boss.target.set(4, 0, 4); boss.pos.copy(boss.leapFrom);
+  p.catnipT = .1; p.startLeap(boss.leapFrom, boss.target, .55 / boss.sp, 4);
+  const launchDuration = p.recording.duration, observed = [];
+  let elapsed = 0;
+  while (boss.state === 'frenzy') { boss.update(1 / 120); elapsed += 1 / 120; observed.push({ t: elapsed, pos: boss.pos.clone() }); }
+  expect(p.lastLeap.duration).toBeCloseTo(elapsed); expect(p.lastLeap.duration).toBeGreaterThan(launchDuration);
+  expect(p.lastLeap.samples.length).toBeLessThan(256); expect(p.ghosts).toHaveLength(1);
+  const ghost = p.ghosts[0]; expect(ghost.duration).toBeCloseTo(elapsed); expect(ghost.apex).toBe(4); ghost.wait = 0;
+  let replayTime = 0;
+  for (const index of [3, 8, 12, 20, 30, 40]) {
+    const point = observed[index]; p.update(point.t - replayTime); replayTime = point.t;
+    expect(ghost.mesh.position.distanceTo(point.pos)).toBeLessThan(1e-8);
+  }
+});
+
+test('repeated ghost landing and reset retire owned materials and fallback geometry exactly once', () => {
+  const { boss } = fixture(3), p = boss.powers;
+  for (let i = 0; i < 5; i++) {
+    p.recordLeap(new THREE.Vector3(-4, 0, 0), new THREE.Vector3(4, 0, 0), .2); p.ghost();
+    const ghost = p.ghosts[0], materialSpies = [...ghost.materials].map(m => vi.spyOn(m, 'dispose'));
+    const geometrySpies = [...ghost.geometries].map(g => vi.spyOn(g, 'dispose'));
+    expect(geometrySpies).toHaveLength(1);
+    if (i % 2) p.reset(); else { ghost.wait = 0; p.update(.21); }
+    p.reset(); expect(ghost.mesh.parent).toBeNull();
+    for (const spy of [...materialSpies, ...geometrySpies]) expect(spy).toHaveBeenCalledTimes(1);
+  }
+});
+
+test('actual Stage.dispose closes Cat-owned resources while preserving borrowed asset geometry, materials and textures', async () => {
+  const { Assets } = await import('../src/art/assets.js');
+  const borrowedGeometry = new THREE.BoxGeometry(1, 1, 1), borrowedTexture = new THREE.Texture();
+  const borrowedMaterial = new THREE.MeshBasicMaterial({ map: borrowedTexture });
+  const geoDispose = vi.spyOn(borrowedGeometry, 'dispose'), textureDispose = vi.spyOn(borrowedTexture, 'dispose'), materialDispose = vi.spyOn(borrowedMaterial, 'dispose');
+  const source = vi.spyOn(Assets, 'model').mockImplementation(id => id === 'model_ghost_cat' ? new THREE.Mesh(borrowedGeometry, borrowedMaterial) : null);
+  try {
+    for (let i = 0; i < 3; i++) {
+      const { game } = fixture(); const stage = new Stage(game, 2); stage.catArena = stage.add(new CatArena(stage));
+      const boss = stage.add(new BigCatBoss(stage, 0, 0, -6)); boss.phase = 3; boss.beginPhase();
+      const p = boss.powers; p.recordLeap(new THREE.Vector3(), new THREE.Vector3(6, 0, 0), .5); p.ghost();
+      const ghost = p.ghosts[0], owned = [p.dot.geometry, p.dot.material, ...p.silhouetteMaterials, ...ghost.materials];
+      expect(ghost.geometries.size).toBe(0);
+      for (const tile of stage.catArena.tiles) owned.push(tile.mesh.geometry, tile.mesh.material);
+      const spies = owned.map(value => vi.spyOn(value, 'dispose'));
+      stage.dispose(); stage.dispose();
+      expect(p.ghosts).toHaveLength(0); expect(p.dot.parent).toBeNull(); expect(p.silhouette.parent).toBeNull();
+      for (const spy of spies) expect(spy).toHaveBeenCalledTimes(1);
+    }
+    expect(geoDispose).not.toHaveBeenCalled(); expect(textureDispose).not.toHaveBeenCalled(); expect(materialDispose).not.toHaveBeenCalled();
+  } finally { source.mockRestore(); }
+});

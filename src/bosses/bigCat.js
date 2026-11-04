@@ -390,7 +390,7 @@ export class BigCatBoss extends Boss {
         if (this.stateT >= beat * 3) {
           this.rig.setCount(0);
           this.leapFrom.copy(this.pos);
-          this.powers.recordLeap(this.leapFrom, this.target, .75 / this.sp);
+          this.powers.startLeap(this.leapFrom, this.target, .75 / this.sp);
           this.setState('leap');
           audio.play('pounce');
         }
@@ -402,6 +402,7 @@ export class BigCatBoss extends Boss {
         this.pos.lerpVectors(this.leapFrom, this.target, k);
         this.pos.y = this.home.y + Math.sin(k * Math.PI) * 5;
         this.rig.pose('leap', dt, k);
+        this.powers.sampleLeap(this.stateT, this.pos, k >= 1);
         if (k >= 1) {
           this.marker.visible = false;
           audio.play('stomp');
@@ -546,13 +547,14 @@ export class BigCatBoss extends Boss {
           this.marker.visible = true;
           this.marker.position.set(this.target.x, this.pos.y + 0.06, this.target.z);
           this.marker.scale.setScalar(1 + Math.sin(this.fzT * 30) * 0.08);
-          if (this.fzT > this.tele(0.5 / this.sp)) { this.fz = 'leap'; this.fzT = 0; this.leapFrom.copy(this.pos); this.powers.recordLeap(this.leapFrom, this.target, .55 / this.sp); audio.play('pounce'); }
+          if (this.fzT > this.tele(0.5 / this.sp)) { this.fz = 'leap'; this.fzT = 0; this.leapFrom.copy(this.pos); this.powers.startLeap(this.leapFrom, this.target, .55 / this.sp, 4); audio.play('pounce'); }
         } else if (this.fz === 'leap') {
           this.fzT += dt;
           const k = Math.min(1, this.fzT / (0.55 / this.sp));
           this.pos.lerpVectors(this.leapFrom, this.target, k);
           this.pos.y = this.home.y + Math.sin(k * Math.PI) * 4;
           this.rig.pose('leap', dt, k);
+          this.powers.sampleLeap(this.fzT, this.pos, k >= 1);
           if (k >= 1) {
             this.marker.visible = false;
             audio.play('stomp');
