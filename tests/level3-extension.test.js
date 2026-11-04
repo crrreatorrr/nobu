@@ -237,3 +237,15 @@ test('the gantry leaves the actual vertical fan/arrow approach column clear',()=
  const blockers=stage.world.query(p.x-.36,p.y,p.z-.36,p.x+.36,p.y+7.2,p.z+.36,[]);
  expect(blockers).toEqual([]);
 });
+
+test('actual trial World closes raised detours even when the original fan can lift past the launcher',()=>{
+ const {stage}=build(true,.001,true),tr=stage.track;
+ expect(stage.entities.some(e=>e.constructor.name==='Zipline')).toBe(false);
+ expect(stage.entities.some(e=>e instanceof FactoryDetourRecovery)).toBe(false);
+ expect(stage.sections.some(section=>section.detour)).toBe(false);
+ const p=tr.toWorld(279,-2.8,7);
+ expect(stage.world.query(p.x-.36,p.y-.02,p.z-.36,p.x+.36,p.y+1.3,p.z+.36,[])).toEqual([]);
+ // Required baseline fan dog and blue bone remain in the main-route trial.
+ expect(stage.entities.some(e=>e.dogId==='3:corgi-a')).toBe(true);
+ expect(stage.entities.some(e=>e.color==='blue')).toBe(true);
+});

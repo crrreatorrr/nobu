@@ -1,8 +1,10 @@
 # H32 Cone Factory candidate review
 
-Layout 1 remains the registry's builder. `buildLevel3Layout2` is the explicit review candidate; this branch does not switch trial layouts, trial targets, the dog registry, or upload variants. Root must perform that serial integration only after owner approval of the placements/cap and the required board announcement. No deployment is authorized here.
+Layout 1 remains the registry's builder. `buildLevel3Layout2` is the explicit review candidate; this branch does not switch trial layouts, trial targets, the dog registry, or upload variants. Root must perform that serial integration after independent review and exact CI. The owner authorized the tested placements, fixed source-formula caps and timer/board transition on2026-11-04 (see below). No deployment is authorized here.
 
-## Owner decisions required before activation/merge
+## Owner-authorized corrections
+
+On2026-11-04 the owner told the parent agent: “im the only user right now, so change anything and reset timers”. The parent confirmed this authorizes these tested corrections and fixed cap101, and clears the board-announcement gate. Independent review, actual physics proof and CI remain required; this instruction does not authorize deployment or permissions changes.
 
 The unchanged Tier 3 validator rejects the literal Vat Overflow route. The candidate uses these concrete corrections, with unchanged player tuning and no validator exceptions:
 
@@ -43,7 +45,7 @@ Measured from fresh actual builders at both random payout extremes, including or
 | Arena | 7 |
 | **Total** | **302 → 100 whole** |
 
-There are no coconuts. The current approved cap **86** is unchanged and correctly rejects this candidate. The source's formula proposes **101**: `ceil((55 × 419 / 244) / 5) × 5 + 2 × 3`. Layout1's actual combined maximum is 167raw→55whole. The candidate fits 101. A separately fixed cap99 fails; 101 passes. The cap is never derived from the current measured budget. Owner approval of 101 remains required.
+There are no coconuts. The current approved cap **86** is unchanged and correctly rejects this candidate. The source's formula proposes **101**: `ceil((55 × 419 / 244) / 5) × 5 + 2 × 3`. Layout1's actual combined maximum is 167raw→55whole. The candidate fits 101. A separately fixed cap99 fails; 101 passes. The cap is never derived from the current measured budget. The parent confirmed cap101 is authorized by the owner’s broad instruction. Root still owns the serial cap/layout activation.
 
 ## Implementation and validation
 
@@ -53,7 +55,9 @@ There are no coconuts. The current approved cap **86** is unchanged and correctl
 - Two downstream detours leave permanent return walks; `validateDetours` passes. Failed raised excursions restore packs, dogs, field tickets, balances, Snack raw and entry lives without incrementing deaths or changing the ordinary checkpoint. Real Session regression exercises that path. Each detour resets only its own entities; earlier excursions remain banked. Normal-height return capsules use clear permanent approach pads (Duct190.5/x3; Rails272.5/x−2.8), avoiding the slide roof and fan base.
 - Local reversing belt changes actual conveyor force and UV scrolling direction every4s, with a one-second flashing lamp/two-tone synthesized warning, reset on death. No new media.
 - `buildBoss3Arena` is byte-identical to base3f1d05a (SHA256 d799abc2c461cc825c4ca81a7e34ed88fcaaf8ce15c3f7c2f4722266ad5af575). No Evil Cone code changes.
-- Focused candidate tests:15 passing. Full suite on53fe701 before the gantry/return-pad correction:64files/630tests passing; build passing. The final corrected source rerun is pending below.
+- Focused candidate tests:16 passing; combined candidate/trial-bound/score-queue run33 passing. Full corrected source10b667b:64files/632tests passing; build passing. The final trial-detour closure rerun is pending below.
+
+Trial closure omits both detours and their raised geometry entirely. Disabling only the optional arrow was insufficient because the original fan could still lift onto the gantry. An actual trial World regression checks that no gantry/cables remain while the original fan dog and blue bone remain on the main route. Shared trial targets/layout/SDK are untouched.
 
 ## Assisted browser verification
 

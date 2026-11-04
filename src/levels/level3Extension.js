@@ -92,7 +92,9 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
   k.guideArc(-1.8,1.6,340,1.4,346,1.6,8); k.guideArc(-.4,4,349,1.8,359,1.2,10); k.guideArc(.6,6.2,362.5,.6,372,2.2,10);
   k.floor(379,380,{y:9,style:'platform',depth:.6}); k.floor(380,381,{y:[9,0],style:'platform',depth:.6});
 
-  addFactoryDetours(k,game,stage,track);
+  // The existing fan can bypass a disabled launcher: time trials omit
+  // the raised detour geometry itself, leaving the original main route intact.
+  if (!game.session.trial) addFactoryDetours(k,game,stage,track);
   k.colorPath('purple',[[-3.4,1.6,315.5,1.6,1.8],[-3.4,3.2,319,1.6,1.8],[-3,4.8,323,2.4,3.2]],{jackpot:15});
 }
 
@@ -115,9 +117,7 @@ function addFactoryDetours(k,game,stage,track) {
   k.platform(3,1,188,1.5,2,.2);
   stage.add(new FactoryDetourRecovery(stage,ducts,{entryX:3,exitD:200.7,backD:190.5}));
 
-  const launch=k.arrowBox(-2.8,0,275,17);
-  // Trials have closed side routes; suppress only this optional launch.
-  if (game.session.trial) { launch.onLand=()=>false; launch.onHeadHit=()=>false; }
+  k.arrowBox(-2.8,0,275,17);
   const railFrom=stage.entities.length;
   const rails=k.detour(276,312,{y:7,entry:'launch',x:-2.8,build(kd) {
     kd.section(LABELS.overheadRails); kd.platform(-2.8,0,279,3,3);
