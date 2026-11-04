@@ -12,10 +12,12 @@ const minMs = (a, b) => a == null ? b : b == null ? a : Math.min(a, b);
 export const platinumEligible = (ctx = {}) => !(ctx.god || ctx.godUsed || ctx.remix || ctx.rush || ctx.dda || ctx.ddaUsed);
 export function masteryTrialMedal(variant, seconds, ctx = {}, table = TRIAL_TARGETS) {
   const targets = masteryTargets(variant, table);
-  if (!targets || !Number.isFinite(seconds) || !validMs(variant, Math.round(seconds * 1000))) return null;
-  const [gold, silver, bronze, platinum] = targets;
-  return platinum != null && seconds <= platinum && platinumEligible(ctx) ? 'platinum'
-    : seconds <= gold ? 'gold' : seconds <= silver ? 'silver' : seconds <= bronze ? 'bronze' : null;
+  if (!targets || !Number.isFinite(seconds)) return null;
+  const ms = Math.round(seconds * 1000);
+  if (!validMs(variant, ms)) return null;
+  const [gold, silver, bronze, platinum] = targets.map((t) => t == null ? null : Math.round(t * 1000));
+  return platinum != null && ms <= platinum && platinumEligible(ctx) ? 'platinum'
+    : ms <= gold ? 'gold' : ms <= silver ? 'silver' : ms <= bronze ? 'bronze' : null;
 }
 
 // God-used belongs to the fastest record, not the tab's current toggle. A slower
@@ -29,7 +31,7 @@ export function trialMastery(variant, record, table = TRIAL_TARGETS) {
   const bestEligibleMs = minMs(ownEligible, savedEligible);
   let medal = masteryTrialMedal(variant, record.ms / 1000, { godUsed }, table);
   const platinum = masteryTargets(variant, table)?.[3];
-  if (platinum != null && bestEligibleMs != null && bestEligibleMs <= platinum * 1000) medal = 'platinum';
+  if (platinum != null && bestEligibleMs != null && bestEligibleMs <= Math.round(platinum * 1000)) medal = 'platinum';
   return { ...record, godUsed, bestEligibleMs, medal };
 }
 export function mergeTrialMastery(variant, mine, incoming, table = TRIAL_TARGETS) {

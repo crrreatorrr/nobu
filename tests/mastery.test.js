@@ -14,6 +14,15 @@ describe('Platinum eligibility records', () => {
     expect(masteryTrialMedal(1, 50)).toBe('platinum'); expect(masteryTrialMedal(1, 50.001)).toBe('gold');
     expect(masteryTrialMedal(1, 49, { godUsed: true })).toBe('gold'); expect(masteryTrialMedal(1, 0)).toBeNull();
   });
+  it('uses accepted integer milliseconds at the live/result/reload Platinum rounding boundary', () => {
+    for (const seconds of [49.9994, 49.9995, 50, 50.0004, 50.0005, 50.0006]) {
+      const ms = Math.round(seconds * 1000), expected = ms <= 50000 ? 'platinum' : 'gold';
+      const live = masteryTrialMedal(1, seconds);
+      const stored = trialMastery(1, rec(ms, false, { best: seconds }));
+      const reloaded = trialMastery(1, JSON.parse(JSON.stringify(stored)));
+      expect(live).toBe(expected); expect(stored.medal).toBe(live); expect(reloaded.medal).toBe(live);
+    }
+  });
   it('persists a god-used best as ineligible even after the current toggle is off and reload normalization', () => {
     const first = trialMastery(1, rec(45000, true));
     expect(first).toMatchObject({ godUsed: true, bestEligibleMs: null, medal: 'gold' });
