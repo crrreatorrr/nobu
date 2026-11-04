@@ -46,8 +46,8 @@ export const BOSS_TALK = {
       ['bird', 'Hold still, mutt. Delivery guaranteed in 30 seconds or your cone is free!'],
       ['mask', 'Wait for it to crash into the ground, then BITE or JUMP on it!'],
     ],
-    phase2: [['bird', 'Lucky dodge! Try my FEATHER MISSILES. Premium shipping!']],
-    phase3: [['bird', 'ENOUGH! Plan C: cones from ABOVE. Look up, doggo!']],
+    phase2: [['bird', 'Lucky dodge! Try my FEATHER MISSILES. Premium shipping!'], ['mask', 'It drops the CAGE where your shadow is. Keep moving! Stuck? Mash BITE!']],
+    phase3: [['bird', 'ENOUGH! Plan C: cones from ABOVE. Look up, doggo!'], ['mask', 'Those drones fly low. Bite one for a Blue Sphere!']],
   },
   cat: {
     intro: [
@@ -223,3 +223,4 @@ export const SECTION_TEXT = {
   living: 'Living Room', hallway: 'Hallway', toys: 'Toy Piles', firstPit: 'First Pit',
   rafts: 'Underground Rafts', redBone: 'Red Bone', steps: 'Lunchbox Steps', exit: 'Exit', path: 'the path',
 };
+export const BIRD_STAGE_POWERS = { 2: 'Feather volleys · laser eye · cage drop · wind lanes', 3: 'Homing missiles · egg bombs · drone escort · laser combos' };

@@ -1,5 +1,5 @@
 // M0 moves existing numbers without enabling the later boss powers or tuning.
-// H21-H23 switch this on together with those powers after their playtests.
+// H21 enables Bird explicitly; H22/H23 enable their own rows with their powers.
 export const M2_ON = false;
 
 // Bird/Cat retain their original restart policy until the H20 owner decision.
@@ -18,7 +18,7 @@ export const TIER = {
 
 export const BOSS = {
   bird: { hp: 6, perStage: 2, stages: 3, speed: [1, 1.2, 1.4], window: [2.7, 2.4, 2.2],
-    tele: M2_ON ? [1, 0.88, 0.78] : [1, 1, 1], chain: M2_ON ? [1, 1, 2] : [1, 1, 1] },
+    tele: [1, 0.88, 0.78], chain: [1, 1, 2] },
   cat: { hp: 6, perStage: 2, stages: 3, speed: [1, 1.2, 1.45], window: M2_ON ? [2.7, 2.4, 2] : [2.8, 2.4, 2],
     tele: M2_ON ? [0.95, 0.84, 0.74] : [1, 1, 1], chain: M2_ON ? [1, 2, 2] : [1, 1, 1] },
   cone: { hp: 9, perStage: 3, stages: 3, speed: [1, 1.25, 1.5], window: [1.8, 1.4, 1.1],

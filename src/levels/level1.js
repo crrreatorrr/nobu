@@ -1,3 +1,4 @@
+import { buildBirdArena } from '../bosses/birdArena.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
@@ -221,6 +222,7 @@ export function buildLevel1(game, stage, tickets) {
 
 export function buildBoss1Arena(game, stage, tickets) {
   const k = makeKit(game, stage, tickets);
+  const birdArena = buildBirdArena(k, stage);
   stage.block(-12, -6, -12, 12, 0, 12, 'ground');
   for (let i = 0; i < 16; i++) {
     const a = (i / 16) * Math.PI * 2;
@@ -245,6 +247,8 @@ export function buildBoss1Arena(game, stage, tickets) {
   k.sphere(9, 0, -9);
   k.tix(-6, 0, -6, 6, 0, -6, 7);
   return {
+    ...birdArena,
+    fov: 68, // Keep the new high perch tells below the boss HUD.
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
     camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 11.5, z: 16 }, follow: 0.45 },
