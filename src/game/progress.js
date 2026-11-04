@@ -11,6 +11,17 @@ export const availableMilestones = (n) => n > 0 ? KENNEL_MILESTONES.filter((m) =
 export function kennelUnlocks(save, n, freed = dogsFreedCount(save)) {
   return availableMilestones(n).filter((m) => freed >= (m.at === 'all' ? n : m.at)).map((m) => m.id);
 }
+// Track milestone identities as well as the legacy count: the current-total
+// Golden milestone may unlock before later fixed thresholds have shipped.
+export function noticeKennelMilestones(data, reg) {
+  const kennel = data.kennel ||= { seen: 0 };
+  const unlocked = kennelUnlocks(data, totalDogs(reg), dogsFreedCount(data, reg));
+  const flags = kennel.seenMilestones ||= Object.fromEntries(unlocked.slice(0, kennel.seen || 0).map((id) => [id, true]));
+  const fresh = unlocked.filter((id) => !flags[id]);
+  for (const id of unlocked) flags[id] = true;
+  kennel.seen = Math.max(kennel.seen || 0, unlocked.length);
+  return fresh;
+}
 const COLORS = { cave: 'red', 2: 'blue', 4: 'green', 6: 'purple', 5: 'yellow' };
 const colors = (reg) => [...new Set(entries(reg).map((e) => e.colorBone || COLORS[e.id]).filter(Boolean))];
 export function basePointsMax(reg) {

@@ -1,6 +1,7 @@
 // Dev-only playtest helpers (loaded by main.js when running `npm run dev`).
 // In the console: await T.go(1) starts level 1; T.warp(120) jumps to distance 120; T.boss() skips to the boss.
 import { gatedCountables } from './game/gateRules.js';
+import { installKennelChecks } from './game/kennelChecks.js';
 import { installTuningTools } from './dev/tuning.js';
 import { inspectTicketBudget } from './game/devTicketBudget.js';
 
@@ -183,6 +184,7 @@ export function installDevTools(game) {
     },
   };
   installTuningTools(game, T);
+  installKennelChecks(game);
   window.T = T;
   // Browsers pause requestAnimationFrame in hidden tabs; keep the game ticking for automated playtests.
   setInterval(() => { if (document.hidden && game.ui) game.loop(performance.now(), true); }, 16);

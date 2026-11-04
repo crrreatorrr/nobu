@@ -96,7 +96,7 @@ export function makeKit(game, stage, tickets, track = null) {
     toys(x, y, d, w) { const p = W(x, y, d); return add(new ToyPile(stage, p.x, p.y, p.z, { w, yaw: yawAt(d) })); },
     leg(x, y, d, o) { const p = W(x, y, d); return add(new FurnitureLeg(stage, p.x, p.y, p.z, o)); },
     // ---- dogs ----
-    dog: (x, y, d, breed) => faced(at(ConedDog, x, y, d, { breed }), d),
+    dog: (x, y, d, breed, { id } = {}) => faced(at(ConedDog, x, y, d, { breed, id }), d),
     bgDog(x, y, d, o) { const p = W(x, y, d); return backgroundDog(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) + Math.PI + rand(-0.4, 0.4) }); },
     // ---- tickets ----
     tix(x0, y0, d0, x1, y1, d1, n) {

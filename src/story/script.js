@@ -224,3 +224,16 @@ export const SECTION_TEXT = {
   rafts: 'Underground Rafts', redBone: 'Red Bone', steps: 'Lunchbox Steps', exit: 'Exit', path: 'the path',
 };
 export const BIRD_STAGE_POWERS = { 2: 'Feather volleys · laser eye · cage drop · wind lanes', 3: 'Homing missiles · egg bombs · drone escort · laser combos' };
+
+export const KENNEL_TEXT = {
+  title: 'THE KENNEL', mapDescription: 'Your rescued pack is waiting in the yard.', mapControls: 'SPACE / ENTER enter · ESC title', names: { jukebox: 'JUKEBOX', buddy: 'BUDDY', fur: 'FUR', gallery: 'GALLERY', sniffer: 'SNIFFER', golden: 'GOLDEN KENNEL' },
+  count: (freed, total) => `${freed}/${total} dogs rescued`, needed: (n) => `${n} dogs to go:`, more: (n) => `+${n} more dogs`,
+  badges: 'CHOMP CHAIN BADGES', goldenTitle: 'GOLDEN KENNEL', goldenSpeaker: 'SPROTO MASK',
+  golden: 'Every. Single. Dog. Nobu, the island owes you a lifetime supply of belly rubs.',
+  continue: 'SPACE / ENTER: continue', play: 'SPACE: play · ESC: stop', choose: 'SPACE / ENTER: choose',
+  controls: '◀ ▶ choose · SPACE / ENTER select · L / E bark for Sniffer · ESC back',
+  allFound: 'Every secret in the open levels has been found. Good boy!',
+  labels: { none: 'NONE', cream: 'CREAM', shadow: 'SHADOW', ginger: 'GINGER', chompGold: 'CHOMP GOLD', shiba: 'SHIBA', corgi: 'CORGI', pug: 'PUG', dalmatian: 'DALMATIAN' },
+  secretLine: (level) => [level.hidden && `Hidden Bone near ${level.hidden.section}${level.hidden.move ? ` (needs ${{ dust: 'DUST DASH', moon: 'MOON JUMP', glide: 'TAIL GLIDE', zoom: 'ZOOMIES', bark: 'MEGA BARK' }[level.hidden.move] || level.hidden.move})` : ''}`,
+    ...Object.entries(level.dogs.reduce((sections, dog) => ({ ...sections, [dog.section]: (sections[dog.section] || 0) + 1 }), {})).map(([section, n]) => `${n} ${n === 1 ? 'dog' : 'dogs'} near ${section}`)].filter(Boolean).join(' · '),
+};

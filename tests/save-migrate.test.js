@@ -117,7 +117,7 @@ describe('save v3 migration', () => {
     expect(save.data.dogsFreed).toEqual({ '1:shiba-a': true, '6:corgi-b': true });
     expect(save.data.bossMedals).toEqual({ queen: { clear: true, noHit: false, speed: true, bestMs: 12345 } });
     expect(save.data.rush).toEqual({ clear: true, noHit: false, bestMs: null });
-    expect(save.data.kennel).toEqual({ seen: 6, buddy: null, tint: 'shadow' });
+    expect(save.data.kennel).toEqual({ seen: 6, buddy: null, tint: 'shadow', goldenSeen: false, seenMilestones: {} });
     expect(save.data.colorBones).toEqual({ green: true, yellow: true, purple: true });
     expect(save.data.secretSeen).toBe(false);
   });
@@ -162,14 +162,14 @@ describe('keyed runtime readers', () => {
     const open = () => MAP_ORDER.filter((id) => isOpen(id, save.data));
     expect(save.hasProgress()).toBe(false);
     expect(open()).toEqual([1]);
-    for (const [level, expected] of [[1, [1, 'ride', 2]], [2, [1, 'ride', 2, 'cave', 3]], [3, MAP_ORDER]]) {
+    for (const [level, expected] of [[1, [1, 'ride', 2]], [2, [1, 'ride', 2, 'cave', 3]], [3, MAP_ORDER.filter((id) => id !== 'kennel')]]) {
       Game.prototype.levelCleared.call(game, { level, levelTickets: 0 });
       expect(open()).toEqual(expected);
       expect(save.hasProgress()).toBe(true);
     }
     save.write();
     save.load();
-    expect(open()).toEqual(MAP_ORDER);
+    expect(open()).toEqual(MAP_ORDER.filter((id) => id !== 'kennel'));
     bank.mockRestore();
   });
 

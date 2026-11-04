@@ -1,6 +1,7 @@
 // Progress persistence in localStorage (every access wrapped; the game runs fine without it).
 import { TRIAL_FLOOR_MS, TRIAL_LEVELS, trialMedal, trialLayout, trialVariant } from '../config/trials.js';
 import { LEVEL_IDS, LEVEL_DOGS } from '../levels/metadata.js';
+import { KENNEL_MILESTONES, kennelUnlocks } from '../game/progress.js';
 
 const KEY = 'nobu-saviour-dog-save-v1';
 // A save that does not parse is copied here before the game starts fresh, so it is never lost outright.
@@ -24,7 +25,7 @@ function fresh() {
     perfect: {},
     remix: {},
     rush: { clear: false, noHit: false, bestMs: null },
-    kennel: { seen: 0, buddy: null, tint: null },
+    kennel: { seen: 0, buddy: null, tint: null, goldenSeen: false, seenMilestones: {} },
     trialsClassic: {},
     gauntlets: {},
     lastMiss: {},
@@ -184,9 +185,14 @@ function sanitize(d) {
   d.lastMiss = sanitizeMiss(d.lastMiss);
   d.secretSeen = d.secretSeen === true;
   const kennel = isObj(d.kennel) ? d.kennel : {};
-  d.kennel = { seen: Math.min(6, Math.max(0, Math.floor(finite(kennel.seen, 0)))),
+  d.kennel = { goldenSeen: kennel.goldenSeen === true, seen: Math.min(6, Math.max(0, Math.floor(finite(kennel.seen, 0)))),
     buddy: ['shiba', 'pug', 'dalmatian', 'corgi'].includes(kennel.buddy) ? kennel.buddy : null,
     tint: ['cream', 'shadow', 'ginger', 'chompGold'].includes(kennel.tint) ? kennel.tint : null };
+  const knownDogs = Object.entries(LEVEL_DOGS).flatMap(([id, dogs]) => Object.keys(dogs).map((dog) => `${id}:${dog}`));
+  const earned = kennelUnlocks(d, knownDogs.length, knownDogs.filter((id) => d.dogsFreed[id]).length);
+  d.kennel.seenMilestones = isObj(kennel.seenMilestones)
+    ? boolMap(kennel.seenMilestones, KENNEL_MILESTONES.map((m) => m.id))
+    : Object.fromEntries(earned.slice(0, d.kennel.seen).map((id) => [id, true]));
   d.unlocked = Math.min(3, Math.max(1, Math.floor(finite(d.unlocked, 1))));
   d.lives = finite(d.lives, f.lives);
   d.tickets = finite(d.tickets, 0);
@@ -231,6 +237,9 @@ function mergeScores(mine, raw) {
   mine.rush = { clear: mine.rush.clear || disk.rush.clear, noHit: mine.rush.noHit || disk.rush.noHit,
     bestMs: minTime(bestMs(mine.rush.bestMs), disk.rush.bestMs) };
   mine.kennel.seen = Math.max(mine.kennel.seen, disk.kennel.seen);
+  mine.kennel.goldenSeen ||= disk.kennel.goldenSeen;
+  mine.kennel.seenMilestones ||= {};
+  Object.assign(mine.kennel.seenMilestones, disk.kennel.seenMilestones);
   const gauntlets = sanitizeGauntlets(mine.gauntlets);
   for (const [id, e] of Object.entries(disk.gauntlets)) {
     const cur = gauntlets[id] || {};

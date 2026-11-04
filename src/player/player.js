@@ -65,6 +65,7 @@ export class Player {
     this.modelKind = this.model instanceof NobuGlb ? 'glb' : 'classic';
     dressNobuModel(this.model, this.game?.loadout);
     this._equippedNeck = this.game?.loadout?.cosmeticSlots()?.neck || null;
+    this.game?.applyKennelTint?.(this.model);
   }
 
   attach(scene) {
