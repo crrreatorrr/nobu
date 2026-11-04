@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { World, rideGround } from '../src/world/physics.js';
 import { ArenaTiles, CandlePillar, Pedestal, ConveyorZone } from '../src/bosses/arena.js';
-import { Projectiles, Beam } from '../src/bosses/common.js';
+import { Projectiles, Beam, pullToward } from '../src/bosses/common.js';
 import { segmentDistanceSq, segmentBoxTime } from '../src/bosses/geometry.js';
 import { audio } from '../src/audio/audio.js';
 
@@ -70,6 +70,13 @@ describe('boss arena collision', () => {
 });
 
 describe('new shared projectiles', () => {
+  it('composes constant-force suction without a singularity at the target', () => {
+    const { player } = fixture();
+    pullToward(player, { x: 3, z: 4 }, 4);
+    expect(player.pushX).toBeCloseTo(2.4); expect(player.pushZ).toBeCloseTo(3.2);
+    pullToward(player, { x: 0, z: 0 }, 4);
+    expect(player.pushX).toBeCloseTo(2.4); expect(player.pushZ).toBeCloseTo(3.2);
+  });
   it('lands a cage, traps once, blocks feathers and beams, and clears its cover', () => {
     const { stage, game, player } = fixture(); const projectiles = new Projectiles(game, stage);
     const cage = projectiles.cage(0, 0);

@@ -824,6 +824,16 @@ export function dirTo(from, to) {
   return d.divideScalar(l);
 }
 
+// Constant horizontal suction, integrated through Player's existing collision
+// substeps. Distinct pulls can compose without allocating a temporary vector.
+export function pullToward(player, target, force) {
+  const dx = target.x - player.pos.x, dz = target.z - player.pos.z;
+  const distance = Math.hypot(dx, dz);
+  if (!distance || player.dead) return;
+  player.pushX = (player.pushX || 0) + dx / distance * force;
+  player.pushZ = (player.pushZ || 0) + dz / distance * force;
+}
+
 export function rotY(v, a) {
   const c = Math.cos(a), s = Math.sin(a);
   return new THREE.Vector3(v.x * c + v.z * s, v.y, -v.x * s + v.z * c);
