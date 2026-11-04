@@ -1,8 +1,8 @@
 import { TRIAL_TARGETS, TRIAL_FLOOR_MS, TRIAL_CEIL_MS } from '../config/trials.js';
 import { BOSS_SPEED_MS } from '../bosses/medals.js';
 
-// Rewards12.1 layout1 first-pass targets. Later level tasks own future variants.
-export const PLATINUM_LAYOUT1 = Object.freeze({ 1: 50, 2: 47, 3: 41 });
+import { PLATINUM_LAYOUT1 } from '../config/masteryTargets.js';
+export { PLATINUM_LAYOUT1 };
 export function masteryTargets(variant, table = TRIAL_TARGETS) {
   const row = table[variant];
   return row ? [row[0], row[1], row[2], row[3] ?? PLATINUM_LAYOUT1[variant]] : null;
