@@ -28,8 +28,8 @@ describe('M0 difficulty configuration', () => {
       b.phase = phase;
       expect(b.sp).toBe(expected.speed[phase - 1]);
       expect(b.W).toBe(expected.window[phase - 1]);
-      expect(b.tele(1)).toBe(1);
-      expect(b.chainLen).toBe(1);
+      expect(b.tele(1)).toBe(key === 'bird' ? [1,.88,.78][phase-1] : 1);
+      expect(b.chainLen).toBe(key === 'bird' ? [1,1,2][phase-1] : 1);
     }
   });
 
