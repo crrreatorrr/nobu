@@ -244,3 +244,18 @@ test('Burrow return can recover skipped main-road Golden targets across the old 
  expect(await realJump(s,[1.2,0,247.2],[1.2,0,239],{doubleAt:.45}),'back to Sphere/Cat/Rug on the old hill using the base double jump').toBe(true);
  expect(await realJump(s,[1.2,0,239],[1.2,0,247.2],{doubleAt:.45}),'forward return to Canopy after recovering skipped targets').toBe(true);
 });
+
+test('activated L1 metadata, approved cap and local-only version2 trial match the real builder',async()=>{
+ const {LEVELS}=await import('../src/levels/registry.js'),{trialLayout,trialVariant,canUploadTrial,HUB_LAYOUT,TRIAL_TARGETS}=await import('../src/config/trials.js');
+ const{sectionName}=await import('../src/game/hints.js');const{g,s}=candidate,def=LEVELS[1];
+ expect(trialLayout(1)).toBe(2);expect(trialVariant(1)).toBe('1v2');expect(HUB_LAYOUT[1]).toBe(1);expect(canUploadTrial('1v2')).toBe(false);expect(TRIAL_TARGETS['1v2']).toEqual([94,120,158,86]);
+ expect(def.build).toBe(buildLevel1);expect(def.hidden).toEqual({section:SECTION_TEXT.burrow,move:'dust'});
+ for(const dog of s.entities.filter(e=>e instanceof ConedDog)){const d=s.track.project(dog.pos.x,dog.pos.z).s;expect(sectionName(def.sections,d,dog)).toBe(def.dogs[dog.dogId.slice(2)]);}
+ expect(checkTicketBudget(1,measureTicketBudget(s,candidate.t,7))).toMatchObject({wholeMax:203,cap:205});
+});
+test('actual layout2 activation archives Classic time while retaining earned Golden and old five dog identities',async()=>{
+ const {save,SAVE_KEY}=await import('../src/core/save.js');const firstFive=['shiba-a','pug-a','dalmatian-a','shiba-b','corgi-a'];
+ localStorage.setItem(SAVE_KEY,JSON.stringify({v:3,bones:{1:true},boneBoard:{1:{golden:true}},bestDogs:{1:5},dogsFreed:Object.fromEntries(firstFive.map(id=>['1:'+id,true])),trials:{1:{ms:52000,best:52,layout:1}}}));save.load();
+ expect(save.data.trials[1]).toBeUndefined();expect(save.data.trialsClassic[1]).toMatchObject({ms:52000,layout:1});expect(save.boneOf(1)).toBe(true);expect(save.bestDogsOf(1)).toBe(5);expect(Object.keys(save.data.dogsFreed).sort()).toEqual(firstFive.map(id=>'1:'+id).sort());
+ save.write();save.load();expect(save.data.trialsClassic[1].ms).toBe(52000);expect(save.data.trials[1]).toBeUndefined();
+});

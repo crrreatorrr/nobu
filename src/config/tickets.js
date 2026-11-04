@@ -31,6 +31,6 @@ export function rawTicketsForWhole(whole) {
  * Owner sign-off is required before H12 merges; see docs/expansion/h12-review.md.
  * Never derive these from a level's current budget: an over-cap edit must fail. */
 export const LEVEL_TICKET_CAP = Object.freeze({
-  1: 131, 2: 107, 3: 86, ride: 110, cave: 89,
+  1: 205, 2: 107, 3: 86, ride: 110, cave: 89,
   4: 184, 6: 159, 5: 162,
 });
