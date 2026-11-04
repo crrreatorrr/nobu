@@ -13,6 +13,7 @@ import { dressNobuModel, setCollarGlow } from './accessories.js';
 import { makeShadow, placeShadow } from '../entities/fx.js';
 import { advanceHang } from './hang.js';
 import { rideVacuumMesh } from '../entities/ride.js';
+import { applyBossFling } from './bossFling.js';
 
 import { TUNING } from '../config/movement.js';
 export { TUNING } from '../config/movement.js';
@@ -76,6 +77,7 @@ export class Player {
   }
 
   reset() {
+    this.bossFling = null;
     this.mode = 'normal';
     this.hang = null;
     this._hangProjection = {};
@@ -384,6 +386,7 @@ export class Player {
       if (this.biteT >= 1) { this.biteT = -1; this.biteCooldown = 0.08; }
     }
 
+    applyBossFling(this, dt);
     // ---- physics (substeps keep thin platforms solid at fall speed) ----
     this.prevY = this.pos.y;
     const steps = Math.max(1, Math.ceil(dt / (1 / 120)));
@@ -687,6 +690,7 @@ export class Player {
   // ---------- damage ----------
   trap(sec) {
     if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || !(sec > 0)) return false;
+    this.bossFling = null;
     this.hang = null;
     this.mode = 'trapped'; this.trapT = sec; this.trapElapsed = 0;
     this.vel.x = 0; this.vel.z = 0; this.biteT = -1;
@@ -807,6 +811,7 @@ export class Player {
   }
 
   die(type = 'angel') {
+    this.bossFling = null;
     this._clearDustFov(); this.dustDashT = 0;
     if (this.mode === 'dead') return;
     if (this.god) { if (type === 'fall') this._rescue(); return; }
