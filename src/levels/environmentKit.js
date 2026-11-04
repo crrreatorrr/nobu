@@ -119,12 +119,15 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
     const detour = stage.add(new Detour(stage, track, entryD, exitD, opts));
     (stage.detours ||= []).push(detour);
     const before = stage.entities.length;
-    const kd = Object.create(k), base = opts.y;
+    const kd = Object.create(k), base = opts.y, autoSections = [];
+    let bound0 = Math.min(entryD,exitD), bound1 = Math.max(entryD,exitD);
+    const record = d => { if(Number.isFinite(d)){bound0=Math.min(bound0,d);bound1=Math.max(bound1,d);} };
     for (const name of Object.keys(k)) {
       if (typeof k[name] !== 'function') continue;
-      if (Y_AT_1.has(name) || name === 'W') kd[name] = (...args) => { args[1] = (args[1] ?? 0) + base; return k[name](...args); };
+      if (Y_AT_1.has(name) || name === 'W') kd[name] = (...args) => { record(args[2]); args[1] = (args[1] ?? 0) + base; return k[name](...args); };
     }
     kd.floor = (a, b, o = {}) => {
+      record(a); record(b);
       const dy = base + (o.y ?? 0), x = o.x ?? 0, w = o.w ?? 8.6;
       detour.floorCenter = x;
       if (base >= 8) {
@@ -138,7 +141,7 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
       if (base === 0 && !entryBridge && Math.abs(x) - w / 2 < 6.1) throw new Error('Side detour needs a 1.8m pit beyond the main floor');
       return k.floor(a, b, { ...o, y: dy });
     };
-    if (k.zipline) kd.zipline = (x0,y0,d0,x1,y1,d1,o) => k.zipline(x0,y0+base,d0,x1,y1+base,d1,o);
+    if (k.zipline) kd.zipline = (x0,y0,d0,x1,y1,d1,o) => {record(d0);record(d1);return k.zipline(x0,y0+base,d0,x1,y1+base,d1,o);};
     if (k.spinDrum) kd.spinDrum = (d,o={}) => k.spinDrum(d,{...o,y:(o.y??0)+base});
     if (k.boneSwitch) kd.boneSwitch = (x,y,d,plats) => k.boneSwitch(x,y+base,d,plats.map(([x,y,d,...rest])=>[x,y+base,d,...rest]));
     if (k.fence) kd.fence = (x,a,b,y=0) => k.fence(x,a,b,y+base);
@@ -148,17 +151,22 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
     kd.tix = (x0,y0,d0,x1,y1,d1,n) => k.tix(x0,y0+base,d0,x1,y1+base,d1,n);
     kd.tixArc = (x,y,d,x1,d1,h,n) => k.tixArc(x,y+base,d,x1,d1,h,n);
     kd.tixRing = (x,y,d,...rest) => k.tixRing(x,y+base,d,...rest);
-    kd.start = (x,y,d) => detour.startPos.copy(k.W(x,y+base,d));
-    kd.exit = (x,y,d) => { detour.exitPos = k.W(x,y+base,d); return detour.exitPos; };
-    kd.returnLeg = (a,b) => { if (a >= b) throw new Error('Return leg bounds must increase'); detour.returnLegs.push({d0:a,d1:b,from:stage.entities.length,solids:new Set()}); };
+    kd.start = (x,y,d) => {record(d);return detour.startPos.copy(k.W(x,y+base,d));};
+    kd.exit = (x,y,d) => { record(d); detour.exitPos = k.W(x,y+base,d); return detour.exitPos; };
+    kd.returnLeg = (a,b) => { if (a >= b) throw new Error('Return leg bounds must increase'); record(a);record(b);detour.returnLegs.push({d0:a,d1:b,from:stage.entities.length,solids:new Set()}); };
     kd.section = (...args) => {
       const [a,b,name] = args.length === 1 ? [Math.min(entryD,exitD),Math.max(entryD,exitD)+1,args[0]] : args;
-      if (k.section) return k.section(a,b,name,{detour:true});
-      const section = { d0:a,d1:b,name,detour:true }; track.sections.push(section); track.sections.sort((a,b)=>a.d0-b.d0); (stage.sections ||= []).push(section); return section;
+      let section;
+      if (k.section) section = k.section(a,b,name,{detour:true});
+      else { section = { d0:a,d1:b,name,detour:true }; track.sections.push(section); (stage.sections ||= []).push(section); }
+      if(args.length===1)autoSections.push(section);
+      track.sections.sort((a,b)=>a.d0-b.d0);return section;
     };
     kd.dark = (a,b,o={}) => k.dark(a,b,{...o,minY:base-1,baseY:base,x:o.x??detour.floorCenter??0});
     kd.camZone = (a,b,mode,o={}) => k.camZone(a,b,mode,{...o,minY:base-1});
     const result = opts.build(kd);
+    for(const section of autoSections){section.d0=bound0;section.d1=bound1+.001;}
+    track.sections.sort((a,b)=>a.d0-b.d0);
     if (result?.start) detour.startPos.copy(result.start);
     const collect = (e,set) => { if(e.solid)set.add(e.solid); for(const part of e.parts || [])if(part.solid)set.add(part.solid); };
     for (const e of stage.entities.slice(before)) collect(e,detour.solids);
