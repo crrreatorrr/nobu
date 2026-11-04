@@ -5,9 +5,6 @@ import { Stage } from '../world/stage.js';
 import { TicketSystem } from '../entities/tickets.js';
 import { FX } from '../entities/fx.js';
 import { Projectiles } from '../bosses/common.js';
-import { MechaBird } from '../bosses/mechaBird.js';
-import { BigCatBoss } from '../bosses/bigCat.js';
-import { EvilCone } from '../bosses/evilCone.js';
 import { BlueSphere, backpackModel } from '../entities/breakables.js';
 import { Breakable } from '../entities/entity.js';
 import { Enemy } from '../entities/enemies.js';
@@ -15,11 +12,7 @@ import { ConedDog } from '../entities/dogs.js';
 import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.js';
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
-import { buildLevel1, buildBoss1Arena } from '../levels/level1.js';
-import { buildLevel2, buildBoss2Arena } from '../levels/level2.js';
-import { buildLevel3, buildBoss3Arena } from '../levels/level3.js';
-import { buildBonusRide } from '../levels/bonusRide.js';
-import { buildBonusCave } from '../levels/bonusCave.js';
+import { levelDef, LEVEL_NAMES } from '../levels/registry.js';
 import { LEVEL_INTRO, BOSS_TALK } from '../story/script.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
@@ -40,21 +33,13 @@ const nextFrame = () => new Promise((r) => {
 
 export { TRIAL_TARGETS, trialMedal, fmtTime };
 
-const LEVELS = {
-  1: { build: buildLevel1, arena: buildBoss1Arena, Boss: MechaBird, bossKey: 'bird', theme: 1, bossTheme: 'boss1', name: 'Bark Jungle' },
-  2: { build: buildLevel2, arena: buildBoss2Arena, Boss: BigCatBoss, bossKey: 'cat', theme: 2, bossTheme: 'boss2', name: 'Scratchpost Canyon' },
-  3: { build: buildLevel3, arena: buildBoss3Arena, Boss: EvilCone, bossKey: 'cone', theme: 3, bossTheme: 'boss3', name: 'The Cone Factory' },
-  // bonus stages: no boss, unlocked on the map by beating the boss before them
-  ride: { build: buildBonusRide, theme: 'house', name: 'Roomba Rush', bonus: true },
-  cave: { build: buildBonusCave, theme: 'cave', name: 'Glowworm Grotto', bonus: true },
-};
-export const LEVEL_NAMES = Object.fromEntries(Object.entries(LEVELS).map(([k, v]) => [k, v.name]));
+export { LEVEL_NAMES };
 
 export class Session {
   constructor(game, level, { trial = false } = {}) {
     this.game = game;
     this.level = level;
-    this.def = LEVELS[level];
+    this.def = levelDef(level);
     this.trial = trial;      // time trial run: clock, freeze packs, no lives lost, ends at the boss gate
     this.trialT = 0;
     this.freezeT = 0;
@@ -247,7 +232,7 @@ export class Session {
 
   // ---------- secret warp ----------
   secretWarp(target) {
-    if (this.trial || this.busy || this.phase !== 'level' || !LEVELS[target]) return false;
+    if (this.trial || this.busy || this.phase !== 'level' || !levelDef(target)) return false;
     const g = this.game;
     this.busy = true;
     g.player.frozen = true;

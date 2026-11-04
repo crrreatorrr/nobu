@@ -13,22 +13,14 @@ import { Loadout } from '../gear/loadout.js';
 import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
+import { MAP_ORDER, levelDef, isOpen } from '../levels/registry.js';
 import { INTRO, RESCUE, ENDING, BETWEEN } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
-const MAP_NODES = { 1: { x: 24, y: 70 }, ride: { x: 34, y: 55 }, 2: { x: 50, y: 50 }, cave: { x: 66, y: 62 }, 3: { x: 77, y: 27 } };
-// walk order on the map; bonus stages sit between the main levels
-const MAP_ORDER = [1, 'ride', 2, 'cave', 3];
-const BONUS_AFTER = { ride: 0, cave: 1 }; // unlocked by beating that boss (beaten[] index)
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉' };
 function esc(text) {
   return String(text).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
-}
-function mapOpen(n) {
-  const d = save.data;
-  if (n in BONUS_AFTER) return !!d.beaten[BONUS_AFTER[n]] || !!d.bonus?.[n]?.found || !!d.bonus?.[n]?.beaten;
-  return n <= d.unlocked;
 }
 
 export class Game {
@@ -329,7 +321,7 @@ export class Game {
     this.ui.trialTime(null);
     this.state = 'map';
     this.session = null;
-    this.mapSel = mapOpen(sel) ? sel : Math.max(1, Math.min(typeof sel === 'number' ? sel : 1, save.data.unlocked));
+    this.mapSel = isOpen(sel, save.data) ? sel : Math.max(1, Math.min(typeof sel === 'number' ? sel : 1, save.data.unlocked));
     this.ui.hideHud();
     this.ui.bossHide();
     audio.playMusic('map');
@@ -341,9 +333,9 @@ export class Game {
     const d = save.data;
     let nodes = '';
     for (const n of MAP_ORDER) {
-      const p = MAP_NODES[n];
-      const bonus = n in BONUS_AFTER;
-      const locked = !mapOpen(n);
+      const p = levelDef(n).mapPos;
+      const bonus = levelDef(n).bonus;
+      const locked = !isOpen(n, d);
       const beaten = bonus ? !!d.bonus?.[n]?.beaten : d.beaten[n - 1];
       nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
         ${!beaten && !bonus ? '<div class="cone-cloud"></div>' : ''}
@@ -354,7 +346,7 @@ export class Game {
         <div class="label">${bonus && locked ? 'BONUS' : LEVEL_NAMES[n]}</div></div>`;
     }
     const lv = this.mapSel;
-    const bonusSel = lv in BONUS_AFTER;
+    const bonusSel = levelDef(lv).bonus;
     const head = bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
     const status = bonusSel
       ? (d.bonus?.[lv]?.beaten ? `Cleared! Best tickets: ${d.bonus[lv].best}` : lv === 'ride' ? 'A runaway robot vacuum is loose in the house. Ride it!' : 'Pitch dark. Stay close to Lumi the glowworm.')
@@ -496,14 +488,14 @@ export class Game {
     if (this.exchangeOpen) { this.updateExchange(); return; }
     if (input.pressed('wardrobe')) { audio.play('select'); this.openWardrobe('map'); return; }
     const d = save.data;
-    const open = MAP_ORDER.filter(mapOpen);
+    const open = MAP_ORDER.filter((n) => isOpen(n, d));
     const i = open.indexOf(this.mapSel);
     if (input.pressed('right') || input.pressed('up')) { if (i < open.length - 1) { this.mapSel = open[i + 1]; audio.play('menu'); this._drawMap(); } }
     if (input.pressed('left') || input.pressed('down')) { if (i > 0) { this.mapSel = open[i - 1]; audio.play('menu'); this._drawMap(); } }
     if (input.pressed('exchange')) { audio.play('select'); this.openExchange(); return; }
     if (input.pressed('hub')) { audio.play('select'); this.exitToHub(); return; }
     if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); this.startLevel(this.mapSel); }
-    else if (input.pressed('trial') && !(this.mapSel in BONUS_AFTER) && d.beaten[this.mapSel - 1]) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
+    else if (input.pressed('trial') && levelDef(this.mapSel).trial && d.beaten[this.mapSel - 1]) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
 
