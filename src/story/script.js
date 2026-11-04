@@ -187,6 +187,7 @@ export const REWARD_TEXT = {
   continue: 'Press any key', complete: (n) => `LEVEL ${n} COMPLETE!`, bonusComplete: 'BONUS STAGE CLEAR!',
   hintGolden: ({ dogs, packs, section }) => `Golden Bone: ${[dogs ? `${dogs} ${dogs === 1 ? 'dog' : 'dogs'}` : '', packs ? `${packs} ${packs === 1 ? 'backpack' : 'backpacks'}` : ''].filter(Boolean).join(' and ')} missed${section ? ` near ${section}` : ''}.`,
   hintGoodBoy: (n) => `Good Boy Bone: ${n} deaths, need 3 or fewer.`,
+  hintGoodBoyGod: 'Good Boy Bone: finish a run without God Mode and with 3 deaths or fewer.',
   hintGoodBoyGoal: 'Good Boy Bone: finish with 3 deaths or fewer.',
   hintSnackGoal: (target) => `Snack Bones: collect ${target}% of Tickets for ${target === 80 ? 'gold' : target === 60 ? 'silver' : 'bronze'}.`,
   hintSnack: (pct, target) => `Snack Bones: ${pct}% of Tickets, ${target}% for ${target === 80 ? 'gold' : target === 60 ? 'silver' : 'bronze'}.`,

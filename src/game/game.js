@@ -33,7 +33,7 @@ function esc(text) {
 function goalHint(game, id, stats = null) {
   const def = levelDef(id), data = save.data;
   return nextGoal(savedBoard(data, id), stats || savedGoalStats(data, id, def), {
-    hidden: def.hidden, bonus: def.bonus, trialAvailable: !!def.trial, god: !!data.godMode,
+    hidden: def.hidden, bonus: def.bonus, trialAvailable: !!def.trial, god: !!(data.godMode || stats?.godUsed || (stats && String(game.session?.level) === String(id) && game.session.godUsed)),
     sniffer: kennelUnlocks(data, totalDogs(LEVELS)).includes('sniffer'),
   }, game.player?.abilities || {}, REWARD_TEXT).text;
 }

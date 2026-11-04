@@ -81,6 +81,7 @@ it('map hints use only durable misses and dog IDs, with generic goals when the l
   expect(stats).not.toHaveProperty('deathsAtGate'); expect(stats).not.toHaveProperty('snackRaw');
   expect(nextGoal({}, {}).key).toBe('hintGoldenGoal');
   expect(nextGoal({golden:true},stats).key).toBe('hintGoodBoyGoal');
+  expect(nextGoal({golden:true,hidden:true,snack:3},{deathsAtGate:0},{god:true}).key).toBe('hintGoodBoyGod');
   expect(nextGoal({golden:true,goodBoy:true,hidden:true,snack:2},stats).key).toBe('hintSnackGoal');
 });
 it('maps each real position to a section without counting overlapping sky sections twice', async () => {
