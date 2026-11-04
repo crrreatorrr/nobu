@@ -92,7 +92,7 @@ describe("Champion's Crown catalog row", () => {
     ]);
     // Single-effect rows still read through the same helper.
     expect(itemEffects(itemById(HAT)).map((fx) => fx.id)).toEqual(['spell_bark']);
-    expect(NOBU_ITEMS.filter((item) => item.slot === 'head').map((item) => item.id)).toEqual([HAT, CROWN]);
+    expect(NOBU_ITEMS.filter((item) => item.slot === 'head').map((item) => item.id)).toEqual([HAT, 'nobu_wizard_hat_2', CROWN]);
   });
 });
 
