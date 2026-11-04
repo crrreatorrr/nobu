@@ -248,6 +248,7 @@ export function buildBoss1Arena(game, stage, tickets) {
   k.tix(-6, 0, -6, 6, 0, -6, 7);
   return {
     ...birdArena,
+    fov: 68, // Keep the new high perch tells below the boss HUD.
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
     camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 11.5, z: 16 }, follow: 0.45 },
