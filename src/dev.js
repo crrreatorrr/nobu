@@ -133,6 +133,7 @@ export function installDevTools(game) {
       game.player.spawnAt(game.player.pos.clone(), game.player.facing);
       game.session.checkpoint(game.player.pos);
       for (const entity of game.stage.entities) entity.onRespawn?.();
+      game.stage.update(0, game.player); // Refresh culling immediately, including when the game is paused.
       return T.info();
     },
     async gauntletCheck() {
