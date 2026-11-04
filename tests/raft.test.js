@@ -23,8 +23,8 @@ test('actual river kit splits invisible floors and water death zones around fall
 test('polling mounts once, preserves airborne hops, dismounts at docks and never mounts on raised optional routes',()=>{
  const{c,player,span,track,stage}=setup();c.update(.01);expect(player.setRide).toHaveBeenCalledTimes(1);expect(player.ride.speedK).toBe(.5);expect(c.current).toBe(span);
  player.pos.y+=2;player.body.grounded=false;player.vel.y=4;c.update(.1);expect(player.setRide).toHaveBeenCalledTimes(1);
- player.body.grounded=true;c.update(.1);expect(player.ride).toBeNull();expect(player.vel.y).toBe(4); // aqueduct exit does not add dock hop
- player.body.s=90;player.pos.copy(track.toWorld(90,0,-.98));player.vel.y=-2;c.update(.1);expect(player.ride).not.toBeNull();
+ player.body.grounded=true;const support={};span.footSupports=new Set([support]);player.body.ground=support;c.update(.1);expect(player.ride).toBeNull();expect(player.vel.y).toBe(4); // aqueduct exit does not add dock hop
+ player.body.s=90;player.body.ground=null;player.pos.copy(track.toWorld(90,0,-.98));player.vel.y=-2;c.update(.1);expect(player.ride).not.toBeNull();
  player.body.s=108;c.update(.1);expect(player.ride).toBeNull();expect(player.vel.y).toBe(7.5);expect(c.boats[0].beached.visible).toBe(true);stage.dispose();
 });
 test('checkpoint projection is immutable, remounts drifting once and respects exact boundaries/falls/height',()=>{

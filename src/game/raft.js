@@ -10,7 +10,7 @@ export function raftHelp(session={}) {
  return {speed:allowed&&deaths>=5?.92:1,force:allowed&&deaths>=5?.85:1,lily:allowed&&deaths>=7};
 }
 export function raftMountAllowed(player,span,s,waterY) {
- return !!span&&!raftFallAt(span,s)&&!player.dead&&!player.frozen&&!player.hang&&player.mode!=='victory'&&player.mode!=='dead'&&
+ return !!span&&!(player.body.grounded&&span.footSupports?.has(player.body.ground))&&!raftFallAt(span,s)&&!player.dead&&!player.frozen&&!player.hang&&player.mode!=='victory'&&player.mode!=='dead'&&
   player.pos.y>=waterY-.3&&player.pos.y<=waterY+.6&&(player.body.grounded||player.vel.y<=0);
 }
 export function raftFeasibility(items,spans,{perturb=0}={}) {

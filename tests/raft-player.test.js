@@ -54,3 +54,12 @@ test('actual Player rams each corrected raft sequence at full speed from either 
  const outcomes=[];for(const spanIndex of[0,1,2])for(const startU of[-3.5,3.5])for(const perturb of[0,.25,-.25]){const r=ramRide(spanIndex,{startU,perturb});outcomes.push(r);expect(r.dead,JSON.stringify(r)).toBe(false);expect(r.hit.every(x=>x.hit),JSON.stringify(r)).toBe(true);expect(r.minK).toBe(1);}
  writeFileSync('/tmp/h45-ram-sequences-player.json',JSON.stringify(outcomes,null,2));
 },60000);
+test('actual post-spawn checkpoint camera snap clears a prior waterfall hold before drawing CP338',async()=>{
+ const {GameCamera}=await import('../src/camera/camera.js');const f=riverFixture(),{game,p,k,track,stage}=f,span=k.raft(304,382,{speed:11.5,falls:[[329.75,333.75]]});game.camera=new GameCamera(1);game.camera.setMode('track',{track,height:4.9,dist:9.6,ahead:7.5});p.spawnAt(track.toWorld(330,0,-.98));p.body.grounded=false;p.setRide({...span.cfg,mesh:'raft'});stageSetup(f,span);game.camera.snap(p);stage.raftController.update(.01);expect(game.camera.opts.holdY).toBeDefined();
+ const cp=track.toWorld(338,0,-.98),copy=cp.clone();p.spawnAt(cp);stage.raftController.restoreAtCheckpoint(cp);game.camera.snap(p);expect(game.camera.opts.holdY).toBeUndefined();expect(game.camera.trackY).toBe(p.pos.y);expect(game.camera.cam.fov).toBe(66);expect(p.ride.speedK).toBe(.35);expect(cp.equals(copy)).toBe(true);stage.dispose();
+});
+test('actual low aqueduct support dismounts once and does not immediately remount; a descending river return mounts again',()=>{
+ const f=riverFixture(),{p,k,track,stage,tick}=f,span=k.raft(304,382,{speed:11.5});const route=k.goodBoy(300,[[3,-.4,309,2.4,2.4],[3,.4,311.4,2.4,2.4],[3,1.2,313.8,2.4,2.4],[3,2,320,2.4,10]]);span.footSupports=new Set(route.plats.map(p=>p.solid));route.reveal();route.update(2);
+ p.spawnAt(track.toWorld(309,3,-.38));p.body.grounded=false;p.setRide({...span.cfg,mesh:'raft'});stageSetup(f,span);p.vel.y=-1;for(let i=0;i<12&&p.ride;i++)tick();expect(p.body.ground).toBe(route.plats[0].solid);expect(p.ride).toBeNull();for(let i=0;i<3;i++)tick();expect(p.ride).toBeNull();expect(stage.raftController.current).toBeNull();
+ p.spawnAt(track.toWorld(326,-2,-.83));p.body.grounded=false;p.vel.y=-2;tick();expect(p.ride?.meshKind).toBe('raft');expect(p.ride.raftSpan).toBe(span);stage.dispose();
+});

@@ -32,7 +32,11 @@ export class RaftController extends Entity {
   this.pendingRestore=false;this.fallHold=null;this.lastFall=null;
   const at=this.track.project(pos.x,pos.z),span=raftSpanAt(this.stage.raftSpans,at.s),water=span?this.track.heightAt(at.s)+span.cfg.y+.02:0;
   this.current=null;this.player.setRide(null);
-  if(span&&!raftFallAt(span,at.s)&&Math.abs(pos.y-water)<=.65)this.mount(span,.35);else this.cameraTo(false);
+  const onFoot=span&&[...(span.footSupports||[])].some(solid=>pos.x>=solid.min.x&&pos.x<=solid.max.x&&pos.z>=solid.min.z&&pos.z<=solid.max.z&&Math.abs(pos.y-solid.max.y)<.2);
+  if(span&&!onFoot&&!raftFallAt(span,at.s)&&Math.abs(pos.y-water)<=.65)this.mount(span,.35);
+  this.blend=null;const target=this.current?RAFT_CAMERA:FOOT_CAMERA,camera=this.game.camera;
+  camera?.setMode('track',{track:this.track,height:target.height,dist:target.dist,ahead:target.ahead});
+  if(camera?.cam){camera.cam.fov=target.fov;camera.cam.updateProjectionMatrix();}
   this.syncBoats();
  }
  onRespawn(){this.pendingRestore=true;}
@@ -41,9 +45,8 @@ export class RaftController extends Entity {
   if(this.pendingRestore){this.pendingRestore=false;this.restoreAtCheckpoint(s.cp?.pos??p.pos);}
   const distance=p.body.s??this.track.project(p.pos.x,p.pos.z).s,span=raftSpanAt(this.stage.raftSpans,distance);
   if(this.current){
-   const water=this.track.heightAt(distance)+this.current.cfg.y+.02;
    if(span!==this.current)this.dismount();
-   else if(p.body.grounded&&p.pos.y>water+.6)this.dismount({hop:false}); // optional aqueduct/raised landing
+   else if(p.body.grounded&&this.current.footSupports?.has(p.body.ground))this.dismount({hop:false}); // authored optional aqueduct supports, never a log or pickup
    else if(p.ride){p.ride.speed=this.current.cfg.speed*raftHelp(s).speed;}
   }
   if(!this.current&&raftMountAllowed(p,span,distance,span?this.track.heightAt(distance)+span.cfg.y+.02:0))this.mount(span);
