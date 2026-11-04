@@ -341,3 +341,13 @@ html, body {
   80% { transform: translateX(-2px); }
   100% { transform: translateX(0); }
 }
+
+/* Reward feedback uses the existing HUD and board art. */
+.hud-chain { top: 98px; left: 48px; font-size: 34px; transform: translate(-180%, 0); color: #7fd4ff; }
+.tally-stats { max-width: 55vw; }
+.tally-stats .stat-row { font-size: clamp(22px, 3.4vw, 40px); }
+.tally-stats .stat-row img { width: 52px; height: 52px; }
+.tally-hint { min-height: 2.5em; max-width: 42vw; }
+.tally-record { color: var(--gold); animation: tally-record .55s infinite alternate; }
+@keyframes tally-record { to { opacity: .45; } }
+@keyframes tally-shake { 0%,100% { transform: translateX(0); } 25%,75% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }

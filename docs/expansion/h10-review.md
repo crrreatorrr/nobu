@@ -1,10 +1,12 @@
 # H10: Chomp Chain, tally and one next goal
 
-Work in progress; runtime wiring waits for merged H11 and the H05 Session ownership release.
+Integrated against H11 merge 7c1697d. Session, HUD, map/pause hints and the Game results controller preserve the actual H11 Bone Board banking and ordered fresh-array APIs.
 
 The combo uses a 1.1-second grounded clock (Roomba riding also advances it). Airborne time and transitions pause the clock. Countable breaks and defeated enemies increment independently, including same-frame explosions; partial Zipped Backpack bites only refresh. The reward is one noncountable Blue Sphere per checkpoint/life, without any Ticket multiplier. Death/respawn and round/gate transitions end the combo. Drop sequence IDs allow lost-tray rollback to remove only its spawned spheres, while respawn removes all chain drops. Best chains and chain-15 badges bank only on eligible clears.
 
 The tally is one deterministic game-time timeline, with no delayed reveal callbacks: backpacks, dogs, Tickets, Best Chain, saved board silhouettes, new stamps, typed hint, Kennel notices, continue prompt. Its rendering and sounds can be advanced silently to the final frame after the first complete viewing. H11's fresh stamp array and banking contract are retained.
+
+Session initializes Mystery runSeed once per new run and never resets it during checkpoint/death/tray rollback. The optional onCheckpoint entity hook snapshots partial breakables; Mystery is excluded. A flop snapshots its targets so newly spawned rewards wait for the next action. H12 owns the matching partial-entity lifecycle implementation and cross-branch payout verification.
 
 All current level builders share numeric section rows with registry metadata; labels live in story/script.js. Stable dog labels are verified against their real current distances. Hidden metadata describes H11's temporary current placements, all ungated; extensions must update both the placement and metadata. Main and overlapping detour sections are distinguished by entity context.
 

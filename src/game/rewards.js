@@ -1,7 +1,8 @@
+import { boneContext } from './bones.js';
 // Chain rules have no rendering or economy dependencies. The caller owns drops and HUD.
 export const CHAIN_WINDOW = 1.1;
 export const createChain = () => ({ n: 0, t: 0, best: 0, sphereGiven: false, lastBy: null });
-export const rewardCtx = (s, god = false) => ({ trial: !!s.trial, remix: !!s.remix, rush: !!s.rush, arena: s.phase === 'boss', god: !!god });
+export const rewardCtx = (s, god = false) => ({ ...boneContext(s, god), arena: s.phase === 'boss' });
 export const chainPitch = (n) => 2 ** (Math.min(Math.max(0, n - 1), 12) / 12);
 export function endChain(c) {
   const n = c.n;

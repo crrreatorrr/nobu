@@ -79,6 +79,7 @@ it('map hints use only durable misses and dog IDs, with generic goals when the l
   const stats = savedGoalStats({ lastMiss: { 1: { Pond: 2 } }, dogsFreed: { '1:pug-a':true } },1,{ dogs:{'pug-a':'Pond','shiba-a':'Canopy'} });
   expect(stats).toEqual({ sectionMiss:{Pond:2},missedDogs:{Canopy:1} });
   expect(stats).not.toHaveProperty('deathsAtGate'); expect(stats).not.toHaveProperty('snackRaw');
+  expect(nextGoal({}, {}).key).toBe('hintGoldenGoal');
   expect(nextGoal({golden:true},stats).key).toBe('hintGoodBoyGoal');
   expect(nextGoal({golden:true,goodBoy:true,hidden:true,snack:2},stats).key).toBe('hintSnackGoal');
 });

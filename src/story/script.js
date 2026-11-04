@@ -192,6 +192,7 @@ export const REWARD_TEXT = {
   hintSnack: (pct, target) => `Snack Bones: ${pct}% of Tickets, ${target}% for ${target === 80 ? 'gold' : target === 60 ? 'silver' : 'bronze'}.`,
   hintHidden: (section) => `Hidden Bone: somewhere near ${section}.`,
   hintNewMove: "Hidden Bone: you'll need a new move to reach it.",
+  hintGoldenGoal: 'Golden Bone: break every backpack and free every dog.',
   hintGoldenMany: (n) => `Golden Bone: ${n} backpacks to go. Try the side paths.`,
   hintCompleteTrial: 'Board complete! Try the time trial for a Platinum Tag.', hintComplete: 'Board complete! Good boy.',
 };
