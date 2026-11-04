@@ -184,3 +184,11 @@ export const PROP_TEXT = { rugPull: 'RUG PULL!', arrows: ['▼', '■', '▲'] }
 export const MYSTERY_SURPRISE = { title: 'SURPRISE!', sub: 'RUN!' };
 export const TRIAL_TEXT = { classicBest: 'Classic best', classicWorld: 'Classic WR', platinumTag: 'PLATINUM TAG!' };
 export const ENVIRONMENT_TEXT = { rising: "IT'S RISING!" };
+export const BONE_TEXT = {
+  golden: 'GOLDEN BONE', goodBoy: 'GOOD BOY BONE', hidden: 'HIDDEN BONE',
+  snack: ['SNACK BONE I', 'SNACK BONE II', 'SNACK BONE III'],
+  hiddenTitle: 'HIDDEN BONE!', hiddenSub: "Shhh... it's a secret",
+  goodBoyPercent: (n) => `GOOD BOY ${n}%`, board: 'BONE BOARD',
+  liveStats: (s, p) => `Breakables ${s.broken}/${s.breakables} · Dogs ${s.dogs}/${s.dogsTotal} · Snacks ${p}%`,
+  deaths: (n) => `${n}/3 deaths`, kennel: (id) => `KENNEL: ${id.toUpperCase()} UNLOCKED!`,
+};

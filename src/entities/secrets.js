@@ -66,7 +66,7 @@ export class BarkRock extends Entity {
       u.obj.rotation.y = this.obj.rotation.y;
       this.stage.add(u);
     }
-    this.game.tickets.spawnFlying(p.x, p.y + 1.2, p.z, this.tickets);
+    this.game.tickets.spawnFlying(p.x, p.y + 1.2, p.z, this.tickets, 'bark');
     this.game.ui.banner('SECRET!', 'The rock had treasure inside', 1.4);
   }
 }
@@ -161,7 +161,7 @@ export class GoodBoyRoute extends Entity {
     const pl = this.player;
     if (!this.paid && last.solid.enabled && pl.body.grounded && pl.body.ground === last.solid) {
       this.paid = true;
-      this.game.tickets.spawnFlying(last.x, last.y + 1, last.z, this.jackpot);
+      this.game.tickets.spawnFlying(last.x, last.y + 1, last.z, this.jackpot, 'jackpot');
       this.fx.sparkle(last.x, last.y + 0.8, last.z, { count: 24, color: 0xffd23f, size: 0.8, speed: 5 });
       audio.play('checkpoint');
     }

@@ -4,12 +4,24 @@ import { Assets } from '../art/assets.js';
 import { input } from '../core/input.js';
 import { audio } from '../audio/audio.js';
 import { save } from '../core/save.js';
-import { SPEAKERS, TUTORIALS, DEATH_CAPTIONS, DEATH_ART } from '../story/script.js';
+import { BONE_TEXT, SPEAKERS, TUTORIALS, DEATH_CAPTIONS, DEATH_ART } from '../story/script.js';
+import { savedBoard } from '../game/bones.js';
 import { pick } from '../core/util.js';
 
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
 export class UI {
+  boneBoard(id, { bonus = false, run = null, fresh = [] } = {}) {
+    const saved = savedBoard(save.data, id);
+    const keys = ['golden', 'goodBoy', 'hidden', ...(bonus ? [] : ['snack1', 'snack2', 'snack3'])];
+    const labels = [BONE_TEXT.golden, BONE_TEXT.goodBoy, BONE_TEXT.hidden, ...BONE_TEXT.snack];
+    const has = (b, k) => k.startsWith('snack') ? b?.snack >= Number(k.slice(-1)) : !!b?.[k];
+    return `<div class="bone-board" aria-label="${BONE_TEXT.board}" style="display:flex;justify-content:center;gap:8px;margin:12px 0">${keys.map((k, i) => {
+      const owned = has(saved, k), live = has(run, k), stamp = fresh.indexOf(k);
+      return `<img data-bone="${k}" title="${labels[i]}" alt="${labels[i]}" src="${Assets.url('golden_bone')}" style="width:38px;height:30px;object-fit:contain;opacity:${owned || live ? 1 : 0.18};filter:${owned ? 'none' : live ? 'grayscale(1) brightness(2)' : 'brightness(0)'};${stamp >= 0 ? `animation:bone-stamp .3s ${2 + stamp * 0.4}s both;` : ''}">`;
+    }).join('')}</div>`;
+  }
+
   constructor(root) {
     this.root = root;
     // HUD

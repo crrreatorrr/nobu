@@ -334,3 +334,10 @@ html, body {
 .trial-timer.on { display: block; }
 .trial-timer.frozen { color: #bff0ff; }
 .map-node .medal { position: absolute; top: -40px; right: -26px; font-size: 30px; filter: drop-shadow(0 3px 0 var(--ink)); }
+
+@keyframes bone-stamp {
+  0% { opacity: 0; transform: scale(2); }
+  60% { opacity: 1; transform: scale(1); }
+  80% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}

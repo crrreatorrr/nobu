@@ -14,6 +14,7 @@ import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
 import { levelDef, LEVEL_NAMES } from '../levels/registry.js';
 import { LEVEL_INTRO, BOSS_TALK } from '../story/script.js';
+import { SNACK_EXCLUDED, applyRunResults, boneContext, snackTier } from './bones.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
@@ -58,6 +59,11 @@ export class Session {
     this.lifeLine = Math.floor(Math.max(0, Number(save.data.tickets) || 0) / 100);
     this._lifeLineHold = false;
     this.stats = null;
+    this.snack = { raw: 0, potential: 0 };
+    this.freedIds = new Set();
+    this.hiddenFound = false;
+    this.deathsAtGate = null;
+    this.godUsed = !!save.data.godMode;
     this.deathsAtCp = 0;
     this.busy = false;     // transitions / dialogue
     this.over = false;
@@ -109,7 +115,7 @@ export class Session {
     g.camera.cam.updateProjectionMatrix();
     g.camera.endCinematic();
     g.camera.snap(g.player);
-    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
+    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
     this.deathsAtCp = 0;
   }
 
@@ -132,6 +138,9 @@ export class Session {
     const info = this.def.build(g, stage, this.tickets);
     stage.finalize();
     this.tickets.finalize();
+    this.snack.potential = this.tickets.list.length + stage.entities.filter((e) => e instanceof Backpack && e.countable && e.kind !== 'mystery').reduce((n, e) => n + e.tickets, 0);
+    const dogIds = Object.keys(this.def.dogs || {});
+    stage.entities.filter((e) => e instanceof ConedDog).forEach((e, i) => { if (!e.dogId && dogIds[i]) e.dogId = `${this.level}:${dogIds[i]}`; });
     ui.loadingProgress(0.65, 'Placing Nobu...');
     await nextFrame();
     this.info = info;
@@ -190,7 +199,7 @@ export class Session {
     p.frozen = true;
     audio.play('boing');
     await g.ui.fade(1, 0.25);
-    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
+    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
     p.spawnAt(R.start, R.facing);
     g.camera.snap(p);
     g.mask.snapTo(p);
@@ -214,6 +223,8 @@ export class Session {
       save.data.tickets = B.tickets;
       this.levelTickets = B.levelTickets;
       this.fieldRaw = B.fieldRaw;
+      this.snack.raw = B.snackRaw;
+      this.freedIds = new Set(B.freedIds);
       this.coconutRaw = B.coconutRaw;
       this._lifeLineHold = true;
       this._pushHud();
@@ -299,6 +310,7 @@ export class Session {
   async reachBossGate() {
     if (this.phase !== 'level' || this.busy) return;
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
+    this.deathsAtGate = this.deaths;
     this.busy = true;
     this._recordLevelStats();
     if (this.chase) this.chase.state = 'stop';
@@ -311,6 +323,8 @@ export class Session {
   async reachGoal() {
     if (this.phase !== 'level' || this.busy) return;
     const g = this.game;
+    if (this.trial) { this.busy = true; this._finishTrial(); return; }
+    this.deathsAtGate = this.deaths;
     this.busy = true;
     this._recordLevelStats();
     g.player.frozen = true;
@@ -320,7 +334,8 @@ export class Session {
     await this._missedRain();
     await g.ui.fade(1);
     g.player.setRide(null);
-    g.bonusCleared(this);
+    if (this.def.bonus) g.bonusCleared(this);
+    else g.goalLevelCleared(this);
   }
 
   // Every breakable Nobu skipped drops on his head, one by one, before the level ends.
@@ -378,9 +393,26 @@ export class Session {
     if (R.hit >= R.total) R.done();
   }
 
+  liveStats() {
+    const ents = this.stage.entities;
+    return { level: this.level, broken: ents.filter((e) => e instanceof Breakable && e.countable && e.broken).length, breakables: this.breakablesTotal, dogs: ents.filter((e) => e instanceof ConedDog && e.freed).length, dogsTotal: this.dogsTotal, deathsAtGate: this.deathsAtGate ?? this.deaths, snackRaw: this.snack.raw, snackPotential: this.snack.potential, snackTier: snackTier(this.snack.raw, this.snack.potential), hiddenFound: this.hiddenFound };
+  }
+
+  collectHiddenBone() {
+    const ctx = boneContext(this, this.godUsed || save.data.godMode);
+    if (ctx.trial || ctx.remix || ctx.rush) return false;
+    this.hiddenFound = true;
+    applyRunResults(save.data, this.level, { hidden: true }, { bonus: this.def.bonus });
+    save.write();
+    return true;
+  }
+
   _recordLevelStats() {
     const ents = this.stage.entities;
     this.stats = {
+      ...this.liveStats(),
+      freedIds: [...this.freedIds],
+      godUsed: this.godUsed || !!save.data.godMode,
       tickets: this.levelTickets,
       broken: ents.filter((e) => e instanceof Breakable && e.countable && e.broken).length,
       breakables: this.breakablesTotal,
@@ -498,6 +530,7 @@ export class Session {
   addTickets(n, source) {
     n = Math.floor(Number(n));
     if (!(n > 0)) return;
+    if (this.phase === 'level' && !SNACK_EXCLUDED.has(source)) this.snack.raw += n;
     if (source === 'coconut') {
       const capRaw = rawTicketsForWhole(COCONUT_CAP_PER_CLEAR);
       const room = capRaw - this.coconutRaw;
@@ -565,14 +598,15 @@ export class Session {
     this.game.ui.setHud('mask', n);
   }
 
-  rescueDog() {
+  rescueDog(dog) {
+    if (dog?.dogId) this.freedIds.add(dog.dogId);
     const freed = this.stage.entities.filter((e) => e instanceof ConedDog && e.freed).length;
     this.game.ui.setHud('dogs', `${freed}/${this.dogsTotal}`);
     if (freed === this.dogsTotal && this.dogsTotal > 0) this.game.ui.banner('ALL DOGS FREE!', '', 1.6);
   }
 
   checkpoint(pos, snacks) {
-    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
+    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
     this._lifeLineHold = false;
     this.deathsAtCp = 0;
     this.game.ui.banner('CHECKPOINT!', 'yum', 1.4);
@@ -642,6 +676,8 @@ export class Session {
     save.data.tickets = cp.tickets;
     this.levelTickets = cp.levelTickets;
     this.fieldRaw = cp.fieldRaw || 0;
+    this.snack.raw = cp.snackRaw || 0;
+    this.freedIds = new Set(cp.freedIds);
     this.coconutRaw = cp.coconutRaw || 0;
     this.projectiles.clear();
     g.fx.clear();
@@ -669,6 +705,7 @@ export class Session {
   update(dt) {
     const g = this.game;
     if (!this.stage) return;
+    this.godUsed ||= !!save.data.godMode;
     if (this.invincibleT > 0) {
       this.invincibleT -= dt;
       if (this.invincibleT <= 0) {

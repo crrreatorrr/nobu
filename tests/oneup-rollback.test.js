@@ -26,6 +26,8 @@ function playSession() {
   session.level = 1;
   session.levelTickets = 0;
   session.fieldRaw = 0;
+  session.snack = { raw: 0, potential: 0 };
+  session.freedIds = new Set();
   session.coconutRaw = 0;
   session.coconutSpawned = 0;
   session.collectedCoconuts = new Set();
