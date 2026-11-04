@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 vi.mock('../src/audio/audio.js', () => ({ audio:{play:vi.fn()} }));
-vi.mock('../src/art/assets.js', () => ({ Assets:{model:()=>null,tiled:()=>new THREE.Texture()} }));
+vi.mock('../src/art/assets.js', () => ({ Assets:{model:()=>null,tiled:()=>new THREE.Texture(),tex:()=>new THREE.Texture(),has:()=>false,aspect:()=>1} }));
 vi.mock('../src/entities/glowworm.js', () => ({ Glowworm:class { constructor(){this.light={};this.state='follow';}sleep(){this.state='sleep';}wake(){this.state='follow';} } }));
 import { Track,turtle } from '../src/world/track.js';
 import { World,moveBody } from '../src/world/physics.js';
 import { GameCamera } from '../src/camera/camera.js';
 import { CamZone,DarkZone,RisingHazard } from '../src/entities/environment.js';
 import { installEnvironmentKit,validateDetours } from '../src/levels/environmentKit.js';
+import { buildEnvironmentStrip } from '../src/levels/environmentStrip.js';
+import { Chaser } from '../src/entities/chaser.js';
 import { StaticPlatform } from '../src/entities/props.js';
 function fixture() {
   const track=new Track(turtle([0,0,0],[[150,0,0]])); track.ground(-5,150);
@@ -87,6 +89,17 @@ describe('detour runtime and geometry',()=>{
     player.pos.copy(track.toWorld(20));player.body.s=20;game.session.trial=true;const travel=vi.spyOn(detour,'travel');detour.update();expect(detour.lid.visible).toBe(true);expect(travel).not.toHaveBeenCalled();
     game.session.trial=false;let finish;game.ui.fade=vi.fn(()=>new Promise(r=>{finish=r;}));player.spawnAt=vi.fn();
     const pending=detour.travel(track.toWorld(20,0,10),20);detour.onRespawn();finish();await pending;expect(player.spawnAt).not.toHaveBeenCalled();
+  });
+  it('builds the acceptance strip through the real kit and keeps raised floors out of groundAt',()=>{
+    const noop=()=>{},gradient={addColorStop:noop};
+    const context=new Proxy({measureText:()=>({width:100}),createLinearGradient:()=>gradient,createRadialGradient:()=>gradient},{get:(target,key)=>target[key]??noop});
+    const canvas=vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(context);
+    try {
+      const {stage,game}=fixture();stage.setTrack=function(track){this.track=track;this.world.track=track;};
+      const info=buildEnvironmentStrip(game,stage,{add:vi.fn()});
+      expect(stage.entities.some(e=>e instanceof Chaser)).toBe(true);expect(stage.entities.some(e=>e instanceof RisingHazard)).toBe(true);expect(stage.entities.some(e=>e instanceof DarkZone)).toBe(true);
+      expect(stage.detours).toHaveLength(1);expect(stage.track.groundAt(90,1.5).y).toBe(0);expect(info.camera.mode).toBe('track');expect(validateDetours(stage)).toBe(true);
+    } finally {canvas.mockRestore();}
   });
   it('keeps canonical named sections searchable with inclusive starts and exclusive ends',()=>{
     const {track}=fixture();track.sections.push({d0:10,d1:20,name:'one'},{d0:20,d1:30,name:'two'});

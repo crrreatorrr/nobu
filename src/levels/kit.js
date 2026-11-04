@@ -17,6 +17,7 @@ import { MarketClock, MarketPlatform, MarketTicker } from '../entities/market.js
 import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
 import { addGatedHelpers } from './gatedKit.js';
+import { installEnvironmentKit } from './environmentKit.js';
 
 export { turtle };
 
@@ -266,7 +267,8 @@ export function makeKit(game, stage, tickets, track = null) {
       }
     },
   };
-  return addGatedHelpers(k, game, stage, track);
+  addGatedHelpers(k, game, stage, track);
+  return installEnvironmentKit(k, game, stage, tickets, track, waterMaterial);
 }
 
 export function makeTrack(stage, points) {
