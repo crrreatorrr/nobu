@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { drawFallback } from './fallbacks.js';
+import { placeholderFor } from './placeholders.js';
 
 const BASE = `${import.meta.env.BASE_URL}assets/`;
 
@@ -12,7 +13,7 @@ if (typeof document !== 'undefined') {
   document.documentElement.style.setProperty('--nobu-textbox', `url("${textbox}")`);
 }
 
-class AssetStore {
+export class AssetStore {
   constructor() {
     this.manifest = { assets: {} };
     this.textures = new Map();
@@ -20,6 +21,7 @@ class AssetStore {
     this.glb = null;
     this.models = new Map();   // id -> normalized THREE.Group template (static item GLBs)
     this.loader = new THREE.TextureLoader();
+    this.placeholderLogs = new Set();
   }
 
   async init(onProgress = () => {}) {
@@ -87,14 +89,47 @@ class AssetStore {
 
   // Clone of a static item model scaled to `height` meters (null if it failed to load).
   model(id, height = 1) {
-    const t = this.models.get(id);
+    const fallback = !this.models.has(id) && placeholderFor(id);
+    const t = this.models.get(fallback ? fallback.from : id);
     if (!t) return null;
     const c = t.userData.skinned ? cloneSkinned(t) : t.clone(true);
     c.scale.setScalar(height);
     c.userData.aspect = t.userData.aspect;
     c.userData.clips = t.userData.clips;
     c.userData.skinned = t.userData.skinned;
+    if (fallback) {
+      this._placeholderUsed(id, fallback.from);
+      c.scale.multiplyScalar(fallback.scale ?? 1);
+      if (fallback.rot) c.rotation.set(...fallback.rot);
+      // Skinned/static clones both share materials by default. Clone each material
+      // once per result, including array materials, before tinting or fading it.
+      const materials = new Map();
+      const cloneMaterial = (source) => {
+        if (!source) return source;
+        if (!materials.has(source)) {
+          const material = source.clone();
+          if (fallback.tint !== undefined && material.color) material.color.multiply(new THREE.Color(fallback.tint));
+          if (fallback.opacity !== undefined) {
+            material.opacity *= fallback.opacity;
+            material.transparent ||= material.opacity < 1;
+            if (material.opacity < 1) material.depthWrite = false;
+          }
+          materials.set(source, material);
+        }
+        return materials.get(source);
+      };
+      c.traverse((obj) => {
+        if (obj.isMesh) obj.material = Array.isArray(obj.material)
+          ? obj.material.map(cloneMaterial) : cloneMaterial(obj.material);
+      });
+    }
     return c;
+  }
+
+  _placeholderUsed(id, from) {
+    if (!import.meta.env.DEV || this.placeholderLogs.has(id)) return;
+    this.placeholderLogs.add(id);
+    console.info(`[assets] ${id} uses placeholder ${from}`);
   }
 
   _loadTex(id, url) {
@@ -124,11 +159,49 @@ class AssetStore {
   // THREE texture (generated art, or a procedural fallback canvas).
   tex(id) {
     if (!this.textures.has(id)) {
-      const canvas = drawFallback(id);
-      const t = new THREE.CanvasTexture(canvas);
-      t.colorSpace = THREE.SRGBColorSpace;
-      this.textures.set(id, t);
-      this.urls.set(id, canvas.toDataURL());
+      const fallback = placeholderFor(id);
+      if (fallback && !id.startsWith('model_')) {
+        const source = this.tex(fallback.from);
+        this._placeholderUsed(id, fallback.from);
+        // Even untransformed aliases get their own Texture: tiled() must not
+        // change the wrapping of a source also used as a sky or portrait.
+        const texture = source.clone();
+        // Texture.clone shares THREE.Source; assigning image on that clone would
+        // otherwise replace the original portrait's pixels too.
+        texture.source = new THREE.Source(source.image);
+        const transformed = fallback.tint !== undefined || fallback.hue !== undefined || fallback.opacity !== undefined;
+        if (transformed) {
+          const canvas = document.createElement('canvas');
+          canvas.width = source.image.width; canvas.height = source.image.height;
+          const ctx = canvas.getContext('2d');
+          ctx.filter = fallback.hue === undefined ? 'none' : `hue-rotate(${fallback.hue}deg)`;
+          ctx.drawImage(source.image, 0, 0);
+          ctx.filter = 'none';
+          if (fallback.tint !== undefined) {
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.fillStyle = `#${fallback.tint.toString(16).padStart(6, '0')}`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Keep the alpha of a source portrait instead of filling its border.
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.globalAlpha = fallback.opacity ?? 1;
+            ctx.drawImage(source.image, 0, 0);
+          } else if (fallback.opacity !== undefined) {
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.fillStyle = `rgba(255,255,255,${fallback.opacity})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+          texture.image = canvas;
+          this.urls.set(id, canvas.toDataURL());
+        } else this.urls.set(id, this.url(fallback.from));
+        texture.needsUpdate = true;
+        this.textures.set(id, texture);
+      } else {
+        const canvas = drawFallback(id);
+        const t = new THREE.CanvasTexture(canvas);
+        t.colorSpace = THREE.SRGBColorSpace;
+        this.textures.set(id, t);
+        this.urls.set(id, canvas.toDataURL());
+      }
     }
     return this.textures.get(id);
   }
