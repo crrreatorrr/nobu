@@ -150,12 +150,12 @@ test('non-countable authored packs, every Bark Rock and trampoline are included;
 test('every shipped registry id has a declaration and fixed cap, and planned level 6 has a cap', () => {
   expect(Object.keys(LEVEL_BUDGETS).sort()).toEqual([...PLAYABLE_IDS].sort());
   for (const id of [...PLAYABLE_IDS, '4', '6', '5']) expect(LEVEL_TICKET_CAP[id]).toBeGreaterThan(0);
-  expect(Object.entries(LEVEL_BUDGETS).filter(([, b]) => b.coconut).map(([id]) => id)).toEqual(['1', '4']);
+  expect(Object.entries(LEVEL_BUDGETS).filter(([, b]) => b.coconut).map(([id]) => id)).toEqual(['1', '2', '4']);
   expect(() => checkTicketBudget('missing', LEVEL_BUDGETS[1])).toThrow(/Missing Ticket cap/);
 });
 
 test('ordinary stage and arena share raw remainder before floor; coconut is a separate shared allowance', () => {
-  expect(ticketBudget(LEVEL_BUDGETS[2])).toEqual({ raw: 235, coconut: 0, wholeMax: 78 });
+  expect(ticketBudget(LEVEL_BUDGETS[2])).toEqual({ raw: 409, coconut: 15, wholeMax: 151 });
   expect(ticketBudget(LEVEL_BUDGETS[1])).toEqual({ raw: 565, coconut: 15, wholeMax: 203 });
 });
 
@@ -166,7 +166,7 @@ for (const id of ['1', '2', '3']) {
     expect(mysteries.map((e) => e.slot)).toEqual([0, 1]);
     for (const m of mysteries) {
       const p = track.project(m.pos.x, m.pos.z);
-      expect(Math.abs(p.u)).toBeGreaterThanOrEqual(2.8); // Side path, clear central running lane.
+      expect(Math.abs(p.u)).toBeGreaterThanOrEqual(id==='2'?1.7:2.8); // Side path, clear central running lane.
       const ground = track.groundAt(p.s, p.u);
       expect(ground).not.toBeNull();
       expect(m.pos.y).toBeCloseTo(ground.y, 1);
@@ -181,49 +181,25 @@ for (const id of ['1', '2', '3']) {
 }
 
 
-test('L2 side Mysteries share existing wall bites, with no extra pursuit stop or input path', async () => {
+test('L2 Mysteries sit in the held Fort and sunken loop and do not re-hit a newly spawned Cat in the same bite scan', async () => {
   const { Player } = await import('../src/player/player.js');
   const { rollMystery } = await import('../src/game/rng.js');
-  const { L2_CHASE, L2_CHASE_BREAKABLES } = await import('../src/levels/data/l2-chase.js');
-  const { budget, chaseStops, checkpointSegments, wallManeuver } = await import('../tools/audit/chaseModel.js');
-  for (const [slot, d] of [[0, 29], [1, 114]]) {
+  for (const [slot,d] of [[0,267.5],[1,400]]) {
     const { stage } = build('2'), track = stage.track;
-    const mystery = stage.entities.find((e) => e.kind === 'mystery' && e.slot === slot);
-    const wall = stage.entities.filter((e) => e.kind === 'backpack' && Math.abs(track.project(e.pos.x, e.pos.z).s - (d + 30)) < .1);
-    const { centers } = wallManeuver(wall.map((e) => track.project(e.pos.x, e.pos.z).u));
-    const right = centers.at(-1);
-    expect(right).toBeCloseTo(d === 29 ? 3.6 : 2.7, 2);
-    const p = { pos: track.toWorld(d + 30 - 1.84, right, 0), body: { h: 1.1 }, mode: 'normal',
-      biteT: .3, bitten: new Set(), forward: track.tangent(d + 30 - 1.84), biteRange: .95,
-      vel: new THREE.Vector3(), invincible: false };
-    stage.game.player = p;
-    stage.game.fx = new Proxy({}, { get: () => () => {} });
-    let seed = 0; while (rollMystery(seed, '2', slot) !== 'cat') seed++;
-    stage.game.session.runSeed = seed;
-    stage.entities = [mystery, ...wall];
-    Player.prototype._interact.call(p, stage);
-    expect(mystery.broken).toBe(true);
-    expect(wall.find((e) => track.project(e.pos.x, e.pos.z).u > 3).broken).toBe(true);
-    if (d === 114) expect(wall.filter((e) => track.project(e.pos.x, e.pos.z).u > 1).every((e) => e.broken)).toBe(true);
-    // Regression: newly appended Cat must survive the same live-array scan.
-    const cat = mystery.spawned[0];
-    expect(cat.kind).toBe('cat'); expect(cat.dead).toBe(false); expect(cat.timer).toBe(0);
-    expect(p.bitten.has(cat)).toBe(true);
-  }
-  // All wall maneuvers and their full lateral travel are already charged by
-  // H06's shared model. The two rewards need no new stops, so retain its margin.
-  for (const segment of checkpointSegments(L2_CHASE, L2_CHASE_BREAKABLES)) {
-    const earlier = [];
-    for (const stop of chaseStops(L2_CHASE_BREAKABLES).filter(({ d }) => d > segment.start && d < segment.until)) {
-      expect(stop.dur).toBeLessThanOrEqual(.75 * budget(segment, earlier, stop.d));
-      earlier.push({ d: stop.d - .8, dur: stop.dur });
-    }
+    const mystery = stage.entities.find(e=>e.kind==='mystery'&&e.slot===slot),at=track.project(mystery.pos.x,mystery.pos.z);
+    expect(at.s).toBeCloseTo(d,1);
+    const p={pos:mystery.pos.clone().addScaledVector(track.tangent(d),-1),body:{s:d,u:at.u,h:1.1},mode:'normal',biteT:.3,bitten:new Set(),forward:track.tangent(d),biteRange:.95,vel:new THREE.Vector3(),invincible:false};
+    stage.game.player=p;stage.game.fx=new Proxy({},{get:()=>()=>{}});
+    if(slot===0){stage.chaseCat.begin(d-13,0);stage.chaseCat.state='run';stage.chaseCat.update(.01);expect(stage.chaseCat.state).toBe('stop');}
+    else{stage.chaseCat.y=track.heightAt(d);expect(stage.chaseCat.canCatch(1,p)).toBe(false);expect(stage.canyonRiver.detour.loop).toBe(true);}
+    let seed=0;while(rollMystery(seed,'2',slot)!=='cat')seed++;stage.game.session.runSeed=seed;stage.entities=[mystery];
+    Player.prototype._interact.call(p,stage);expect(mystery.broken).toBe(true);
+    const cat=mystery.spawned[0];expect(cat.kind).toBe('cat');expect(cat.dead).toBe(false);expect(cat.timer).toBe(0);expect(p.bitten.has(cat)).toBe(true);
   }
 });
 
-
 test('each level module re-exports its budget declaration', async () => {
-  for (const [id, name] of Object.entries({ 1: 'level1', 2: 'level2', 3: 'level3', ride: 'bonusRide', cave: 'bonusCave' })) {
+  for (const [id, name] of Object.entries({ 1: 'level1', 2: 'level2Extended', 3: 'level3', ride: 'bonusRide', cave: 'bonusCave' })) {
     expect((await import(`../src/levels/${name}.js`)).BUDGET).toBe(LEVEL_BUDGETS[id]);
   }
 });

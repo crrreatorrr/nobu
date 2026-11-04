@@ -1,8 +1,8 @@
-# H31 Scratchpost Canyon candidate review
+# H31 Scratchpost Canyon activation review
 
-The layout-2 builder is isolated in `src/levels/level2Extended.js`. The shipped registry, current L2 cap107, layout1 trials and H22 boss/arena are unchanged. Activation is a separate integration gate owned by the coordinator.
+The registry now selects `src/levels/level2Extended.js` by default. L2 has seven stable dogs, the shipped total is40, local trial layout2 is active, and its fixed Ticket cap is183. Public uploads remain gated at HUB_LAYOUT2=1. H22 boss/arena and the old layout1 builder are byte-identical to main.
 
-Source: `claude/clever-goodall-8221xu` extended-levels sections0,1,3,7A.1,7A.5,11.3 and golden-bone-audit; handoff H31 and its index. Current base4ec1448 includes H61, H41, extended bonus/L1, H40 and canonical checkpoint help. Foundation commits dcfe79a and66f89df were explicitly released by their owner: configurable segment chase cap/catch distance and actual Session round-return/dog rollback hooks. Story labels/tutorial were supplied serially by the coordinator in04ccd23.
+Source: `claude/clever-goodall-8221xu` extended-levels sections0,1,3,7A.1,7A.5,11.3 and golden-bone-audit; handoff H31 and its index. Current base240ea12 includes H61, H41, extended bonus/L1/L3, H40 and canonical checkpoint help. Foundation commits dcfe79a and66f89df were explicitly released by their owner: configurable segment chase cap/catch distance and actual Session round-return/dog rollback hooks. Story labels/tutorial were supplied serially by the coordinator in04ccd23.
 
 ## Layout and runtime
 
@@ -38,7 +38,7 @@ The wall pack count and lateral arrangements, rug gap sides, movement tuning and
 
 ## Ticket measurement
 
-Actual builder worst-case sources with the unchanged seven-pickup arena: field158, packs196, zipped0, jackpots15, bark15, trampoline0, mystery2, coconuttrue. Raw409 /3 plus the existing15-whole coconut allowance =151 whole. Repeated roller farming stays under the shared category cap. The active107 cap is untouched; the coordinator will select and document a fixed activation cap against the source density proposal rather than grow it at runtime.
+Actual builder worst-case sources with the unchanged seven-pickup arena: field158, packs196, zipped0, jackpots15, bark15, trampoline0, mystery2, coconuttrue. Raw409 /3 plus the existing15-whole coconut allowance =151 whole. Repeated roller farming stays under the shared category cap. The selected fixed cap is183 TOTAL, including this measured15-whole coconut allowance. H12's future table contains two conflicting forecasts: selected rewards-density ceiling183 for planned520m, calculated as ceil(((125−15)/3.13)×5.20), and extension-ratio forecast131 from the pre-Mystery baseline72. Actual151 does not fit131; the coordinator selected the existing density ceiling183 under the owner's broad tested-cap authorization. This is not the ratio formula, and no extra15 is added to183. The negative test rejects184 without changing the cap.
 
 ## Verification so far
 
@@ -48,4 +48,15 @@ The bounded real-art browser probe passed on43f929e: seven dogs/68 countables, a
 
 Root review found that the new post entity needed an explicit respawn hook. This is fixed with a real Session.respawn regression restoring authored phase, danger and shadow. The Fort paw swipe also cycles its pose progress instead of holding its final pose. A second review found the uncontrollable entry fade: catches now exclude frozen/busy detour transitions while the cat keeps running. A real Session test holds both fade promises pending and advances the actual cat60 ticks; normal catches re-enable afterwards. The river Shellback also patrols600 actual enemy frames outside a player round and remains on its own sunken lane. An adversarial fixed-player test caught endpoint overshoot in the normal corner advance; the opt-in callback now clips the complete frame advance at the corner endpoint. Actual30/60/120Hz tests prove monotonic cat travel and the complete3.5m landing boundary.
 
-The interim local Pity arming adapter has been removed after canonical help merged. Root previously approved source8602f8d and the recorded boundary fixes; the final adapter-removal delta awaits root review. The rebased production build and diff check pass. Pending: serial L2 registry/metadata/cap/trial activation after H32 ownership release, then the final integrated full suite/build/CI. Unrun manual verification: an unaided one-run Golden Bone, complete live chase, all section11.3 playthrough items, first-time-player discovery, and median8–12-death target. Pure audits and fixture-assisted physics do not establish those results.
+The interim local Pity arming adapter was removed after canonical help merged. Root approved source8602f8d and the recorded boundary fixes. Activation preserves L1/L3 layout2, L4, all Story exports and old Classic records. The targeted activation/save/local-only queue/actual-builder suites pass, including exact registry/builder section parity. Pending: the final integrated full suite/build/CI. Unrun manual verification: an unaided one-run Golden Bone, complete live chase, all section11.3 playthrough items, first-time-player discovery, and median8–12-death target. Pure audits and fixture-assisted physics do not establish those results.
+
+
+## Immutable old boss/arena proof
+
+Against base240ea12, these blobs match both the working tree and origin/main exactly:
+
+- `src/bosses/bigCat.js`:820be8f7175e9b3b47e400f7bb9d4cd3e7f9df7b
+- `src/bosses/catArena.js`:4bd8546fbe41aabffe2366bdcd96cd23bba4b034
+- `src/levels/level2.js` (old builder plus arena wrapper):21a8ccc8735aa7d40312e0eea88112bc80e3bbc2
+
+The active builder and registry share `canyonMetadata.js`; the Alley loop's section starts at147, its main-path exit, matching the canonical runtime bounds. Migration retains only the three old rescued-dog IDs from an old3/3 count, preserves an earned Golden Bone, archives a47s layout1 score, records an81.5s layout2 Platinum locally, and produces no v2 score queue entry while the Hub deployment gate remains1.

@@ -42,7 +42,7 @@ function fixture(options){
   const built=buildLevel2Extended(game,stage,game.tickets,options);game.session.stage=stage;game.session.chase=built.chase;
   return{game,stage,built};
 }
-test('inactive candidate leaves the shipped builder, cap and arena separate',()=>{expect(ACTIVE).toBe(false);expect(LEVELS['2'].build).not.toBe(buildLevel2Extended);});
+test('registry activates the extended builder with the reviewed layout2 metadata',()=>{expect(ACTIVE).toBe(true);expect(LEVELS['2'].build).toBe(buildLevel2Extended);});
 test('actual candidate builds 519m route and every stable/new dog ID exactly once',()=>{
   const {stage,built}=fixture();expect(built.spawn.distanceTo(stage.track.toWorld(32))).toBeLessThan(.01);
   expect(extendedD(302)-32).toBe(519);expect(extendedD(293)).toBe(542);
@@ -75,7 +75,7 @@ test('chase arrows preserve vertical launch while providing at least run forward
 });
 
 test('canonical section labels cover every new main stretch and both loops',()=>{
- const{stage}=fixture();expect(stage.sections.map(s=>s.name)).toEqual(expect.arrayContaining(['Switchbacks','Cardboard Fort','Scratchpost Forest','Yarn Avalanche','Cat Flap Alley','Dry Riverbed']));
+ const{stage}=fixture();expect(stage.sections).toEqual(LEVELS['2'].sections);expect(stage.sections.map(s=>s.name)).toEqual(expect.arrayContaining(['Switchbacks','Cardboard Fort','Scratchpost Forest','Yarn Avalanche','Cat Flap Alley','Dry Riverbed']));
  for(const d of [205,265,350,480])expect(stage.sections.filter(s=>!s.detour&&d>=s.d0&&d<s.d1)).toHaveLength(1);
 });
 test('Fort hold and restart re-arm after the original one-shot triggers have fired',()=>{

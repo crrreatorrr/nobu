@@ -1,5 +1,7 @@
-// Candidate only: registry activation and the measured cap are owned by the integration gate.
-export const ACTIVE = false;
+// Layout2 is active; public uploads remain gated separately by HUB_LAYOUT.
+export const ACTIVE = true;
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['2'];
 // Level 2: Scratchpost Canyon — the Big Cat chase along a winding canyon. Camera faces Nobu.
 // Pits, logs, backpack walls, rugs, yarn, a crumbling bridge, a curving plank bridge and a mushroom launch.
 
@@ -8,7 +10,7 @@ import { CanyonChase } from '../entities/canyonChase.js';
 import { EXTENDED_MOVES, extendedD, EXTENDED_CHASE_ITEMS, EXTENDED_CUTS, EXTENDED_DOGS, CORRECTED_CHASE_ITEMS, CORRECTED_DOGS } from './data/l2-extended.js';
 import { buildCanyonSections, installCanyonKit } from './canyonSections.js';
 import { SECTION_TEXT } from '../story/script.js';
-import { SECTION_RANGES } from './sections.js';
+import { canyonMainSections } from './canyonMetadata.js';
 import { L2_CHASE } from './data/l2-chase.js';
 import { rand, pick } from '../core/util.js';
 
@@ -105,10 +107,7 @@ export function buildLevel2Extended(game, stage, tickets, {corrections = true} =
   stage.add(cat);
   stage.chaseCat = cat;
 
-  for(const [a,b,key] of SECTION_RANGES['2']){
-    const bounds=[a,...[199.5,260,297].filter(d=>d>a&&d<b),b];
-    for(let i=1;i<bounds.length;i++){const left=bounds[i-1],right=bounds[i];const start=extendedD(left-30);const end=extendedD(right-30-.000001)+.000001;if(end>start)k.section(start,end,SECTION_TEXT[key]);}
-  }
+  for(const section of canyonMainSections(SECTION_TEXT))k.section(section.d0,section.d1,section.name);
   buildCanyonSections(k, game, stage, cat,{switchbacks:SECTION_TEXT.switchbacks,fort:SECTION_TEXT.cardboardFort,forest:SECTION_TEXT.scratchpostForest,avalanche:SECTION_TEXT.yarnAvalanche,flap:SECTION_TEXT.catFlapAlley,river:SECTION_TEXT.dryRiverbed},{corrections});
   for(const dog of dogs){const e=k.dog(dog.x,dog.y??0,dog.d,dog.breed,{id:dog.id});e.detour=!!dog.detour;}
   stage.layoutVersion = 2;

@@ -8,7 +8,7 @@ import { hub } from '../src/hub/hubBridge.js';
 import { resetWorld } from './helpers.js';
 beforeEach(()=>{vi.restoreAllMocks();resetWorld();});
 it('archives released L3 scores without giving new dogs or losing Golden, and keeps v2 local until owner hub deployment',async()=>{
- expect(LAYOUT).toEqual({1:2,2:1,3:2});expect(HUB_LAYOUT).toEqual({1:1,2:1,3:1});
+ expect(LAYOUT).toEqual({1:2,2:2,3:2});expect(HUB_LAYOUT).toEqual({1:1,2:1,3:1});
  expect(trialVariant(3)).toBe('3v2');expect(TRIAL_TARGETS['3v2']).toEqual([77,100,134,70]);
  expect(trialMsInBounds('3v2',20599)).toBe(false);expect(trialMsInBounds('3v2',20600)).toBe(true);
  localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,bones:[false,false,true],bestDogs:[0,0,5],trials:{3:{ms:43000}}}));save.load();

@@ -24,7 +24,6 @@ function loopRound(detour,k,game,stage,{start,exit,startD,exitD,exitX=0,floorY})
   stage.add(e);return e;
 }
 export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=true}={}) {
-  for(const [base,len,key] of [[SB,60,'switchbacks'],[CF,14,'fort'],[SF,90,'forest'],[YA,55,'avalanche']]) if(labels[key])k.section(base,base+len,labels[key]);
   k.floor(SB,SB+60,{w:9.2});k.floor(SB+16,SB+20,{w:9.2,y:[0,1.5]});k.floor(SB+36,SB+40,{w:9.2,y:[0,1.5]});
   k.pitySnacks(-2.6,0,SB+35);
   const hazard=e=>{const update=e.update.bind(e);e.update=dt=>update(dt*chaseDda(game.session));return e;};
