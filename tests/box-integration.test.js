@@ -48,7 +48,7 @@ describe('canonical box integration',()=>{
     const {s,g}=fixture(),a=new BlinkBox(s,0,0,0,{group:'cp'}),b=new BlinkBox(s,0,0,3,{group:'cp',phase:-1}),slider=new SlideBox(s,0,0,6,{phase:.3});
     s.entities=[a,b,slider];advanceBeatClocks(s,.7);a.update(0);b.update(0);slider.update();
     const session=Object.create(Session.prototype);g.session=session;
-    Object.assign(session,{game:g,stage:s,deathsAtCp:0,lifeLine:0,phase:'level',cp:{pos:new THREE.Vector3(3,0,0),facing:0,seq:0,tickets:0,levelTickets:0},tickets:{restoreAfter:vi.fn(),clearFlying:vi.fn()},projectiles:{clear:vi.fn()},_undoLifeLinesAbove:vi.fn(),setMask:vi.fn(),_pushHud:vi.fn()});
+    Object.assign(session,{game:g,stage:s,snack:{raw:0},deathsAtCp:0,lifeLine:0,phase:'level',cp:{pos:new THREE.Vector3(3,0,0),facing:0,seq:0,tickets:0,levelTickets:0},tickets:{restoreAfter:vi.fn(),clearFlying:vi.fn()},projectiles:{clear:vi.fn()},_undoLifeLinesAbove:vi.fn(),setMask:vi.fn(),_pushHud:vi.fn()});
     Session.prototype.respawn.call(session);
     expect(a.clock.t).toBe(0);expect(b.clock.t).toBe(0);expect(a.solid.enabled).toBe(true);expect(b.solid.enabled).toBe(false);
     expect(slider.clock.t).toBe(0);expect(slider.solid.delta).toEqual({x:0,y:0,z:0});expect(session.deathsAtCp).toBe(1);
