@@ -5,7 +5,8 @@ import { save, SAVE_KEY } from '../src/core/save.js';
 import { input } from '../src/core/input.js';
 import { audio } from '../src/audio/audio.js';
 import { Assets } from '../src/art/assets.js';
-import { ENDING, QUEEN_ENDING, SECRET_ENDING } from '../src/story/script.js';
+import { ENDING, QUEEN_ENDING, SECRET_ENDING, RESCUE, BETWEEN } from '../src/story/script.js';
+import { hub } from '../src/hub/hubBridge.js';
 import { resetWorld } from './helpers.js';
 
 const prior5 = LEVELS[5];
@@ -81,4 +82,23 @@ it('preserves the original Cone chapter ending', async () => {
   vi.spyOn(input, 'anyPressed').mockReturnValue(true);
   await g.updateComplete(.01);
   expect(g.playCutscene.mock.calls[0][0]).toBe(ENDING);
+});
+it('runs actual Queen clear through the real rescue cutscene before the tally and Moon tutorial', async () => {
+  const g = game();
+  delete g.playCutscene;
+  g.ui.screen = document.createElement('div');
+  g.ui.setScreen.mockImplementation(html => { g.ui.screen.innerHTML = html; });
+  g.ui.clearScreen = vi.fn(() => { g.ui.screen.innerHTML = ''; });
+  g._showComplete = vi.fn();
+  vi.spyOn(hub, 'bank').mockResolvedValue(undefined);
+  const session = { level: 5, def: LEVELS[5], levelTickets: 0,
+    stats: { broken: 0, breakables: 0, dogs: 0, dogsTotal: 0, deathsAtGate: 0 } };
+  expect(() => g.levelCleared(session)).not.toThrow();
+  expect(save.beatenOf(5)).toBe(true);
+  expect(g.cut.panels).toBe(RESCUE[5]);
+  expect(g._showComplete).not.toHaveBeenCalled();
+  while (g.cut) g._nextPanel();
+  expect(g._showComplete).toHaveBeenCalledOnce();
+  expect(BETWEEN[5][0][1]).toContain('Hold SLIDE without moving, then JUMP');
+  expect(hub.bank).toHaveBeenCalledOnce();
 });

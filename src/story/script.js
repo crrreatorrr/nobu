@@ -20,6 +20,11 @@ export const INTRO = [
 ];
 
 export const RESCUE = {
+5: [
+  { img: 'story_rescue_3', speaker: '', text: 'The Pump Queen deflates with a long, sad squeak. Her crown rolls across the floor and spins to a stop.' },
+  { img: 'story_rescue_3', speaker: 'THE PUMP QUEEN', text: 'It was supposed to go up... FOREVER...' },
+  { img: 'story_rescue_3', speaker: 'SPROTO MASK', text: 'Nothing goes up forever. Except Nobu. Nobu goes up now.' },
+],
 4: [
   { img: 'story_rescue_1', speaker: '', text: 'The Roomba Titan sputters, beeps sadly and spits out a mountain of cones. And one soggy map.' },
   { img: 'story_rescue_1', speaker: 'SPROTO MASK', text: 'The map shows a river of smog running from the House to some kind of... Pipeline. First stop: the rapids.' },
@@ -149,6 +154,10 @@ export const LEVEL_INTRO = {
 
 // Mask chatter after finishing a level (between levels).
 export const BETWEEN = {
+5: [
+  ['mask', 'NEW MOVE: MOON JUMP! Hold SLIDE without moving, then JUMP. To the moon!'],
+  ['mask', 'See those glowing ledges way up high in every level? Moon Ledges. Go see what\'s up there.'],
+],
 4: [
   ['mask', 'NEW MOVE: DUST DASH! SLIDE, then BITE mid-slide to burst forward.'],
   ['mask', 'Grey fuzzy walls? Dash right through them. There were a few of those back in the old levels...'],
