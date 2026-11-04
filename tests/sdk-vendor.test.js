@@ -26,7 +26,8 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // 0.5.0 / hub 1c8b72e (early match data kept for the new match handle):
 //   1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b
 // 0.6.0 / hub ee187cf (sproto-arcade, breakwater_coin, optional loadSave/writeSave).
-const CONTENT_MANIFEST_SHA256 = 'a55988ee2d19824314f6941b577a0324db914b5af028e9fa53c73990b475453a';
+// 0.6.0 / hub main 93e4894 (Classic/layout2 trial variants; generated vendor workflow).
+const CONTENT_MANIFEST_SHA256 = '18018817130d23586ba30db373fafb6244ff730d663588a2ce94f50426bfbf1a';
 
 function listFiles(dir) {
   const out = [];

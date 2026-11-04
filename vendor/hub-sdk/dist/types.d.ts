@@ -179,8 +179,8 @@ export interface LeaderboardTop {
     rows: LeaderboardRow[];
     me: LeaderboardRow | null;
 }
-/** NOBU time-trial floors per level, integer ms (Contract C13). The same numbers are in NOBU's src/config/trials.js. */
-export declare const NOBU_TRIAL_FLOOR_MS: Readonly<Record<'1' | '2' | '3', number>>;
+/** NOBU time-trial floors per Classic level or versioned layout, integer ms (Contract C13). */
+export declare const NOBU_TRIAL_FLOOR_MS: Readonly<Record<'1' | '2' | '3' | '1v2' | '2v2' | '3v2', number>>;
 /** NOBU time-trial ceiling, integer ms. */
 export declare const NOBU_TRIAL_CEIL_MS = 1800000;
 export declare function isGameId(value: string): value is GameId;
