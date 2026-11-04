@@ -315,6 +315,7 @@ export class Session {
 
   async reachBossGate() {
     if (this.phase !== 'level' || this.busy) return;
+    if (import.meta.env.DEV) this.game.devTuning?.gate(this);
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
     this.deathsAtGate = this.deaths;
     this.busy = true;
@@ -328,6 +329,7 @@ export class Session {
   // End of a bonus stage (no boss): the missed-backpack rain, then the results screen.
   async reachGoal() {
     if (this.phase !== 'level' || this.busy) return;
+    if (import.meta.env.DEV) this.game.devTuning?.gate(this);
     const g = this.game;
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
     this.deathsAtGate = this.deaths;
@@ -687,6 +689,7 @@ export class Session {
   // ---------- death + respawn ----------
   onPlayerDeath(type) {
     if (this.dying) return;
+    if (import.meta.env.DEV) this.game.devTuning?.death(this, type);
     this.dying = true;
     this.onPlayerHurt(); // Includes direct pit/crusher deaths which bypass hurt().
     if (this.phase === 'boss' && this.boss && !this.boss.defeated) {
@@ -790,6 +793,7 @@ export class Session {
     }
     this.stage.update(dt, g.player);
     g.player.update(dt, this.stage, g.camera.basis);
+    if (import.meta.env.DEV) g.devTuning?.update(this, dt);
     if (this.rain) this._updateRain(dt);
     if (this.bonusRound && !this.busy && !g.player.dead && g.player.pos.y < this.bonusRound.R.floorY - 4) this._leaveBonusRound(false);
     if (this.trialRunning && !this.busy && !g.player.frozen && !g.player.dead && !g.ui.talking) {
