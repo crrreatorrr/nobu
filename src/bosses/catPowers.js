@@ -5,10 +5,10 @@ import { Assets } from '../art/assets.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
 import { clamp } from '../core/util.js';
-import { onCatStageDispose, materialSet, disposeMaterials, disposeProcedural } from './catResources.js';
+import { onCatStageDispose, materialSet, disposeMaterials, disposeProcedural, modelSkeletons } from './catResources.js';
 
 class TableCat extends Cat {
-  constructor(...args) { super(...args); this.ownedMaterials = materialSet(this.obj); }
+  constructor(...args) { super(...args); this.ownedMaterials = materialSet(this.obj); this.ownedSkeletons = modelSkeletons(this.obj); }
   update(dt) {
     const previous = this.count.material.map; super.update(dt);
     if (previous !== this.count.material.map) previous.dispose();
@@ -17,6 +17,7 @@ class TableCat extends Cat {
     this.hide(); this.obj.parent?.remove(this.obj);
     if (this.disposed) return; this.disposed = true;
     this.count.material.map.dispose(); disposeMaterials(this.ownedMaterials);
+    for (const skeleton of this.ownedSkeletons) skeleton.dispose();
   }
   pounce() {
     if (this.dead) return;
@@ -57,12 +58,13 @@ function ghostModel() {
     };
     o.material = Array.isArray(o.material) ? o.material.map(clone) : clone(o.material);
   });
-  return { root, materials, geometries };
+  return { root, materials, geometries, skeletons: modelSkeletons(root) };
 }
 function retireGhost(g) {
   g.mesh.parent?.remove(g.mesh);
   if (g.disposed) return; g.disposed = true;
   disposeMaterials(g.materials); for (const geometry of g.geometries) geometry.dispose();
+  for (const skeleton of g.skeletons) skeleton.dispose();
 }
 
 export class CatPowers {
@@ -116,7 +118,7 @@ export class CatPowers {
   ghost() {
     if (!this.lastLeap || this.ghosts.length >= 2) return false;
     const leap = this.lastLeap, model = ghostModel(), mesh = model.root; mesh.position.copy(leap.from); this.b.stage.scene.add(mesh);
-    this.ghosts.push({ ...leap, mesh, materials: model.materials, geometries: model.geometries, wait: 1.5, t: 0 }); audio.play('meow', 1.4); return true;
+    this.ghosts.push({ ...leap, mesh, materials: model.materials, geometries: model.geometries, skeletons: model.skeletons, wait: 1.5, t: 0 }); audio.play('meow', 1.4); return true;
   }
   scratchStar() {
     const b = this.b;

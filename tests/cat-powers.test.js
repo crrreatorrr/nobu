@@ -273,3 +273,25 @@ test('table shadows and payloads land on a raised player ledge rather than hidin
   expect(options.groundY).toBeCloseTo(2.4); options.onLand();
   const tnt = boss.powers.spawned.at(-1); expect(tnt.pos.toArray()).toEqual([x, 2.4, z]); expect(tnt.timer).toBe(0);
 });
+
+test('rigged ghost clones retire their owned skeleton bone texture without touching asset geometry or maps', async () => {
+  const { Assets } = await import('../src/art/assets.js');
+  const geometry = new THREE.BoxGeometry(), texture = new THREE.Texture(), material = new THREE.MeshBasicMaterial({ map: texture });
+  const borrowed = [vi.spyOn(geometry, 'dispose'), vi.spyOn(texture, 'dispose'), vi.spyOn(material, 'dispose')];
+  const bones = [];
+  const source = vi.spyOn(Assets, 'model').mockImplementation(id => {
+    if (id !== 'model_ghost_cat') return null;
+    const mesh = new THREE.SkinnedMesh(geometry, material), bone = new THREE.Bone(); mesh.add(bone);
+    const skeleton = new THREE.Skeleton([bone]); mesh.bind(skeleton); skeleton.computeBoneTexture();
+    bones.push({ skeleton: vi.spyOn(skeleton, 'dispose'), texture: vi.spyOn(skeleton.boneTexture, 'dispose') });
+    return mesh;
+  });
+  try {
+    const { boss } = fixture(3), p = boss.powers;
+    for (let i = 0; i < 3; i++) {
+      p.recordLeap(new THREE.Vector3(-4, 0, 0), new THREE.Vector3(4, 0, 0), .2); p.ghost(); p.reset(); p.reset();
+    }
+    for (const entry of bones) { expect(entry.skeleton).toHaveBeenCalledTimes(1); expect(entry.texture).toHaveBeenCalledTimes(1); }
+    for (const spy of borrowed) expect(spy).not.toHaveBeenCalled();
+  } finally { source.mockRestore(); }
+});

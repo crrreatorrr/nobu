@@ -17,3 +17,9 @@ export function disposeProcedural(root) {
   for (const geometry of geometries) geometry.dispose();
   disposeMaterials(materialSet(root));
 }
+// AssetStore.model uses SkeletonUtils.clone for rigged assets, so returned model
+// skeletons (and their lazily allocated bone textures) belong to that clone.
+export function modelSkeletons(root) {
+  const skeletons = new Set(); root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) skeletons.add(o.skeleton); });
+  return skeletons;
+}
