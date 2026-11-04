@@ -49,7 +49,9 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
 
   // Packaging Line uses the merged helper's side-control/camera contract.
   k.section(206,261,LABELS.packaging); k.camZone(206,261,'side',{side:-1,dist:11,height:2.2,ahead:0});
-  k.walls([[206,4.3,4.3,3.4],[207,1.6,1.6,3.4],[260,1.6,1.6,3.4],[261,4.3,4.3,3.4]]);
+  // Cutaway banks keep the low side camera above foreground scenery. Track
+  // collision uses the same authored left/right widths, independent of h.
+  k.walls([[205,4.3,4.3,3.4],[206,4.3,4.3,.4],[207,1.6,1.6,.4],[260,1.6,1.6,.4],[261,4.3,4.3,.4],[262,4.3,4.3,3.4]]);
   k.floor(206,207,{w:3.2}); k.belt(207,226,{x:0,z:-2.5},{w:3.2});
   k.crusher(0,0,214,{w:3.2,d:2,period:2.4}); k.crusher(0,0,220,{w:3.2,d:2,period:2.4,phase:1.2});
   k.pack(0,0,217); k.pack(0,0,223); k.floor(226,230,{w:3.2}); k.snacks(0,0,228);
@@ -75,9 +77,9 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
   k.bounceChain([[-1.8,340],[1.4,343]],{y:.8,tier:3});
   for(let i=bounceFrom;i<stage.timedPatterns.length;i++)stage.timedPatterns[i]=worldVatPattern(track,stage.timedPatterns[i]);
   for (const p of pattern.pieces) {
-    if (p.kind==='blink') k.blinkBox(p.x,p.y,p.dd,p.params);
-    if (p.kind==='slide') k.slideBox(p.x,p.y,p.dd,p.params);
-    if (p.kind==='fall') k.fallBox(p.x,p.y,p.dd,p.params);
+    if (p.kind==='blink') k.blinkBox(p.x,p.y,p.dd,{...p.params,tier:3});
+    if (p.kind==='slide') k.slideBox(p.x,p.y,p.dd,{...p.params,tier:3});
+    if (p.kind==='fall') k.fallBox(p.x,p.y,p.dd,{...p.params,tier:3});
     if (p.kind==='rest') k.platform(p.x,p.y,p.dd,2.6,2.6);
   }
   k.drone(0,5.6,355,{range:2.8,hover:1.4});

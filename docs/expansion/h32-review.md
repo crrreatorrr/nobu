@@ -17,7 +17,7 @@ The unchanged Tier 3 validator rejects the literal Vat Overflow route. The candi
 | Rails entry gantry at d277, y7 | Move the gantry to d279 and use0.2m slab thickness; retain topy7, launch275 and zipline endpoint278 | Actual Player was stopped at feet5.213 by the gantry underside over the launch. Corrected actual Player/World route reaches the y7 gantry and both ziplines back to the main floor without a death. The thin slab preserves1.3m normal-body clearance over the old fan dog/pack/blue bone; default0.5m left only1.1m. |
 | Ordinary Snacks d228 then d334 | Add ordinary Snacks (0,0,312) on existing permanent floor | 106m exceeded Tier 3's 90m maximum. New gaps are 84m and 22m. Pity Snacks do not substitute for a first-visit checkpoint. |
 
-The first jump uses the existing floor edge (-1.8,0,d337), rather than an unnecessarily long centre-to-centre jump from d336. The corrected **complete** route and every helper chain pass `validatePattern`; the source literal remains a failing regression fixture. None of the timing boxes count toward Golden Bone. Both bounce packs count and pay exactly one raw Ticket each.
+The first jump uses the existing floor edge (-1.8,0,d337), rather than an unnecessarily long centre-to-centre jump from d336. The corrected **complete** route and every helper chain pass `validatePattern`; the source literal remains a failing regression fixture. The actual Blink/Fall constructors explicitly receive tier3, matching the validator’s0.45s tell rather than accidentally defaulting to tier1. Fall delays remain exactly0.45s. None of the timing boxes count toward Golden Bone. Both bounce packs count and pay exactly one raw Ticket each.
 
 ## Conflicting source clauses resolved by their owning rules
 
@@ -57,7 +57,7 @@ There are no coconuts. The current approved cap **86** is unchanged and correctl
 - `buildBoss3Arena` is byte-identical to base3f1d05a (SHA256 d799abc2c461cc825c4ca81a7e34ed88fcaaf8ce15c3f7c2f4722266ad5af575). No Evil Cone code changes.
 - Full source183d60f:64files/633tests passing; build passing. Final narrow corrections (gantry thickness, numeric side-camera contract) have18 candidate tests passing; candidate + existing budget/gates:3files/64tests passing. Final full suite belongs to root after latest-main metadata activation; no stale-base full rerun substitutes for that.
 
-Packaging uses the merged GameCamera's actual numeric side contract (`side:-1`, `ahead:0`), with finite world targets and right→+d basis verified using the actual camera class. The initial string `'left'` produced NaN and a blank capture; that capture is a diagnosed failure, not visual acceptance.
+Packaging uses the merged GameCamera's actual numeric side contract (`side:-1`, `ahead:0`), with finite world targets and right→+d basis verified using the actual camera class. Low0.4m cutaway banks cover the entire side zone206–261, with3.4m restoration at205/262; unchanged1.6m lateral widths preserve collision bounds (the collision engine ignores wall h). The authored3.4m banks hid Nobu behind their underside from the2.2m camera. The initial string `'left'` produced NaN and a blank capture; that capture is a diagnosed failure, not visual acceptance.
 
 Trial closure omits both detours and their raised geometry entirely. Disabling only the optional arrow was insufficient because the original fan could still lift onto the gantry. An actual trial World regression checks that no gantry/cables remain while the original fan dog and blue bone remain on the main route. Shared trial targets/layout/SDK are untouched.
 

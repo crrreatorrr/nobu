@@ -100,6 +100,7 @@ test('unchanged Tier3 validator rejects literal Vat and accepts every edge of co
  const {stage,tickets}=build();
  expect(tickets.list.filter(t=>{const s=stage.track.project(t.x,t.z).s;return s>337&&s<381;})).toEqual([]);
  for(const pattern of stage.timedPatterns)expect(validatePattern(pattern)).toEqual([]);
+ for(const box of stage.timedBoxes.filter(b=>['blink','fall'].includes(b.kind)))expect(box.entity.tell).toBe(.45);
  const arrows=stage.timedBoxes.filter(b=>b.kind==='arrow'); expect(arrows.map(a=>a.y)).toEqual([6.6,7.4]);
 });
 
@@ -268,9 +269,13 @@ test('Packaging uses actual finite left-side GameCamera targets and right maps f
  camera.setMode(info.camera.mode,info.camera);
  const zone=stage.entities.find(e=>e.constructor.name==='CamZone'&&e.mode==='side');zone.apply(234);camera.snap(p);camera.update(1/60,p);
  expect(camera.mode).toBe('side');
+ for(const d of [206,234,261])expect(tr.wallAt(d).h).toBeCloseTo(.4);
+ for(const d of [207,260])expect(tr.wallAt(d).left).toBeCloseTo(1.6);
+ for(const d of [205,262])expect(tr.wallAt(d).h).toBeCloseTo(3.4);
  for(const vector of [camera.pos,camera.look,camera.basis.right,camera.basis.forward])expect(vector.toArray().every(Number.isFinite)).toBe(true);
  expect(camera.basis.right.dot(tr.tangent(234))).toBeCloseTo(1,7);
  expect(camera.pos.clone().sub(p.pos).dot(tr.right(234))).toBeCloseTo(-11,6);
  expect(camera.look.clone().sub(p.pos).dot(tr.tangent(234))).toBeCloseTo(0,6);
  zone.apply(262);expect(camera.mode).toBe('track');expect(camera.sideAxis).toBe(false);
 });
+
