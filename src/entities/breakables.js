@@ -425,6 +425,7 @@ export class Cat extends Breakable {
     this.lastNum = 0;
     this.count.visible = true;
   }
+  light() { this.arm(); }
   pounce() {
     if (this.dead) return;
     this.markBroken();
