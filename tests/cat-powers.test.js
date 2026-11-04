@@ -295,3 +295,32 @@ test('rigged ghost clones retire their owned skeleton bone texture without touch
     for (const spy of borrowed) expect(spy).not.toHaveBeenCalled();
   } finally { source.mockRestore(); }
 });
+
+test('actual AssetStore placeholder alias materials are reused and retired once without disposing their borrowed source', async () => {
+  const { AssetStore } = await vi.importActual('../src/art/assets.js');
+  const { Assets } = await import('../src/art/assets.js');
+  const store = new AssetStore(), geometry = new THREE.BoxGeometry(), texture = new THREE.Texture();
+  const material = new THREE.MeshBasicMaterial({ map: texture });
+  const template = new THREE.Mesh(geometry, material); template.userData.aspect = { w: 1, d: 1 };
+  store.models.set('model_small_cat', template);
+  const borrowed = [vi.spyOn(geometry, 'dispose'), vi.spyOn(texture, 'dispose'), vi.spyOn(material, 'dispose')];
+  const previousModels = Assets.models; Assets.models = store.models;
+  const returned = [];
+  const model = vi.spyOn(Assets, 'model').mockImplementation(id => {
+    if (id !== 'model_ghost_cat') return null;
+    const result = store.model(id, 1); returned.push({ material: result.material, dispose: vi.spyOn(result.material, 'dispose') }); return result;
+  });
+  try {
+    const { boss } = fixture(3), p = boss.powers;
+    for (let i = 0; i < 3; i++) {
+      p.recordLeap(new THREE.Vector3(-4, 0, 0), new THREE.Vector3(4, 0, 0), .2); p.ghost();
+      expect(p.ghosts[0].mesh.material).toBe(returned[i].material);
+      expect(returned[i].material).not.toBe(material);
+      if (i % 2) { p.ghosts[0].wait = 0; p.update(.21); } else p.reset();
+      p.reset(); expect(returned[i].dispose).toHaveBeenCalledTimes(1);
+    }
+    boss.stage.dispose(); boss.stage.dispose();
+    for (const entry of returned) expect(entry.dispose).toHaveBeenCalledTimes(1);
+    for (const spy of borrowed) expect(spy).not.toHaveBeenCalled();
+  } finally { model.mockRestore(); if (previousModels === undefined) delete Assets.models; else Assets.models = previousModels; }
+});

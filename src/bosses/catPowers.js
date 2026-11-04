@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Entity } from '../entities/entity.js';
 import { Backpack, Cat, explode } from '../entities/breakables.js';
 import { Assets } from '../art/assets.js';
+import { placeholderFor } from '../art/placeholders.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
 import { clamp } from '../core/util.js';
@@ -43,6 +44,9 @@ export function ghostConflicts(target, boss) {
   return boss.marker.visible && target.distanceTo(boss.marker.position) < 4.2;
 }
 function ghostModel() {
+  // AssetStore's alias path already returns owned material clones. A real
+  // model return still borrows its template materials and needs our own clone.
+  const ownsReturnedMaterials = !!(Assets.models && !Assets.models.has('model_ghost_cat') && placeholderFor('model_ghost_cat'));
   const asset = Assets.model('model_ghost_cat', 1);
   const root = asset || new THREE.Mesh(new THREE.SphereGeometry(.8, 12, 8), toon(0x80ffff));
   const geometries = new Set(asset ? [] : [root.geometry]);
@@ -51,7 +55,7 @@ function ghostModel() {
     if (!o.isMesh) return;
     const clone = (source) => {
       if (!clones.has(source)) {
-        const c = asset ? source.clone() : source; c.color?.setHex(0x80ffff); c.transparent = true; c.opacity = .45; c.depthWrite = false;
+        const c = asset && !ownsReturnedMaterials ? source.clone() : source; c.color?.setHex(0x80ffff); c.transparent = true; c.opacity = .45; c.depthWrite = false;
         clones.set(source, c); materials.add(c);
       }
       return clones.get(source);
