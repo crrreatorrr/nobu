@@ -42,7 +42,16 @@ The plan, in priority order:
 5. **Difficulty as data (section 4).** Move the difficulty numbers into a `src/config/difficulty.js` tier
    table. Formalise the Crash-style hidden DDA ladder, which already starts with the pity mask. Add opt-in
    mastery layers: Platinum Tags, no-hit boss medals and Smog Remixes.
-6. **Later (section 8):** a roadmap of further levels, a mini-boss and a boss rush, all built from the
+6. **Box Gauntlets (section 6.5).**
+   - Timing-only stretches where the only way across is jumping on boxes at the right moment: blinking
+     boxes, bounce chains, falling boxes, sliding boxes, arrow relays.
+   - Every new level has at least two, and the last section before its gate is one.
+   - Three standalone Box Gauntlet stages (G1–G3), like Crash 4's Flashback Tapes, open with a Polaroid
+     that only a no-death run can pick up.
+7. **Fix the levels that can't be 100%'d (`docs/expansion/golden-bone-audit.md`).**
+   - Scratchpost Canyon's last checkpoint segment and four spots in Roomba Rush are impossible today.
+   - The fixes are checked by simulation, and new tests stop it happening again.
+8. **Later (section 8):** a roadmap of further levels, a mini-boss and a boss rush, all built from the
    same kit.
 
 ---
@@ -351,9 +360,15 @@ for 4.6.
 | 1 Bark Jungle | 1 | everything basic | 2–4 |
 | 2 Scratchpost Canyon | 2 | the chase | 4–6 |
 | 3 Cone Factory | 3 | conveyors, crushers, hammers, fan | 6–10 |
-| 4 Laundry Day | 4 | spin drums, ziplines, toaster launchers, mid-level stampede | 8–12 |
-| 6 Smog Rapids | 4.5 | raft rides, whirlpools, rapids drops, on-foot landings | 9–13 |
-| 5 Pump & Dump | 5 | market platforms, Pump Pill stepping stones, rug-pull collapse | 10–15 |
+| 4 Laundry Day | 4 | spin drums, ziplines, toaster launchers, mid-level stampede, 2+ Box Gauntlets | 10–14 |
+| 6 Smog Rapids | 4.5 | raft rides, whirlpools, rapids drops, on-foot landings, 2+ Box Gauntlets | 11–15 |
+| 5 Pump & Dump | 5 | market platforms, Pump Pill stepping stones, rug-pull collapse, 2+ Box Gauntlets | 12–18 |
+
+The new levels are deliberately harder than the jump in tier alone would make them:
+- Tighter timing windows.
+- Combined hazards in the second half.
+- A Box Gauntlet as the final exam.
+The hidden DDA still catches players who are stuck.
 
 The extended L1–L3 keep their tier. Their target death counts rise about 30% with length, and the
 last new section of each level is the hardest one.
@@ -639,6 +654,35 @@ The full authoring spec is `docs/expansion/level6-spec.md`.
   level6 spec says which).
 - **Trial:** local only until the hub adds variant `"6"`.
 
+### 6.5 Box Gauntlets
+
+The full spec is `docs/expansion/box-gauntlets-spec.md`.
+
+- **What they are:** stretches where the only way through is timing jumps on boxes correctly. There is
+  no side route.
+- **Box types:**
+  - The existing ones: Backpack bounce, Trampoline, arrow Lunchbox, plain Lunchbox, crumble and flip
+    platforms, a Rug (Nitro) on a stack, and the Cat (TNT) fuse.
+  - New ones: `k.blinkBox` (phases in and out on a beat, with a tick 0.3 s before it vanishes),
+    `k.bounceChain`, `k.fallBox`, `k.slideBox` and `k.arrowChain`.
+- **Where they go:**
+  - At least two in each of L4, L6 and L5.
+  - The last new section of each extended L1–L3 is one.
+  - L1 keeps long windows and a safe floor below.
+- **Fairness:**
+  - Each pattern is taught once over safe ground first.
+  - The tightest timing window allowed per tier is listed in a table.
+  - A pity checkpoint sits at each gauntlet start.
+  - At 5 deaths, the hidden DDA stretches blink windows by 10%.
+  - Every gauntlet backpack counts toward the Golden Bone, and the spec proves each can be broken in one
+    clean pass.
+- **Standalone Box Gauntlet stages G1–G3** (Crash 4 Flashback Tape style):
+  - Each is a 120–180 m stage of pure box timing with no enemies.
+  - Each opens with a **Polaroid** you can only pick up if you reach it without dying since the start of
+    its level. G1 is in L1, G2 in L3 and G3 in L4.
+  - Medals: clear, all boxes, no deaths.
+  - Rewards: Kennel cosmetics and mastery points.
+
 ---
 
 ## 7. Bosses: more powers per stage, harder with each boss
@@ -882,6 +926,7 @@ Each milestone is one PR from a `claude/<slug>` branch, reviewed by a different 
 | M1 | **Reward loops** | Chomp Chain, Bone Board, tally, next-goal hint, Mystery Backpacks (2 in L1–L3), Good Boy % | The board shows for L1–L3; the tally plays; the budget test passes |
 | M2 | **Boss powers** | 7.2–7.4 new powers and arena changes for the Bird, Cat and Cone; `chain` runner; medals; boss DDA | The difficulty test passes; each new power is playtested once per stage |
 | M2b | **Extended L1–L3 + bonus stages** | 6.3 splice points, new sections, detours, +dogs, retuned chase speed, layout-2 trial targets | Each stage playtested start to finish; old Golden Bones kept; extended trials stay local until the hub `v2` variants are live |
+| M2c | **Golden Bone fixes + Box Gauntlets** | the audit fixes for L2 and Roomba Rush with their tests; the box helpers; G1–G3 | `chase-budget` and `ride-reach` tests pass; L2 and Roomba Rush 100%-able in a playtest |
 | M3 | **Level 4 + Roomba Titan** | 6.1, 7.5, Dust Dash, Dust Walls in L1–L4, green path | Story unlock works; median deaths on first play are near 4.4 |
 | M3b | **Level 6 Smog Rapids** | 6.4, `k.raft`, purple bone and path | Unlock chain Titan → L6 → L5 works; the raft is playtested |
 | M4 | **Level 5 + Pump Queen** | 6.2, 7.6, Moon Jump, Moon Ledges in every level, yellow path, true ending | Full playthrough in play order (1, 2, 3, 4, 6, 5); secret ending at 80% |

@@ -16,6 +16,8 @@ what "done" means and the PR text.
 | `docs/expansion/rewards-spec.md` | Chomp Chain, Mystery Backpack, Bone Board, Kennel, tally, hints, Good Boy %, DDA, mastery, save v3, Ticket budget |
 | `docs/expansion/bosses-spec.md` | All 5 bosses per stage, the `chain` runner, 4-stage evolve, medals, Dust Dash, Moon Jump |
 | `docs/expansion/new-levels-spec.md` | The kit helper API (new props, camera modes), Level 4 and Level 5 authoring specs, Chapter 2 story |
+| `docs/expansion/box-gauntlets-spec.md` | Box helpers (blink, bounce chain, fall, slide, arrow chain), the pattern library, G1–G3 stages, jump maths |
+| `docs/expansion/golden-bone-audit.md` | Which breakables can't be reached today, the checked fixes, the chase and ride rules |
 | `docs/expansion/level6-spec.md` | Level 6 Smog Rapids: the raft helper and the full authoring spec |
 | `docs/expansion/extended-levels-spec.md` | L1–L3 and bonus-stage extensions, splice points, trial layout versioning, the hub change |
 
@@ -57,9 +59,10 @@ what "done" means and the PR text.
 `→` means "must be merged first". Tasks on the same line can run in parallel.
 
 ```
+Phase 0  fixes        H06 Golden Bone fixes for L2 + Roomba Rush, with tests   (no dependencies: do it first)
 Phase 0  groundwork   H00 registry → H01 save v3
                       H02 difficulty config   H03 placeholders   H05 dev tools      (parallel, after H00)
-                      H04a gameplay props   H04b gated objects   H04c chase/detour/dark/rising + cameras  (after H00)
+                      H04a gameplay props   H04b gated objects   H04c chase/detour/dark/rising + cameras   H04d box helpers  (after H00)
 Phase 1  rewards      H10 chomp chain + tally + next-goal hint   (after H01)
                       H11 bone board + Good Boy %                (after H01)
                       H12 mystery backpack + Ticket budget test  (after H01, H04b)
@@ -67,6 +70,7 @@ Phase 2  bosses       H20 boss system (chain runner, 4-stage evolve, medals, bos
                       H21 Mecha Bird   H22 Big Cat   H23 Evil Cone   (parallel, after H20)
 Phase 2b extensions   H34 trial layout versioning (NOBU side)   H35 hub PR (metaverse-hub)   (parallel, after H01)
                       H30 L1   H31 L2   H32 L3   H33 bonus stages   (parallel, after H04a-c and H34)
+Phase 2c gauntlets    H46 Box Gauntlet stages G1–G3 (after H04d, H01)
 Phase 3  Chapter 2a   H40 Level 4 Laundry Day (after H04a-c, H11)   H41 Roomba Titan + Dust Dash (after H20)
 Phase 3b Chapter 2b   H45 Level 6 Smog Rapids (after H40)
 Phase 4  Chapter 2c   H50 Level 5 Pump & Dump (after H45)   H51 Pump Queen + Moon Jump + true ending (after H41)
@@ -79,6 +83,7 @@ Phase 6  hub          H70 L4/L5/L6 trial boards (after H35 is deployed by the ow
 
 | ID | Task | Slug | Size |
 | --- | --- | --- | --- |
+| H06 | Golden Bone fixes (L2, Roomba Rush) + chase/ride tests | `golden-bone-fixes` | S |
 | H00 | Level registry | `level-registry` | M |
 | H01 | Save v3 | `save-v3` | M |
 | H02 | Difficulty config | `difficulty-config` | M |
@@ -86,6 +91,7 @@ Phase 6  hub          H70 L4/L5/L6 trial boards (after H35 is deployed by the ow
 | H04a | Gameplay props (zipline, spin drum, toaster, market, rug pull) | `kit-gameplay-props` | L |
 | H04b | Gated objects and pickups (dust wall, moon ledge, smog vent, zoomie gate, mystery, pity snacks, section) | `kit-gated-objects` | M |
 | H04c | Chase, detour, dark, rising, side and rise cameras | `kit-chase-detour-camera` | L |
+| H04d | Box helpers (blink, bounce chain, fall, slide, arrow chain) | `kit-box-helpers` | M |
 | H05 | Dev tools (death heatmap, section timers) | `dev-heatmap` | S |
 | H10 | Chomp Chain, tally, next-goal hint | `chomp-chain-tally` | M |
 | H11 | Bone Board, Good Boy % | `bone-board` | M |
@@ -103,6 +109,7 @@ Phase 6  hub          H70 L4/L5/L6 trial boards (after H35 is deployed by the ow
 | H40 | Level 4 Laundry Day | `level4-laundry` | XL |
 | H41 | Roomba Titan, Dust Dash | `boss-roomba-titan` | XL |
 | H45 | Level 6 Smog Rapids (raft) | `level6-rapids` | XL |
+| H46 | Box Gauntlet stages G1–G3 + Polaroids | `box-gauntlets` | L |
 | H50 | Level 5 Pump & Dump Pipeline | `level5-pump` | XL |
 | H51 | Pump Queen, Moon Jump, true ending | `boss-pump-queen` | XL |
 | H60 | Kennel and milestones | `kennel` | L |
