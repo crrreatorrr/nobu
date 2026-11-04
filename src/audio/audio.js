@@ -129,6 +129,10 @@ class AudioEngine {
     if (!this.ctx || this.muted) return;
     const r = (a, b) => a + Math.random() * (b - a);
     switch (name) {
+      case 'splash': this._noise(.45, .22 * volume, 0, 'lowpass', 1600, 180); this._osc('sine', 140 * p, 45 * p, .25, .1 * volume); break;
+      case 'gurgle': this._osc('sine', 90 * p, 160 * p, .18, .12 * volume); this._osc('sine', 130 * p, 65 * p, .18, .1 * volume, .12); break;
+      case 'paddle': this._noise(.1, .1 * volume, 0, 'bandpass', 550, 200); this._osc('sine', 150 * p, 70 * p, .08, .06 * volume); break;
+      case 'sizzle': this._noise(.22, .12 * volume, 0, 'highpass', 4500); break;
       case 'jump': this._osc('square', 260, 640, 0.14, 0.12); break;
       case 'doubleJump': this._osc('triangle', 520, 1250, 0.16, 0.2); this._osc('sine', 1600, 2400, 0.12, 0.06, 0.04); break;
       case 'land': this._osc('sine', 140, 60, 0.09, 0.25); break;
@@ -376,6 +380,7 @@ class AudioEngine {
       const ac = (pat) => pat && pat[i % pat.length] === 'X';
       if (at(d.kick) || ac(d.kick)) this._osc('sine', 150, 45, 0.16, ac(d.kick) ? 0.75 : 0.55, w, this.musicGain);
       if (at(d.snare)) { this._noise(0.12, 0.28, w, 'highpass', 1500, null, 0.7, this.musicGain); this._osc('triangle', 220, 160, 0.08, 0.12, w, this.musicGain); }
+      if (at(d.tom)) this._osc('sine', 160, 65, .13, .2, w, this.musicGain);
       if (at(d.hat)) this._noise(0.03, 0.09, w, 'highpass', 7000, null, 1, this.musicGain);
       if (ac(d.hat)) this._noise(0.12, 0.1, w, 'highpass', 6000, null, 1, this.musicGain);
       if (at(d.clank)) { this._osc('square', 1800, 1700, 0.05, 0.05, w, this.musicGain); this._noise(0.05, 0.12, w, 'bandpass', 3500, null, 6, this.musicGain); }

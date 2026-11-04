@@ -123,6 +123,11 @@ titan: {
 
 // Mask chatter before each level (tips, jokes, story updates).
 export const LEVEL_INTRO = {
+6: [
+  ['mask', 'The Titan\'s dust bag burst and ALL that smog went down the drain. Straight into the river.'],
+  ['mask', 'And the river runs right down to the Pump & Dump Pipeline. Convenient. Suspiciously convenient.'],
+  ['mask', 'Hop in the Owner\'s laundry basket. Steer with LEFT / RIGHT, hop with SPACE. Mind the whirlpools!'],
+],
 4: [
   ['mask', 'Laundry Day! Everything in here is HUGE. Or we\'re tiny. Let\'s not think about it.'],
   ['mask', 'Break stuff back to back for a CHOMP CHAIN. Keep it going and I\'ll pop out to help.'],
@@ -158,6 +163,10 @@ export const BETWEEN = {
   ['mask', 'NEW MOVE: MOON JUMP! Hold SLIDE without moving, then JUMP. To the moon!'],
   ['mask', 'See those glowing ledges way up high in every level? Moon Ledges. Go see what\'s up there.'],
 ],
+6: [
+  ['mask', 'That pipe at the end... it\'s PUMPING the smog in. Someone is buying it up by the barrel.'],
+  ['mask', 'The Pump & Dump Pipeline is open. Whoever runs that place is about to get rugged.'],
+],
 4: [
   ['mask', 'NEW MOVE: DUST DASH! SLIDE, then BITE mid-slide to burst forward.'],
   ['mask', 'Grey fuzzy walls? Dash right through them. There were a few of those back in the old levels...'],
@@ -182,6 +191,12 @@ export const BETWEEN = {
 export const TUTORIALS = {
   moonJump: { img: 'nobu_head', title: 'NEW MOVE: MOON JUMP!', text: 'Hold SLIDE without moving, then JUMP. To the moon!' },
   polaroid: {img:'nobu_head',title:'POLAROID',text:"A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip."},
+  raft: { img: 'icon_ride', title: 'LAUNDRY RAFT', text: '◀ ▶ steer, SPACE hops. The river carries you. Ram floating backpacks and buoy dogs!' },
+  outflow: { img: 'icon_ride', title: 'DRAIN PIPES', text: 'Pipes gurgle, then BLAST. They shove you sideways. Listen for the gurgle.' },
+  lock: { img: 'icon_boneswitch', title: 'THE LOCK', text: 'The lock fills up when you drop in! Grab the backpacks, then climb before the water does.' },
+  whirlpool: { img: 'icon_ride', title: 'WHIRLPOOLS', text: 'Foam rings pull you in. Steer away hard, or hop across the edge. Don\'t touch the middle!' },
+  slick: { img: 'icon_ride', title: 'SMOG SLICK', text: 'Purple water is slippery. The raft drifts and won\'t steer. Line up BEFORE you hit it.' },
+  falls: { img: 'icon_ride', title: 'WATERFALL!', text: 'Keep your speed! Bonk a log right before the falls and you won\'t make the jump.' },
   dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
 
   crystals: { img: 'nobu_head', title: 'CRYSTAL ECHO', text: 'Bite crystals to light the path. The platforms stay solid when their light fades.' },
@@ -246,6 +261,8 @@ export const TUTORIALS = {
 };
 
 export const DEATH_CAPTIONS = {
+  splash: ['SPLASH!', 'Basket overboard. Back to the checkpoint.'],
+  whirl: ['WHIRLPOOLED!', 'That was not the spin cycle.'],
   angel: ['PAPER PAWS!', 'NGMI... jk, try again', 'Nobu went to the big dog park in the sky', 'Bonk. Back to the checkpoint.'],
   fall: ['Gravity: still undefeated', 'Should\'ve double jumped, ser', 'Down bad. Literally.'],
   flat: ['FLATTENED', 'Nobu is now a doormat', 'Pancake Akita, extra syrup'],
@@ -254,7 +271,7 @@ export const DEATH_CAPTIONS = {
   puff: ['POOF!', 'Spiky broccoli: do not bite', 'That was NOT on the diet'],
 };
 
-export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'death_angel', flat: 'death_flat', cone: 'death_cone', rug: 'death_rug' };
+export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'death_angel', flat: 'death_flat', cone: 'death_cone', rug: 'death_rug', splash: 'death_splash', whirl: 'death_whirl' };
 export const REWARD_TEXT = {
   chainSphere: ['CHOMP CHAIN x8!', 'Sproto Mask!'], chainBest: 'NEW BEST CHAIN',
   backpacks: 'BACKPACKS', dogs: 'DOGS FREED', tickets: 'TICKETS', bestChain: 'BEST CHAIN',
@@ -375,4 +392,11 @@ export const REMIX_TEXT = {
   banner: { title: 'SMOG REMIX', subtitle: 'Mirrored · no assistance · earn its own Golden Bone' },
   complete: { title: 'SMOG REMIX CLEAR!', earned: 'REMIX GOLDEN BONE!', missed: 'Every backpack and every dog in one run', already: 'Remix Golden Bone already earned' },
   toggle: 'SMOG REMIX', locked: 'Beat the Pump Queen to unlock Smog Remixes',
+};
+
+export const L6_TEXT = {
+  name: 'Smog Rapids', goal: 'PIPELINE',
+  sections: { drain: 'Drain Mouth', gutter: 'Gutter Run', lock: 'The Lock', bend: 'Whirlpool Bend', barge: 'Barge Yard', crateDrift: 'Crate Drift', rapids: 'Slick Rapids', floodgate: 'Floodgate Crates', intake: 'Intake Channel', rainGutter: 'Rain Gutter', pumpHouse: 'Pump House' },
+  signs: { raft: ['RAFT', '◀ ▶ STEER'], hop: ['HOP', 'SPACE'], falls: ['FALLS', 'AHEAD'] },
+  unlock: 'The smog\'s heading downstream, Nobu. We follow the river. Smog Rapids is open!',
 };
