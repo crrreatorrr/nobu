@@ -93,3 +93,12 @@ limit of four. P5_ACTION_REST_PROPOSAL aliases this canonical approved object; i
 No validator threshold was relaxed, and a dedicated entry/exit boundary regression prevents omission.
 Teaching relay variants use two launchers because three launchers plus entry/exit require four actions;
 the source specified no exact teaching coordinates, so these are documented implementation choices.
+
+## Independent review follow-up
+
+The final review added regression coverage for guide arcs beyond the stage's culling radius,
+curved-track arrow orientation, raw helper-chain reach warnings, floor/blink entry and exit windows,
+and initial blink respawn phase. Raw chains register partial proofs (only the supplied chain points;
+callers must still author their entry, exit and rests). Canonical patterns retain their complete route
+checks. P12's route now explicitly models four held hops over its unchanged Rug placements, with
+player-sized swept hazard checks; running through the same runway is a failing regression.

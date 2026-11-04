@@ -46,7 +46,7 @@ export function simJump({ velocity = TUNING.JUMP, held = true, cut = false,
   }
   return null;
 }
-export function reach(move, dy = 0, power = 16) {
+function jumpTrace(move, dy = 0, power = 16) {
   let opts = { dy };
   if (move === 'tap') opts.held = false;
   else if (move === 'held') { /* defaults */ }
@@ -64,10 +64,14 @@ export function reach(move, dy = 0, power = 16) {
       const r = simJump({ dy, doubleAt: f * DT, glide: move === 'glide' });
       if (r && (!best || r.dist > best.dist)) best = r;
     }
-    return best && { dist: best.dist, apex: best.apex, air: best.air };
+    return best;
   } else throw new RangeError(`Unknown jump move: ${move}`);
   const r = simJump(opts);
-  return r && { dist: r.dist, apex: r.apex, air: r.air };
+  return r;
+}
+export function reach(move, dy = 0, power = 16) {
+  const r = jumpTrace(move, dy, power);
+  return r && { dist:r.dist, apex:r.apex, air:r.air };
 }
 export function arrowReach(power, dy = 0, held = false) {
   const v = power * (held ? 1.15 : 1), apex = v * v / (2 * TUNING.GRAVITY);
@@ -134,6 +138,12 @@ export function validatePattern(pattern, tier = pattern.tier) {
     if (p.kind === 'fall' && (p.params?.delay ?? p.delay ?? .45) < rules.tell) add(i,'Fall contact tell shorter than tier minimum');
     if (timed(p) && p.countable) add(i,'Timed boxes must never be countable');
   }
+  const firstTimed = pieces.find(p => timed(p));
+  if (firstTimed?.kind === 'blink') {
+    const q=firstTimed.params || firstTimed, on=q.on ?? 1.2, cycle=on+(q.off ?? 1);
+    const phase=((q.phase || 0)%cycle+cycle)%cycle;
+    if(phase>=on && cycle-phase > rules.minFrames/60+1e-9) add(pieces.indexOf(firstTimed),'First blink respawn wait exceeds tier input window');
+  }
   for (const [i, step] of (pattern.route || []).entries()) {
     const a = pieces[step.from], b = pieces[step.to];
     if (!a || !b) { add(i, 'Missing route piece'); continue; }
@@ -147,7 +157,15 @@ export function validatePattern(pattern, tier = pattern.tier) {
     if(running && (Math.abs(dy) > .36 || dist > 1.01)) add(i,'Run route has a gap or unreachable step');
     if (!running && !moving && (!r || dist > r.dist * rules.maxPct + 1e-9)) add(i, `Reach: ${dist.toFixed(2)}m exceeds tier ${tier} ${r ? (r.dist * rules.maxPct).toFixed(2) : 'unreachable'}m`);
     if (!moving && r && r.dist - dist < rules.margin - 1e-9) add(i, 'Landing margin below tier minimum');
+    // Check the actual player-sized swept route against Rugs, not only landing centres.
+    const trace=running ? null : jumpTrace(step.move || 'held',dy,a.power || a.params?.power || 16);
+    const samples=running ? Array.from({length:Math.max(2,Math.ceil(dist/TUNING.RUN/DT)+1)},(_,j)=>{const f=j/Math.max(1,Math.ceil(dist/TUNING.RUN/DT));return{f,y:dy*f};}) : trace?.samples.map(q=>({f:q.t/trace.air,y:q.y}));
+    for(const rug of pieces.filter(p=>p.kind==='rug')) if(samples?.some(q=>{
+      const x=(a.x||0)+((b.x||0)-(a.x||0))*q.f, d=(a.dd??a.d)+((b.dd??b.d)-(a.dd??a.d))*q.f, y=top(a)+q.y;
+      return Math.abs(x-(rug.x||0))<.675+.36 && Math.abs(d-(rug.dd??rug.d))<.45+.36 && y<(rug.y||0)+.5 && y+1.3>(rug.y||0);
+    })) add(i,'Route intersects a Rug hazard');
     let window = moving ? moving.seconds * 60 : Infinity;
+    for(const p of [a,b]) if(p.kind==='blink') window=Math.min(window,((p.params || p).on ?? 1.2)*60);
     if (a.kind === 'blink' && b.kind === 'blink' && r) {
       const pa = a.params || a, pb = b.params || b;
       window = Math.min(window, blinkWindow(pa.on ?? 1.2, pa.off ?? 1, (pa.phase || 0) - (pb.phase || 0), r.air) * 60);

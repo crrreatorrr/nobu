@@ -31,7 +31,7 @@ function build(proposed=false) {
   rows.push(line('P10',2,[p('floorEnd',0),p('arrow',3,0,{power:16}),p('arrow',8,0,{power:16}),p('arrow',13,0,{power:16}),p('floorStart',17,2)],['held','arrowTap','arrowTap','arrowTap']));
   rows.push(line('P11',3,[p('floorEnd',0),p('arrow',3,0,{power:16}),p('arrow',7.8,1.5,{power:16}),p('arrow',12.6,3,{power:16}),p('floorStart',16.6,5)],['held','arrowTap','arrowTap','arrowTap']));
   const nitro=line('P12',3,[p('floorEnd',0,.98),...Array.from({length:20},(_,i)=>p('lunch',i)),p('floorStart',21,.98)],Array(21).fill('run'));
-  nitro.route[0].move='held';nitro.route.at(-1).move='held';
+  nitro.route=[step(0,1),step(1,2,'run'),step(2,3,'run'),step(3,6),step(6,10),step(10,14),step(14,18),step(18,19,'run'),step(19,20,'run'),step(20,21)];
   nitro.pieces.push(...[3.5,7,11.5,15].map(d=>p('rug',d,.98)),p('switch',23));
   nitro.clearAll={kind:'vacSwitch',piece:nitro.pieces.length-1,targets:[22,23,24,25]};rows.push(nitro);
   const escape=line('P13',3,[p('floorEnd',0),blink(3,0,0,1.2,1),blink(6.5,0,-1,1.2,1),p('floor',9),p('floor',14),p('floorStart',17)]);
@@ -94,10 +94,15 @@ export function placePattern(k, pattern, d0=0, { gauntlet=false }={}) {
   const bounceIndices=new Set(pattern.route.filter(s=>s.move.startsWith('bounce') && pattern.pieces[s.from].kind==='pack').map(s=>s.from));
   if(bounceIndices.size){
     const points=[...bounceIndices].map(i=>{const p=pattern.pieces[i];return[p.x||0,p.y||0,d0+p.dd];});
-    placed.push(...k.bounceChain(points,{gauntlet}));
+    placed.push(...k.bounceChain(points,{gauntlet,tier:pattern.tier}));
+  }
+  const arrowIndices=new Set(pattern.pieces.flatMap((p,i)=>p.kind==='arrow'?[i]:[]));
+  if(arrowIndices.size){
+    const points=[...arrowIndices].map(i=>{const p=pattern.pieces[i];return[p.x||0,p.y||0,d0+p.dd];});
+    placed.push(...k.arrowChain(points,{power:pattern.pieces[[...arrowIndices][0]].params.power,tier:pattern.tier}));
   }
   for(let i=0;i<pattern.pieces.length;i++) {
-    if(bounceIndices.has(i))continue;
+    if(bounceIndices.has(i)||arrowIndices.has(i))continue;
     const p=pattern.pieces[i],d=d0+p.dd,x=p.x||0,y=p.y||0;
     const opts=p.params||{};let e;
     switch(p.kind) {
