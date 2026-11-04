@@ -1,10 +1,10 @@
-# H32 Cone Factory candidate review
+# H32 Cone Factory integration review
 
-Layout 1 remains the registry's builder. `buildLevel3Layout2` is the explicit review candidate; this branch does not switch trial layouts, trial targets, the dog registry, or upload variants. Root must perform that serial integration after independent review and exact CI. The owner authorized the tested placements, fixed source-formula caps and timer/board transition on2026-11-04 (see below). No deployment is authorized here.
+The registry now builds owner-approved layout 2 by default through `buildLevel3`, while `{layout:1}` preserves the released Classic geometry. Local trial layout 3 advances to 2, with 77/100/134/70 targets and a 20600 ms floor; `HUB_LAYOUT[3]` remains 1, so public uploads remain blocked until owner deployment. Nine stable L3 dogs bring the shipped total to 36. The cap is fixed at 101; no deployment is authorized here.
 
 ## Owner-authorized corrections
 
-On2026-11-04 the owner told the parent agent: “im the only user right now, so change anything and reset timers”. The parent confirmed this authorizes these tested corrections and fixed cap101, and clears the board-announcement gate. Independent review, actual physics proof and CI remain required; this instruction does not authorize deployment or permissions changes.
+On 2026-11-04 the owner told the parent agent: “im the only user right now, so change anything and reset timers”. The parent confirmed this authorizes these tested corrections and fixed cap101, and clears the board-announcement gate. Independent review, actual physics proof and CI remain required; this instruction does not authorize deployment or permissions changes.
 
 The unchanged Tier 3 validator rejects the literal Vat Overflow route. The candidate uses these concrete corrections, with unchanged player tuning and no validator exceptions:
 
@@ -29,7 +29,7 @@ The merged detour helper's `floor` specialization only makes raised Solid slabs 
 
 Hidden Bone pickup additionally requires the actual Smog Vent to have been cleared with Bark, preventing a jump from the neighbouring fan from bypassing the gate. All countables and dogs lie outside move-gated areas. Hidden Bone persistence retains H11's immediate-save semantics on a failed excursion.
 
-## Actual measured economy and cap proposal
+## Actual measured economy and fixed cap
 
 Measured from fresh actual builders at both random payout extremes, including original content, both detours, optional late-move extras, the purple path, both Mystery slots at their worst payout, and the unchanged Cone arena:
 
@@ -45,7 +45,7 @@ Measured from fresh actual builders at both random payout extremes, including or
 | Arena | 7 |
 | **Total** | **302 → 100 whole** |
 
-There are no coconuts. The current approved cap **86** is unchanged and correctly rejects this candidate. The source's formula proposes **101**: `ceil((55 × 419 / 244) / 5) × 5 + 2 × 3`. Layout1's actual combined maximum is 167raw→55whole. The candidate fits 101. A separately fixed cap99 fails; 101 passes. The cap is never derived from the current measured budget. The parent confirmed cap101 is authorized by the owner’s broad instruction. Root still owns the serial cap/layout activation.
+There are no coconuts. The owner-approved fixed cap is **101**, from the source formula: `ceil((55 × 419 / 244) / 5) × 5 + 2 × 3`. Layout1's actual combined maximum is 167raw→55whole. The candidate fits 101. A separately fixed cap99 fails; 101 passes. The cap is never derived from the current measured budget. The parent confirmed cap101 is authorized by the owner’s broad instruction. This integration activates that cap without deriving it from the measured budget.
 
 ## Implementation and validation
 
@@ -55,7 +55,7 @@ There are no coconuts. The current approved cap **86** is unchanged and correctl
 - Two downstream detours leave permanent return walks; `validateDetours` passes. Failed raised excursions restore packs, dogs, field tickets, balances, Snack raw and entry lives without incrementing deaths or changing the ordinary checkpoint. Real Session regression exercises that path. Each detour resets only its own entities; earlier excursions remain banked. Normal-height return capsules use clear permanent approach pads (Duct190.5/x3; Rails272.5/x−2.8), avoiding the slide roof and fan base.
 - Local reversing belt changes actual conveyor force and UV scrolling direction every4s, with a one-second flashing lamp/two-tone synthesized warning, reset on death. No new media.
 - `buildBoss3Arena` is byte-identical to base3f1d05a (SHA256 d799abc2c461cc825c4ca81a7e34ed88fcaaf8ce15c3f7c2f4722266ad5af575). No Evil Cone code changes.
-- Full source183d60f:64files/633tests passing; build passing. Final narrow corrections (gantry thickness, numeric side-camera contract) have19 candidate tests passing; candidate + existing budget/gates + canonical noncountable-source and side-input regressions:5files/67tests passing. Production build passed on final runtime0675f70. Independent review approved that source; closure report: `/workspace/nobu-spec/h32-review.md`. Final full suite belongs to root after latest-main metadata activation; no stale-base full rerun substitutes for that.
+- Full source183d60f:64files/633tests passing; build passing. Final narrow corrections (gantry thickness, numeric side-camera contract) have19 candidate tests passing; candidate + existing budget/gates + canonical noncountable-source and side-input regressions:5files/67tests passing. Production build passed on final runtime0675f70. Independent review approved that source; closure report: `/workspace/nobu-spec/h32-review.md`. Latest-main activation results are recorded below.
 
 Packaging uses the merged GameCamera's actual numeric side contract (`side:-1`, `ahead:0`), with finite world targets and right→+d basis verified using the actual camera class. Packaging alone opts into `ignoreDepth:true`; parent’s canonical089aab0 Player patch ignores Up/Down there, preserving existing0.5-depth input elsewhere. The actual Player/World regression checks zero Up displacement/velocity laterally and positive Right progress on the authored Packaging track, then verifies the flag is absent after exit. Low0.4m cutaway banks cover the entire side zone206–261, with3.4m restoration at205/262; unchanged1.6m lateral widths preserve collision bounds (the collision engine ignores wall h). The authored3.4m banks hid Nobu behind their underside from the2.2m camera. The initial string `'left'` produced NaN and a blank capture; that capture is a diagnosed failure, not visual acceptance.
 
@@ -78,3 +78,16 @@ Fresh profile and Vite module identity checks, using actual Player/World/Stage u
 ## Manual verification limits
 
 No human unassisted full clear, median-death sample, trial target tuning, or average-climber Vat timing measurement has been run. An illustrative fixed-60Hz route has 8.27s total flight time; an example wait budget gives13.58s to the top, but that is an authoring estimate and does not establish the required average-player ≥3s margin. The assisted browser checks above do not substitute for those manual measurements.
+
+
+## Final activation verification
+
+Rebased onto merged main `4ec1448d`; activation source `76264f7` was independently approved by the parent reviewer. The nonoverlapping canonical L3 section rows are shared by registry hints and the actual builder; both detours keep their explicit context. Registry metadata preserves the five released dog IDs before appending four new IDs, yielding 36 shipped dogs. Classic L3 records, Golden progress and old dog counts survive the upgrade. A real Session completes a 69.5s layout 2 Platinum trial locally and cannot enqueue or flush a 3v2 upload while HUB_LAYOUT[3] remains 1.
+
+- Focused activation, actual builder budget, registry, Kennel and DEV telemetry: **7 files / 86 tests passed**.
+- `npm run build` on the approved activation runtime: **passed**.
+- Full `npm test -- --maxWorkers=1`: **81 files passed, 3 failed; 833 tests passed, 3 failed (836 total)** in 230.10s. The failures were two stale mocked payout assertions expecting four arguments instead of the canonical explicit fifth `undefined`, plus the bounds fixture reading the raw 245 trigger instead of its shifted 420 position. No product failure was found.
+- Both payout assertions were corrected; the bounds fixture now applies the canonical Factory authoring shift and verifies both Classic and active-layout floors. Affected reruns: **bonus extension 25/25 passed; ride reach + trial bounds 8/8 passed**.
+- Per parent direction, the complete local suite was not repeated for these test-only assertion/parser changes. A clean exact-head GitHub full suite remains a merge requirement; this report does not claim a wholly green final local full run.
+
+No runtime source changed after 76264f7. No additional browser run, external score, deployment, permission change or new media was involved in activation.

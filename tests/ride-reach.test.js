@@ -45,7 +45,7 @@ describe('Roomba Rush countable reachability', () => {
       expect(pack.broken).toBe(true);
       expect(pack.solid.enabled).toBe(false);
       expect(onBreak).toHaveBeenCalledOnce();
-      expect(spawnFlying).toHaveBeenCalledWith(-2.4, 0.8, 157, 8);
+      expect(spawnFlying).toHaveBeenCalledWith(-2.4, 0.8, 157, 8, undefined);
     } finally { sound.mockRestore(); }
   });
   it('keeps the rugs behind a reachable dock that clears them remotely', () => {
