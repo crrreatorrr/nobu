@@ -80,6 +80,7 @@ export class Player {
 
   reset() {
     this.moonHold = null;
+    this.earnedBossBarkCool = 0;
     this.bossFling = null;
     this.mode = 'normal';
     this.hang = null;
@@ -242,6 +243,7 @@ export class Player {
 
     // ---- actions ----
     this.barkCool = Math.max(0, (this.barkCool || 0) - dt);
+    this.earnedBossBarkCool = Math.max(0, (this.earnedBossBarkCool || 0) - dt);
     this.barkT = (this.barkT ?? 1) + dt;
     if (this.mode === 'normal' && !this.ride) {
       if (input.pressed('bark') && this.abilities.bark && this.barkCool <= 0) this._bark();
@@ -606,6 +608,17 @@ export class Player {
       if (e.onBark) { e.onBark(this); continue; }
       if (!e.interactive || e.kind === 'rug' || (e.kind === 'cat' && d < 3.5)) continue;
       e.onExplosion?.({ pos: p });
+    }
+    // A paid replacement cannot remove a mandatory earned move. Only bosses
+    // explicitly providing this callback receive the independently bounded
+    // base bark; the Spell Bark loop above continues to skip every boss.
+    if (spell?.skip_bosses !== true || !save.beatenOf(3) || this.earnedBossBarkCool > 1e-9) return;
+    const base = BARK_BASE;
+    for (const e of this.game.stage.entities) {
+      if (e.dead || e.maxHp === undefined || typeof e.onEarnedBark !== 'function') continue;
+      const dx = e.pos.x-p.x, dz = e.pos.z-p.z, distance = Math.hypot(dx,dz);
+      if (distance < .05 || distance > base.range_m || Math.abs(e.pos.y-p.y)>base.y_tol_m || (dx*f.x+dz*f.z)/distance<base.cone_dot) continue;
+      if (e.onEarnedBark(this) !== false) this.earnedBossBarkCool = base.cooldown_s;
     }
   }
 

@@ -434,3 +434,105 @@ it('scrolls real ticker label textures and swaps every board to dump/zero status
   arena.setTicker('zero');
   expect(arena.tickers.every((t) => t.userData.panel.material.map === arena.tickerTextures.zero)).toBe(true);
 });
+it('plays the two-second candle entrance and defeat pop/crown beat without entity or ticket rewards', async () => {
+  const f = fixture(),
+    p = realPlayer(f),
+    { boss, arena, stage } = f;
+  boss.active = false;
+  const intro = boss.intro();
+  expect(boss.introCandle.visible).toBe(true);
+  boss.update(1);
+  expect(boss.pos.y).toBeCloseTo(-2.5);
+  boss.update(1);
+  await intro;
+  expect(boss.pos.y).toBe(3);
+  expect(boss.introCandle.visible).toBe(false);
+  expect(boss.chants).toBe(4);
+  boss.defeated = true;
+  const count = stage.entities.length;
+  boss.update(2.01);
+  expect(arena.tickerKind).toBe('zero');
+  expect(boss.rig.visible).toBe(false);
+  expect(boss.crown.parent).toBe(p.root);
+  expect(stage.entities.length).toBe(count);
+  boss.update(0.7);
+  expect(boss.crown.parent).toBe(stage.scene);
+  boss.update(1.5);
+  expect(boss.crown.visible).toBe(false);
+});
+it('preserves the earned base bark with a Spell Hat using only base range/cone/height and .9s cooldown', () => {
+  const f = fixture(),
+    p = realPlayer(f),
+    { boss, arena, game, stage } = f;
+  save.data.beaten[3] = true;
+  game.loadout.effects.spell_bark = {
+    range_m: 9,
+    cone_dot: 0.4,
+    cooldown_s: 0.7,
+    y_tol_m: 2.5,
+    rings: 4,
+    ring_step_m: 2.2,
+    color: 0xa66bff,
+    skip_bosses: true
+  };
+  const earned = vi.spyOn(boss, 'onEarnedBark'),
+    spell = vi.spyOn(boss, 'onBark');
+  const pose = (earnedMove = true, z = 3.5, facing = Math.PI, y = 3) => {
+    save.data.beaten[3] = earnedMove;
+    boss.phase = 3;
+    boss.pos.set(0, 3, 0);
+    boss.openWindow();
+    p.pos.set(0, y, z);
+    p.facing = facing;
+    p.earnedBossBarkCool = 0;
+    earned.mockClear();
+    spell.mockClear();
+  };
+  for (const [owned, z, facing, y] of [
+    [false, 3.5, Math.PI, 3],
+    [true, 7, Math.PI, 3],
+    [true, 3.5, 0, 3],
+    [true, 3.5, (2 * Math.PI) / 3, 3],
+    [true, 3.5, Math.PI, 6]
+  ]) {
+    game.loadout.effects.spell_bark.y_tol_m = y === 6 ? 9 : 2.5;
+    pose(owned, z, facing, y);
+    p._bark();
+    expect(boss.shielded).toBe(true);
+    expect(earned).not.toHaveBeenCalled();
+    expect(spell).not.toHaveBeenCalled();
+  }
+  game.loadout.effects.spell_bark.y_tol_m = 2.5;
+  pose();
+  p._bark();
+  expect(boss.shielded).toBe(false);
+  expect(earned).toHaveBeenCalledTimes(1);
+  expect(spell).not.toHaveBeenCalled();
+  expect(p.earnedBossBarkCool).toBe(0.9);
+  expect(p.barkCool).toBe(0.7);
+  expect(game.session.onEnemyDefeated).not.toHaveBeenCalled();
+  const candle = arena.pillars[12];
+  candle.place(1, 0x4aff8a);
+  p.pos.copy(candle.pos);
+  p.body.grounded = true;
+  p.body.ground = candle.solid;
+  p.facing = Math.atan2(-p.pos.x, -p.pos.z);
+  vi.spyOn(input, 'pressed').mockReturnValue(false);
+  vi.spyOn(input, 'held').mockReturnValue(false);
+  input.state.x = input.state.y = 0;
+  stage.world.beginFrame();
+  p.update(0.7, stage, { right: { x: 1, z: 0 }, forward: { x: 0, z: 1 } });
+  boss.openWindow();
+  p._bark();
+  expect(boss.shielded).toBe(true);
+  expect(earned).toHaveBeenCalledTimes(1);
+  p.update(0.2, stage, { right: { x: 1, z: 0 }, forward: { x: 0, z: 1 } });
+  p._bark();
+  expect(boss.shielded).toBe(false);
+  expect(earned).toHaveBeenCalledTimes(2);
+  game.loadout.effects = {};
+  pose();
+  p._bark();
+  expect(spell).toHaveBeenCalledTimes(1);
+  expect(earned).not.toHaveBeenCalled();
+});

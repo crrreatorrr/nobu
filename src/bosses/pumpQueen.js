@@ -8,7 +8,7 @@ import { textTexture } from '../entities/fx.js';
 import { audio } from '../audio/audio.js';
 import { QUEEN_STAGE_POWERS, QUEEN_TICKER_TEXT } from '../story/script.js';
 import { materialSet, modelSkeletons } from './catResources.js';
-import { queenHazardsPaused, queenProceduralCleanup } from './queenResources.js';
+import { queenCleanup, queenHazardsPaused, queenProceduralCleanup } from './queenResources.js';
 
 export const QUEEN_PLANS = Object.freeze({
   1: ['mint', 'wave', 'pump', 'mint', 'chain', 'pump'],
@@ -66,6 +66,41 @@ export function fitQueenModel(model, height = 5.5) {
   return true;
 }
 
+// autoRig consumes static geometry. The existing pill_bot is already skinned;
+// read its actual rest-pose vertices (including skin/bind transforms) before
+// replacing that skeleton. Raw-buffer baking shrinks this asset by100x.
+export function bakeQueenRestPose(model) {
+  model.updateMatrixWorld(true);
+  const meshes = [];
+  model.traverse((obj) => {
+    if (obj.isMesh) meshes.push(obj);
+  });
+  if (!meshes.some((obj) => obj.isSkinnedMesh)) return new Set();
+  const inverse = new THREE.Matrix4().copy(model.matrixWorld).invert(),
+    vertex = new THREE.Vector3();
+  const baked = [],
+    geometries = new Set();
+  for (const source of meshes) {
+    const geometry = source.geometry.clone(),
+      positions = geometry.attributes.position;
+    const local = new THREE.Matrix4().multiplyMatrices(inverse, source.matrixWorld);
+    for (let i = 0; i < positions.count; i++) {
+      source.getVertexPosition(i, vertex);
+      vertex.applyMatrix4(local);
+      positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
+    }
+    geometry.morphAttributes = {};
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    geometries.add(geometry);
+    baked.push(new THREE.Mesh(geometry, source.material));
+  }
+  model.clear();
+  model.add(...baked);
+  return geometries;
+}
+
 export class PumpQueen extends Boss {
   constructor(stage, x = 0, y = 3, z = 0) {
     super(stage, x, y, z, { name: 'THE PUMP QUEEN', portrait: 'portrait_queen', key: 'queen' });
@@ -91,10 +126,17 @@ export class PumpQueen extends Boss {
     this.airdrops = [];
     this.acceptsBark = true;
     this.pumpAmount = 0;
+    this.introCandle = new THREE.Mesh(new THREE.BoxGeometry(2.6, 12, 2.6), toon(0x4aff8a));
+    this.introCandle.position.y = -6;
+    this.introCandle.visible = false;
+    this.obj.add(this.introCandle);
     this.collectMeshes();
     this.setStageLook(1);
     this.refreshBox();
     this.disposeResources = queenProceduralCleanup(stage, [this.obj, this.beam.group], [this.tickerTexture]);
+    queenCleanup(stage, () => {
+      if (this.crown.parent !== this.crownAnchor) this.crown.parent?.remove(this.crown);
+    });
   }
   buildModel() {
     let model = Assets.model('model_pump_queen', 5.5);
@@ -116,6 +158,7 @@ export class PumpQueen extends Boss {
       model.traverse((obj) => {
         if (obj.isMesh) supersededGeometry.add(obj.geometry);
       });
+    for (const geometry of bakeQueenRestPose(model)) supersededGeometry.add(geometry);
     const rig = autoRig(model, { height: 5.5, joints: JOINTS, parents: PARENTS, weigh, yaw: -Math.PI / 2 });
     if (rig) {
       for (const material of supersededMaterials) material.dispose();
@@ -220,6 +263,20 @@ export class PumpQueen extends Boss {
     this.active = true;
     this.beginPhase();
   }
+  intro() {
+    this.introT = 0;
+    this.chants = 0;
+    this.pos.y = -8;
+    this.introCandle.visible = true;
+    this.arena.setTicker('pump');
+    return new Promise((resolve) => {
+      this.introResolve = resolve;
+    });
+  }
+  setStageLook(phase) {
+    super.setStageLook(phase);
+    this.crown.rotation.z = phase === 4 ? 0.5 : 0.15;
+  }
   update(dt) {
     if (queenHazardsPaused(this.game) && this.active && !this.evolving && !this.defeated) {
       this.refreshBox();
@@ -228,6 +285,10 @@ export class PumpQueen extends Boss {
     super.update(dt);
   }
   evolve(phase) {
+    if (phase === 4) {
+      this.arena.setTicker('dump');
+      audio.play('crashSiren');
+    }
     const result = super.evolve(phase);
     if (!this.pillarCleanup) this.pillarCleanup = queenProceduralCleanup(this.stage, [this.pillar]);
     return result;
@@ -506,7 +567,7 @@ export class PumpQueen extends Boss {
     )
       p.hurt('angel', this.pos.x, this.pos.z);
   }
-  onBark() {
+  popBubble() {
     if (this.phase === 3 && this.state === 'pumped' && this.shielded) {
       this.shielded = false;
       this.bubble.visible = false;
@@ -515,7 +576,15 @@ export class PumpQueen extends Boss {
       this.stateT = 0;
       this.pumpedFor = this.W + this.windowExtra;
       audio.play('conePop');
+      return true;
     }
+    return false;
+  }
+  onBark() {
+    return this.popBubble();
+  }
+  onEarnedBark() {
+    return this.popBubble();
   }
   onDash(p) {
     if (
@@ -568,13 +637,68 @@ export class PumpQueen extends Boss {
     this.plan = [];
     this.beginAttack(this.phase === 4 ? 'liquidation' : 'mint');
   }
-  idleAnim() {
+  idleAnim(dt = 0) {
+    if (this.introResolve) {
+      this.introT = Math.min(2, this.introT + dt);
+      const k = this.introT / 2;
+      this.pos.y = -8 + 11 * k * k * (3 - 2 * k);
+      while (this.chants < 4 && this.introT >= this.chants * 0.4) {
+        this.chants++;
+        audio.play('doubleJump', 0.8 + this.chants * 0.08);
+      }
+      if (this.bones?.armR) this.bones.armR.rotation.z = Math.sin(this.introT * 10) * 0.5;
+      if (this.introT >= 2) {
+        const resolve = this.introResolve;
+        this.introResolve = null;
+        this.introCandle.visible = false;
+        resolve();
+      }
+    }
     this.refreshBox();
   }
   defeatAnim(dt) {
     this.beam.hide();
     this.clearWake();
+    if (!this.defeatT) {
+      this.arena.setTicker('zero');
+      this.killMinions();
+      for (const drop of this.airdrops) drop.onRespawn();
+      this.defeatOrigin = this.pos.clone();
+      this.rig.scale.setScalar(this.stageScale[this.phase]);
+    }
+    this.defeatT = (this.defeatT || 0) + dt;
+    const t = this.defeatT,
+      k = Math.min(1, t / 2);
     this.rig.rotation.y += dt * 8;
-    this.rig.scale.y = Math.max(0.05, this.rig.scale.y - dt * 0.5);
+    this.pos.x = this.defeatOrigin.x + Math.sin(t * 7) * 2 * (1 - k);
+    this.pos.z = this.defeatOrigin.z + Math.cos(t * 7) * 2 * (1 - k);
+    this.rig.scale.y = Math.max(0.03, this.stageScale[this.phase] * (1 - k));
+    if (t >= 2 && !this.popped) {
+      this.popped = true;
+      this.rig.visible = false;
+      this.fx.burst(this.pos.x, this.pos.y + 2, this.pos.z, {
+        count: 60,
+        colors: [0xffd23f, 0xd23cff, 0x4aff8a],
+        speed: 8
+      });
+      this.fx.explosion(this.pos.x, this.pos.y + 2, this.pos.z, { radius: 3, color: 0xd23cff });
+      audio.play('conePop');
+      audio.play('explosion');
+      this.player.root.add(this.crown);
+      this.crown.position.set(0, 1.35, 0);
+      this.crown.rotation.set(0, 0, 0);
+    }
+    if (this.popped && t < 2.65) this.crown.rotation.z = Math.sin(t * 40) * 0.18;
+    if (t >= 2.65 && !this.crownFlying) {
+      this.crownFlying = true;
+      this.stage.scene.attach(this.crown);
+      this.crownVelocity = new THREE.Vector3(4, 5, 2);
+    }
+    if (this.crownFlying) {
+      this.crownVelocity.y -= dt * 12;
+      this.crown.position.addScaledVector(this.crownVelocity, dt);
+      this.crown.rotation.x += dt * 8;
+      if (t > 4) this.crown.visible = false;
+    }
   }
 }
