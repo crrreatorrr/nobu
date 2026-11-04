@@ -50,17 +50,6 @@ export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=t
   for(const arrow of arrows){const land=arrow.onLand.bind(arrow);arrow.onLand=p=>{const result=land(p);const f=k.fwdAt(k.track.project(arrow.pos.x,arrow.pos.z).s);f.y=0;f.normalize();const forward=p.vel.dot(f);if(forward<8)p.vel.addScaledVector(f,8-forward);return result;};}
   k.bounceChain([corrections?[CANYON_BOUNCE_ITEM.x,CANYON_BOUNCE_ITEM.d]:[1.2,YA+53]],{y:0});k.floor(YA+54,YA+55,{w:9.2});
   buildFlap(k,game,stage,labels,{corrections});buildRiver(k,game,stage,labels);
-  for(const spot of stage.entities.filter(e=>e.kind==='pitysnacks')){
-    const onRespawn=spot.onRespawn.bind(spot);
-    spot.onRespawn=()=>{
-      onRespawn();
-      const s=game.session,cp=s.cp?.pos;if(!cp||s.deathsAtCp<7||chaseDda(s)===1)return;
-      const start=k.track.project(cp.x,cp.z).s,end=k.track.project(spot.pos.x,spot.pos.z).s;
-      if(end<=start)return;
-      const interrupted=stage.entities.some(e=>e.kind==='snacks'&&(()=>{const d=k.track.project(e.pos.x,e.pos.z).s;return d>start+.2&&d<end;})());
-      if(!interrupted)spot.arm();
-    };
-  }
   stage.canyonExtension={layout:2,chase,arrows};
 }
 function buildFlap(k,game,stage,labels,{corrections=true}={}){

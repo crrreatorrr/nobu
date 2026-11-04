@@ -145,13 +145,21 @@ test('the actual shifted Vacuum Dock safely clears all six old and new rugs',asy
  dock.press();dock.update(1.3);expect(rugs.every(e=>e.broken)).toBe(true);expect(game.player.dead).toBe(false);
 });
 
-test('authored pity checkpoint arms after seven ordinary deaths, stays in its CP segment and excludes competitive modes',()=>{
- for(const mode of [null,'trial','remix','medalRun','rush']){
- const{stage,game}=fixture(),spot=stage.entities.find(e=>e.kind==='pitysnacks'&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-234.5)<.1);game.fx=new Proxy(game.fx,{get:(o,k)=>o[k]??(()=>{})});
- expect(stage.entities.filter(e=>e.kind==='pitysnacks')).toHaveLength(3);game.session.cp={pos:stage.track.toWorld(232.5)};game.session.deathsAtCp=6;spot.onRespawn();expect(spot.armed).toBe(false);
- game.session.deathsAtCp=7;if(mode)game.session[mode]=true;spot.onRespawn();expect(spot.armed).toBe(mode===null);
- }
- const{stage,game}=fixture();game.session.deathsAtCp=7;game.session.cp={pos:stage.track.toWorld(201.5)};const spot=stage.entities.find(e=>e.kind==='pitysnacks'&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-234.5)<.1);spot.onRespawn();expect(spot.armed).toBe(false);
+test('canonical real Session deaths arm the Canyon pity spot without Tickets and exclude competitive contexts',async()=>{
+ const{Session}=await import('../src/game/session.js');
+ const attach=(flags={},cp=232.5)=>{
+  const f=fixture(),{stage,game,built}=f,s=new Session(game,'2');game.session=s;Object.assign(s,flags);s.stage=stage;s.tickets=game.tickets;s.chase=built.chase;s.projectiles={clear(){}};
+  game.fx=new Proxy(game.fx,{get:(o,k)=>o[k]??(()=>{})});game.ui.setHud=()=>{};game.mask={snapTo(){},setLevel(){}};
+  game.player.spawnAt=pos=>{game.player.pos.copy(pos);const pr=stage.track.project(pos.x,pos.z);game.player.body.s=pr.s;game.player.body.u=pr.u;};s.checkpoint(stage.track.toWorld(cp));
+  const spot=stage.entities.find(e=>e.kind==='pitysnacks'&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-234.5)<.1);return{...f,s,spot};
+ };
+ const{s,spot,stage,game}=attach(),before={tickets:save.data.tickets,raw:s.fieldRaw,snack:s.snack.raw,entities:stage.entities.length};
+ for(let i=0;i<6;i++)s.respawn();expect(spot.armed).toBe(false);s.respawn();expect(s.deathsAtCp).toBe(7);expect(spot.armed).toBe(true);expect(s.mask).toBe(1);expect(s.chase.speedMul).toBe(.92);
+ expect(stage.entities.filter(e=>e.kind==='pitysnacks'&&e.armed)).toEqual([spot]);expect(spot.countable).toBe(false);
+ expect({tickets:save.data.tickets,raw:s.fieldRaw,snack:s.snack.raw,entities:stage.entities.length}).toEqual(before);
+ spot.onTouch();expect(s.cp.pos.equals(spot.pos)).toBe(true);expect(s.deathsAtCp).toBe(0);expect(save.data.tickets).toBe(before.tickets);expect(game.tickets.flying).toHaveLength(0);
+ for(const mode of ['trial','remix','medalRun','rush','board']){const f=attach({[mode]:true});f.s.deathsAtCp=6;f.s.respawn();expect(f.spot.armed).toBe(false);expect(f.s.mask).toBe(0);expect(save.data.tickets).toBe(f.s.cp.tickets);}
+ const blocked=attach({},201.5);blocked.s.deathsAtCp=6;blocked.s.respawn();expect(blocked.spot.armed).toBe(false);
 });
 
 test('real Session respawn restores every toppling post phase, shadow and danger state',async()=>{
@@ -203,6 +211,7 @@ test('corrected optional gap requires Glide in the actual Player timing sweep wh
  expect(outcomes.filter(o=>o.corrections&&!o.glide).some(o=>o.reached)).toBe(false);expect(outcomes.some(o=>o.glide&&o.reached)).toBe(true);expect(outcomes.find(o=>!o.corrections).reached).toBe(true);
 });
 
-test('later-move Dust Wall pickups retain the jackpot source for shared Snack-potential accounting',()=>{
- const{game}=fixture(),extras=game.tickets.list.filter(t=>t.source==='jackpot');expect(extras).toHaveLength(10);expect(extras.every(t=>t.y>90)).toBe(true);
+test('later-move Dust Wall pickups retain the jackpot source for shared Snack-potential accounting',async()=>{
+ const{staticSnackPotential}=await import('../src/game/bones.js');
+ const{game}=fixture(),extras=game.tickets.list.filter(t=>t.source==='jackpot');expect(extras).toHaveLength(10);expect(extras.every(t=>t.y>90)).toBe(true);expect(staticSnackPotential(game.tickets.list)).toBe(148);
 });
