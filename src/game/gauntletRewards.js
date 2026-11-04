@@ -1,4 +1,5 @@
-export const GAUNTLET_FIRST_CLEAR_TICKETS=5;
+import {GAUNTLET_FIRST_CLEAR_TICKETS} from '../config/tickets.js';
+export {GAUNTLET_FIRST_CLEAR_TICKETS} from '../config/tickets.js';
 export const GAUNTLET_COSMETICS={g1:{allBoxes:'crate-collar',flawless:'crate-bandana'},g2:{allBoxes:'steel-sheen',flawless:'blink-collar'},g3:{allBoxes:'laundry-trail',flawless:'rainbow-trail'}};
 // Called at the ordinary level_end transaction, before its single save.write().
 // Returns whole Tickets; callers must not feed this through raw-pickup conversion.

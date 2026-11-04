@@ -31,6 +31,10 @@ export function rawTicketsForWhole(whole) {
  * Owner sign-off is required before H12 merges; see docs/expansion/h12-review.md.
  * Never derive these from a level's current budget: an over-cap edit must fail. */
 export const LEVEL_TICKET_CAP = Object.freeze({
+  g1: 5, g2: 5, g3: 5,
   1: 205, 2: 183, 3: 101, ride: 110, cave: 89,
   4: 184, 6: 159, 5: 162,
 });
+
+// Box Gauntlets: one permanent first-clear reward, already expressed in whole Tickets.
+export const GAUNTLET_FIRST_CLEAR_TICKETS = 5;
