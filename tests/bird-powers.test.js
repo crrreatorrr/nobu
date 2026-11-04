@@ -33,6 +33,20 @@ describe('Bird powers use actual boss states and projectiles',()=>{
     while(f.b.stateT<tell+.35+1.2-.02)step(f);expect(f.b.state).toBe('cage');until(f,()=>f.b.state==='aim');expect(f.b.stateT).toBe(0);
     expect(f.b.marker.visible).toBe(true);step(f,f.b.tele(.85)-.01);expect(f.b.state).toBe('aim');step(f,.02);expect(f.b.state).toBe('dive');
   });
+  it('moves the actual cage cover and captive-safe walls with a tracked target before locking',()=>{
+    const f=fixture(2);f.b.beginAttack('cage');const drop=f.b.cageDrop;
+    f.p.pos.set(4,.5,-3);step(f,f.b.tele(.9)-.02);expect(drop.cageCover.x).toBe(4);expect(drop.cageCover.z).toBe(-3);
+    expect(drop.cover.min.x).toBeCloseTo(3.2);expect(drop.cover.max.z).toBeCloseTo(-2.2);
+    step(f,.03);until(f,()=>drop.landed);
+    expect(drop.cover.enabled).toBe(true);expect(drop.cageCover.occupant).toBe(f.p);
+    const walls=f.stage.world.query(3,0,-4,5,2,-2).filter(s=>s.ref===drop.cageCover);expect(walls.length).toBeGreaterThan(0);
+    expect(f.stage.world.query(-1,0,3,1,2,5).filter(s=>s.ref===drop.cageCover)).toHaveLength(0);
+    expect(drop.cageCover.roof.enabled).toBe(false);
+    f.p.pos.set(8,0,-3);drop.cageCover.update();expect(drop.cageCover.roof.enabled).toBe(true);
+    f.b.beam.set(new THREE.Vector3(-10,3,-3),new THREE.Vector3(8,0,-3),true);expect(f.b.beam.hits(f.p)).toBe(false);
+    drop.cover.enabled=false;expect(f.b.beam.hits(f.p)).toBe(true);drop.cover.enabled=true;
+    f.p.hurt.mockClear();f.proj.feather(new THREE.Vector3(-10,.8,-3),new THREE.Vector3(1,0,0),20);f.proj.update(.9);expect(f.p.hurt).not.toHaveBeenCalled();
+  });
   it('chains a complete laser directly into a fully warned volley',()=>{
     const f=fixture(3);f.b.startChain(['laser','volley']);const feather=vi.spyOn(f.proj,'feather');until(f,()=>f.b.state==='volley');
     expect(f.b.stateT).toBe(0);step(f,f.b.tele(.65/f.b.sp)-.01);expect(feather).not.toHaveBeenCalled();step(f,.02);expect(feather).toHaveBeenCalledTimes(7);

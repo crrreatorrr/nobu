@@ -34,6 +34,13 @@ export function buildBirdArena(k,stage) {
   });
   const windLanes=stage.add(new BirdWindLanes(stage));return{perches,windLanes};
 }
+// The falling mesh and its not-yet-active cover must share the same tracked target.
+export function moveBirdCage(drop,x,z) {
+  if(drop.landed)return;
+  drop.mesh.position.x=x;drop.mesh.position.z=z;drop.marker.position.set(x,.05,z);
+  const cover=drop.cageCover;cover.x=x;cover.z=z;
+  cover.box.min.x=x-.8;cover.box.max.x=x+.8;cover.box.min.z=z-.8;cover.box.max.z=z+.8;
+}
 export class BirdEscort extends ConeDrone {
   constructor(boss,side) {
     super(boss.stage,boss.pos.x,boss.pos.y-.5,boss.pos.z,{range:0});this.boss= boss;this.side=side;this.countable=false;this.alwaysActive=true;this.angle=side<0?Math.PI:0;

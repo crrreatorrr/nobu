@@ -38,3 +38,10 @@ consumption and the ultimate's guaranteed punish. No new media/vendor/permission
 Verification in progress: npm ci passed; initial focused4files/75tests passed. Browser checks and full
 suite/build will be recorded after the candidate review. Human first-try difficulty (<=3 deaths),
 natural No-Hit/speed clears, Wizard Hat and Classic Nobu playthroughs are not claimed yet.
+
+Independent review caught a stale H20 cage-cover coordinate: tracking the visible marker did not move
+the future collision/beam-cover object. The Bird adapter now moves both the visual target and the
+registered cover bounds before lock/landing. A real World regression verifies the moved captive-safe
+walls and roof, no stale old-position solids, and actual Beam/feather interception at the new location.
+All16 Bird tests pass after that correction; H20 arena tests also pass. The initial full candidate
+suite passed47files/511tests and build113modules; final corrected integrated checks remain pending.

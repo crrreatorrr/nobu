@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart } from './common.js';
 import { BIRD_STAGE_POWERS } from '../story/script.js';
-import { BirdEscort, BirdEggCraters, BIRD_PERCHES } from './birdArena.js';
+import { BirdEscort, BirdEggCraters, BIRD_PERCHES, moveBirdCage } from './birdArena.js';
 import { autoRig, sstep, blendPose } from './autorig.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
@@ -556,7 +556,7 @@ export class MechaBird extends Boss {
       case 'cage': {
         const tell=this.tele(.9),drop=this.cageDrop;
         this.setFlap(11,.4);this.pos.y=damp(this.pos.y,6,5,dt);
-        if(this.stateT<tell){drop.mesh.position.x=this.P.x;drop.mesh.position.z=this.P.z;drop.marker.position.set(this.P.x,.05,this.P.z);}
+        if(this.stateT<tell)moveBirdCage(drop,this.P.x,this.P.z);
         else if(!this.did){this.did=true;audio.play('beep');}
         this.pos.x=damp(this.pos.x,drop.mesh.position.x,4,dt);this.pos.z=damp(this.pos.z,drop.mesh.position.z,4,dt);
         this.faceTo(this.P,dt);this.animate(dt,{cage:[Math.sin(this.stateT*20)*.7,0,Math.sin(this.stateT*16)*.6]});
