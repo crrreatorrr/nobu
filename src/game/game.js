@@ -829,7 +829,7 @@ export class Game {
 
   // Colored bone found: it opens a path in an earlier level.
   collectBone(color) {
-    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon', green: 'Pump & Dump Pipeline', purple: 'The Cone Factory', yellow: 'Laundry Day' };
+    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon', green: 'Pump & Dump Pipeline', purple: 'The Cone Factory', yellow: 'Scratchpost Canyon' };
     save.data.colorBones ||= {};
     const fresh = !save.data.colorBones[color];
     save.data.colorBones[color] = true;

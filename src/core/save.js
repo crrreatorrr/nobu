@@ -1,5 +1,5 @@
 // Progress persistence in localStorage (every access wrapped; the game runs fine without it).
-import { TRIAL_FLOOR_MS, TRIAL_LEVELS, trialMedal, trialLayout, trialVariant } from '../config/trials.js';
+import { TRIAL_FLOOR_MS, TRIAL_LEVELS, LOCAL_TRIAL_LEVELS, trialMedal, trialLayout, trialVariant } from '../config/trials.js';
 import { LEVEL_IDS, LEVEL_DOGS } from '../levels/metadata.js';
 import { trialMastery, mergeTrialMastery } from '../game/mastery.js';
 import { KENNEL_MILESTONES, kennelUnlocks } from '../game/progress.js';
@@ -77,7 +77,7 @@ function sanitizeTrial(level, e, layout = trialLayout(level)) {
 export function sanitizeTrials(raw, layout) {
   const out = {};
   if (!isObj(raw)) return out;
-  for (const level of TRIAL_LEVELS) {
+  for (const level of LOCAL_TRIAL_LEVELS) {
     const e = sanitizeTrial(level, raw[level], layout ?? trialLayout(level));
     if (e) out[level] = e;
   }
@@ -89,7 +89,7 @@ export function sanitizeTrials(raw, layout) {
 export function migrateTrialLayouts(trials, classic) {
   const current = sanitizeTrials(trials);
   const archive = sanitizeTrials(classic, 1);
-  for (const level of TRIAL_LEVELS) {
+  for (const level of LOCAL_TRIAL_LEVELS) {
     if (trialLayout(level) === 1) continue;
     const old = sanitizeTrial(level, trials?.[level], 1);
     if (old) archive[level] = mergeTrialMastery(trialVariant(level, 1), archive[level], old);
