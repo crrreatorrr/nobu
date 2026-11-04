@@ -93,3 +93,57 @@ export class BlinkBox extends Entity {
   onRespawn() { this.clock.reset(); this.solid.enabled = false; this._cue = null; this.update(0, true); }
 }
 
+export class FallBox extends CrumblePlatform {
+  constructor(stage, x, y, z, { delay = .45, tier = stage.tier || 1 } = {}) {
+    // Parent positions its surface at y; this helper takes the box bottom.
+    super(stage, x, y + .98, z, { w: 1, h: .98, d: 1 });
+    this.home.y = y; this.pos.y = y; this.obj.position.y = y;
+    this.obj.remove(this.mesh);
+    const visual = boxMesh(0xff8a3a); this.mesh = visual.mesh; this.band = visual.band; this.obj.add(this.mesh);
+    this.kind = 'fallbox'; this.countable = false; this.delay = delay;
+    this.tell = Math.max(.3, fair(tier).tell);
+    this.alwaysActive = true;
+    for (const x0 of [-.25, 0, .25]) {
+      const crack = new THREE.Mesh(new THREE.BoxGeometry(.025, .008, .65), new THREE.MeshLambertMaterial({ color: 0x28212b }));
+      crack.position.set(x0, .985, 0); crack.rotation.y = .25; this.mesh.add(crack);
+    }
+    this.reset();
+  }
+  _place() {
+    this.solid.setCenter(this.pos.x, this.pos.y, this.pos.z, .98, .98, .98);
+    this.obj.position.copy(this.pos);
+  }
+  update(dt) {
+    if(this.distToPlayer()<7)this.game.ui?.tutorial?.('fallbox');
+    const p = this.player;
+    if (this.state === 'idle' && p?.body.grounded && p.body.ground === this.solid) {
+      this.state = 'shake'; this.t = 0; this.warned = false;
+      this.activeDelay = this.delay * ddaTiming(this.stage).delayK;
+      // Contact starts both cues. The permanent crack markings teach the hazard earlier.
+      audio.play('roll');
+    }
+    if (this.state === 'shake') {
+      this.t += dt;
+      this.mesh.position.x = Math.sin(this.t * 60) * .06;
+      this.band.emissiveIntensity = .4 + .4 * Math.abs(Math.sin(this.t * 20));
+      if (!this.warned && this.t >= this.activeDelay - .15) { audio.play('roll'); this.warned = true; }
+      if (this.t >= this.activeDelay - 1e-10) {
+        this.state = 'fall'; this.t = 0; this.vy = 0; this.solid.enabled = false;
+      }
+    } else if (this.state === 'fall') {
+      this.t += dt; this.vy -= 25 * dt; this.pos.y += this.vy * dt;
+      this.obj.rotation.x += dt * 1.5; this._place();
+      if (this.t >= 2.8) this.reset();
+    } else if (this.state === 'returning' && !overlapsPlayer(this)) this.reset();
+  }
+  reset() {
+    this.pos.copy(this.home); this.obj.position.copy(this.home); this.obj.rotation.x = 0;
+    this.mesh.position.x = 0; this.mesh.rotation.z = 0; this.band.emissiveIntensity = 0;
+    this.t = 0; this.vy = 0; this._place();
+    this.solid.enabled = !overlapsPlayer(this);
+    this.state = this.solid.enabled ? 'idle' : 'returning';
+    this.mesh.visible = this.solid.enabled;
+  }
+  onRespawn() { this.reset(); }
+}
+
