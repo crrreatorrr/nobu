@@ -73,3 +73,11 @@ A complete real Player route lands all five live boxes and the exit using actual
 With every timing box physically disabled, an adversarial World sweep tests27 earned-move Glide/Zoomies cases and1,260 late-jump/Crown/air-dash combinations. None cross the sealed lane. A high approach from8m with Moon-strength launch and extra air jumps also fails; removing the upper end closure makes that roof shortcut succeed, proving the closure is the relevant protection. Walking back from the roof reaches the existing entry floor safely.
 
 Evidence: `/tmp/h40-cereal-bypass-search.json`, `/tmp/h40-cereal-live-route.json`, `/tmp/h40-cereal-input-window.json`, and `/tmp/h40-cereal-player-route.json`. These are simulations; the final sealed-cabinet browser check and independent review remain pending.
+
+## Sealed lane browser verification
+
+On frozen source845f95d, a real keyboard-event controller completed all five live timing boxes and the raised exit on its first starting offset (1second), in554frames at120Hz. There was no intermediate teleport or freeze; only initial assisted placement and freezing after success. Entry, middle, final box, roof and exit screenshots were inspected: Nobu, the timing surfaces and DOUBLE/JUMP sign remain readable through the cutaway case. Page errors, console errors, banking calls and attempted external writes were all empty. The supported pity checkpoint also passed actual Session respawn again. Chrome/Vite were closed and the GPU explicitly released.
+
+Evidence: `/tmp/nobu-h40-sealed-browser-results.json`, `/tmp/nobu-h40-cereal-entry.png`, `/tmp/nobu-h40-cereal-middle.png`, `/tmp/nobu-h40-cereal-exit.png`, and `/tmp/nobu-h40-cereal-keyboard-exit.png`.
+
+After that check, cosmetic cleanup removes only repeated internal outlines from tiled roof/side surfaces. The cabinet's outer frames and five cross-baffles remain outlined; collision tiles, materials and controls are unchanged. This reduces visual clutter and draw calls without changing the tested physical route. Independent geometry review was approved by the root subject to the successful browser check above.

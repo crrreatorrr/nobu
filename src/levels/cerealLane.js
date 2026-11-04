@@ -14,12 +14,13 @@ export function buildCerealLane(stage,track){
   const panels=[],solids=[];
   const shell=new THREE.MeshLambertMaterial({color:0xbda575,transparent:true,opacity:.10,depthWrite:false,side:THREE.FrontSide});
   const trim=new THREE.LineBasicMaterial({color:0xb3833d,transparent:true,opacity:.7});
-  function panel(x,d,w,depth,bottom,height,{widthStep=.55}={}){
+  function panel(x,d,w,depth,bottom,height,{widthStep=.55,outline=true}={}){
     const point=track.toWorld(d,x,0),yaw=track.yaw(d),obj=new Entity(stage,point.x,bottom,point.z);
     obj.interactive=false;obj.obj.rotation.y=yaw;
     const geo=new THREE.BoxGeometry(w,height,depth),mesh=new THREE.Mesh(geo,shell);mesh.position.y=height/2;
-    const outline=new THREE.LineSegments(new THREE.EdgesGeometry(geo),trim);outline.position.y=height/2;
-    obj.obj.add(mesh,outline);stage.add(obj);panels.push(obj);
+    obj.obj.add(mesh);
+    if(outline){const frame=new THREE.LineSegments(new THREE.EdgesGeometry(geo),trim);frame.position.y=height/2;obj.obj.add(frame);}
+    stage.add(obj);panels.push(obj);
     const n=Math.ceil(w/widthStep),tile=w/n,c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));
     for(let i=0;i<n;i++){
       const p=track.toWorld(d,x-w/2+tile*(i+.5),0),hx=(tile*c+depth*s)/2,hz=(tile*s+depth*c)/2;
@@ -29,8 +30,8 @@ export function buildCerealLane(stage,track){
   }
   // A continuous visible lid prevents dropping into the lane from the six-metre
   // green-bone shelf. Its cutaway material keeps the existing camera readable.
-  for(let d=345.5;d<364.65;d+=.75)panel(0,d,8.8,.95,ceiling,.3);
-  for(let d=345.5;d<364.65;d+=.75)for(const x of [-4.2,4.2])panel(x,d,.35,.95,-24,top+24);
+  for(let i=0;i<26;i++){const d=345.5+i*.75;panel(0,d,8.8,.95,ceiling,.3,{outline:i===0||i===25});}
+  for(let i=0;i<26;i++)for(const x of [-4.2,4.2])panel(x,345.5+i*.75,.35,.95,-24,top+24,{outline:i===0||i===25});
   // Low braces are just above standing height at each timed landing. A player
   // crossing while gliding must settle onto a live box before the next launch.
   for(const p of boxes){const bottom=p.entity.solid.max.y+1.65;panel(0,p.d,8.8,.12,bottom,ceiling+.3-bottom,{widthStep:.28}).cerealBrace=true;}
