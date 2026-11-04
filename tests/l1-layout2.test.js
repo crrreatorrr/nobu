@@ -26,11 +26,11 @@ function build(layout=2,corrections=true){
  const g={player:{pos:new THREE.Vector3(),body:{s:0,u:0},abilities:{}},ui:{tutorial(){},banner(){}},fx:new Proxy({},{get:()=>()=>{}}),camera:{shake(){}}};
  g.session={level:1,deaths:0,runSeed:42,nextSeq:()=>1,onBreak(){},addTickets(){},cp:{pos:new THREE.Vector3()}};
  const s=new Stage(g,1),t=new TicketSystem(g,s);g.tickets=g.session.tickets=t;g.stage=g.session.stage=s;
- const info=(layout===2?buildLevel1Layout2:buildLevel1)(g,s,t,{labels,corrections});t.finalize();return{g,s,t,info};
+ const info=(layout===2?buildLevel1Layout2:buildLevel1)(g,s,t,{layout,labels,corrections});t.finalize();return{g,s,t,info};
 }
 let raw,candidate,classic;
 beforeAll(()=>{raw=build(2,false);candidate=build();classic=build(1);});
-test('leaves layout1 canonical and preserves the Bird arena byte for byte',()=>{
+test('retains explicit Classic layout and preserves the Bird arena byte for byte',()=>{
  expect(classic.s.track.length).toBeCloseTo(328.492,2);expect(classic.s.entities.filter(e=>e instanceof ConedDog)).toHaveLength(5);
  const source=fs.readFileSync('src/levels/level1.js','utf8');
  const arena=source.slice(source.indexOf('export function buildBoss1Arena'));
@@ -66,10 +66,11 @@ test('keeps raw unfair box actions as a failing fixture and strictly validates t
 test('proposes a gate timing that distinguishes RUN from Zoomies, unlike the literal3m gate',()=>{
  expect(gateReachable(3,2.2,8)).toBe(true);expect(gateReachable(13,1.2,8)).toBe(false);expect(gateReachable(13,1.2,8*1.55)).toBe(true);
 });
-test('measures both complete actual candidates, includes all gated rewards, and never grows the current approved cap',()=>{
+test('measures both layouts, includes gated rewards and respects the approved205 cap',()=>{
  const a=measureTicketBudget(raw.s,raw.t,7),b=measureTicketBudget(candidate.s,candidate.t,7);
  fs.writeFileSync('/tmp/nobu-h30-budget.json',JSON.stringify({raw:a,rawTotal:ticketBudget(a),candidate:b,candidateTotal:ticketBudget(b),countable:candidate.s.entities.filter(e=>e instanceof Breakable&&e.countable).length,mysterySupport:[raw,candidate].map(({s})=>{const m=s.entities.find(e=>e.kind==='mystery'&&e.slot===0);const y=s.world.groundBelow(m.pos.x,m.pos.y+.2,m.pos.z,.01);return{entityY:m.pos.y,solidY:y,delta:m.pos.y-y};})}));
- expect(()=>checkTicketBudget(1,b)).toThrow(/exceeds fixed cap131|exceeds fixed cap 131/);
+ expect(()=>checkTicketBudget(1,b,131)).toThrow(/exceeds fixed cap131|exceeds fixed cap 131/);
+ expect(checkTicketBudget(1,b,205)).toMatchObject({wholeMax:203,cap:205});
  expect(a.field-b.field).toBe(6);expect(b.mystery).toBe(2);expect(b.arena).toBe(7);
 });
 
@@ -230,4 +231,10 @@ test('literal6m diagonal wall AABBs block the trench while the same1m-tessellate
   for(let i=0;i<90;i++){const delta=target.clone().sub(b.pos).setY(0);if(delta.length()<.1)break;delta.setLength(Math.min(6,delta.length()*60));b.vel.set(delta.x,-1,delta.z);moveBody(s.world,b,1/60);}return b.pos.distanceTo(target);
  };
  expect(walk(raw)).toBeGreaterThan(.4);expect(walk(candidate)).toBeLessThan(.2);
+});
+
+test('canonical L1 follows the selected trial layout and defaults to approved corrections',async()=>{
+ const {trialLayout}=await import('../src/config/trials.js');const{g}=build(1),stage=new Stage(g,1),tickets=new TicketSystem(g,stage);g.stage=stage;g.tickets=tickets;
+ buildLevel1(g,stage,tickets);const layout=trialLayout(1);expect(stage.entities.filter(e=>e instanceof ConedDog)).toHaveLength(layout===2?9:5);
+ if(layout===2){expect(stage.l1Extension.corrections).toBe(true);expect(stage.l1Extension.gauntletProblems).toEqual([]);}
 });

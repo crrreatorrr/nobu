@@ -1,4 +1,4 @@
-// Layout2 candidate authoring. It is never selected by the shipped layout1 registry entry.
+// Approved layout2 authoring; the selected trial layout controls the production builder.
 import * as THREE from 'three';
 import { Entity } from '../entities/entity.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
@@ -10,7 +10,7 @@ import { validatePattern } from './gauntletMath.js';
 export function buildL1Extensions(k,game,stage,{labels,corrections=false}={}) {
   const CW=249,CR=362,ST=438;
   const gatedTickets=fn=>{const from=game.tickets.list.length;fn();for(const tk of game.tickets.list.slice(from))tk.source='jackpot';};
-  if(corrections)k.snacks(1.2,0,248); // Proposed: protect the long new Canopy section.
+  if(corrections)k.snacks(1.2,0,248); // Approved extra checkpoint protects the new Canopy section.
   k.tut(CW+1,'zipline');k.floor(CW+3,CW+17,{x:1.9,w:4.8});
   k.platform(1.2,1.6,CW+5,3,3);k.zipline(1.2,3.8,CW+5.5,1.2,2.8,CW+15,{speed:7});
   k.tix(1.2,2.2,CW+7,1.2,1.4,CW+14,5);k.pack(3.2,0,CW+9);k.pack(3.2,0,CW+11);

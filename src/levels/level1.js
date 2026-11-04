@@ -1,3 +1,4 @@
+import { trialLayout } from '../config/trials.js';
 import { L1_START,L1_MOVES_CLASSIC,L1_MOVES_EXTENDED,L1_SECTIONS_EXTENDED,shiftL1 } from './data/l1-layout2.js';
 import { buildL1Extensions } from './l1Extensions.js';
 import { buildBirdArena } from '../bosses/birdArena.js';
@@ -13,7 +14,7 @@ import * as THREE from 'three';
 import { makeKit, makeTrack, turtle } from './kit.js';
 import { rand, pick } from '../core/util.js';
 
-export function buildLevel1(game, stage, tickets, { layout = 1, labels = SECTION_TEXT, corrections = false } = {}) {
+export function buildLevel1(game, stage, tickets, { layout = trialLayout(1), labels = SECTION_TEXT, corrections = layout === 2 } = {}) {
   const extended = layout === 2;
   const S = extended ? shiftL1 : d => d;
   const track = makeTrack(stage, turtle(L1_START, extended ? L1_MOVES_EXTENDED : L1_MOVES_CLASSIC));

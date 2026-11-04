@@ -1,10 +1,10 @@
-# H30 extended L1 candidate — owner decisions pending
+# H30 extended L1 — approved corrections and activation
 
-The production registry still selects unchanged layout1. `buildLevel1Layout2` authors the full layout2 candidate; its `corrections` option selects the following reviewed proposals. Nothing here approves a cap, announces a board reset, deploys a hub layout or changes legacy ChaseCat tuning. Bird arena source remains byte-identical to merged H21.
+The owner approved the tested H30 corrections and fixed cap205 on2026-11-04. The owner's subsequent instruction to change the game and reset timers also cleared the board-transition announcement gate, as recorded by the parent. `buildLevel1` follows `trialLayout(1)` and defaults to approved corrections in layout2. Explicit layout1 and `corrections:false` remain regression fixtures. Bird arena source remains byte-identical to merged H21; legacy ChaseCat tuning is unchanged.
 
-## Concrete design and placement proposals
+## Approved design and placement corrections
 
-| Source recipe | Tested correction | Reason |
+| Source recipe | Approved correction | Reason |
 | --- | --- | --- |
 | Five packs side-by-side at d389, x−3.2/−1.6/0/1.6/3.2 | Same five lateral positions at d385/387/389/391/393 respectively; retain stack d409 | One clean forward bite/collision pass; avoid chase wall and long-stop recovery violation |
 | Three Temple blink boxes then two bounce packs without a permanent rest | Add plain permanent Lunchbox `(x0,y0,d524.25)` between blink d523 and d525.5 | Strict tier1 maximum3 timed actions before a permanent rest; raw source fails, candidate passes |
@@ -32,7 +32,7 @@ Measured from real Stage entities and actual TicketSystem rows, including seven 
 | Whole before coconut |190|188|
 | Whole maximum including coconut |205|203|
 
-Current approved L1 cap 131 correctly rejects either layout2. The source's rewards-density formula proposes 205; its separately stated length/rounding-plus-Mystery method proposes 221. Either covers the measured maximum, but only the owner can choose the fixed cap. No cap has been changed here. Layout2 trial 94/120/158/86 activation, Classic migration and the owner-confirmed board-transition announcement must land together. Hub uploads stay on layout 1 until matching live deployment is explicitly confirmed.
+The owner selected fixed cap205, which covers the corrected203whole maximum and the literal205whole maximum. The former cap131 remains an explicit negative guard in tests. The alternate221 formula is retained here as provenance, not the selected policy. Layout2 trial94/120/158/86 activation, Classic migration, metadata and budget declarations are integrated together. Hub uploads stay on layout1 until matching live deployment is explicitly confirmed; this approval does not authorize a deployment.
 
 ## Implementation and verification status
 
@@ -55,3 +55,5 @@ Assisted Chromium checks on gameplay commit4ad1ff4 passed: camera warning/activa
 These checks use assisted placement and direct real runtime APIs. They do not constitute a full input recording, natural first-visit Golden clear, calibrated death-rate test, or verified trial medal times. Those manual checks remain unrun.
 
 The trench-wall calls were corrected for StaticPlatform's top-height API: top0/depth4.5, so the authored4.5m walls stand above the floor instead of being buried beneath it. The source's6m narrow rotated solids produce oversized axis-aligned collision boxes and block the curved trench near d229.48. The corrected candidate fits the same228..258 corridor with1m pieces, retaining widths0.6/0.5 and top/depth/extents. The literal long-box collision remains a negative regression; the same corridor with short boxes permits falling through the opened old pocket, walking into the Burrow and using the mushroom plus basic double jump onto the right lane. This is an equivalent collision fit, not a new corridor or owner design choice.
+
+Activation follow-up: rebased onto main1635ac8 before canonical selection. Subsequent root configuration and bonus-stage integration require final current-main tests/build/CI; prior614-test and browser evidence remains explicitly tied to its recorded source commits.
