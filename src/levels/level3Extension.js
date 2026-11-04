@@ -48,7 +48,7 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
   k.tix(-2.2,0,103,-2.2,0,118,4); k.tix(0,0,125,0,0,143,5); k.tix(0,0,161,0,0,167,4);
 
   // Packaging Line uses the merged helper's side-control/camera contract.
-  k.section(206,261,LABELS.packaging); k.camZone(206,261,'side',{side:'left',dist:11,height:2.2});
+  k.section(206,261,LABELS.packaging); k.camZone(206,261,'side',{side:-1,dist:11,height:2.2,ahead:0});
   k.walls([[206,4.3,4.3,3.4],[207,1.6,1.6,3.4],[260,1.6,1.6,3.4],[261,4.3,4.3,3.4]]);
   k.floor(206,207,{w:3.2}); k.belt(207,226,{x:0,z:-2.5},{w:3.2});
   k.crusher(0,0,214,{w:3.2,d:2,period:2.4}); k.crusher(0,0,220,{w:3.2,d:2,period:2.4,phase:1.2});
@@ -120,7 +120,7 @@ function addFactoryDetours(k,game,stage,track) {
   k.arrowBox(-2.8,0,275,17);
   const railFrom=stage.entities.length;
   const rails=k.detour(276,312,{y:7,entry:'launch',x:-2.8,build(kd) {
-    kd.section(LABELS.overheadRails); kd.platform(-2.8,0,279,3,3);
+    kd.section(LABELS.overheadRails); kd.platform(-2.8,0,279,3,3,.2);
     kd.zipline(-2.8,2.2,278,0,1.6,288,{speed:9});
     // Solid slabs leave the main floor/return walk intact at y+7.
     for (let d=289; d<298; d+=1.5) kd.platform(0,0,d+.75,2.4,1.58,.6);

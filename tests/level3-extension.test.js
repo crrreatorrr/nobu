@@ -249,3 +249,28 @@ test('actual trial World closes raised detours even when the original fan can li
  expect(stage.entities.some(e=>e.dogId==='3:corgi-a')).toBe(true);
  expect(stage.entities.some(e=>e.color==='blue')).toBe(true);
 });
+
+test('thin rail gantry preserves normal-height access to the old fan dog, backpack and blue bone',()=>{
+ const {stage}=build(),tr=stage.track;
+ const items=[stage.entities.find(e=>e.dogId==='3:corgi-a'),stage.entities.find(e=>e.kind==='backpack'&&Math.abs(tr.project(e.pos.x,e.pos.z).s-280.8)<.1),stage.entities.find(e=>e.color==='blue')];
+ for(const entity of items){
+  const p=entity.pos.clone();p.y=stage.world.groundBelow(p.x,p.y+.08,p.z,.1);
+  expect(Number.isFinite(p.y)).toBe(true);
+  const hits=stage.world.query(p.x-.36,p.y+.02,p.z-.36,p.x+.36,p.y+1.3,p.z+.36,[]).filter(s=>s.ref!==entity);
+  expect(hits).toEqual([]);
+ }
+});
+
+test('Packaging uses actual finite left-side GameCamera targets and right maps forward along the track',async()=>{
+ const {stage,game,info}=build(),tr=stage.track,{GameCamera}=await import('../src/camera/camera.js');
+ const camera=new GameCamera(1.375);game.camera=camera;stage.defaultCamera=info.camera;
+ const p=game.player;p.pos.copy(tr.toWorld(234,0,0));Object.assign(p.body,{s:234,u:0,grounded:true});
+ camera.setMode(info.camera.mode,info.camera);
+ const zone=stage.entities.find(e=>e.constructor.name==='CamZone'&&e.mode==='side');zone.apply(234);camera.snap(p);camera.update(1/60,p);
+ expect(camera.mode).toBe('side');
+ for(const vector of [camera.pos,camera.look,camera.basis.right,camera.basis.forward])expect(vector.toArray().every(Number.isFinite)).toBe(true);
+ expect(camera.basis.right.dot(tr.tangent(234))).toBeCloseTo(1,7);
+ expect(camera.pos.clone().sub(p.pos).dot(tr.right(234))).toBeCloseTo(-11,6);
+ expect(camera.look.clone().sub(p.pos).dot(tr.tangent(234))).toBeCloseTo(0,6);
+ zone.apply(262);expect(camera.mode).toBe('track');expect(camera.sideAxis).toBe(false);
+});
