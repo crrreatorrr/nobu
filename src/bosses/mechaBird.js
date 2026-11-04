@@ -48,7 +48,7 @@ function weigh(x, y, z) {
 
 export class MechaBird extends Boss {
   constructor(stage, x, y, z) {
-    super(stage, x, y, z, { name: 'MECHA BIRD', portrait: 'portrait_bird', hp: 6, phaseHp: 2 });
+    super(stage, x, y, z, { name: 'MECHA BIRD', portrait: 'portrait_bird', key: 'bird' }); // Old hp 6, phaseHp 2.
     this.buildModel();
     this.setBox(2.8, 2.0, 2.8, -1.0);
     this.marker = makeMarker(1.7);
@@ -229,7 +229,7 @@ export class MechaBird extends Boss {
   }
 
   ai(dt) {
-    const sp = this.phase === 3 ? 1.4 : this.phase === 2 ? 1.2 : 1;
+    const sp = this.sp; // Old phases 1 / 1.2 / 1.4.
     const p = this.player;
     this.stars.visible = false;
     this.vulnerable = false;
@@ -322,7 +322,7 @@ export class MechaBird extends Boss {
         // the cage flops out behind, rattling on the grass
         this.animate(dt, { pitch: 0.7 + tug * 0.06, roll: Math.sin(this.stateT * 20) * 0.05, tail: [0.4, Math.sin(this.stateT * 16) * 0.5, 0], head: [0.4 + Math.max(0, tug) * 0.1, 0, 0], cage: [0.65 + Math.sin(this.stateT * 9) * 0.04, 0, Math.sin(this.stateT * 13) * 0.05] });
         if (tug > 0.95 && Math.random() < 0.3) this.fx.dust(this.pos.x, 0, this.pos.z, { count: 2, size: 0.3, color: 0xd8c8a8 });
-        const dur = this.phase === 3 ? 2.2 : this.phase === 2 ? 2.4 : 2.7;
+        const dur = this.W; // Old stuck windows 2.7 / 2.4 / 2.2.
         if (this.stateT > dur) this.recover();
         break;
       }
