@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+// Classic regression fixtures; active layout2 migration/upload gating is checked separately.
+vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hub } from '../src/hub/hubBridge.js';
 import {
   SCORE_QUEUE_KEY,

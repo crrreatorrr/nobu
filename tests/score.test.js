@@ -1,10 +1,12 @@
+// Classic regression fixtures; active layout2 migration/upload gating is checked separately.
+vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
 import { createChain } from '../src/game/rewards.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { save } from '../src/core/save.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { Session } from '../src/game/session.js';
