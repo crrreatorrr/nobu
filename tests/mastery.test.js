@@ -54,8 +54,8 @@ describe('Perfect Run ordinary-run rule', () => {
     expect(perfectRun({ ...perfect, dogs: 4 }, {}, def)).toBe(false); expect(perfectRun({ ...perfect, deathsAtGate: 1 }, {}, def)).toBe(false);
     expect(perfectRun({ ...perfect, breakables: 0, broken: 0 }, {}, def)).toBe(false);
   });
-  it('excludes competitive, god and DDA contexts and bonus/meta/unshipped content but includes goal-onlyL6', () => {
-    for (const flag of ['trial', 'remix', 'rush', 'god', 'godUsed', 'dda', 'ddaUsed']) expect(perfectRun(perfect, { [flag]: true }, def)).toBe(false);
+  it('excludes competitive and god contexts and bonus/meta/unshipped content but includes goal-onlyL6', () => {
+    for (const flag of ['trial', 'remix', 'rush', 'god', 'godUsed']) expect(perfectRun(perfect, { [flag]: true }, def)).toBe(false);
     for (const other of [{ ...def, bonus: true }, { ...def, meta: true }, { ...def, shipped: false }, { ...def, id: 'g1' }]) expect(perfectRun(perfect, {}, other)).toBe(false);
     expect(perfectRun(perfect, {}, { id: 6, shipped: true, goal: true })).toBe(true);
   });
@@ -63,6 +63,8 @@ describe('Perfect Run ordinary-run rule', () => {
     const data = { perfect: {} }; expect(bankPerfect(data, 1, true)).toBe(true); expect(bankPerfect(data, 1, true)).toBe(false);
     expect(bankPerfect(data, 1, false)).toBe(false); expect(data.perfect[1]).toBe(true);
     expect(bankPerfect(data, 2, true, { godUsed: true })).toBe(false); expect(bankPerfect(data, 'ride', true)).toBe(false);
+    const cleanGate = perfectRun(perfect, {}, def);
+    expect(bankPerfect(data, 3, cleanGate, { dda: true, ddaUsed: true, bossDeaths: 3 })).toBe(true);
   });
 });
 

@@ -44,13 +44,13 @@ export const platinumHintVisible = (record) => ['gold', 'platinum'].includes(rec
 
 export function perfectRun(stats, ctx = {}, def = {}) {
   if (!def.shipped || def.bonus || def.meta || !/^[1-6]$/.test(String(def.id)) ||
-      ctx.trial || ctx.remix || ctx.rush || ctx.god || ctx.godUsed || stats?.godUsed || ctx.dda || ctx.ddaUsed) return false;
+      ctx.trial || ctx.remix || ctx.rush || ctx.god || ctx.godUsed || stats?.godUsed) return false;
   // Hidden/Snack bones are optional secrets, not the Perfect Run condition.
   return Number.isFinite(stats?.breakables) && stats.breakables > 0 && stats.broken >= stats.breakables &&
     Number.isFinite(stats.dogsTotal) && stats.dogsTotal >= 0 && stats.dogs >= stats.dogsTotal && stats.deathsAtGate === 0;
 }
 export function bankPerfect(data, id, candidate, ctx = {}) {
-  if (!/^[1-6]$/.test(String(id)) || !candidate || ctx.trial || ctx.remix || ctx.rush || ctx.god || ctx.godUsed || ctx.dda || ctx.ddaUsed) return false;
+  if (!/^[1-6]$/.test(String(id)) || !candidate || ctx.trial || ctx.remix || ctx.rush || ctx.god || ctx.godUsed) return false;
   data.perfect ||= {};
   const fresh = !data.perfect[id]; data.perfect[id] = true;
   return fresh;
