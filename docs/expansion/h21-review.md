@@ -35,13 +35,29 @@ Reviewer: inspect attack completion/chain boundaries, cage timing vs H20 project
 reset identity and once-per-stage reward, projectile clear adapter, phase1 wind reset, complete tell
 consumption and the ultimate's guaranteed punish. No new media/vendor/permissions/deployment changes.
 
-Verification in progress: npm ci passed; initial focused4files/75tests passed. Browser checks and full
-suite/build will be recorded after the candidate review. Human first-try difficulty (<=3 deaths),
-natural No-Hit/speed clears, Wizard Hat and Classic Nobu playthroughs are not claimed yet.
+Final integrated verification on main **8c503b8**: npm ci passed; `npm test -- --maxWorkers=2`
+passed **56 files / 558 tests**; `npm run build` passed **120 modules**, retaining the existing Vite
+large-chunk advisory. `git diff --check` passed. No shared arena/projectile code was modified.
+
+Chromium/SwiftShader loaded the actual game, normal Session boss arena and GLB Bird. Programmatic
+runtime checks passed for tracked/locked cage capture with its cover at the identical locked point,
+wind activation, real low escort positions, the once-per-stage sphere cap, exploded-egg crater clear,
+and restart-to-stage1 disabling wind and removing drones, drone drops, cover and markers. No page
+errors occurred. The browser and owned development server were stopped after verification.
+
+The new perches put a high head tell near the original boss HUD. Arena FOV68 (was58) keeps it below
+that HUD without changing authored positions; the settled perch centre projects to NDC(.299,.463).
+Screenshot evidence is `/tmp/nobu-h21-arena.png`. This is a bounded assisted check, not a natural clear.
+
+Manual limitations: no first-time-player run establishing <=3deaths, no natural No-Hit or70s Speed
+clear, no human cage-escape averaging, no full Classic Nobu playthrough or Wizard Hat fight-skip run.
+The written Wizard Hat skip assumption conflicts with current code: skip_bosses excludes bosses
+from Spell Bark targets, and Session.startBoss always creates the fight. No new gear/progression
+behaviour was introduced to resolve that pre-existing ambiguity. Root was informed.
 
 Independent review caught a stale H20 cage-cover coordinate: tracking the visible marker did not move
 the future collision/beam-cover object. The Bird adapter now moves both the visual target and the
 registered cover bounds before lock/landing. A real World regression verifies the moved captive-safe
 walls and roof, no stale old-position solids, and actual Beam/feather interception at the new location.
-All16 Bird tests pass after that correction; H20 arena tests also pass. The initial full candidate
-suite passed47files/511tests and build113modules; final corrected integrated checks remain pending.
+All16 Bird tests pass after that correction; H20 arena tests also pass. The final integrated counts
+above include this correction and the real collision/cover regression.
