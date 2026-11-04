@@ -102,3 +102,8 @@ and initial blink respawn phase. Raw chains register partial proofs (only the su
 callers must still author their entry, exit and rests). Canonical patterns retain their complete route
 checks. P12's route now explicitly models four held hops over its unchanged Rug placements, with
 player-sized swept hazard checks; running through the same runway is a failing regression.
+
+Final integrated verification on main **7c1697d** (including the merged accessory and H11 work):
+`npm test -- --maxWorkers=2` passed **42 files / 415 tests**; `npm run build` passed with **108 modules**.
+The build retains Vite's existing large-chunk advisory. The integrated respawn fixture now supplies
+PR18's snack rollback state. `git diff --check` passed. No vendor or media files changed in this task.
