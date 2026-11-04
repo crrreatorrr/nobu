@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { World, moveBody } from '../src/world/physics.js';
@@ -47,7 +48,7 @@ describe('canonical box integration',()=>{
   it('normal Session.respawn resets shared phase and slider position with no carry spike',()=>{
     const {s,g}=fixture(),a=new BlinkBox(s,0,0,0,{group:'cp'}),b=new BlinkBox(s,0,0,3,{group:'cp',phase:-1}),slider=new SlideBox(s,0,0,6,{phase:.3});
     s.entities=[a,b,slider];advanceBeatClocks(s,.7);a.update(0);b.update(0);slider.update();
-    const session=Object.create(Session.prototype);g.session=session;
+    const session=Object.create(Session.prototype);session.chain=createChain();g.session=session;
     Object.assign(session,{game:g,stage:s,snack:{raw:0},deathsAtCp:0,lifeLine:0,phase:'level',cp:{pos:new THREE.Vector3(3,0,0),facing:0,seq:0,tickets:0,levelTickets:0},tickets:{restoreAfter:vi.fn(),clearFlying:vi.fn()},projectiles:{clear:vi.fn()},_undoLifeLinesAbove:vi.fn(),setMask:vi.fn(),_pushHud:vi.fn()});
     Session.prototype.respawn.call(session);
     expect(a.clock.t).toBe(0);expect(b.clock.t).toBe(0);expect(a.solid.enabled).toBe(true);expect(b.solid.enabled).toBe(false);
