@@ -1,6 +1,8 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['1'];
 // Level 1: Bark Jungle — a winding, rolling jungle path. Teaches everything, then mixes it up:
 // high-road ledge, lily pads, rope drawbridge, Bone Switch stairs, flipping planks, coconut hill,
 // a belly-flop secret, and a fork before the boss gate.
@@ -50,6 +52,8 @@ export function buildLevel1(game, stage, tickets) {
   k.broc(-1.0, 0, 52, { axis: 'z', range: 2.5 });
   k.tix(2.9, 1.5, 46.5, 2.9, 1.5, 55.5, 6);
   k.pack(2.9, 1.5, 51);
+  // TODO H30: relocate to the extended Canopy/tray-side branches.
+  k.mystery(2.9, 1.5, 48);
 
   // --- double jump gap ---
   k.tut(53.5, 'doubleJump');
@@ -125,6 +129,7 @@ export function buildLevel1(game, stage, tickets) {
   k.floor(163, 181, { x: -6, w: 3.4 });
   k.boneSwitch(-6.1, 0, 170.5, [[-3.4, 1.5, 172.5, 2.2, 2.2], [-0.9, 3.0, 174.5, 2.2, 2.2], [1.8, 4.5, 176.5, 2.6, 3.2]]);
   k.sphere(1.8, 4.5, 177.2);
+  k.mystery(-6, 0, 166);
   k.pack(2.9, 4.5, 175.8, 5); k.pack(0.9, 4.5, 177.6, 5);
   k.dog(-6.3, 0, 175.5, 'dalmatian').dogId = '1:dalmatian-a';
   k.drone(0, 0, 179, { range: 2.5, speed: 1.4 });

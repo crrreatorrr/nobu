@@ -45,6 +45,9 @@ export class MysteryBackpack extends ZippedBackpack {
       // defaults to 10 untagged raw Tickets, which would exceed that declared budget.
       const e = new Cls(this.stage, x, y, z, result === 'tramp' ? { tickets: 0 } : undefined); e.countable = false;
       this.stage.add(e); this.spawned.push(e);
+      // Player scans the live entity array. The opening attack must not also
+      // bite/slide its newly appended Cat into an immediate explosion.
+      this.player.bitten?.add(e);
       if (result === 'cat') { e.arm(); e.update(0); this.game.ui.banner(MYSTERY_SURPRISE.title, MYSTERY_SURPRISE.sub, 1.5); }
     }
   }

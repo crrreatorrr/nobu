@@ -1,6 +1,8 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['2'];
 // Level 2: Scratchpost Canyon — the Big Cat chase along a winding canyon. Camera faces Nobu.
 // Pits, logs, backpack walls, rugs, yarn, a crumbling bridge, a curving plank bridge and a mushroom launch.
 import * as THREE from 'three';
@@ -39,6 +41,7 @@ export function buildLevel2(game, stage, tickets) {
   k.dog(-3.6, 0, D(60.5), 'corgi').dogId = '2:corgi-a';
   k.tixArc(0, 0, D(62.5), 0, D(70.5), 2.6, 6);
   F(69, 120);
+
   k.tut(D(76), 'yarn');
   k.yarn(0, 0, D(80), { range: 3.2, speed: 4.4 });
   log(88);
@@ -52,6 +55,7 @@ export function buildLevel2(game, stage, tickets) {
   k.colorPath('blue', [[3.4, 1.4, D(132), 1.6, 1.8], [3.4, 2.8, D(135), 1.6, 1.8], [3.2, 4.2, D(138.5), 2.2, 3]], { jackpot: 15 });
   k.mouse(0, 0, D(138), { range: 3.4, speed: 5 });
   k.dog(3.6, 0, D(146), 'pug').dogId = '2:pug-a';
+
   k.tix(2.8, 0, D(148), 2.8, 0, D(156), 5);
 
   // crumbling bridge: don't stop running!
@@ -79,6 +83,10 @@ export function buildLevel2(game, stage, tickets) {
   F(267, 316);
   k.mouse(0, 0, D(275), { range: 3.4, speed: 5.5 });
   k.tix(0, 0, D(279), 0, 0, D(296), 8);
+  // Side slots share the existing right-wall bite; no extra chase stop.
+  // TODO H31: relocate to the extended Cardboard Fort side paths.
+  k.mystery(3.5, 0, D(28));
+  k.mystery(3.5, 0, D(113));
   for (const { kind, x, y, d, height } of L2_CHASE_BREAKABLES) {
     if (kind === 'stack') k.stack(x, y, D(d), height);
     else k[kind](x, y, D(d));
