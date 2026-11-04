@@ -89,9 +89,11 @@ for(const flag of excluded)test(`real Session respawn and direct pity arming exc
  const {session:s,nearest}=fixture({[flag]:true});s.deathsAtCp=8;s.respawn();
  expect(s.mask).toBe(0);expect(nearest.armed).toBe(false);expect(nearest.arm()).toBe(false);
 });
-test('ranked ownership mode excludes ordinary checkpoint help and boss phase retains its separate mask policy',()=>{
- const ranked=fixture();ranked.game.loadout.ranked=true;ranked.session.deathsAtCp=8;ranked.session.respawn();
- expect(ranked.session.mask).toBe(0);expect(ranked.nearest.arm()).toBe(false);
+test('ranked ownership leaves ordinary help available, while trial and boss contexts keep their own policies',()=>{
+ const owned=fixture();owned.game.loadout.ranked=true;owned.session.deathsAtCp=6;owned.session.respawn();
+ expect(owned.nearest.armed).toBe(true);owned.session.respawn();owned.session.respawn();expect(owned.session.mask).toBe(2);
+ const trial=fixture({trial:true});trial.game.loadout.ranked=true;trial.session.deathsAtCp=8;trial.session.respawn();
+ expect(trial.session.mask).toBe(0);expect(trial.nearest.arm()).toBe(false);
  const boss=fixture();boss.session.phase='boss';boss.session.mask=1;boss.session.deathsAtCp=8;boss.session.respawn();
  expect(boss.session.mask).toBe(1);expect(boss.nearest.armed).toBe(false);expect(boss.nearest.arm()).toBe(false);
 });

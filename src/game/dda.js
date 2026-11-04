@@ -5,7 +5,7 @@ export function checkpointHelpAllowed(ctx = {}) {
   const excluded = ctx.trial || ctx.remix || ctx.rush || ctx.bossRush ||
     ctx.medal || ctx.medalMode || ctx.medalRun || ctx.bossMedal || ctx.bossMedalRun ||
     ctx.ranked || ctx.board || ctx.boardRun || ctx.competitive || ctx.postsToBoard ||
-    ctx.game?.loadout?.ranked || ctx.phase === 'boss';
+    ctx.phase === 'boss';
   return !excluded;
 }
 
