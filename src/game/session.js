@@ -229,13 +229,17 @@ export class Session {
 
   async _leaveBonusRound(kept) {
     const g = this.game, p = g.player, B = this.bonusRound;
+    B.tray?.onRoundLeave?.(kept, B);
     finishSessionChain(this);
     this.busy = true;
     p.frozen = true;
     if (!kept) {
       removeChainDrops(this, B.seq);
       // roll back everything grabbed up there
-      for (const e of this.stage.entities) if (e instanceof Breakable && e.broken && e.brokenSeq > B.seq) e.restore();
+      for (const e of this.stage.entities) {
+        if (e instanceof Breakable && e.broken && e.brokenSeq > B.seq) e.restore();
+        else if (e instanceof ConedDog && e.freed && e.seq > B.seq) e.restore();
+      }
       this.tickets.restoreAfter(B.seq);
       const lineBefore = this.lifeLine || 0;
       this.tickets.clearFlying();
