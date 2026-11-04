@@ -10,6 +10,7 @@ import { Stage } from '../src/world/stage.js';
 import { Session } from '../src/game/session.js';
 import { BlinkBox, FallBox, SlideBox, advanceBeatClocks } from '../src/entities/boxes.js';
 import { PATTERNS, TEACH_PATTERNS, PROPOSED_PATTERNS } from '../src/levels/gauntletPatterns.js';
+import { installBoxHelpers } from '../src/levels/boxKit.js';
 import { boxStripSections } from '../src/levels/boxDevStrip.js';
 function fixture() {
   const player={pos:new THREE.Vector3(100,0,100),body:{hw:.3,hd:.3,h:1.3,grounded:false,ground:null},spawnAt(pos){this.pos.copy(pos);},facing:0};
@@ -34,6 +35,14 @@ describe('canonical box integration',()=>{
     Stage.prototype.update.call(s,.25,player);
     expect(observed).toEqual([.25]);expect(sleeping).not.toHaveBeenCalled();expect(b.clock.t).toBe(.25);
     expect(a.clock).toBe(b.clock);
+  });
+  it('keeps a guide beyond 200m visible when the player reaches that section',()=>{
+    const {s,player}=fixture();s.add=e=>{s.entities.push(e);return e;};
+    const k={W:(x,y,d)=>new THREE.Vector3(x,y,-d)};installBoxHelpers(k,s.game,s);
+    const arc=k.guideArc(0,0,200,0,206);player.pos.set(0,0,-203);
+    Object.assign(s,{time:0,wind:{value:0},activeRange:75,sun:{position:new THREE.Vector3(),target:{position:new THREE.Vector3()}},_ambient(){},_emit(){}});
+    Stage.prototype.update.call(s,0,player);expect(arc.obj.visible).toBe(true);
+    player.pos.z=0;Stage.prototype.update.call(s,0,player);expect(arc.obj.visible).toBe(false);
   });
   it('normal Session.respawn resets shared phase and slider position with no carry spike',()=>{
     const {s,g}=fixture(),a=new BlinkBox(s,0,0,0,{group:'cp'}),b=new BlinkBox(s,0,0,3,{group:'cp',phase:-1}),slider=new SlideBox(s,0,0,6,{phase:.3});
