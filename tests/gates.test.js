@@ -40,6 +40,11 @@ describe('move-gated geometry and bookkeeping', () => {
     const shelf = stage.world.all.find((s) => s.max.y === 6);
     expect(shelf.min.x).toBeGreaterThan(vent.pos.x + 0.36);
     expect(stage.pityTestSpot.armed).toBe(false);
+    stage.update(0, game.player);
+    expect(stage.pityTestSpot.obj.visible).toBe(false);
+    const wall = stage.entities.find((e) => e.kind === 'dustwall');
+    game.player.dustDashing = true; game.player.abilities.dust = true; wall.onTouch(game.player);
+    stage.update(0, game.player); expect(wall.obj.visible).toBe(false);
   });
   it('Dust Wall resists other attacks and unowned state, then breaks permanently with owned Dust Dash', () => {
     const { stage, player, game } = fixture();
@@ -118,7 +123,8 @@ describe('pity and Mystery pickups', () => {
     session.runSeed = seed; const m = new MysteryBackpack(stage, 0, 0, 0, { slot: 0 }); m.onSlide(); expect(m.result).toBe('sphere');
   });
   it('records sorted canonical sections with explicit tuple adapter', () => {
-    const { k, track } = fixture(); k.section(20, 40, 'Lily Pond'); k.section(0, 20, 'Opening');
+    const { k, track, stage } = fixture(); k.section(20, 40, 'Lily Pond'); k.section(0, 20, 'Opening');
+    expect(stage.sections).toBe(track.sections);
     expect(track.sections.map((s) => s.name)).toEqual(['Opening', 'Lily Pond']);
     expect(sectionTuples(track.sections)).toEqual([[0, 20, 'Opening'], [20, 40, 'Lily Pond']]);
     expect(() => k.section(1, 1, 'Bad')).toThrow();

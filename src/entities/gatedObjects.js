@@ -50,12 +50,12 @@ export class DustWall extends Entity {
   contact(p = this.player, allowDash = true) {
     if (this.broken) return;
     if (allowDash && p.dustDashing && p.abilities.dust) {
-      this.broken = true; this.solid.enabled = false; this.obj.visible = false;
+      this.broken = true; this.solid.enabled = false; this.visible = false; this.obj.visible = false;
       this.fx.burst(this.pos.x, this.pos.y + 1.3, this.pos.z, { count: 24, colors: [0x8a8a90, 0xb0b0c0], speed: 4 });
       this.game.camera.shake(0.25, 0.25); audio.play('explosion', 1, dustExplosion);
     } else if (this.bonkT <= 0) {
       this.bonkT = 0.35; this.fx.puff(this.pos.x, this.pos.y + 1, this.pos.z, { count: 3, color: 0x8a8a90 });
-      audio.play('bonk'); this.game.ui.tutorial('dustwall');
+      audio.play('bonk'); this.game.ui.tutorial(p.abilities.dust ? 'dustwallUnlocked' : 'dustwall');
     }
   }
   onTouch(p) { this.contact(p); }
@@ -166,11 +166,11 @@ export class ZoomieGate extends Entity {
 }
 
 export class PitySnacks extends Snacks {
-  constructor(...args) { super(...args); this.kind = 'pitysnacks'; this.countable = false; this.armed = false; this.interactive = false; this.obj.visible = false; this.drop = 0; }
+  constructor(...args) { super(...args); this.kind = 'pitysnacks'; this.countable = false; this.armed = false; this.interactive = false; this.visible = false; this.obj.visible = false; this.drop = 0; }
   arm() {
     const s = this.session;
     if (this.armed || s.trial || s.remix || s.medal || s.bossMedal || s.rush) return false;
-    this.armed = true; this.obj.visible = true; this.interactive = true; this.drop = 2; this.obj.position.y = this.pos.y + 2;
+    this.armed = true; this.visible = true; this.obj.visible = true; this.interactive = true; this.drop = 2; this.obj.position.y = this.pos.y + 2;
     this.fx.burst(this.pos.x, this.pos.y, this.pos.z, { count: 18, colors: [0xffffff, 0xffd23f], speed: 3 }); audio.play('chime'); return true;
   }
   update(dt) { if (!this.armed) return; super.update(dt); this.drop = Math.max(0, this.drop - dt * 5); this.obj.position.y = this.pos.y + this.drop; }

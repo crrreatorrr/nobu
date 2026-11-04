@@ -1,6 +1,19 @@
 // Dev-only playtest helpers (loaded by main.js when running `npm run dev`).
 // In the console: await T.go(1) starts level 1; T.warp(120) jumps to distance 120; T.boss() skips to the boss.
+import { gatedCountables } from './game/gateRules.js';
+
 export function installDevTools(game) {
+  const checkGates = () => {
+    const violations = gatedCountables(game.session?.stage?.entities || []);
+    for (const { entity, gate } of violations) console.error('gated countable', entity, gate);
+    return violations;
+  };
+  const startLevel = game.startLevel.bind(game);
+  game.startLevel = async (...args) => {
+    const result = await startLevel(...args);
+    checkGates();
+    return result;
+  };
   const T = {
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     down(code) { window.dispatchEvent(new KeyboardEvent('keydown', { code })); },
@@ -48,6 +61,26 @@ export function installDevTools(game) {
       return T.info();
     },
     die() { game.player.die('fall'); return T.info(); },
+    // await T.gates(): optional helper strip; T.armPity() activates its dormant checkpoint.
+    async gates() {
+      const [{ Session }, { buildGatedTestStrip }] = await Promise.all([
+        import('./game/session.js'), import('./levels/gatedTestStrip.js'),
+      ]);
+      await game.ui.fade(1); game.ui.clearScreen(); game.session?.dispose();
+      const session = new Session(game, 1);
+      session.def = { ...session.def, name: 'Gated helper strip', build: buildGatedTestStrip };
+      game.session = session; game.state = 'play'; game.flyingMasks.length = 0;
+      let finished = false;
+      const done = session.startLevel().finally(() => { finished = true; });
+      while (!finished) {
+        if (game.ui.talking) await T.skipTalk();
+        else await T.sleep(100);
+      }
+      await done;
+      checkGates(); return T.info();
+    },
+    armPity() { return game.session?.stage?.pityTestSpot?.arm() ?? false; },
+    checkGates,
     warp(d, x = 0) { const p = game.player; p.pos.set(x, 0.5, -d); p.vel.set(0, 0, 0); game.camera.snap(p); return T.info(); },
     async boss() {
       game.session.reachBossGate();

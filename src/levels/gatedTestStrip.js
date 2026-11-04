@@ -5,8 +5,8 @@ import { addGatedHelpers } from './gatedKit.js';
 export function buildGatedTestStrip(game, stage, tickets) {
   const track = makeTrack(stage, turtle([0, 0, 0], [[180, 0, 0]]));
   const k = addGatedHelpers(makeKit(game, stage, tickets, track), game, stage, track);
-  k.floor(-8, 180); k.walls([[-8, 4.3, 4.3], [180, 4.3, 4.3]]);
-  k.backstop(-8); k.backstop(180);
+  k.floor(-18, 180); k.walls([[-18, 4.3, 4.3], [180, 4.3, 4.3]]);
+  k.backstop(-18); k.backstop(180);
   k.section(0, 45, 'Opening'); k.section(45, 90, 'Smog Path');
   k.section(90, 135, 'Shutter Run'); k.section(135, 180, 'Moon Shelf');
   k.snacks(3, 0, 8);

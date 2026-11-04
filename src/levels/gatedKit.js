@@ -14,10 +14,15 @@ export function addGatedHelpers(k, game, stage, track = k.track) {
   return Object.assign(k, {
     section(d0, d1, name, options = {}) {
       if (!track || !Number.isFinite(d0) || !Number.isFinite(d1) || d1 <= d0 || !/^[A-Z][\w'-]*(?: [A-Z][\w'-]*){0,2}$/.test(name)) throw new Error('Invalid section');
-      const section = { d0, d1, name, ...(options.detour || track.detour ? { detour: true } : {}) };
-      track.sections ??= []; track.sections.push(section); track.sections.sort((a, b) => a.d0 - b.d0);
-      stage.sections ??= [];
-      if (stage.sections !== track.sections) { stage.sections.push(section); stage.sections.sort((a, b) => a.d0 - b.d0); }
+      const flags = options.detour || track.detour ? { detour: true } : {};
+      track.sections ??= [];
+      let section;
+      if (typeof track.section === 'function') section = track.section(d0, d1, name, flags);
+      else {
+        section = { d0, d1, name, ...flags };
+        track.sections.push(section); track.sections.sort((a, b) => a.d0 - b.d0);
+      }
+      stage.sections = track.sections;
       return section;
     },
     pitySnacks: (x, y, d) => at(PitySnacks, x, y, d),
