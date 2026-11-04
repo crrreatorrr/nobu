@@ -155,7 +155,7 @@ export function validatePattern(pattern, tier = pattern.tier) {
     if (a.kind === 'fall') window = Math.min(window, fallWindow(a.params?.delay ?? a.delay ?? .45) * 60);
     if (step.move === 'double') window = Math.min(window, doubleWindow(dy, dist));
     if (Number.isFinite(window) && window + 1e-9 < Math.max(8, rules.minFrames)) add(i, `Input window ${window.toFixed(1)}f below ${Math.max(8, rules.minFrames)}f`);
-    if (!running && timed(a)) actions++;
+    if (!running && (timed(a) || timed(b))) actions++;
     if (actions > rules.maxActions) add(i, `Timed actions exceed ${rules.maxActions} before permanent rest`);
     if (rest(b)) actions = 0;
   }

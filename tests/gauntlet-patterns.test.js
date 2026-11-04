@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { validatePattern, blinkWindow } from '../src/levels/gauntletMath.js';
-import { AUTHORED_PATTERNS, PROPOSED_PATTERNS, PROPOSED_TEACH_PATTERNS, placePattern } from '../src/levels/gauntletPatterns.js';
+import { AUTHORED_PATTERNS, PROPOSED_PATTERNS, PROPOSED_TEACH_PATTERNS, P5_ACTION_REST_PROPOSAL, placePattern } from '../src/levels/gauntletPatterns.js';
 describe('reviewable pattern proposals using the same data as builders', () => {
   for(const p of [...PROPOSED_PATTERNS,...PROPOSED_TEACH_PATTERNS])it(`${p.id} meets its numeric tier`,()=>expect(validatePattern(p)).toEqual([]));
+  it('counts the first timed landing and the exit before the next permanent rest',()=>{
+    const p={tier:1,pieces:[{kind:'floorEnd',dd:0},{kind:'blink',dd:2,params:{on:3,off:1}},{kind:'blink',dd:4,params:{on:3,off:1}},{kind:'blink',dd:6,params:{on:3,off:1}},{kind:'floorStart',dd:8}],route:[0,1,2,3].map(from=>({from,to:from+1,move:'held'}))};
+    expect(validatePattern(p).some(p=>p.problem.includes('Timed actions'))).toBe(true);
+    expect(validatePattern(P5_ACTION_REST_PROPOSAL)).toEqual([]);
+  });
   it('does not silently replace the original unsafe literals',()=>{
     for(const id of ['P2','P3','P6','P7','P16'])expect(validatePattern(AUTHORED_PATTERNS.find(p=>p.id===id)).length,id).toBeGreaterThan(0);
   });

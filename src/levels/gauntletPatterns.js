@@ -67,6 +67,12 @@ export const PROPOSED_TEACH_PATTERNS=PROPOSED_PATTERNS.map(original=>{
   }
   if(original.id==='P10')for(let i=2;i<=4;i++)t.pieces[i].dd-=.2*(i-1);
   if(original.id==='P11')for(let i=2;i<=4;i++)t.pieces[i].dd-=.6*(i-1);
+  if(original.id==='P10'||original.id==='P11'){
+    t.pieces.splice(3,1);
+    t.pieces.at(-1).dd=original.id==='P10'?12:11.2;
+    if(original.id==='P11')t.pieces.at(-1).y=3.5;
+    t.route=[step(0,1),step(1,2,'arrowTap'),step(2,3,'arrowTap')];
+  }
   if(original.id==='P14'){t.pieces[2].y=2.5;t.pieces[3].y=5;t.pieces[4].y=6;}
   if(original.id==='P16'){t.pieces[2].kind='lunch';t.pieces.at(-1).dd=24.1;}
   return t;
@@ -110,3 +116,11 @@ export function placePattern(k, pattern, d0=0, { gauntlet=false }={}) {
   }
   return placed;
 }
+
+// Pending owner decision: preserve all four P5 blink placements and add one permanent rest.
+export const P5_ACTION_REST_PROPOSAL=(()=>{
+  const pattern=structuredClone(PATTERNS.find(p=>p.id==='P5'));
+  pattern.pieces.push({kind:'lunch',dd:8.25,x:0,y:1.5});
+  pattern.route=[step(0,1),step(1,2),step(2,6),step(6,3),step(3,4),step(4,5)];
+  return pattern;
+})();

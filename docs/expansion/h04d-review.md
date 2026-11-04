@@ -29,8 +29,8 @@ The same approval covers teaching variants where the source's gentler values wer
 | P5 | Four blinks, on1.6/off.8 | Second blink becomes permanent lunchbox, splitting the sequence |
 | P6 | Eight blinks, on1.6/off.8 | Permanent lunchboxes at dd7.2 and14.4 (dd9.6 is a blink again) |
 | P7 | Single gap over safe floor | One gap, two rows (dd1–8 and12–17), exit18.5, all y0 (reflects the written single-gap teach rule) |
-| P10 | Gentler values unspecified | Relay spacing4.8; exit16.4 |
-| P11 | Gentler values unspecified | Climb spacing4.2; exit14.8 |
+| P10 | Gentler values unspecified | Two launchers dd3,7.8; exit12,y2; three timed actions including entry and exit |
+| P11 | Gentler values unspecified | Two launchers dd3,y0 and7.2,y1.5; exit11.2,y3.5; three timed actions |
 | P14 | Gentler values unspecified | Rise2.5 per double; final exit y6 |
 | P16 | Gentler values unspecified | Fall replaced by permanent lunchbox (fall is taught in P7); final exit24.1; safe floor |
 
@@ -82,3 +82,13 @@ review was performed. A moving-target window samples actual takeoff/landing posi
 check does not replace playtesting or guarantee a particular controller strategy.
 The current audio API has no per-call clang volume setting; reversal uses the existing normal-level clang.
 Blink/fall use the existing implemented blip/roll placeholder cues, as explicitly permitted by the spec.
+
+## Additional action-boundary correction under review
+
+A final conservative audit counts the initial timed landing from a permanent rest, as well as the exit.
+The source P5 normal route then has five timed actions against the tier2 limit of four. No validator
+threshold was relaxed. The proposed additional rest is exported as P5_ACTION_REST_PROPOSAL: a permanent
+lunchbox at x0,y1.5,dd8.25, preserving all four original blink boxes and their phases. Both halves have
+three timed actions. This additional normal-layout rest awaits owner approval before canonical activation.
+Teaching relay variants now use two launchers because three launchers plus their entry/exit require four
+actions; their source specified no exact teaching coordinates. The stronger boundary has a regression test.
