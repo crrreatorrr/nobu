@@ -132,6 +132,7 @@ export const BETWEEN = {
 
 export const TUTORIALS = {
   dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
+  crystals: 'Bite crystals to light the path. The platforms stay solid when their light fades.',
   spindrum: { img: 'nobu_head', title: 'SPIN CYCLE', text: 'Ride the platforms around the drum. Hop off when you reach the top!' },
   zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
   toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
@@ -263,3 +264,7 @@ export const MASTERY_TEXT = {
 
 export const TITAN_STAGE_POWERS = { 2: 'Suction · Mini-Roombas · rotating rug', 3: 'Reflected charges · falling legs · Lights Out' };
 export const TITAN_FLOP_HINT = 'BELLY FLOP the button!';
+export const BONUS_EXTENSION_TEXT = {
+  ride: { split: 'Living Room Split', ramps: 'Toy Box Ramps', tile: 'Kitchen Tile Slide', door: 'Dog-Door Leap', sofa: 'Sofa Summit' },
+  cave: { river: 'Underground River', mushrooms: 'Mushroom Bounce Cavern', crystals: 'Crystal Echo', hollow: 'Lumi’s Nest Hollow' },
+};
