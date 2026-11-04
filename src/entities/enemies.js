@@ -185,8 +185,8 @@ export class Enemy extends Entity {
     this.state = 'squashed';
     this.stateT = 0;
     this.interactive = false;
-    audio.play('squash');
     this.game.session.onEnemyDefeated(this);
+    audio.play('squash', this.game.session.chainSoundPitch ?? 1);
   }
 
   onBite(p) {

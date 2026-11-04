@@ -1,4 +1,6 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
 // Bonus stage: Roomba Rush. Nobu rides a runaway robot vacuum through the Owner's House.
 // It drives itself; left/right steers, jump hops the whole vacuum. Bash backpacks and mice, jump cables
 // and gaps, dodge toy piles, table legs, cats and rugs. A Vacuum Dock near the end pops every rug.
@@ -14,6 +16,7 @@ export function buildBonusRide(game, stage, tickets) {
     [40, 0, 0], [30, 14, 0], [30, -20, 0], [30, 12, 0], [30, -14, 0], [30, 18, 0], [30, -10, 0], [30, 0, 0], [30, 6, 0], [30, 0, 0], [30, 0, 0],
   ]));
   const k = makeKit(game, stage, tickets, track);
+  installSections(k, 'ride', SECTION_TEXT);
   const END = 312;
   const HALF = 4.6, W = HALF * 2;
   const F = (a, b, o = {}) => k.floor(a, b, { w: W, ...o });

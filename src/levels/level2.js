@@ -1,4 +1,6 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
 // Level 2: Scratchpost Canyon — the Big Cat chase along a winding canyon. Camera faces Nobu.
 // Pits, logs, backpack walls, rugs, yarn, a crumbling bridge, a curving plank bridge and a mushroom launch.
 import * as THREE from 'three';
@@ -12,6 +14,7 @@ export function buildLevel2(game, stage, tickets) {
     [50, 0, 0], [30, 18, 0], [30, -22, -1], [30, 14, 0], [30, -18, 0.8], [30, 22, 0], [30, -14, -0.8], [30, 10, 0], [30, -18, 0], [30, 0, 0], [24, 0, 0],
   ]));
   const k = makeKit(game, stage, tickets, track);
+  installSections(k, '2', SECTION_TEXT);
   // track d=0 is 30m into the curve; content below is authored from d=30 onward
   const O = 30;
   const D = (d) => d + O;

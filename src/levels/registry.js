@@ -9,6 +9,8 @@ import { MechaBird } from '../bosses/mechaBird.js';
 import { BigCatBoss } from '../bosses/bigCat.js';
 import { EvilCone } from '../bosses/evilCone.js';
 import { LEVEL_DOGS } from './metadata.js';
+import { levelSections, HIDDEN_SECTION } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
 
 const mainOpen = (id) => (data) => data.v >= 3 ? !!data.open?.[id] : id <= data.unlocked;
 const bonusOpen = (id, after) => (data) => data.v >= 3 ? !!data.open?.[id]
@@ -45,6 +47,11 @@ export const LEVELS = {
     dogs: LEVEL_DOGS['3'],
   },
 };
+
+for (const [id, def] of Object.entries(LEVELS)) {
+  def.sections = levelSections(id, SECTION_TEXT);
+  def.hidden = { section: SECTION_TEXT[HIDDEN_SECTION[id]], move: null };
+}
 
 export const MAP_ORDER = [1, 'ride', 2, 'cave', 3];
 export const LEVEL_NAMES = Object.fromEntries(Object.entries(LEVELS).map(([id, def]) => [id, def.name]));

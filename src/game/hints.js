@@ -33,7 +33,7 @@ export function nextGoal(board = {}, stats = {}, ctx = {}, abilities = {}, copy 
   }
   if (!board.golden) return result('hintGoldenMany', [packs]);
   // Completion means all slots; don't advertise a complete board with an unearned slot.
-  if (!board.goodBoy && !ctx.god) return result('hintGoodBoy', [stats.deathsAtGate ?? '?']);
-  if (!ctx.bonus && (board.snack || 0) < 3) return result('hintSnack', [ratio == null ? 0 : Math.floor(ratio * 100), [40, 60, 80][board.snack || 0]]);
+  if (!board.goodBoy && !ctx.god) return result('hintGoodBoyGoal');
+  if (!ctx.bonus && (board.snack || 0) < 3) return result('hintSnackGoal', [[40, 60, 80][board.snack || 0]]);
   return result(ctx.trialAvailable ? 'hintCompleteTrial' : 'hintComplete');
 }

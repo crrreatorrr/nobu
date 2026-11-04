@@ -101,7 +101,7 @@ export class Backpack extends Breakable {
     const y = this.pos.y + 0.5;
     this.fx.burst(this.pos.x, y, this.pos.z, { count: 16, colors: [0x2b2b33, 0x3d3d48, 0x1c1c22, 0xff8a12], speed: 5, size: 0.2, floor: this.pos.y });
     this.fx.puff(this.pos.x, y, this.pos.z, { count: 4, size: 0.4, color: 0x9a9aaa, speed: 2 });
-    audio.play('break');
+    audio.play('break', this.session.chainSoundPitch ?? 1);
     this.game.tickets.spawnFlying(this.pos.x, y + 0.3, this.pos.z, this.tickets);
   }
   onBite(p) { this.break(p, 'bite'); }
@@ -288,7 +288,7 @@ export class Trampoline extends Breakable {
     this.ticketsLeft = 0;
     this.markBroken();
     this.hide();
-    audio.play('break');
+    audio.play('break', this.session.chainSoundPitch ?? 1);
     this.fx.burst(this.pos.x, this.pos.y + 0.4, this.pos.z, { count: 14, colors: [0xe23a3a, 0x7a3fd0, 0xffd23f, 0xc8c8d0], speed: 4, floor: this.pos.y });
   }
   onSlide() { this.onBite(); }
@@ -638,6 +638,7 @@ export class ZippedBackpack extends Backpack {
     // bites, stomps and head-bonks unzip one notch; flops, slides and explosions rip it open in one go
     if (this.broken) return;
     if (this.hits > 1 && (how === 'bite' || how === 'stomp' || how === 'head')) {
+      this.session.chainRefresh?.();
       this.hits--;
       const tag = this.tags[this.hits];
       tag.visible = false;

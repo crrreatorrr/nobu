@@ -181,6 +181,20 @@ export const DEATH_CAPTIONS = {
 };
 
 export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'death_angel', flat: 'death_flat', cone: 'death_cone', rug: 'death_rug' };
+export const REWARD_TEXT = {
+  chainSphere: ['CHOMP CHAIN x8!', 'Sproto Mask!'], chainBest: 'NEW BEST CHAIN',
+  backpacks: 'BACKPACKS', dogs: 'DOGS FREED', tickets: 'TICKETS', bestChain: 'BEST CHAIN',
+  continue: 'Press any key', complete: (n) => `LEVEL ${n} COMPLETE!`, bonusComplete: 'BONUS STAGE CLEAR!',
+  hintGolden: ({ dogs, packs, section }) => `Golden Bone: ${[dogs ? `${dogs} ${dogs === 1 ? 'dog' : 'dogs'}` : '', packs ? `${packs} ${packs === 1 ? 'backpack' : 'backpacks'}` : ''].filter(Boolean).join(' and ')} missed${section ? ` near ${section}` : ''}.`,
+  hintGoodBoy: (n) => `Good Boy Bone: ${n} deaths, need 3 or fewer.`,
+  hintGoodBoyGoal: 'Good Boy Bone: finish with 3 deaths or fewer.',
+  hintSnackGoal: (target) => `Snack Bones: collect ${target}% of Tickets for ${target === 80 ? 'gold' : target === 60 ? 'silver' : 'bronze'}.`,
+  hintSnack: (pct, target) => `Snack Bones: ${pct}% of Tickets, ${target}% for ${target === 80 ? 'gold' : target === 60 ? 'silver' : 'bronze'}.`,
+  hintHidden: (section) => `Hidden Bone: somewhere near ${section}.`,
+  hintNewMove: "Hidden Bone: you'll need a new move to reach it.",
+  hintGoldenMany: (n) => `Golden Bone: ${n} backpacks to go. Try the side paths.`,
+  hintCompleteTrial: 'Board complete! Try the time trial for a Platinum Tag.', hintComplete: 'Board complete! Good boy.',
+};
 // Shared copy for the expansion's authored gameplay props.
 export const PROP_TEXT = { rugPull: 'RUG PULL!', arrows: ['▼', '■', '▲'] };
 
@@ -197,3 +211,13 @@ export const BONE_TEXT = {
   deaths: (n) => `${n}/3 deaths`, kennel: (id) => `KENNEL: ${id.toUpperCase()} UNLOCKED!`,
 };
 export const BOSS_MEDAL_TEXT = { noHit: 'NO-HIT!', speed: 'SPEED MEDAL' };
+export const SECTION_TEXT = {
+  start: 'Start', highRoad: 'High Road', clearing: 'Backpack Clearing', treatLedge: 'Treat Ledge',
+  lilyPond: 'Lily Pond', canopy: 'Canopy Walk', boneSwitch: 'Bone Switch', planks: 'Plank Bridge',
+  belly: 'Belly-flop Pocket', lastGap: 'Last Gap', fork: 'The Fork', firstGap: 'First Gap',
+  bluePath: 'Blue Path', crumble: 'Crumbling Bridge', mushroom: 'Mushroom Landing', dock: 'Vacuum Dock',
+  intake: 'Intake Hall', crushers: 'Crusher Alley', rugs: 'Rug Puzzle', hammers: 'Hammer Hall',
+  fan: 'Fan Catwalk', vacuum: 'Vacuum Hall', vat: 'Vat Pit', final: 'Final Stretch',
+  living: 'Living Room', hallway: 'Hallway', toys: 'Toy Piles', firstPit: 'First Pit',
+  rafts: 'Underground Rafts', redBone: 'Red Bone', steps: 'Lunchbox Steps', exit: 'Exit', path: 'the path',
+};
