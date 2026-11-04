@@ -113,14 +113,14 @@ function addFactoryDetours(k,game,stage,track) {
   scopeFactoryRoller(roller,rugs);
   // A visible low pipe roof marks the slide entrance without sealing the lane.
   k.platform(3,1,188,1.5,2,.2);
-  stage.add(new FactoryDetourRecovery(stage,ducts,{entryX:3,exitD:200.7}));
+  stage.add(new FactoryDetourRecovery(stage,ducts,{entryX:3,exitD:200.7,backD:190.5}));
 
   const launch=k.arrowBox(-2.8,0,275,17);
   // Trials have closed side routes; suppress only this optional launch.
   if (game.session.trial) { launch.onLand=()=>false; launch.onHeadHit=()=>false; }
   const railFrom=stage.entities.length;
   const rails=k.detour(276,312,{y:7,entry:'launch',x:-2.8,build(kd) {
-    kd.section(LABELS.overheadRails); kd.platform(-2.8,0,277,3,3);
+    kd.section(LABELS.overheadRails); kd.platform(-2.8,0,279,3,3);
     kd.zipline(-2.8,2.2,278,0,1.6,288,{speed:9});
     // Solid slabs leave the main floor/return walk intact at y+7.
     for (let d=289; d<298; d+=1.5) kd.platform(0,0,d+.75,2.4,1.58,.6);
@@ -130,6 +130,6 @@ function addFactoryDetours(k,game,stage,track) {
     kd.zipline(0,2.4,298.5,0,-4.4,311,{speed:10});
   }});
   rails.factoryEntities=new Set(stage.entities.slice(railFrom));
-  stage.add(new FactoryDetourRecovery(stage,rails,{entryX:-2.8,launch:true,exitD:310.7}));
+  stage.add(new FactoryDetourRecovery(stage,rails,{entryX:-2.8,launch:true,exitD:310.7,backD:272.5}));
 }
 

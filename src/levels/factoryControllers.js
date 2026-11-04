@@ -40,9 +40,9 @@ export function scopeFactoryRoller(roller, rugs) {
 }
 
 export class FactoryDetourRecovery extends Entity {
-  constructor(stage, detour, { entryX = 0, launch = false, exitD = detour.exitD } = {}) {
+  constructor(stage, detour, { entryX = 0, launch = false, exitD = detour.exitD, backD = detour.entryD } = {}) {
     super(stage, ...detour.pos.toArray());
-    Object.assign(this, { detour, entryX, launch, exitD });
+    Object.assign(this, { detour, entryX, launch, exitD, backD });
     this.interactive = false; this.alwaysActive = true; this.snapshot = null;
   }
   capture() {
@@ -51,7 +51,7 @@ export class FactoryDetourRecovery extends Entity {
       levelTickets:s.levelTickets, fieldRaw:s.fieldRaw, coconutRaw:s.coconutRaw,
       snackRaw:s.snack.raw, lifeLine:s.lifeLine || 0, cpLifeLine:s.cp?.lifeLine,
       freedIds:new Set(s.freedIds), sphereGiven:s.chain?.sphereGiven,
-      back:this.detour.track.toWorld(this.detour.entryD, this.entryX, .05) };
+      back:this.detour.track.toWorld(this.backD, this.entryX, .05) };
   }
   rollback() {
     const b = this.snapshot, s = this.session, g = this.game;

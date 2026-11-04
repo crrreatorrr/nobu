@@ -12,6 +12,7 @@ The unchanged Tier 3 validator rejects the literal Vat Overflow route. The candi
 | Sliding box d352.5 | d353.5 | The source jump to the d359 rest has no valid moving window. |
 | Only permanent rest at x1.8/y4.6/d359 | Add x1.8/y4.6/d356.5, retaining d359 | Completes the slider crossing within the actual moving window and splits timing actions. |
 | Two-coordinate arrow chain at d368.5/372 | Explicit x/y/d points (-0.8,6.6,368.5), (0.6,7.4,372) | Two-coordinate kit calls place both arrows at y0; the final y9 ledge is unreachable from that literal route. |
+| Rails entry gantry at d277, y7 | Move only the gantry to d279; retain launch275 and zipline endpoint278 | Actual Player was stopped at feet5.213 by the gantry underside over the launch. Corrected actual Player/World route reaches the y7 gantry and both ziplines back to the main floor without a death. |
 | Ordinary Snacks d228 then d334 | Add ordinary Snacks (0,0,312) on existing permanent floor | 106m exceeded Tier 3's 90m maximum. New gaps are 84m and 22m. Pity Snacks do not substitute for a first-visit checkpoint. |
 
 The first jump uses the existing floor edge (-1.8,0,d337), rather than an unnecessarily long centre-to-centre jump from d336. The corrected **complete** route and every helper chain pass `validatePattern`; the source literal remains a failing regression fixture. None of the timing boxes count toward Golden Bone. Both bounce packs count and pay exactly one raw Ticket each.
@@ -49,10 +50,21 @@ There are no coconuts. The current approved cap **86** is unchanged and correctl
 - Path419m, visible gate418, trigger420, END427; explicit target handoff gold77/silver100/bronze134/platinum70/floor20600ms.
 - Nine stable dog IDs; five old dog coordinates and blue bone preserve their intended splice shifts.
 - Original Good Boy trigger moves to379, after the Vat climb; purple path315.5/319/323.
-- Two downstream detours leave permanent return walks; `validateDetours` passes. Failed raised excursions restore packs, dogs, field tickets, balances, Snack raw and entry lives without incrementing deaths or changing the ordinary checkpoint. Real Session regression exercises that path.
+- Two downstream detours leave permanent return walks; `validateDetours` passes. Failed raised excursions restore packs, dogs, field tickets, balances, Snack raw and entry lives without incrementing deaths or changing the ordinary checkpoint. Real Session regression exercises that path. Each detour resets only its own entities; earlier excursions remain banked. Normal-height return capsules use clear permanent approach pads (Duct190.5/x3; Rails272.5/x−2.8), avoiding the slide roof and fan base.
 - Local reversing belt changes actual conveyor force and UV scrolling direction every4s, with a one-second flashing lamp/two-tone synthesized warning, reset on death. No new media.
 - `buildBoss3Arena` is byte-identical to base3f1d05a (SHA256 d799abc2c461cc825c4ca81a7e34ed88fcaaf8ce15c3f7c2f4722266ad5af575). No Evil Cone code changes.
-- Focused and full check results will be recorded after the stable candidate run.
+- Focused candidate tests:15 passing. Full suite on53fe701 before the gantry/return-pad correction:64files/630tests passing; build passing. The final corrected source rerun is pending below.
+
+## Assisted browser verification
+
+Fresh profile and Vite module identity checks, using actual Player/World/Stage updates with rendering disabled during bounded deterministic physics batches and restored for screenshots. No external bank/post calls.
+
+- Corrected gantry: real flop onto arrow, held jump/double and fan rise; grounded at d278.761/y6.99999, maxheight10.31; recovery captured.
+- Actual first zipline grab and static catwalk landing at d290.281/y7.029; catwalk walk; actual second zipline grab, main-floor return at d312.645/y0; recovery cleared, zero deaths. Evidence: `/tmp/nobu-h32-rails-proof.json`.
+- Actual KeyK slide from permanent Hammer Hall approach, real fade travel to188/y8.05, upper Solid landingy8, forced failed excursion restores dog/tickets and returns190.4905 without death/life loss. Evidence: `/tmp/nobu-h32-final-pad-proof.json`.
+- Actual valve builds exit receiver at worldy9.247586829, matching its authored target; rising starts and resets.
+- Sorting, Packaging and Vat screenshots captured; Vat screenshot visually inspected. These forced-position views establish rendering only.
+- Initial probes documented the original gantry ceiling blocker and used some inadequate input approaches; only the completed corrected paths above are claimed.
 
 ## Manual verification limits
 

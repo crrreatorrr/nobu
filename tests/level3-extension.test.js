@@ -21,15 +21,12 @@ HTMLCanvasElement.prototype.toDataURL = () => '';
 
 const { Stage } = await import('../src/world/stage.js');
 const { TicketSystem } = await import('../src/entities/tickets.js');
-const { Backpack, ZippedBackpack, Trampoline, Cat, Rug } = await import('../src/entities/breakables.js');
-const { MysteryBackpack } = await import('../src/entities/mysteryBackpack.js');
+const { Rug } = await import('../src/entities/breakables.js');
 const { buildLevel3, buildLevel3Layout2, buildBoss3Arena } = await import('../src/levels/level3.js');
 const { LEVELS } = await import('../src/levels/registry.js');
-const PLAYABLE_IDS = Object.values(LEVELS).filter((def) => def.shipped && !def.meta && typeof def.build === 'function').map((def) => String(def.id));
 const { LEVEL_BUDGETS } = await import('../src/levels/data/budgets.js');
-const { LEVEL_TICKET_CAP } = await import('../src/config/tickets.js');
 const { measureTicketBudget } = await import('../src/game/measureTicketBudget.js');
-const { checkTicketBudget, ticketBudget, budgetDifferences } = await import('../src/game/ticketBudget.js');
+const { checkTicketBudget, ticketBudget } = await import('../src/game/ticketBudget.js');
 const { save } = await import('../src/core/save.js');
 const { Session } = await import('../src/game/session.js');
 vi.spyOn(Stage.prototype, 'decor').mockImplementation(() => {});
@@ -55,7 +52,7 @@ function build(candidate=true, roll=.001, trial=false, purple=false) {
   } finally {random.mockRestore();}
 }
 
-const {validatePattern,reach,simJump}=await import('../src/levels/gauntletMath.js');
+const {validatePattern,reach}=await import('../src/levels/gauntletMath.js');
 const {vatPattern,worldVatPattern}=await import('../src/levels/data/l3-vat.js');
 const {validateDetours}=await import('../src/levels/environmentKit.js');
 const {FactoryDetourRecovery,ReversingFactoryBelt}=await import('../src/levels/factoryControllers.js');
@@ -135,7 +132,7 @@ test('failed raised excursion rolls back real Session tickets, dogs, packs and l
  expect(save.data.lives).toBe(lives);expect(save.data.tickets).toBe(balance);
  expect(session.fieldRaw).toBe(0);expect(session.freedIds.size).toBe(0);
  expect(dog.freed).toBe(false);expect(dog.obj.visible).toBe(true);expect(pack.broken).toBe(false);
- expect(tickets.list[0].taken).toBe(false);expect(game.player.body.s).toBeCloseTo(188,1);
+ expect(tickets.list[0].taken).toBe(false);expect(game.player.body.s).toBeCloseTo(190.5,1);
 });
 
 test('reversing belt warns a full second, flips real force and UV direction, and resets',()=>{
@@ -223,4 +220,20 @@ test('a later failed excursion preserves banked progress and entity state from t
  expect(later.freed).toBe(false);expect(session.fieldRaw).toBe(6);
  if(reset)expect(reset).not.toHaveBeenCalled();
  expect(duct.detour.factoryEntities.has(earlier)).toBe(true);expect(rails.detour.factoryEntities.has(earlier)).toBe(false);
+});
+
+test('both softfall return pads have permanent floor and normal-height capsule clearance',()=>{
+ const {stage}=build();
+ for(const recovery of stage.entities.filter(e=>e instanceof FactoryDetourRecovery)){
+  recovery.capture();const p=recovery.snapshot.back,tr=stage.track,pr=tr.project(p.x,p.z);
+  expect(tr.groundAt(pr.s,pr.u)).not.toBeNull();
+  const hits=stage.world.query(p.x-.36,p.y+.02,p.z-.36,p.x+.36,p.y+1.3,p.z+.36,[]);
+  expect(hits).toEqual([]);
+ }
+});
+
+test('the gantry leaves the actual vertical fan/arrow approach column clear',()=>{
+ const {stage}=build(),p=stage.track.toWorld(275,-2.8,1.1);
+ const blockers=stage.world.query(p.x-.36,p.y,p.z-.36,p.x+.36,p.y+7.2,p.z+.36,[]);
+ expect(blockers).toEqual([]);
 });
