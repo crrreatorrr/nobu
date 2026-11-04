@@ -126,6 +126,7 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
     }
     kd.floor = (a, b, o = {}) => {
       const dy = base + (o.y ?? 0), x = o.x ?? 0, w = o.w ?? 8.6;
+      detour.floorCenter = x;
       if (base >= 8) {
         // Follow curved paths with small Solid slabs, leaving groundAt below untouched.
         const n = Math.max(1, Math.ceil(Math.abs(b - a) / 1.5)), result = [];
@@ -155,7 +156,7 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
       if (k.section) return k.section(a,b,name,{detour:true});
       const section = { d0:a,d1:b,name,detour:true }; track.sections.push(section); track.sections.sort((a,b)=>a.d0-b.d0); (stage.sections ||= []).push(section); return section;
     };
-    kd.dark = (a,b,o={}) => k.dark(a,b,{...o,minY:base-1,baseY:base});
+    kd.dark = (a,b,o={}) => k.dark(a,b,{...o,minY:base-1,baseY:base,x:o.x??detour.floorCenter??0});
     kd.camZone = (a,b,mode,o={}) => k.camZone(a,b,mode,{...o,minY:base-1});
     const result = opts.build(kd);
     if (result?.start) detour.startPos.copy(result.start);
