@@ -39,6 +39,10 @@ export const VERSE_DAILY_CAP = 50;
 export const MOCK_TICKET_EARN_CAP = 1000;
 /** Portal tickets are single-use and short-lived. */
 export const MOCK_TICKET_TTL_SECONDS = 60;
+/** NOBU time-trial floors per level, integer ms (Contract C13). The same numbers are in NOBU's src/config/trials.js. */
+export const NOBU_TRIAL_FLOOR_MS = { '1': 15000, '2': 15000, '3': 12000 };
+/** NOBU time-trial ceiling, integer ms. */
+export const NOBU_TRIAL_CEIL_MS = 1_800_000;
 export function isGameId(value) {
     return GAME_IDS.includes(value);
 }
