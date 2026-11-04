@@ -69,6 +69,7 @@ export function installDevTools(game) {
       ]);
       await game.ui.fade(1); game.ui.clearScreen(); game.session?.dispose();
       const session = new Session(game, 1);
+      session.devStrip = true;
       session.def = { ...session.def, name: 'Environment strip', build: buildEnvironmentStrip };
       game.session = session; game.state = 'play'; game.flyingMasks.length = 0;
       const done = session.startLevel();
