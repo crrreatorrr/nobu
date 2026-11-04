@@ -151,3 +151,8 @@ it('merges archived Classic clean eligibility independently from the current god
  expect(save.data.trialsClassic[1]).toMatchObject({ms:45000,godUsed:true,bestEligibleMs:49000,medal:'platinum',layout:1});
  save.write();save.load();expect(save.data.trials[1].medal).toBe('gold');expect(save.data.trialsClassic[1].medal).toBe('platinum');
 });
+it('archives a newly upgraded god practice best and merges an existing slower clean Classic tag',()=>{
+ load({v:3,trials:{1:{ms:45000,best:45,layout:1,godUsed:true,pid:null}},trialsClassic:{1:{ms:49000,best:49,layout:1,godUsed:false,pid:'clean-player'}}});
+ expect(save.data.trials[1]).toBeUndefined();
+ expect(save.data.trialsClassic[1]).toMatchObject({ms:45000,godUsed:true,pid:null,bestEligibleMs:49000,medal:'platinum',layout:1});
+});
