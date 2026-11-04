@@ -13,12 +13,13 @@ import { Loadout } from '../gear/loadout.js';
 import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
+import { trialLayout, trialVariant } from '../config/trials.js';
 import { MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { INTRO, RESCUE, ENDING, BETWEEN } from '../story/script.js';
+import { INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
-const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉' };
+const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
 function esc(text) {
   return String(text).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
 }
@@ -352,7 +353,7 @@ export class Game {
       ? (d.bonus?.[lv]?.beaten ? `Cleared! Best tickets: ${d.bonus[lv].best}` : lv === 'ride' ? 'A runaway robot vacuum is loose in the house. Ride it!' : 'Pitch dark. Stay close to Lumi the glowworm.')
       : save.beatenOf(lv) ? `Cleared! Dogs best: ${save.bestDogsOf(lv)} · ${save.boneOf(lv) ? 'Golden Bone earned' : 'Golden Bone: break everything + free every dog'}` : 'The cone smog still hangs over this place...';
     const tr = !bonusSel && save.beatenOf(lv)
-      ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[lv][0])}`}</div>`
+      ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
       : '';
     const world = !bonusSel && save.beatenOf(lv) ? this._worldLine(lv) : '';
     const total = save.totalTrialMs();
@@ -370,18 +371,26 @@ export class Game {
   // standalone, offline, or when the vendored SDK cannot read boards.
   _worldLine(lv) {
     this._tops ||= {};
-    const slot = this._tops[lv];
+    const key = trialVariant(lv), archived = trialLayout(lv) > 1;
+    const slot = this._tops[key];
     if (!slot || (!slot.loading && Date.now() - slot.at > 60_000)) {
-      this._tops[lv] = { ...(slot || {}), loading: true, at: Date.now() };
-      hub.trialTop(lv).then((top) => {
-        this._tops[lv] = { top, loading: false, at: Date.now() };
-        if (top && this.state === 'map' && this.mapSel === lv && !this.exchangeOpen) this._drawMap();
-      }, () => { this._tops[lv] = { top: null, loading: false, at: Date.now() }; });
+      this._tops[key] = { ...(slot || {}), loading: true, at: Date.now() };
+      Promise.all([hub.trialTop(lv), archived ? hub.trialTopClassic(lv) : null]).then(([top, classic]) => {
+        this._tops[key] = { top, classic, loading: false, at: Date.now() };
+        if ((top || classic) && this.state === 'map' && this.mapSel === lv && !this.exchangeOpen) this._drawMap();
+      }, () => { this._tops[key] = { top: null, classic: null, loading: false, at: Date.now() }; });
     }
-    const top = this._tops[lv]?.top;
-    if (!top) return '';
-    const me = top.me ? ` · you #${top.me.rank} ${fmtTime(top.me.value / 1000)}` : '';
-    return `<div class="hint">WORLD top ${fmtTime(top.value / 1000)}${me}</div>`;
+    const top = this._tops[key]?.top;
+    const me = top?.me ? ` · you #${top.me.rank} ${fmtTime(top.me.value / 1000)}` : '';
+    let html = top ? `<div class="hint">WORLD top ${fmtTime(top.value / 1000)}${me}</div>` : '';
+    const best = save.data.trialsClassic?.[lv], classic = this._tops[key]?.classic;
+    if (archived && (best || classic)) {
+      const parts = [];
+      if (best) parts.push(`${TRIAL_TEXT.classicBest} ${fmtTime(best.best)}`);
+      if (classic) parts.push(`${TRIAL_TEXT.classicWorld} ${fmtTime(classic.value / 1000)}`);
+      html += `<div class="hint">${parts.join(' · ')}</div>`;
+    }
+    return html;
   }
 
   _exchangeHtml() {
@@ -716,6 +725,7 @@ export class Game {
     if (n === 2) d.open.cave = true;
     save.setBestDogs(n, st.dogs);
     if (bone) save.setBone(n);
+    st.goldenEarned = save.boneOf(n);
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     // rescue scene first, then the results screen
@@ -736,18 +746,18 @@ export class Game {
   // Time trial finished at the boss gate: time, dog tag, personal best.
   trialDone(session, t, medal, best) {
     const n = session.level;
-    const [g, s, b] = TRIAL_TARGETS[n];
+    const [g, s, b, p] = TRIAL_TARGETS[trialVariant(n)];
     this.state = 'complete';
     this.completeT = 0;
     this.completeNext = { n, bonus: true };
     audio.playMusic('complete');
-    const names = { gold: 'GOLD TAG!', silver: 'SILVER TAG!', bronze: 'BRONZE TAG!' };
+    const names = { gold: 'GOLD TAG!', silver: 'SILVER TAG!', bronze: 'BRONZE TAG!', platinum: TRIAL_TEXT.platinumTag };
     this.ui.setScreen(`
       <div class="big-title" style="margin-bottom:1vh">TIME TRIAL</div>
       <div class="sub-title">${LEVEL_NAMES[n].toUpperCase()}</div>
       <div class="big-title" style="font-size:72px;margin:2vh 0">${fmtTime(t)}</div>
       <div class="sub-title">${medal ? `${MEDAL[medal]} ${names[medal]}` : 'No tag this time'}${best ? ' · NEW BEST!' : ''}</div>
-      <div class="hint" style="margin-top:2vh">🥇 ${fmtTime(g)} · 🥈 ${fmtTime(s)} · 🥉 ${fmtTime(b)}</div>
+      <div class="hint" style="margin-top:2vh">🥇 ${fmtTime(g)} · 🥈 ${fmtTime(s)} · 🥉 ${fmtTime(b)}${p == null ? '' : ` · 💎 ${fmtTime(p)}`}</div>
       <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
     this.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #23599a, #05183a)';
     this.ui.fade(0);
@@ -771,6 +781,7 @@ export class Game {
     this.completeT = 0;
     this.completeNext = { n, bonus };
     audio.playMusic('complete');
+    const golden = bone || (trialLayout(n) > 1 && st.goldenEarned);
     const row = (img, label, val, cls = '') => `<div class="stat-row ${cls}"><img src="${Assets.url(img)}"><span>${label}</span><span class="val">${val}</span></div>`;
     this.ui.setScreen(`
       <div class="big-title" style="margin-bottom:2vh">${bonus ? 'BONUS STAGE CLEAR!' : `LEVEL ${n} COMPLETE!`}</div>
@@ -780,7 +791,7 @@ export class Game {
           ${row('ticket', 'TICKETS', st.tickets)}
           ${row(Assets.has('backpack_icon') ? 'backpack_icon' : 'backpack', 'BREAKABLES', `${st.broken}/${st.breakables}`, st.broken >= st.breakables ? '' : 'miss')}
           ${row('dog_corgi_free', 'DOGS FREED', `${st.dogs}/${st.dogsTotal}`, st.dogs >= st.dogsTotal ? '' : 'miss')}
-          ${bonus ? '' : row('golden_bone', 'GOLDEN BONE', bone ? 'EARNED!' : 'not yet', bone ? 'reward' : 'miss')}
+          ${bonus ? '' : row('golden_bone', 'GOLDEN BONE', golden ? 'EARNED!' : 'not yet', golden ? 'reward' : 'miss')}
         </div>
       </div>
       <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');

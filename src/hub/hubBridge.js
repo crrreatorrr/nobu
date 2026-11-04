@@ -4,7 +4,7 @@
 import { createHubSdk, HubEvent, HUB_OUTBOX_DB, TICKETS_PER_VERSE, VERSE_DAILY_CAP } from '@metaverse/hub-sdk';
 import { save } from '../core/save.js';
 import { CARRY_MAX, LEVEL_END_MAX_AMOUNT } from '../config/tickets.js';
-import { TRIAL_BOARD } from '../config/trials.js';
+import { TRIAL_BOARD, trialLayout, trialVariant, canUploadTrial } from '../config/trials.js';
 import { enqueue as enqueueScore, flushQueue as flushScoreQueue, knownBest, retryDelay } from './scoreQueue.js';
 
 const GAME_ID = 'nobu';
@@ -975,8 +975,10 @@ class HubBridge {
    */
   submitScore(ms, level, meta = {}) {
     const pid = this.playerId();
-    if (!pid || !Number.isInteger(ms)) return Promise.resolve(false);
-    const queued = enqueueScore(pid, level, ms, { ...meta, level: Number(level), build: BUILD_ID, v: 1 });
+    const variant = trialVariant(level), layout = trialLayout(level);
+    if (!pid || !Number.isInteger(ms) || !canUploadTrial(variant)) return Promise.resolve(false);
+    const queued = enqueueScore(pid, variant, ms, { ...meta, level: layout === 1 ? Number(level) : variant,
+      ...(layout > 1 ? { layout } : {}), build: BUILD_ID, v: layout });
     if (queued) this._scoreDirty = true;
     return this.flushScores().then(() => queued, () => queued);
   }
@@ -984,7 +986,7 @@ class HubBridge {
   /** Fastest time this player has queued or posted for `level`, or null. */
   knownTrialBest(level) {
     const pid = this.playerId();
-    return pid ? knownBest(pid, level) : null;
+    return pid ? knownBest(pid, trialVariant(level)) : null;
   }
 
   /** Send queued trial scores. Safe to call any time; one run at a time. */
@@ -1030,8 +1032,10 @@ class HubBridge {
    * Cached for a minute.
    * Null when standalone, offline, or when the vendored SDK has no getLeaderboard.
    */
-  async trialTop(level) {
-    const key = String(level);
+  trialTop(level) { return this._trialTopVariant(trialVariant(level)); }
+  trialTopClassic(level) { return this._trialTopVariant(trialVariant(level, 1)); }
+
+  async _trialTopVariant(key) {
     const hit = this._topCache.get(key);
     if (hit && Date.now() - hit.at < TOP_CACHE_MS) return hit.top;
     if (this.reach !== 'ready' || !this.inSession || typeof this._sdk?.getLeaderboard !== 'function') return null;
