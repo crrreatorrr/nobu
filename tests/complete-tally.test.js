@@ -19,9 +19,12 @@ it('ignores first-view presses until the full timeline completes, then preserves
  expect(g.ui.screen.querySelector('[data-tally="hint"]').textContent).toContain('Lily Pond');
 });
 it('silently skips repeat tallies to the final state and needs a second press to continue',()=>{
- save.data.tutorials.tallySeen=true;const g=game();open(g);const play=audio.play;play.mockClear();
+ save.data.tutorials.tallySeen=true;const g=game();open(g);const play=audio.play;
+ const stamp=g.tally.steps.find(s=>s.key==='stamp');advanceCompleteTally(g,stamp.start+.01,false);
+ expect(g.ui.screen.querySelector('[data-bone="golden"]').style.animation).toContain('bone-stamp');play.mockClear();
  expect(advanceCompleteTally(g,.1,true)).toBe(false);expect(g.completeT).toBe(g.tally.duration);expect(play).not.toHaveBeenCalled();
  expect(g.ui.screen.querySelector('[data-bone="golden"]').style.opacity).toBe('1');
+ expect(g.ui.screen.querySelector('[data-bone="golden"]').style.animation).toBe('none');
  expect(g.ui.screen.querySelector('[data-tally="continue"]').style.visibility).toBe('visible');
  expect(advanceCompleteTally(g,.1,true)).toBe(true);expect(play).not.toHaveBeenCalled();
 });

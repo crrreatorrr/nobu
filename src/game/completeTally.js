@@ -38,6 +38,8 @@ export function advanceCompleteTally(game,dt,pressed) {
   const wasFinished = before >= game.tally.duration;
   if(pressed && !wasFinished && game.tallyCanSkip) {
     game.completeT = game.tally.duration;
+    // A skip also finishes any CSS stamp/row transitions already in flight.
+    game.ui.screen.querySelectorAll('.stat-row, [data-tally="board"], [data-bone]').forEach((el) => { el.style.animation = 'none'; el.style.transition = 'none'; });
     drawCompleteTally(game);
   } else {
     game.completeT += dt;
