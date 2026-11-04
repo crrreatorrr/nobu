@@ -4,6 +4,31 @@
 const bars = (...b) => b.join(' ');
 
 export const SONGS = {
+  // Queen: four bars of proclamation, then four of collapse, in E-flat minor.
+  boss5: {
+    bpm: 132,
+    tracks: [
+      { wave: 'triangle', vol: .21, gate: .98, attack: .08, notes: bars(
+        'Eb3+Gb3+Bb3 - - - - - - - Eb3+Gb3+Bb3 - - - - - - -',
+        'B2+Eb3+Gb3 - - - - - - - B2+Eb3+Gb3 - - - - - - -',
+        'Ab2+Cb3+Eb3 - - - - - - - Gb2+Bb2+Db3 - - - - - - -',
+        'Bb2+D3+F3 - - - - - - - Bb2+D3+Ab3 - - - - - - -',
+        'Eb3+Gb3+Bb3 - - - - - - - Db3+F3+Ab3 - - - - - - -',
+        'Cb3+Eb3+Gb3 - - - - - - - Ab2+Cb3+Eb3 - - - - - - -',
+        'Bb2+D3+F3 - - - - - - - Bb2+D3+Ab3 - - - - - - -',
+        'Eb3+Gb3+Bb3 - - - - - - - Eb3+Gb3+Bb3 - - - - - - -') },
+      { wave: 'square', vol: .075, gate: .62, notes: bars(
+        'Eb5 - Bb5 - Gb5 - Eb5 - Bb5 - - - Gb5 - - -',
+        'B5 - Bb5 - Gb5 - Eb5 - Gb5 - - - Bb5 - - -',
+        'Ab5 - Eb5 - Cb5 - Ab4 - Gb5 - Db5 - Bb4 - Gb4 -',
+        'Bb4 - D5 - F5 - Ab5 - Bb5 - - - D6 - - -',
+        'Eb6 - Bb5 - Gb5 - Eb5 - Db6 - Ab5 - F5 - Db5 -',
+        'Cb6 - Gb5 - Eb5 - Cb5 - Ab5 - Eb5 - Cb5 - Ab4 -',
+        'Bb4 - D5 - F5 - Ab5 - Bb5 - D6 - F6 - D6 -',
+        'Eb6 - - - Bb5 - Gb5 - Eb5 - - - - - . .') },
+    ],
+    drums: { kick: 'X...x...X...x...', snare: '....x.......x.xx', hat: 'x.x.x.x.x.x.xxx.' },
+  },
   // Titan: eight bars in D minor; motor-like square ostinato and sliding whirr.
   boss4: {
     bpm: 140,
