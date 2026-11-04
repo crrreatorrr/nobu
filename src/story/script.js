@@ -196,3 +196,4 @@ export const BONE_TEXT = {
   liveStats: (s, p) => `Breakables ${s.broken}/${s.breakables} · Dogs ${s.dogs}/${s.dogsTotal} · Snacks ${p}%`,
   deaths: (n) => `${n}/3 deaths`, kennel: (id) => `KENNEL: ${id.toUpperCase()} UNLOCKED!`,
 };
+export const BOSS_MEDAL_TEXT = { noHit: 'NO-HIT!', speed: 'SPEED MEDAL' };

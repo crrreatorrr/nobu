@@ -14,7 +14,7 @@ import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
 import { levelDef, LEVEL_NAMES } from '../levels/registry.js';
-import { LEVEL_INTRO, BOSS_TALK } from '../story/script.js';
+import { LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT } from '../story/script.js';
 import { SNACK_EXCLUDED, applyRunResults, boneContext, snackTier } from './bones.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
@@ -562,6 +562,13 @@ export class Session {
     this.newBossMedals = { noHit: record.noHit && !previous.noHit, speed: record.speed && !previous.speed };
     (save.data.bossMedals ||= {})[boss.key] = record;
     save.write();
+  }
+
+  _showBossMedals() {
+    const earned = this.newBossMedals;
+    if (!earned || (!earned.noHit && !earned.speed)) return;
+    this.game.ui.banner(earned.noHit ? BOSS_MEDAL_TEXT.noHit : BOSS_MEDAL_TEXT.speed,
+      earned.noHit && earned.speed ? BOSS_MEDAL_TEXT.speed : '', 3);
   }
 
   onBreak() { this._pushHud(); }
