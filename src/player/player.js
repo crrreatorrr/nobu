@@ -16,6 +16,8 @@ import { rideVacuumMesh } from '../entities/ride.js';
 
 import { TUNING } from '../config/movement.js';
 export { TUNING } from '../config/movement.js';
+// New reward-move constants; existing shared movement tuning is unchanged.
+export const DUST_DASH = Object.freeze({ speed: 20, time: 0.22, cooldown: 0.8, slideRemaining: 0.15 });
 
 // Mega Bark with nothing equipped. Spell Bark replaces these while the hat is on.
 export const BARK_BASE = {
@@ -79,7 +81,8 @@ export class Player {
     this._hangProjection = {};
     this.trapT = 0; this.trapElapsed = 0;
     this.conedT = 0;
-    this.dustDashT = 0;
+    this._clearDustFov();
+    this.dustDashT = 0; this.dustDashCool = 0; this.dustDashUsed = false;
     this.game.ui?.setConed?.(false);
     this.vel.set(0, 0, 0);
     this.facing = Math.PI;
@@ -178,11 +181,14 @@ export class Player {
   }
   get biteRange() { return TUNING.BITE_RANGE * this.biteMult; }
   get forward() { return _fwd.set(Math.sin(this.facing), 0, Math.cos(this.facing)); }
+  get dustDashing() { return this.dustDashT > 0; }
   get grounded() { return this.body.grounded; }
 
   // ---------- main update ----------
   update(dt, stage, camBasis) {
-    if (this.frozen) { this._animate(dt); return; }
+    this._advanceDustFov(dt);
+    this.dustDashCool = Math.max(0, (this.dustDashCool || 0) - dt);
+    if (this.frozen) { this.dustDashT = 0; this._clearDustFov(); this._animate(dt); return; }
     if (this.mode === 'dead') { this._updateDeath(dt, stage); this._animate(dt); return; }
     if (this.mode === 'victory') { this._animate(dt); this._updateShadow(stage); return; }
 
@@ -215,6 +221,7 @@ export class Player {
     }
 
     if (this.hang) {
+      this.dustDashT = 0; this._clearDustFov();
       if (advanceHang(this, dt, input.pressed('jump'), T.JUMP)) audio.play('jump');
       if (stage.track) {
         const at = stage.track.project(this.pos.x, this.pos.z, this.body.trackHint ?? -1, this._hangProjection);
@@ -241,6 +248,8 @@ export class Player {
         else this._startFlop();
       }
     }
+
+    if (this.mode === 'slide' && input.pressed('bite') && this._startDustDash()) this._advanceDustFov(dt);
 
     // ---- horizontal movement ----
     let rideF = null;
@@ -297,15 +306,24 @@ export class Player {
     } else if (this.mode === 'trapped') {
       this.vel.x = 0; this.vel.z = 0;
     } else if (this.mode === 'slide') {
-      this.slideT += dt;
-      const f = this.forward;
-      const k = this.slideT < 0.28 ? 1 : Math.max(0, 1 - (this.slideT - 0.28) / 0.22);
-      const sp = T.SLIDE_SPEED * k + (mag > 0.1 ? 3 : 0) * (1 - k);
-      // gentle steering
-      if (mag > 0.1) this.facing = dampAngle(this.facing, Math.atan2(dx, dz), 3, dt);
-      this.vel.x = f.x * sp; this.vel.z = f.z * sp;
-      if (this.slideT % 0.05 < dt && grounded) this.game.fx?.dust(this.pos.x - f.x * 0.4, this.pos.y, this.pos.z - f.z * 0.4, { count: 1, size: 0.34, color: this._dustColor(), speed: 1.2, dirX: -f.x * 1.5, dirZ: -f.z * 1.5 });
-      if (this.slideT >= T.SLIDE_TIME || !grounded) this._endSlide();
+      if (this.dustDashing) {
+        // The final partial frame covers only the remaining burst distance.
+        const fraction = Math.min(dt, this.dustDashT) / Math.max(dt, 1e-9);
+        this.vel.x = this.dustVX * fraction; this.vel.z = this.dustVZ * fraction; this.vel.y = 0;
+        this.invulnT = Math.max(this.invulnT, Math.min(dt, this.dustDashT));
+        this.dustTrailT = (this.dustTrailT || 0) - dt;
+        if (this.dustTrailT <= 0) { this.dustTrailT = .04; this.game.fx?.smokeCard?.(this.pos.x, this.pos.y + .35, this.pos.z, { vx: -this.dustVX * .2, vz: -this.dustVZ * .2, size: .3, life: .18, colors: [0x9b9ba3, 0xc1c1c8], grow: .4, alpha: .5 }); }
+      } else {
+        this.slideT += dt;
+        const f = this.forward;
+        const k = this.slideT < 0.28 ? 1 : Math.max(0, 1 - (this.slideT - 0.28) / 0.22);
+        const sp = T.SLIDE_SPEED * k + (mag > 0.1 ? 3 : 0) * (1 - k);
+        // gentle steering
+        if (mag > 0.1) this.facing = dampAngle(this.facing, Math.atan2(dx, dz), 3, dt);
+        this.vel.x = f.x * sp; this.vel.z = f.z * sp;
+        if (this.slideT % 0.05 < dt && grounded) this.game.fx?.dust(this.pos.x - f.x * 0.4, this.pos.y, this.pos.z - f.z * 0.4, { count: 1, size: 0.34, color: this._dustColor(), speed: 1.2, dirX: -f.x * 1.5, dirZ: -f.z * 1.5 });
+        if (this.slideT >= T.SLIDE_TIME || !grounded) this._endSlide();
+      }
     } else if (this.mode === 'flop') {
       this.flopT += dt;
       this.vel.x = 0; this.vel.z = 0;
@@ -345,7 +363,7 @@ export class Player {
     }
 
     // ---- gravity (with a little hang time at the apex while jump is held) ----
-    if (this.mode !== 'flop' && !(this.airDashT > 0)) {
+    if (this.mode !== 'flop' && !(this.airDashT > 0) && !this.dustDashing) {
       let g = T.GRAVITY * (this.vel.y < 0 ? T.FALL_MULT : 1);
       if (!grounded && input.held('jump') && Math.abs(this.vel.y) < 2.2 && !this.jumpCut) g *= 0.55;
       this.vel.y = Math.max(-T.MAX_FALL, this.vel.y - g * dt);
@@ -411,6 +429,7 @@ export class Player {
 
     // ---- interactions + hazards ----
     this._interact(stage);
+    if (this.dustDashing) { this.dustDashT = Math.max(0, this.dustDashT - dt); if (this.dustDashT < 1e-9) this.dustDashT = 0; if (!this.dustDashT) this.slideT = T.SLIDE_TIME - DUST_DASH.slideRemaining; }
     // secret warp pits: drop in at just the right spot and get whisked away instead of falling to your doom
     const warp = stage.track && this.mode !== 'dead' && this.pos.y < stage.track.heightAt(this.body.s ?? 0) - 3 && stage.track.secretAt(this.body.s ?? 0, this.body.u ?? 0);
     if (warp && this.game.session?.secretWarp(warp)) { this._animate(dt); return; }
@@ -491,7 +510,7 @@ export class Player {
 
   _startSlide(dir) {
     this.mode = 'slide';
-    this.slideT = 0;
+    this.slideT = 0; this.dustDashUsed = false;
     this.facing = this.targetFacing = dir;
     this.body.h = 0.75;
     this.bitten = new Set();
@@ -499,6 +518,7 @@ export class Player {
   }
 
   _endSlide(intoJump = false) {
+    this.dustDashT = 0;
     // stand back up only if there is headroom
     const w = this.game.stage.world;
     const hits = w.query(this.pos.x - 0.3, this.pos.y + 0.76, this.pos.z - 0.3, this.pos.x + 0.3, this.pos.y + 1.3, this.pos.z + 0.3, []);
@@ -511,8 +531,39 @@ export class Player {
     }
   }
 
+  _startDustDash() {
+    if (!this.abilities.dustDash || this.mode !== 'slide' || !this.body.grounded || this.ride || this.slideT >= TUNING.SLIDE_TIME || this.dustDashUsed || this.dustDashCool > 0 || this.conedT > 0) return false;
+    this.dustDashT = DUST_DASH.time; this.dustDashCool = DUST_DASH.cooldown; this.dustDashUsed = true;
+    const f = this.forward; this.dustVX = f.x * DUST_DASH.speed; this.dustVZ = f.z * DUST_DASH.speed;
+    this.vel.set(this.dustVX, 0, this.dustVZ); this.bitten = new Set(); this.biteT = -1;
+    this.invulnT = Math.max(this.invulnT, DUST_DASH.time); this.dustTrailT = 0;
+    audio.play('whoosh', .8); audio.play('slide');
+    this._clearDustFov();
+    const cam = this.game.camera?.cam;
+    if (cam) { this.dustFov = { cam, base: cam.fov, time: .2 }; cam.fov += 4; cam.updateProjectionMatrix(); }
+    return true;
+  }
+
+  _clearDustFov() {
+    const boost = this.dustFov; if (!boost) return;
+    if (Math.abs(boost.cam.fov - boost.base - 4) < 1e-6) { boost.cam.fov = boost.base; boost.cam.updateProjectionMatrix(); }
+    this.dustFov = null;
+  }
+  _advanceDustFov(dt) { if (this.dustFov && (this.dustFov.time -= dt) <= 0) this._clearDustFov(); }
+
+  _dustContact(e) {
+    let action;
+    if (typeof e.onDash === 'function') action = e.onDash;
+    else if (e.kind === 'dustwall' && typeof e.contact === 'function') action = e.contact;
+    else if (e.maxHp !== undefined) action = () => {}; // Bosses explicitly opt into onDash.
+    else if (typeof e.flip === 'function' && typeof e.onFlop === 'function') action = e.onFlop;
+    else if (typeof e.onSlide === 'function') action = e.onSlide;
+    if (!action) return false;
+    this.bitten.add(e); action.call(e, this); return true;
+  }
+
   // Mega Bark: a blast of sound in front of Nobu that knocks enemies over, breaks backpacks and cracks Bark Rocks.
-  // Spell Bark widens and lengthens it. Bosses (maxHp) are still skipped. There is no stun state.
+  // Spell Bark widens and lengthens it. Bosses opt in explicitly through acceptsBark; other bosses remain skipped.
   _bark() {
     const spell = this.gear.spell_bark;
     const B = spell || BARK_BASE;
@@ -525,7 +576,7 @@ export class Player {
     fx?.puff(p.x + f.x * 0.9, p.y + 1.0, p.z + f.z * 0.9, { count: 4, size: 0.35, color: spell ? B.color : 0xffffff, speed: 3, up: 0 });
     this.game.camera.shake(0.25, 0.2);
     for (const e of this.game.stage.entities) {
-      if (e.dead || e === this || e.maxHp !== undefined) continue;
+      if (e.dead || e === this || (e.maxHp !== undefined && e.acceptsBark !== true)) continue;
       const dx = e.pos.x - p.x, dz = e.pos.z - p.z, d = Math.hypot(dx, dz);
       if (d > B.range_m || d < 0.05 || Math.abs(e.pos.y - p.y) > B.y_tol_m) continue;
       if ((dx * f.x + dz * f.z) / d < B.cone_dot) continue;
@@ -608,8 +659,7 @@ export class Player {
       if (e.dead || !e.interactive || !e.box) continue;
       if (Math.abs(e.pos.z - p.z) > 8) continue;
       const eb = e.box;
-      if (this.dustDashT > 0 && !this.bitten.has(e) && e.onDash && overlaps(pbox, eb)) {
-        this.bitten.add(e); e.onDash(this);
+      if (this.dustDashing && !this.bitten.has(e) && overlaps(pbox, eb) && this._dustContact(e)) {
         if (this.dead) return;
         continue;
       }
@@ -757,6 +807,7 @@ export class Player {
   }
 
   die(type = 'angel') {
+    this._clearDustFov(); this.dustDashT = 0;
     if (this.mode === 'dead') return;
     if (this.god) { if (type === 'fall') this._rescue(); return; }
     this.hang = null;
