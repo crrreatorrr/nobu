@@ -3,6 +3,7 @@
 
 export const SPEAKERS = {
   mask: { name: 'SPROTO MASK', portrait: 'sproto_mask', blip: 'blip' },
+  titan: { name: 'ROOMBA TITAN', portrait: 'portrait_titan', blip: 'blipLow' },
   bird: { name: 'MECHA BIRD', portrait: 'portrait_bird', blip: 'blip' },
   cat: { name: 'THE BIG CAT', portrait: 'portrait_cat', blip: 'blipLow' },
   cone: { name: 'THE EVIL CONE', portrait: 'portrait_cone', blip: 'blipLow' },
@@ -40,6 +41,16 @@ export const ENDING = [
 ];
 
 export const BOSS_TALK = {
+titan: {
+  intro: [
+    ['titan', 'BEEP. FOREIGN OBJECT DETECTED. CLASSIFICATION: DOG. CLASSIFICATION: DIRT.'],
+    ['titan', 'The Pump Queen has scheduled a DEEP CLEAN. All collars will be... collected.'],
+    ['mask', 'It\'s too tough to bite! Make it CRASH into a wall, then BELLY FLOP the red button!'],
+  ],
+  phase2: [['titan', 'SUCTION MODE ENGAGED. Resistance is... absorbed.'], ['mask', 'Mega BARK at it while it sucks! It hates that.']],
+  phase3: [['titan', 'WARNING. WARNING. OVERHEAT PROTOCOL. LIGHTS: OFF.'], ['mask', 'It bounces off the walls now! Get it to ram a CAT. Or a fallen table leg!']],
+  death: [['titan', 'Low... battery... please return me to my... dock...']],
+},
   bird: {
     intro: [
       ['bird', 'SQUAWK! A loose Akita? I\'ve got a cone in my cargo bay with your name on it!'],
@@ -120,6 +131,7 @@ export const BETWEEN = {
 };
 
 export const TUTORIALS = {
+  dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
   spindrum: { img: 'nobu_head', title: 'SPIN CYCLE', text: 'Ride the platforms around the drum. Hop off when you reach the top!' },
   zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
   toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
