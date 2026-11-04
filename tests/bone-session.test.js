@@ -54,6 +54,23 @@ it('losing a Treat Tray restores its raw snapshot without reverting a permanent 
  s.addTickets(5); await s._leaveBonusRound(false);
  expect(s.snack.raw).toBe(2); expect(save.data.boneBoard[1].hidden).toBe(true);
 });
+it.each([false, true])('a raised round selects its return and restores dog entities only on loss (kept=%s)', async (kept) => {
+ const s = session(), entry = new THREE.Vector3(1, 0, 10), exit = new THREE.Vector3(2, 0, 40);
+ const dog = Object.create(ConedDog.prototype);
+ Object.assign(dog, { home: new THREE.Vector3(0, 9, 25), pos: new THREE.Vector3(1, 9, 28), obj: new THREE.Group(), body: new THREE.Group(),
+   cone: { visible: false }, sad: { visible: false }, happy: { visible: true }, freed: true, dead: true, seq: 2, dogId: '1:shiba-a' });
+ s.stage.entities.push(dog); s.freedIds.add(dog.dogId); s.addTickets(6);
+ const tray = { onRoundLeave: vi.fn((success, snapshot) => { snapshot.R.back = success ? exit : entry; }) };
+ s.bonusRound = { tray, seq: 1, tickets: 0, levelTickets: 0, fieldRaw: 0, coconutRaw: 0, snackRaw: 0, freedIds: new Set(), R: { back: entry, facing: 0 } };
+ s.game.player.spawnAt = vi.fn();
+ await s._leaveBonusRound(kept);
+ expect(tray.onRoundLeave).toHaveBeenCalledWith(kept, expect.objectContaining({ tray }));
+ expect(s.game.player.spawnAt).toHaveBeenCalledWith(kept ? exit : entry, 0);
+ expect(dog.freed).toBe(kept); expect(s.freedIds.has(dog.dogId)).toBe(kept);
+ expect(s.snack.raw).toBe(kept ? 6 : 0);
+ if (kept) expect(tray.used).toBe(true);
+ else { expect(dog.dead).toBe(false); expect(dog.pos.equals(dog.home)).toBe(true); expect(dog.sad.visible).toBe(true); }
+});
 it('routes a main goal clear through main completion and finishes its trial at the goal', async () => {
  const s = session(); s.def = { ...s.def, bonus: false, goal: true }; s._missedRain = async () => {};
  s.game.goalLevelCleared = vi.fn();

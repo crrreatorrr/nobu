@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ZippedBackpack } from '../src/entities/breakables.js';
 import { audio } from '../src/audio/audio.js';
-import { RIDE_BREAKABLES } from '../src/levels/data/ride-breakables.js';
+import { RIDE_SPLICES, shiftDistance } from '../src/levels/data/bonus-layout2.js';
+import { RIDE_BREAKABLES, RIDE_EXTENSION_BREAKABLES, RIDE_SOFA_BREAKABLES } from '../src/levels/data/ride-breakables.js';
 
 // player.js ride branch: 10.5 m/s forward, 6.8 sideways. Player half-width .36,
 // backpack half-width .475. Add the audit's 1 m steering margin.
@@ -19,6 +20,11 @@ function unreachable(items) {
 describe('Roomba Rush countable reachability', () => {
   it('allows every pair in one ride with a steering margin', () => {
     expect(unreachable(RIDE_BREAKABLES)).toEqual([]);
+  });
+  it('keeps every main-lap layout2 countable reachable with the audit margin', () => {
+    const main = [...RIDE_BREAKABLES.map(e=>({...e,d:shiftDistance(e.d,RIDE_SPLICES)})),...RIDE_EXTENSION_BREAKABLES];
+    expect(unreachable(main)).toEqual([]);
+    expect(unreachable(RIDE_SOFA_BREAKABLES)).toEqual([]);
   });
   it('catches all four original side-by-side groups', () => {
     const oldDistances = new Map([[64, 68], [67.5, 68], [71, 68], [157, 160], [164, 160], [219, 222], [226, 222], [267, 270]]);

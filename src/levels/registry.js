@@ -3,14 +3,15 @@
 import { buildLevel1, buildBoss1Arena } from './level1.js';
 import { buildLevel2, buildBoss2Arena } from './level2.js';
 import { buildLevel3, buildBoss3Arena } from './level3.js';
-import { buildBonusRide } from './bonusRide.js';
-import { buildBonusCave } from './bonusCave.js';
+import { buildBonusRideCandidate as buildBonusRide } from './bonusRide.js';
+import { buildBonusCaveCandidate as buildBonusCave } from './bonusCave.js';
 import { MechaBird } from '../bosses/mechaBird.js';
 import { BigCatBoss } from '../bosses/bigCat.js';
 import { EvilCone } from '../bosses/evilCone.js';
 import { LEVEL_DOGS } from './metadata.js';
 import { levelSections, HIDDEN_SECTION } from './sections.js';
-import { SECTION_TEXT } from '../story/script.js';
+import { bonusSectionsV2 } from './bonusMetadata.js';
+import { SECTION_TEXT, BONUS_EXTENSION_TEXT } from '../story/script.js';
 
 const mainOpen = (id) => (data) => data.v >= 3 ? !!data.open?.[id] : id <= data.unlocked;
 const bonusOpen = (id, after) => (data) => data.v >= 3 ? !!data.open?.[id]
@@ -27,7 +28,8 @@ export const LEVELS = {
   ride: {
     id: 'ride', name: 'Roomba Rush', build: buildBonusRide, theme: 'house', bonus: true,
     tier: 1.5, unlock: bonusOpen('ride', 0), mapPos: { x: 34, y: 55 }, trial: false, shipped: true,
-    dogs: LEVEL_DOGS['ride'],
+    dogs: LEVEL_DOGS['ride'], sections: bonusSectionsV2('ride', SECTION_TEXT, BONUS_EXTENSION_TEXT),
+    hidden: { section: BONUS_EXTENSION_TEXT.ride.sofa, move: null },
   },
   2: {
     id: 2, name: 'Scratchpost Canyon', build: buildLevel2, arena: buildBoss2Arena,
@@ -38,7 +40,8 @@ export const LEVELS = {
   cave: {
     id: 'cave', name: 'Glowworm Grotto', build: buildBonusCave, theme: 'cave', bonus: true,
     tier: 2.5, unlock: bonusOpen('cave', 1), mapPos: { x: 66, y: 62 }, trial: false, shipped: true,
-    dogs: LEVEL_DOGS['cave'],
+    dogs: LEVEL_DOGS['cave'], sections: bonusSectionsV2('cave', SECTION_TEXT, BONUS_EXTENSION_TEXT),
+    hidden: { section: BONUS_EXTENSION_TEXT.cave.hollow, move: null },
   },
   3: {
     id: 3, name: 'The Cone Factory', build: buildLevel3, arena: buildBoss3Arena,

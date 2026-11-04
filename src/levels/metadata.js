@@ -9,6 +9,6 @@ export const LEVEL_DOGS = {
   1: { 'shiba-a': 'Start', 'pug-a': 'Treat Ledge', 'dalmatian-a': 'Bone Switch', 'shiba-b': 'Belly-flop Pocket', 'corgi-a': 'Last Gap' },
   2: { 'corgi-a': 'First Gap', 'pug-a': 'Blue Path', 'shiba-a': 'Mushroom Landing' },
   3: { 'pug-a': 'Crusher Alley', 'dalmatian-a': 'Rug Puzzle', 'corgi-a': 'Fan Catwalk', 'shiba-a': 'Vacuum Hall', 'dalmatian-b': 'Final Stretch' },
-  ride: { 'shiba-a': 'Hallway', 'corgi-a': 'Toy Piles' },
-  cave: { 'pug-a': 'First Pit', 'shiba-a': 'Red Bone' },
+  ride: { 'shiba-a': 'Hallway', 'corgi-a': 'Toy Piles', 'pug-a': 'Living Room Split', 'dalmatian-a': 'Sofa Summit' },
+  cave: { 'pug-a': 'First Pit', 'shiba-a': 'Red Bone', 'corgi-a': 'Underground River', 'dalmatian-a': "Lumi's Nest Hollow" },
 };
