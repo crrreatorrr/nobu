@@ -19,6 +19,10 @@ export const INTRO = [
 ];
 
 export const RESCUE = {
+4: [
+  { img: 'story_rescue_1', speaker: '', text: 'The Roomba Titan sputters, beeps sadly and spits out a mountain of cones. And one soggy map.' },
+  { img: 'story_rescue_1', speaker: 'SPROTO MASK', text: 'The map shows a river of smog running from the House to some kind of... Pipeline. First stop: the rapids.' },
+],
   1: [
     { img: 'story_rescue_1', speaker: '', text: 'The Mecha Bird is scrap! Its cargo cage bursts open and the cones go flying.' },
     { img: 'story_rescue_1', speaker: 'SPROTO MASK', text: 'Look at \'em go! Free tails, free zoomies. Next stop: Scratchpost Canyon.' },
@@ -87,6 +91,11 @@ titan: {
 
 // Mask chatter before each level (tips, jokes, story updates).
 export const LEVEL_INTRO = {
+4: [
+  ['mask', 'Laundry Day! Everything in here is HUGE. Or we\'re tiny. Let\'s not think about it.'],
+  ['mask', 'Break stuff back to back for a CHOMP CHAIN. Keep it going and I\'ll pop out to help.'],
+  ['mask', 'Clotheslines: BITE to grab on, JUMP to let go. Wheee.'],
+],
   1: [
     ['mask', 'Welcome to Bark Jungle! The Broccoli Heads have coned this whole park.'],
     ['mask', 'Bite with J or SHIFT. Jump with SPACE, then jump again in the air for a double jump.'],
@@ -113,6 +122,10 @@ export const LEVEL_INTRO = {
 
 // Mask chatter after finishing a level (between levels).
 export const BETWEEN = {
+4: [
+  ['mask', 'NEW MOVE: DUST DASH! SLIDE, then BITE mid-slide to burst forward.'],
+  ['mask', 'Grey fuzzy walls? Dash right through them. There were a few of those back in the old levels...'],
+],
   1: [
     ['mask', 'You took that bird\'s rotor trick! NEW MOVE: TAIL GLIDE. Out of jumps? Press SPACE again and HOLD it to helicopter down.'],
     ['mask', 'Pro tip: hold SPACE to jump farther. A SLIDE + JUMP gives a small burst of speed. Ctrl or K, then SPACE.'],
@@ -276,7 +289,20 @@ export const BONUS_EXTENSION_TEXT = {
   cave: { river: 'Underground River', mushrooms: 'Mushroom Bounce Cavern', crystals: 'Crystal Echo', hollow: "Lumi's Nest Hollow" },
 };
 export const L4_TEXT = {
-  name: 'Laundry Day', gate: 'ROOMBA TITAN',
+  name: 'Laundry Day', gate: 'ROOMBA TITAN', cerealExitSign: ['DOUBLE', 'JUMP!'],
   sections: { hallway: 'Hallway', laundry: 'Laundry Room', ironing: 'Ironing Board', kitchen: 'Kitchen Counter', stampede: 'Roomba Stampede', basement: 'Basement Stairs', boiler: 'Boiler Room', topShelf: 'Top Shelf', pantry: 'The Pantry' },
   chainSign: ['CHOMP', 'CHAIN!'], biteSign: ['BITE', 'FAST'],
+};
+
+export const CHAPTER2 = [
+  { img: 'story_ch2_1', speaker: '', text: 'Every dog is free. The island naps in the sun. Then one morning, the sky goes... grey again.' },
+  { img: 'story_ch2_1', speaker: 'SPROTO MASK', text: 'Smog?! We popped the Evil Cone! Unless... somebody was PUMPING him the whole time.' },
+  { img: 'story_ch2_2', speaker: '', text: 'Down the hill, the Owner\'s House hums. Something enormous is vacuuming up every popped cone on the island.' },
+  { img: 'story_ch2_2', speaker: 'SPROTO MASK', text: 'Chapter 2, Nobu: The Smog Returns. Stretch those legs. We\'re going to the House.' },
+];
+
+export const MAIN_UNLOCK_TEXT = {
+  4: ['CHAPTER 2', 'LAUNDRY DAY IS OPEN'],
+  6: ['NEW STAGE', 'SMOG RAPIDS'],
+  5: ['NEW STAGE', 'PUMP & DUMP PIPELINE'],
 };

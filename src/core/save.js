@@ -35,6 +35,7 @@ function fresh() {
     tickets: 0,
     seenIntro: false,
     finished: false,
+    seenCh2: false,
     lastLevel: 1,
     tutorials: {},
     nobuModel: 'glb',        // 'glb' (Higgsfield 3D) or 'classic' (primitives)
@@ -171,6 +172,7 @@ export function migrateSave(old) {
 
 function sanitize(d) {
   const f = fresh();
+  d.seenCh2 = d.seenCh2 === true;
   Object.assign(d, migrateTrialLayouts(d.trials, d.trialsClassic));
   d.bestDogs = countMap(d.bestDogs);
   d.bestChain = countMap(d.bestChain);
@@ -249,6 +251,7 @@ function mergeScores(mine, raw) {
   }
   mine.gauntlets = gauntlets;
   mine.secretSeen ||= disk.secretSeen;
+  mine.seenCh2 ||= disk.seenCh2;
   mine.unlocked = Math.max(mine.unlocked, disk.unlocked);
   for (const [id, e] of Object.entries(disk.bonus)) {
     const cur = isObj(mine.bonus[id]) ? mine.bonus[id] : null;

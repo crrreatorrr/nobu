@@ -14,8 +14,9 @@ import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
+import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
+import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
@@ -374,7 +375,18 @@ export class Game {
   }
 
   // ---------------- level select map ----------------
+  _unlockMainChapters() {
+    const fresh = unlockFollowingMain(save.data, LEVELS);
+    this._pendingMainUnlocks = [...new Set([...(this._pendingMainUnlocks || []), ...fresh])];
+    if (fresh.length) save.write();
+  }
+
   toMap(sel = 1) {
+    this._unlockMainChapters();
+    if (levelDef(4)?.shipped && save.data.finished && !save.data.seenCh2) {
+      this.playCutscene(CHAPTER2, () => { save.data.seenCh2 = true; save.write(); this.toMap(4); });
+      return;
+    }
     this.exchangeOpen = false;
     this.ui.trialTime(null);
     this.state = 'map';
@@ -384,6 +396,9 @@ export class Game {
     this.ui.bossHide();
     audio.playMusic('map');
     this._drawMap();
+    const unlocked = this._pendingMainUnlocks?.pop();
+    this._pendingMainUnlocks = [];
+    if (MAIN_UNLOCK_TEXT[unlocked]) this.ui.banner?.(...MAIN_UNLOCK_TEXT[unlocked], 2.5);
     this.ui.fade(0);
   }
 
@@ -793,6 +808,7 @@ export class Game {
     for (let id = 1; id <= d.unlocked; id++) d.open[id] = true;
     if (n === 1) d.open.ride = true;
     if (n === 2) d.open.cave = true;
+    this._unlockMainChapters();
     save.setBestDogs(n, st.dogs);
     st.goldenEarned = save.boneOf(n);
     save.write();
@@ -813,7 +829,7 @@ export class Game {
 
   // Colored bone found: it opens a path in an earlier level.
   collectBone(color) {
-    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon' };
+    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon', green: 'Pump & Dump Pipeline', purple: 'The Cone Factory', yellow: 'Laundry Day' };
     save.data.colorBones ||= {};
     const fresh = !save.data.colorBones[color];
     save.data.colorBones[color] = true;
@@ -880,9 +896,10 @@ export class Game {
       if (bonus) { this.ui.screen.style.background = ''; this.toMap(n); return; }
       this.ui.screen.style.background = '';
       this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}');filter:brightness(0.5)"></div>`);
-      await this.ui.say(BETWEEN[n]);
-      if (n === 3) this.playCutscene(ENDING, () => this.toCredits(), 'victory');
-      else this.toMap(n + 1);
+      await this.ui.say(BETWEEN[n] || []);
+      // Keep the original chapter's credits, followed by CHAPTER2 on the next map visit.
+      if (n === 3 || isFinalStoryLevel(n, LEVELS)) this.playCutscene(ENDING, () => this.toCredits(), 'victory');
+      else this.toMap(nextMainLevel(n, LEVELS) ?? n);
     }
   }
 
