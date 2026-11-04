@@ -263,3 +263,13 @@ test('actual Stage.dispose closes Cat-owned resources while preserving borrowed 
     expect(geoDispose).not.toHaveBeenCalled(); expect(textureDispose).not.toHaveBeenCalled(); expect(materialDispose).not.toHaveBeenCalled();
   } finally { source.mockRestore(); }
 });
+
+test('table shadows and payloads land on a raised player ledge rather than hiding underneath it', () => {
+  const { boss, stage, projectiles, player } = fixture(2);
+  stage.catArena.update(1); player.pos.set(-9.5, 2.4, -10);
+  const falling = vi.spyOn(projectiles, 'falling').mockReturnValue({});
+  boss.powers.dropCount = 1; boss.powers.dropObject();
+  const [x, z, options] = falling.mock.calls[0];
+  expect(options.groundY).toBeCloseTo(2.4); options.onLand();
+  const tnt = boss.powers.spawned.at(-1); expect(tnt.pos.toArray()).toEqual([x, 2.4, z]); expect(tnt.timer).toBe(0);
+});

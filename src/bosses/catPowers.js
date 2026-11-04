@@ -205,9 +205,11 @@ export class CatPowers {
       const safe = candidates.find(([cx, cz]) => occupied.every((e) => Math.hypot(e.pos.x - cx, e.pos.z - cz) >= 4.6));
       if (!safe) return; [x, z] = safe;
     }
-    b.proj.falling(x, z, { kind: tnt ? 'cat' : 'backpack', delay: b.tele(.9), r: 1, onLand: () => {
+    const floor = b.stage.world.groundBelow(x, Math.max(4, b.player.pos.y + 1), z);
+    const groundY = Number.isFinite(floor) ? floor : b.home.y;
+    b.proj.falling(x, z, { kind: tnt ? 'cat' : 'backpack', groundY, delay: b.tele(.9), r: 1, onLand: () => {
       if (b.defeated) return;
-      const e = tnt ? new TableCat(b.stage, x, 0, z) : new Backpack(b.stage, x, 0, z, { tickets: 0 });
+      const e = tnt ? new TableCat(b.stage, x, groundY, z) : new Backpack(b.stage, x, groundY, z, { tickets: 0 });
       e.countable = false; b.stage.add(e); this.spawned.push(e); b.player.bitten?.add(e); if (tnt) { e.arm(); e.update(0); }
     } });
   }
