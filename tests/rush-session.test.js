@@ -268,3 +268,21 @@ it('retires a deferred Game launch before it can create a stale Rush arena', asy
   expect(game.session).toBe(session);
   expect(game.state).toBe('map');
 });
+
+it('quits Rush through the real pause handler without saving stale currency', async () => {
+  const { input } = await import('../src/core/input.js');
+  const { game, session } = fixture();
+  await enter(session);
+  const write = vi.spyOn(save, 'write');
+  game._pauseItems = Game.prototype._pauseItems;
+  game.pauseSel = game._pauseItems().findIndex(item => item.id === 'quit');
+  game.toMap = vi.fn();
+  vi.spyOn(input, 'pressed').mockReturnValue(false);
+  vi.spyOn(input, 'confirmPressed').mockReturnValue(true);
+  Game.prototype.updatePause.call(game);
+  await Promise.resolve();
+  expect(session.disposed).toBe(true);
+  expect(game.toMap).toHaveBeenCalledWith('rush');
+  expect(write).not.toHaveBeenCalled();
+  noExternalWrites();
+});

@@ -67,8 +67,11 @@ remain required. This is not an unassisted five-fight or No-Hit clear.
 
 Integrated activation snapshot: the meta map entry is Queen-gated, shows saved clear/No-Hit/best,
 and routes to a dedicated result card without story completion or trial boards. Real UI cancellation,
-Game launch/result and launch-fade retirement add four regressions (19 Session tests; 27 Rush tests
+Game launch/result and launch-fade retirement add five regressions (20 Session tests; 28 Rush tests
 across three files). The focused Session/registry/migration pass is 3 files / 52 tests. Production
 build passes with 174 modules; the usual bundle-size warning remains. Migration/registry expected
 map fixtures now exclude meta entries where they mean story/bonus content. Full suite and bounded
 browser remain pending coordinator review/window; an unaided full Rush remains unrun.
+
+Additional real Game pause-quit regression passes: it disposes the Rush before the deferred map
+return, makes no Save write and no Hub call. The 20-test Session file passes after that addition.
