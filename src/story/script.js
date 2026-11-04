@@ -134,6 +134,7 @@ export const TUTORIALS = {
   dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
 
   crystals: { img: 'nobu_head', title: 'CRYSTAL ECHO', text: 'Bite crystals to light the path. The platforms stay solid when their light fades.' },
+  chase: { img: 'nobu_head', title: 'RUN!', text: 'The camera turns around. Hold DOWN.' },
   spindrum: { img: 'nobu_head', title: 'SPIN CYCLE', text: 'Ride the platforms around the drum. Hop off when you reach the top!' },
   zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
   toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
@@ -237,6 +238,7 @@ export const SECTION_TEXT = {
   intake: 'Intake Hall', crushers: 'Crusher Alley', rugs: 'Rug Puzzle', hammers: 'Hammer Hall',
   fan: 'Fan Catwalk', vacuum: 'Vacuum Hall', vat: 'Vat Pit', final: 'Final Stretch',
   living: 'Living Room', hallway: 'Hallway', toys: 'Toy Piles', firstPit: 'First Pit',
+  coconutRun: 'Coconut Run', sunkenTemple: 'Sunken Temple', burrow: 'The Burrow', waterfallHollow: 'Waterfall Hollow', gateApproach: 'Gate Approach',
   rafts: 'Underground Rafts', redBone: 'Red Bone', steps: 'Lunchbox Steps', exit: 'Exit', path: 'the path',
 };
 export const BIRD_STAGE_POWERS = { 2: 'Feather volleys · laser eye · cage drop · wind lanes', 3: 'Homing missiles · egg bombs · drone escort · laser combos' };
