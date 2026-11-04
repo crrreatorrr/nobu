@@ -238,7 +238,7 @@ class AudioEngine {
         this._osc('triangle', 420 * p, 140 * p, 0.12, 0.25 * volume, 0.025);
         this._noise(0.055, 0.16 * volume, 0.025, 'bandpass', 1200, 4000, 1);
         break;
-      case 'charge': this._osc('sawtooth', 120, 900, 0.7, 0.12, 0, this.sfxGain, { filter: 'lowpass', freq: 1800 }); this._osc('sine', 240, 1800, 0.7, 0.08); break;
+      case 'charge': this._osc('sawtooth', 120 * p, 900 * p, 0.7, 0.12, 0, this.sfxGain, { filter: 'lowpass', freq: 1800 }); this._osc('sine', 240 * p, 1800 * p, 0.7, 0.08); break;
       case 'laser':
         this._osc('sawtooth', 1400, 700, 0.5, 0.12, 0, this.sfxGain, { filter: 'bandpass', freq: 1600, q: 3, vibrato: 30, vibDepth: 120 });
         this._noise(0.5, 0.15, 0, 'highpass', 3000);
@@ -248,7 +248,7 @@ class AudioEngine {
       case 'tick': this._osc('square', 1300, 1300, 0.04, 0.12); break;
       case 'yowl': this._osc('sawtooth', 520, 260, 0.6, 0.18, 0, this.sfxGain, { vibrato: 9, vibDepth: 60, filter: 'lowpass', freq: 2200 }); this._osc('sawtooth', 780, 330, 0.5, 0.1, 0.05); break;
       case 'slash': this._noise(0.18, 0.4, 0, 'highpass', 2500, 6000, 1); this._osc('sawtooth', 900, 300, 0.15, 0.08); break;
-      case 'suck': this._noise(1.4, 0.35, 0, 'bandpass', 1800, 250, 2); this._osc('sine', 300, 90, 1.4, 0.1); break;
+      case 'suck': this._noise(1.4, 0.35, 0, 'bandpass', 1800 * p, 250 * p, 2); this._osc('sine', 300 * p, 90 * p, 1.4, 0.1); break;
       case 'stomp': this._osc('sine', 80, 30, 0.5, 0.8); this._noise(0.4, 0.5, 0, 'lowpass', 900, 60); break;
       case 'paw': this._osc('sine', 72, 36, 0.14, 0.3 * p); this._noise(0.1, 0.16 * p, 0, 'lowpass', 520, 110); break;
       case 'clang': this._osc('square', 1240, 1190, 0.22, 0.1); this._osc('triangle', 1860, 1820, 0.32, 0.09, 0.004); this._noise(0.05, 0.22, 0, 'highpass', 3200); break;

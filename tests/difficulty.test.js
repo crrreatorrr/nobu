@@ -12,8 +12,8 @@ const old = {
 };
 const boss = (key) => new Boss({ game: {} }, 0, 0, 0, { key, name: key, portrait: key });
 
-describe('M0 difficulty configuration', () => {
-  it('leaves the M2 powers disabled and preserves the planned level tiers', () => {
+describe('authored difficulty configuration', () => {
+  it('keeps other M0 rows unchanged while preserving planned level tiers', () => {
     expect(M2_ON).toBe(false);
     expect(LEVEL_TIER).toEqual({ 1: 1, ride: 1.5, 2: 2, cave: 2.5, 3: 3, 4: 4, 6: 4.5, 5: 5 });
     expect(TIER).toEqual({ enemySpeed: [1, 1.08, 1.16, 1.24, 1.32], hazardPeriod: [1, 0.95, 0.9, 0.85, 0.8],
@@ -28,8 +28,8 @@ describe('M0 difficulty configuration', () => {
       b.phase = phase;
       expect(b.sp).toBe(expected.speed[phase - 1]);
       expect(b.W).toBe(expected.window[phase - 1]);
-      expect(b.tele(1)).toBe(key === 'bird' ? [1,.88,.78][phase-1] : 1);
-      expect(b.chainLen).toBe(key === 'bird' ? [1,1,2][phase-1] : 1);
+      expect(b.tele(1)).toBe(key === 'bird' ? [1, .88, .78][phase - 1] : key === 'cone' ? [.9, .8, .7][phase - 1] : 1);
+      expect(b.chainLen).toBe(key === 'bird' ? [1, 1, 2][phase - 1] : key === 'cone' ? [1, 2, 3][phase - 1] : 1);
     }
   });
 

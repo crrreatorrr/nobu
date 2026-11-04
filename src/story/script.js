@@ -65,9 +65,10 @@ export const BOSS_TALK = {
       ['cone', 'Now hold still while I put you in a cone. Forever.'],
       ['mask', 'He only opens up for a second after his combos. Be ready, Nobu!'],
       ['mask', 'And watch those pump.fun pills. They pump with every hop, then they DUMP. Pop them early!'],
+      ['mask', 'If he cones you, you can\'t bite! BELLY FLOP or double jump to shake it off.'],
     ],
-    phase2: [['cone', 'Impossible! Fine. FASTER, then. Fresh launches! Pump it, my pills! Seize the Akita!']],
-    phase3: [['cone', 'ENOUGH!!! Every pill to the moon! I will cone you, then the mask, then the MOON!']],
+    phase2: [['cone', 'Impossible! Fine. FASTER, then. Fresh launches! Pump it, my pills! Seize the Akita!'], ['cone', 'Let\'s see how you like a RUG PULL. Mind the floor, mutt.']],
+    phase3: [['cone', 'ENOUGH!!! Every pill to the moon! I will cone you, then the mask, then the MOON!'], ['mask', 'Smog! Get up on the pedestals, and keep hopping!']],
     death: [['cone', 'Wait wait wait... maybe we can just... share the cone?']],
   },
 };
@@ -237,3 +238,4 @@ export const KENNEL_TEXT = {
   secretLine: (level) => [level.hidden && `Hidden Bone near ${level.hidden.section}${level.hidden.move ? ` (needs ${{ dust: 'DUST DASH', moon: 'MOON JUMP', glide: 'TAIL GLIDE', zoom: 'ZOOMIES', bark: 'MEGA BARK' }[level.hidden.move] || level.hidden.move})` : ''}`,
     ...Object.entries(level.dogs.reduce((sections, dog) => ({ ...sections, [dog.section]: (sections[dog.section] || 0) + 1 }), {})).map(([section, n]) => `${n} ${n === 1 ? 'dog' : 'dogs'} near ${section}`)].filter(Boolean).join(' · '),
 };
+export const CONE_STAGE_POWERS = { 2: 'Floor sweeps · twin lasers · grab · vortex · RUG PULL', 3: 'Shadow clones · SMOG TIDE · combos of three · fastest' };
