@@ -141,6 +141,14 @@ export class Player {
   spawnAt(p, facing = Math.PI) {
     this.reset();
     this.pos.copy(p);
+    // Stage controllers run before Player.update, so refresh path metadata at the spawn itself.
+    const track = this.game.stage?.track;
+    if (track) {
+      const pr = track.project(p.x, p.z, -1, this._spawnProjection ||= {});
+      this.body.s = pr.s; this.body.u = pr.u; this.body.trackHint = pr.i;
+    } else {
+      delete this.body.s; delete this.body.u; delete this.body.trackHint;
+    }
     this.prevY = p.y;
     this.lastSafe = p.clone();
     this.facing = this.targetFacing = facing;
