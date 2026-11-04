@@ -178,13 +178,14 @@ export class Chaser extends Entity {
       const gap = ps - this.s;
       if (this.state === 'run') {
         // smooth rubber band: eases toward a speed that rises with the gap (no stepped jumps)
-        const target = this.legacy ? chaseSpeed(gap, 6.7, this.catchUp, 1)
+        const target = this.legacy ? chaseSpeed(gap, 6.7, this.catchUp, this.speedMul ?? 1)
           : Math.min(this.catchUpSpeed, chaseSpeed(gap, this.speed0, this.catchUp, 1)) * chaseDda(this.session);
         if (!this.leap) this.speed = damp(this.speed, target, 2, dt);
       } else {
         this.speed = damp(this.speed, 0, 3.5, dt);
       }
       this.s += this.speed * dt;
+      this.afterAdvance?.(ps, dt);
       // lateral steering: a critically damped spring toward Nobu's lane, kept on the floor
       const lane = Math.min(this._lane(this.s + REACH), this._lane(this.s));
       const tu = this.count > 1 ? 0 : this.state === 'run' ? clamp(p.body.u ?? 0, -lane, lane) : this.u;
@@ -237,7 +238,7 @@ export class Chaser extends Entity {
         this.lastStep = step;
       }
       if (this.state === 'run') {
-        if (gap < this.catchAt && !p.dead) {
+        if ((this.canCatch ? this.canCatch(gap, p) : gap < this.catchAt) && !p.dead) {
           if (p.god) this.s = ps - this.catchAt; // god mode: it can only breathe down your neck
           else {
             p.die(this.model === 'smog_wall' ? 'cone' : 'flat');
@@ -248,7 +249,7 @@ export class Chaser extends Entity {
         if (p.dead && this.state === 'run') this.state = 'gloat';
       }
     } else if (this.state === 'stop') {
-      this.rig.pose('idle', dt);
+      this.rig.pose(this.holdPose ?? 'idle', dt, this.holdK ?? 1);
     }
     if (!this.legacy) {
       this.alwaysActive = this.state === 'wait' || this.state === 'run';

@@ -2,12 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TRIAL_BOARD, TRIAL_CEIL_MS, TRIAL_FLOOR_MS, trialMsInBounds, trialLayout, trialVariant } from '../src/config/trials.js';
+import { extendedD } from '../src/levels/data/l2-extended.js';
 import { shiftL3 } from '../src/levels/data/l3-layout.js';
 import { TUNING } from '../src/player/player.js';
 
 // Track distance from the level spawn to the boss-gate trigger that ends the trial.
 // Read from the level source so a moved gate or spawn fails this test.
-function trackD(src, expr, layout) {
+function trackD(src, expr, layout, level) {
   const e = expr.trim();
   const direct = Number(e);
   if (Number.isFinite(direct)) return direct;
@@ -17,19 +18,20 @@ function trackD(src, expr, layout) {
   // Level 2 writes D(302), with `const D = (d) => d + O`.
   const d = e.match(/^D\((\d+(?:\.\d+)?)\)$/);
   expect(d, `track expression ${e}`).toBeTruthy();
+  if(level===2&&layout===2)return extendedD(Number(d[1]));
   const o = src.match(/const O = (-?\d+(?:\.\d+)?)/);
   return Number(d[1]) + (o ? Number(o[1]) : 0);
 }
 
 function gateDistance(level, layout = trialLayout(level)) {
-  const src = fs.readFileSync(path.resolve(`src/levels/level${level}.js`), 'utf8');
+  const src = fs.readFileSync(path.resolve(`src/levels/level${level}${level===2&&layout===2?'Extended':''}.js`), 'utf8');
   const gate = src.match(/k\.trigger\(([^,]+),\s*\(\)\s*=>\s*game\.session\.reachBossGate\(\)\)/);
   const spawn = src.match(/spawn:\s*k\.W\(0,\s*0,\s*([^)]+\)?)\)/);
   expect(gate, `level ${level} boss gate trigger`).toBeTruthy();
   expect(spawn, `level ${level} spawn`).toBeTruthy();
   // Factory layout2 applies this authoring transform through shiftedFactoryKit.
   const transform = level === 3 && layout === 2 ? shiftL3 : d => d;
-  return transform(trackD(src, gate[1], layout)) - transform(trackD(src, spawn[1], layout));
+  return transform(trackD(src, gate[1], layout,level)) - transform(trackD(src, spawn[1], layout,level));
 }
 
 describe('trial bounds (metaverse-hub CONTRACT C13)', () => {

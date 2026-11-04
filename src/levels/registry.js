@@ -6,7 +6,9 @@ import { L4_SECTIONS } from './data/laundry.js';
 // The shipped levels, their map presentation and their entry rules live together.
 // Keep map order explicit: integer object keys alone would put both bonuses last.
 import { buildLevel1, buildBoss1Arena } from './level1.js';
-import { buildLevel2, buildBoss2Arena } from './level2.js';
+import { buildBoss2Arena } from './level2.js';
+import { buildLevel2Extended as buildLevel2 } from './level2Extended.js';
+import { canyonSections } from './canyonMetadata.js';
 import { buildLevel3, buildBoss3Arena } from './level3.js';
 import { buildBonusRideCandidate as buildBonusRide } from './bonusRide.js';
 import { buildBonusCaveCandidate as buildBonusCave } from './bonusCave.js';
@@ -45,7 +47,8 @@ export const LEVELS = {
     id: 2, name: 'Scratchpost Canyon', build: buildLevel2, arena: buildBoss2Arena,
     Boss: BigCatBoss, bossKey: 'cat', theme: 2, bossTheme: 'boss2', bonus: false,
     tier: 2, unlock: mainOpen(2), mapPos: { x: 50, y: 50 }, trial: true, shipped: true,
-    dogs: LEVEL_DOGS['2'],
+    dogs: LEVEL_DOGS['2'], sections: canyonSections(SECTION_TEXT),
+    hidden: {section:SECTION_TEXT.catFlapAlley,move:'glide'},
   },
   cave: {
     id: 'cave', name: 'Glowworm Grotto', build: buildBonusCave, theme: 'cave', bonus: true,

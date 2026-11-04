@@ -3,7 +3,8 @@ import { LEVELS, LEVEL_NAMES, MAP_ORDER, isOpen, levelDef, playOrder } from '../
 import { LEVEL_DOGS, LEVEL_IDS } from '../src/levels/metadata.js';
 import { LEVEL_NAMES as SESSION_NAMES, Session } from '../src/game/session.js';
 import { buildLevel1, buildBoss1Arena } from '../src/levels/level1.js';
-import { buildLevel2, buildBoss2Arena } from '../src/levels/level2.js';
+import { buildBoss2Arena } from '../src/levels/level2.js';
+import { buildLevel2Extended as buildLevel2 } from '../src/levels/level2Extended.js';
 import { buildLevel3, buildBoss3Arena } from '../src/levels/level3.js';
 import { buildBonusRideCandidate as buildBonusRide } from '../src/levels/bonusRide.js';
 import { buildBonusCaveCandidate as buildBonusCave } from '../src/levels/bonusCave.js';
@@ -86,7 +87,7 @@ describe('level registry', () => {
 
   it('exposes migration dog ids in stable authoring order with current counts', () => {
     expect(LEVEL_IDS).toEqual(['1', '2', '3', '4', '5', '6', 'ride', 'cave']);
-    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 3, 4, 9, 7]);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 7, 4, 9, 7]);
     expect(Object.keys(LEVEL_DOGS[1])).toEqual(['shiba-a','pug-a','dalmatian-a','shiba-b','corgi-a','pug-b','dalmatian-b','corgi-b','shiba-c']);
     const ids = [];
     for (const def of Object.values(LEVELS).filter((d) => !d.meta)) {
@@ -98,6 +99,6 @@ describe('level registry', () => {
         ids.push(id);
       }
     }
-    expect(new Set(ids).size).toBe(36);
+    expect(new Set(ids).size).toBe(40);
   });
 });
