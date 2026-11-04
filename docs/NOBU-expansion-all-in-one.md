@@ -10,7 +10,7 @@ Generated from the files in `docs/` on branch `claude/clever-goodall-8221xu`. Ea
 4. Bosses spec (`docs/expansion/bosses-spec.md`)
 5. New levels spec (kit API, L4, L5) (`docs/expansion/new-levels-spec.md`)
 6. Level 6 spec (`docs/expansion/level6-spec.md`)
-7. Extended levels spec (draft, still being written) (`docs/expansion/extended-levels-spec.md`)
+7. Extended levels spec (`docs/expansion/extended-levels-spec.md`)
 8. Box Gauntlets spec (`docs/expansion/box-gauntlets-spec.md`)
 9. Codex handoff index (`docs/expansion/handoff/README.md`)
 10. H00-level-registry (`docs/expansion/handoff/H00-level-registry.md`)
@@ -30,14 +30,23 @@ Generated from the files in `docs/` on branch `claude/clever-goodall-8221xu`. Ea
 24. H21-boss-bird-powers (`docs/expansion/handoff/H21-boss-bird-powers.md`)
 25. H22-boss-cat-powers (`docs/expansion/handoff/H22-boss-cat-powers.md`)
 26. H23-boss-cone-powers (`docs/expansion/handoff/H23-boss-cone-powers.md`)
-27. H40-level4-laundry (`docs/expansion/handoff/H40-level4-laundry.md`)
-28. H41-boss-roomba-titan (`docs/expansion/handoff/H41-boss-roomba-titan.md`)
-29. H45-level6-rapids (`docs/expansion/handoff/H45-level6-rapids.md`)
-30. H46-box-gauntlets (`docs/expansion/handoff/H46-box-gauntlets.md`)
-31. H50-level5-pump (`docs/expansion/handoff/H50-level5-pump.md`)
-32. H51-boss-pump-queen (`docs/expansion/handoff/H51-boss-pump-queen.md`)
-33. H60-kennel (`docs/expansion/handoff/H60-kennel.md`)
-34. H61-mastery-ui (`docs/expansion/handoff/H61-mastery-ui.md`)
+27. H30-extend-l1 (`docs/expansion/handoff/H30-extend-l1.md`)
+28. H31-extend-l2 (`docs/expansion/handoff/H31-extend-l2.md`)
+29. H32-extend-l3 (`docs/expansion/handoff/H32-extend-l3.md`)
+30. H33-extend-bonus (`docs/expansion/handoff/H33-extend-bonus.md`)
+31. H34-trial-layout-v2 (`docs/expansion/handoff/H34-trial-layout-v2.md`)
+32. H35-nobu-trial-v2 (`docs/expansion/handoff/H35-nobu-trial-v2.md`)
+33. H40-level4-laundry (`docs/expansion/handoff/H40-level4-laundry.md`)
+34. H41-boss-roomba-titan (`docs/expansion/handoff/H41-boss-roomba-titan.md`)
+35. H45-level6-rapids (`docs/expansion/handoff/H45-level6-rapids.md`)
+36. H46-box-gauntlets (`docs/expansion/handoff/H46-box-gauntlets.md`)
+37. H50-level5-pump (`docs/expansion/handoff/H50-level5-pump.md`)
+38. H51-boss-pump-queen (`docs/expansion/handoff/H51-boss-pump-queen.md`)
+39. H60-kennel (`docs/expansion/handoff/H60-kennel.md`)
+40. H61-mastery-ui (`docs/expansion/handoff/H61-mastery-ui.md`)
+41. H62-smog-remix (`docs/expansion/handoff/H62-smog-remix.md`)
+42. H63-boss-rush (`docs/expansion/handoff/H63-boss-rush.md`)
+43. H70-trial-l4-l6 (`docs/expansion/handoff/H70-trial-l4-l6.md`)
 
 ---
 
@@ -662,12 +671,12 @@ and hub floors become wrong. The plan:
 
   | Level | Gold / Silver / Bronze (s) | Platinum (s) | Proposed hub floor (ms) |
   | --- | --- | --- | --- |
-  | L1 | 94 / 119 / 155 | 86 | 25000 |
-  | L2 | 89 / 114 / 154 | 82 | 25000 |
-  | L3 | 77 / 98 / 132 | 70 | 20000 |
+  | L1 | 94 / 120 / 158 | 86 | 25700 |
+  | L2 | 90 / 114 / 156 | 82 | 26000 |
+  | L3 | 77 / 100 / 134 | 70 | 20600 |
 
-  These are the old targets scaled by the length ratio. The extended-levels spec replaces them with
-  numbers measured from dev-best runs.
+  These are the numbers in the extended-levels spec (section 0), worked out from the new path lengths.
+  Check them against dev-best runs before release.
 
 - **Order:**
   1. The hub PR adds the `v2` variants.
@@ -1118,12 +1127,14 @@ level's breakables exported as data. A level that breaks the rules then fails CI
 
 #### Fix (checked, margin at least 1.3×)
 
-All edits are in `src/levels/level2.js`:
+All edits are in `src/levels/level2.js`. The extended-levels spec 7A.1 refines them for layout 2.
 
 1. Add `k.snacks(0, 0, D(238))`. This gives a fourth checkpoint, so the cat restarts 13 m back.
 2. Move `k.stack(-3.6, 0, D(246), 2)` to `D(242)`.
 3. Change `packWall(250)` to `packWall(250, true)`, which leaves 4 backpacks and a gap in the middle.
-4. Replace `k.zipped(-3, 0, D(270))` with `k.pack(-3, 0, D(270))`. Or move the Zipped Backpack into the
+4. Replace `k.zipped(-3, 0, D(270))` with `k.pack(-3, 0, D(270))`.
+5. Add `k.snacks(0, 0, D(268))`. The extended-levels spec (7A.1) found that without it, the Vacuum Dock at
+   D(293) is left with a budget of only 0.15 s. Or move the Zipped Backpack into the
    Cardboard Fort breather that the extension adds (extended-levels spec).
 
 | Stop after the fix | Budget | Needs | Margin |
@@ -6574,7 +6585,7 @@ player.
 
 ---
 
-# Part 7: Extended levels spec (draft, still being written)
+# Part 7: Extended levels spec
 
 Source: `docs/expansion/extended-levels-spec.md`
 
@@ -9734,6 +9745,10 @@ The specs were written in parallel, so these items settle where they overlap:
   foot, it may exit further down only if Nobu can walk back across the stretch it skipped.
 - **Copy bug:** the slide-jump tip in `src/story/script.js` (`BETWEEN[1]`) promises extra distance the
   code doesn't give (about 0.1 m). Fix the text in H04d.
+- **What counts toward the Golden Bone in gauntlets:** timed boxes (blink, fall, slide, arrow) never
+  count. Backpacks in a bounce chain do count, and each must be breakable in one clean pass.
+- **Arrow chains on chases:** `arrowChain` must keep at least 8 m/s forward speed when used on a
+  chase (extended-levels spec 12).
 - **Phase checkpoints for the Bird and Cat** are an owner decision (H20).
 
 ### Task order
@@ -11165,7 +11180,467 @@ Body sections: **What changed**, **Why** (link the spec sections above), **Tests
 
 ---
 
-# Part 27: H40-level4-laundry
+# Part 27: H30-extend-l1
+
+Source: `docs/expansion/handoff/H30-extend-l1.md`
+
+## H30: Extend Level 1 Bark Jungle (314 → 539 m)
+
+| | |
+| --- | --- |
+| Branch | `codex/extend-l1` from the latest `main` |
+| Size | L |
+| Needs merged first | H06, H04a–d, H34, H11, H12 |
+| Can run alongside | H31, H32, H33 |
+| Unblocks | H46 (G1 Polaroid) |
+
+### Goal
+
+Add Canopy Walk, Coconut Run and Sunken Temple, two detours and 4 dogs to L1, as the extended-levels spec says.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/expansion/extended-levels-spec.md` 0, 1 (shift helper, straddlers, detours, checkpoints), 2 (all of L1), 7, 7A.3–7A.5, 11.1–11.2
+- `docs/expansion/box-gauntlets-spec.md` 5 (placement checklist)
+
+### Files
+
+**Change or create:**
+
+- new `src/levels/layouts.js` (if not already added by another extension task: shared shift helper)
+- `src/levels/level1.js`
+- `src/config/trials.js` (L1 `LAYOUT = 2`, new targets)
+- `src/story/script.js` (tutorials)
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Shift helper and turtle edits (2.1), hand edits for straddlers (2.2).
+2. Sections A, B, C, then detours (2.6, 2.7).
+3. Dogs, secrets, tally (2.8); re-count from the file.
+
+### Tests
+
+- `tests/chase-budget.test.js`: Coconut Run fixture
+- `tests/level-budget.test.js`, `tests/gates.test.js`
+
+### Done when
+
+- Every item in extended-levels spec 11.1–11.2 played
+- Old Golden Bones stay earned (8.8)
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- extended-levels spec 11.2; one Golden Bone run
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Extend Bark Jungle with Canopy Walk, Coconut Run and Sunken Temple`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+---
+
+# Part 28: H31-extend-l2
+
+Source: `docs/expansion/handoff/H31-extend-l2.md`
+
+## H31: Extend Level 2 Scratchpost Canyon (300 → 519 m)
+
+| | |
+| --- | --- |
+| Branch | `codex/extend-l2` from the latest `main` |
+| Size | L |
+| Needs merged first | H06, H04a–d, H34, H11, H12 |
+| Can run alongside | H30, H32, H33 |
+| Unblocks | — |
+
+### Goal
+
+Add Switchbacks, Cardboard Fort, Scratchpost Forest and Yarn Avalanche, two loop detours and 4 dogs, retune the chase, and keep every section 100%-able.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/expansion/extended-levels-spec.md` 0, 1, 3 (all of L2, especially 3.3 the chase retune), 7A.1 (chase audit for layout 2), 7A.5, 11.3
+- `docs/expansion/golden-bone-audit.md`
+
+### Files
+
+**Change or create:**
+
+- `src/levels/level2.js` and its data file from H06
+- `src/bosses/bigCat.js` (`ChaseCat` / `Chaser` numbers in 3.3 only; the `resetChase` Snacks and catch rule)
+- `src/config/trials.js` (L2 `LAYOUT = 2`)
+- `tests/chase-budget.test.js`
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Shift and straddlers (3.1, 3.2).
+2. Chase retune (3.3) and the catch rule.
+3. Sections in order, each with its Snacks; check the chase test after each.
+4. Detours as loops with their `resetChase` Snacks (3.8, 3.9).
+
+### Tests
+
+- `tests/chase-budget.test.js` passes for every layout-2 segment with margin ≥ 1.3× (extended-levels spec 7A.1)
+
+### Done when
+
+- Every item in extended-levels spec 11.3 played
+- A one-run Golden Bone with the cat chasing, no Mega Bark
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- extended-levels spec 11.3
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Extend Scratchpost Canyon and keep every backpack reachable in the chase`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+---
+
+# Part 29: H32-extend-l3
+
+Source: `docs/expansion/handoff/H32-extend-l3.md`
+
+## H32: Extend Level 3 Cone Factory (244 → 419 m)
+
+| | |
+| --- | --- |
+| Branch | `codex/extend-l3` from the latest `main` |
+| Size | L |
+| Needs merged first | H06, H04a–d, H34, H11, H12 |
+| Can run alongside | H30, H31, H33 |
+| Unblocks | H45 (purple path lands here), H46 (G2 Polaroid) |
+
+### Goal
+
+Add Sorting Belts, the 2.5D Packaging Line and Vat Overflow, two detours, 4 dogs and the purple path.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/expansion/extended-levels-spec.md` 0, 1, 4 (all of L3), 7A.3–7A.5, 11.4
+- `docs/expansion/level6-spec.md` 7.2 (purple path; final d 315–323 per the extended spec)
+
+### Files
+
+**Change or create:**
+
+- `src/levels/level3.js`
+- `src/config/trials.js` (L3 `LAYOUT = 2`)
+- `src/story/script.js`
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Shift and straddlers (4.1, 4.2).
+2. Sections A, B (side camera from H04c), C (rising from H04c, gauntlet from H04d).
+3. Detours (4.6, 4.7), purple path (ghost until the purple bone).
+
+### Tests
+
+- `tests/level-budget.test.js`, `tests/gates.test.js`
+
+### Done when
+
+- Every item in extended-levels spec 11.4 played
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- extended-levels spec 11.4
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Extend the Cone Factory with Sorting Belts, Packaging Line and Vat Overflow`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+---
+
+# Part 30: H33-extend-bonus
+
+Source: `docs/expansion/handoff/H33-extend-bonus.md`
+
+## H33: Extend Roomba Rush and Glowworm Grotto
+
+| | |
+| --- | --- |
+| Branch | `codex/extend-bonus` from the latest `main` |
+| Size | M |
+| Needs merged first | H06, H04a–d, H11 |
+| Can run alongside | H30–H32 |
+| Unblocks | — |
+
+### Goal
+
+Lengthen both bonus stages (301 → 459 m and 241 → 370 m) with new sections, a detour each and +2 dogs each, keeping every ride breakable reachable.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/expansion/extended-levels-spec.md` 5, 6, 7A.2, 7A.4, 11.5, 11.6
+- `docs/expansion/golden-bone-audit.md` (stagger rule)
+
+### Files
+
+**Change or create:**
+
+- `src/levels/bonusRide.js` and its data file from H06
+- `src/levels/bonusCave.js`
+- `tests/ride-reach.test.js`
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Roomba Rush: shift, Split (kitchen side holds tickets only), Toy Box Ramps, Tile Slide and Dog-Door Leap, Sofa Summit loop.
+2. Grotto: shift, River, Mushroom Bounce Cavern, Crystal Echo, Lumi's Nest Hollow.
+
+### Tests
+
+- `tests/ride-reach.test.js` passes for layout 2
+
+### Done when
+
+- Every item in extended-levels spec 11.5 and 11.6 played
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- extended-levels spec 11.5, 11.6
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Extend Roomba Rush and Glowworm Grotto`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+---
+
+# Part 31: H34-trial-layout-v2
+
+Source: `docs/expansion/handoff/H34-trial-layout-v2.md`
+
+## H34: Trial layout versioning (NOBU side)
+
+| | |
+| --- | --- |
+| Branch | `codex/trial-layout-v2` from the latest `main` |
+| Size | M |
+| Needs merged first | H01 |
+| Can run alongside | H35 |
+| Unblocks | H30–H32 |
+
+### Goal
+
+Let extended L1–L3 post to new board variants (`1v2`, `2v2`, `3v2`), keep layout-1 bests as "Classic", and drop unsent layout-1 queue rows.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/expansion/extended-levels-spec.md` 8.1–8.6, 8.8, 10
+- `src/config/trials.js`, `src/core/save.js`, `src/hub/scoreQueue.js`, `src/hub/hubBridge.js`, `tests/trials-bounds.test.js`, `tests/score-queue.test.js`
+
+### Files
+
+**Change or create:**
+
+- `src/config/trials.js`
+- `src/core/save.js` (`trials[level].layout`, `trialsClassic`)
+- `src/hub/scoreQueue.js`
+- `src/hub/hubBridge.js` (`meta.level` = `'1v2'` …)
+- `tests/trials-bounds.test.js`, `tests/score-queue.test.js`, new `tests/trial-layout.test.js`
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Add a `LAYOUT` constant per level (1 until H30–H32 merge; each extension PR sets its level to 2).
+2. Follow extended-levels spec 8.2–8.5 exactly.
+3. Until the hub has the v2 variants live (H35 deployed), layout-2 runs stay local and are never queued.
+
+### Tests
+
+- extended-levels spec 10 cases for trials, save and the queue
+
+### Done when
+
+- With every `LAYOUT` at 1, nothing changes for players
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- Run a trial on L1 with `LAYOUT = 1`: posts as before. Set L1 to 2 locally: the time stays local, the map shows the Classic best
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Version trial layouts so extended levels get new boards`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+### Owner decisions this task needs
+
+- Tell players the L1–L3 boards will reset to new ones when the extended levels ship
+
+---
+
+# Part 32: H35-nobu-trial-v2
+
+Source: `docs/expansion/handoff/H35-nobu-trial-v2.md`
+
+## H35: metaverse-hub: v2 trial variants for NOBU
+
+| | |
+| --- | --- |
+| Branch | `codex/nobu-trial-v2` from the latest `main` |
+| Size | S |
+| Needs merged first | nothing (separate repo) |
+| Can run alongside | H34 |
+| Unblocks | H30–H32 posting scores; H70 |
+
+### Goal
+
+In the metaverse-hub repo, accept NOBU trial variants `1v2`, `2v2`, `3v2` with their floors, and show the old variants as Classic.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/expansion/extended-levels-spec.md` 8.7
+- metaverse-hub `AGENTS.md`, `server/modules/src/leaderboard.ts` (`NOBU_FLOOR_MS`, `variantFor`), `packages/hub-sdk/src/live.ts`
+
+### Files
+
+**Change or create:**
+
+- metaverse-hub: `server/modules/src/leaderboard.ts`, any plaza board display that lists NOBU variants, tests
+
+**Don't touch:**
+
+- deploy or change production (the owner does that)
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Branch `codex/nobu-trial-v2` in metaverse-hub.
+2. Add the three variants with the floors in extended-levels spec 0 (25 700, 26 000, 20 600 ms).
+3. Plaza: label variants `1`, `2`, `3` as Classic and the v2 ones as current.
+4. Run that repo's checks (`npm run lint`, `npm run typecheck`, `npm test`, `npm run build`).
+5. Say in the PR which game repos must re-sync `hub-sdk` (NOBU).
+
+### Tests
+
+- metaverse-hub tests for the new variants and floors
+
+### Done when
+
+- The hub accepts `1v2` at 25 700 ms and rejects 25 699
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- None in NOBU; check the plaza board list in the hub dev build
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Accept NOBU v2 trial variants for the extended levels`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+### Owner decisions this task needs
+
+- Deploy order: hub first, then NOBU (`handoff.md`)
+
+---
+
+# Part 33: H40-level4-laundry
 
 Source: `docs/expansion/handoff/H40-level4-laundry.md`
 
@@ -11253,7 +11728,7 @@ Reviewer, please check:
 
 ---
 
-# Part 28: H41-boss-roomba-titan
+# Part 34: H41-boss-roomba-titan
 
 Source: `docs/expansion/handoff/H41-boss-roomba-titan.md`
 
@@ -11335,7 +11810,7 @@ Body sections: **What changed**, **Why** (link the spec sections above), **Tests
 
 ---
 
-# Part 29: H45-level6-rapids
+# Part 35: H45-level6-rapids
 
 Source: `docs/expansion/handoff/H45-level6-rapids.md`
 
@@ -11430,7 +11905,7 @@ Reviewer, please check:
 
 ---
 
-# Part 30: H46-box-gauntlets
+# Part 36: H46-box-gauntlets
 
 Source: `docs/expansion/handoff/H46-box-gauntlets.md`
 
@@ -11509,7 +11984,7 @@ Body sections: **What changed**, **Why** (link the spec sections above), **Tests
 
 ---
 
-# Part 31: H50-level5-pump
+# Part 37: H50-level5-pump
 
 Source: `docs/expansion/handoff/H50-level5-pump.md`
 
@@ -11589,7 +12064,7 @@ Body sections: **What changed**, **Why** (link the spec sections above), **Tests
 
 ---
 
-# Part 32: H51-boss-pump-queen
+# Part 38: H51-boss-pump-queen
 
 Source: `docs/expansion/handoff/H51-boss-pump-queen.md`
 
@@ -11670,7 +12145,7 @@ Body sections: **What changed**, **Why** (link the spec sections above), **Tests
 
 ---
 
-# Part 33: H60-kennel
+# Part 39: H60-kennel
 
 Source: `docs/expansion/handoff/H60-kennel.md`
 
@@ -11749,7 +12224,7 @@ Body sections: **What changed**, **Why** (link the spec sections above), **Tests
 
 ---
 
-# Part 34: H61-mastery-ui
+# Part 40: H61-mastery-ui
 
 Source: `docs/expansion/handoff/H61-mastery-ui.md`
 
@@ -11820,5 +12295,228 @@ npm run build
 ### PR
 
 Title: `Add Platinum Tags, the Perfect Run relic and the boss medal list`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+---
+
+# Part 41: H62-smog-remix
+
+Source: `docs/expansion/handoff/H62-smog-remix.md`
+
+## H62: Smog Remixes
+
+| | |
+| --- | --- |
+| Branch | `codex/smog-remix` from the latest `main` |
+| Size | L |
+| Needs merged first | H51, H30–H33 |
+| Can run alongside | H63 |
+| Unblocks | — |
+
+### Goal
+
+Mirrored, smog-filtered, one-tier-harder remixes of every main level with their own Golden Bone, unlocked by beating the Pump Queen.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/gameplay-expansion-plan.md` 4.5
+- `docs/expansion/rewards-spec.md` 0 (`remix` context), 12.4
+
+### Files
+
+**Change or create:**
+
+- `src/levels/kit.js` / `src/world/track.js` (`mirror` option: negate `x` and turtle turns)
+- `src/game/session.js` (`session.remix`)
+- `src/world/stage.js` (smog filter)
+- `src/game/game.js` (map toggle)
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Mirror option with a test that a mirrored track has the same length.
+2. Remix context: tier +1 through `TIER`, no Mystery, no DDA, no Freeze Packs.
+3. Remix Golden Bone in the save.
+
+### Tests
+
+- mirror length test; remix bone rule test
+
+### Done when
+
+- Each main level plays mirrored; Golden Bone possible in one run
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- L1 and L2 remix (the chase mirrored), one Golden Bone run
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Add Smog Remixes`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+---
+
+# Part 42: H63-boss-rush
+
+Source: `docs/expansion/handoff/H63-boss-rush.md`
+
+## H63: Boss Rush: Cone Gauntlet
+
+| | |
+| --- | --- |
+| Branch | `codex/boss-rush` from the latest `main` |
+| Size | M |
+| Needs merged first | H51 |
+| Can run alongside | H62 |
+| Unblocks | — |
+
+### Goal
+
+All five bosses back to back with no DDA, timed, with clear and no-hit medals.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/gameplay-expansion-plan.md` 8
+- `docs/expansion/rewards-spec.md` 0 (`rush` context), 9.1 (3 + 3 mastery points)
+- `docs/expansion/bosses-spec.md` 1.7
+
+### Files
+
+**Change or create:**
+
+- `src/game/session.js` (rush session)
+- `src/levels/registry.js` (`rush` entry)
+- `src/game/game.js` (map node and results)
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Chain the five arenas; masks carry over; a death restarts the current boss.
+2. No DDA, no Wizard Hat skip.
+3. Save `rush` results.
+
+### Tests
+
+- rush medal rules
+
+### Done when
+
+- The rush runs start to finish
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- One full rush
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Add the Boss Rush`
+
+Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.
+
+---
+
+# Part 43: H70-trial-l4-l6
+
+Source: `docs/expansion/handoff/H70-trial-l4-l6.md`
+
+## H70: Trial boards for Levels 4, 5 and 6
+
+| | |
+| --- | --- |
+| Branch | `codex/trial-l4-l6` from the latest `main` |
+| Size | S |
+| Needs merged first | H40, H45, H50 and a metaverse-hub PR adding variants 4, 5, 6 (owner deploys) |
+| Can run alongside | — |
+| Unblocks | — |
+
+### Goal
+
+Post L4, L5 and L6 trial times to the hub once it accepts those variants.
+
+### Read first
+
+- `AGENTS.md` and `docs/expansion/handoff/README.md` (rules for every task)
+- `docs/gameplay-expansion-plan.md` 10.2
+- the floors in new-levels spec (L4, L5) and level6 spec 9
+
+### Files
+
+**Change or create:**
+
+- `src/config/trials.js` (`TRIAL_LEVELS`, `TRIAL_FLOOR_MS`)
+- metaverse-hub `leaderboard.ts` in a separate PR (like H35)
+- `tests/trials-bounds.test.js`
+
+**Don't touch:**
+
+- `src/gear/catalog.js` and `vendor/` while crrreatorrr/nobu#18 is open
+- anything another open PR is changing (check before you start)
+
+### Steps
+
+1. Hub PR first (same shape as H35).
+2. Then add the levels to `TRIAL_LEVELS` with matching floors.
+
+### Tests
+
+- trials-bounds cases for 4, 5, 6
+
+### Done when
+
+- Times post for every level on the right board
+- `npm test` and `npm run build` pass; the PR states the new test count (baseline on `bfb4a33`: 17 files, 144 tests)
+
+### Manual playtest (`npm run dev`)
+
+- One trial each on L4, L6, L5 from the hub
+
+Say in the PR which of these you played and which you could not.
+
+### Checks
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+### PR
+
+Title: `Post Level 4, 5 and 6 trial times to the hub`
 
 Body sections: **What changed**, **Why** (link the spec sections above), **Tests** (new files and counts), **Playtest** (what you played, what you could not), **Risks / reviewer notes**.

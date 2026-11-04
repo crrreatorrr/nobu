@@ -70,6 +70,10 @@ The specs were written in parallel, so these items settle where they overlap:
   foot, it may exit further down only if Nobu can walk back across the stretch it skipped.
 - **Copy bug:** the slide-jump tip in `src/story/script.js` (`BETWEEN[1]`) promises extra distance the
   code doesn't give (about 0.1 m). Fix the text in H04d.
+- **What counts toward the Golden Bone in gauntlets:** timed boxes (blink, fall, slide, arrow) never
+  count. Backpacks in a bounce chain do count, and each must be breakable in one clean pass.
+- **Arrow chains on chases:** `arrowChain` must keep at least 8 m/s forward speed when used on a
+  chase (extended-levels spec 12).
 - **Phase checkpoints for the Bird and Cat** are an owner decision (H20).
 
 ## Task order

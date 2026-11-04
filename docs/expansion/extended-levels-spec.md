@@ -379,13 +379,12 @@ k.tix(1.6, 0, CR + 17, 1.6, 0, CR + 24, 4);
 for (const x of [-3.2, -1.6, 0, 1.6, 3.2]) k.pack(x, 0, CR + 27);   // backpack wall: bite through
 k.pitySnacks(2.8, 0, CR + 31);
 k.tixArc(0, 0, CR + 36, 0, CR + 42, 2.2, 4);
-k.dog(-3.0, 0, CR + 46, 'shiba');            // NOT a new dog: see the dog list in 2.8 (none here)
 k.pack(2.8, 0, CR + 47); k.pack(2.8, 1, CR + 47);
 // end: the coconut smashes on a rock arch at CR + 52; the camera swings back to 'track' at CR + 54
 ```
 
-**Correction:** delete the `k.dog` line above. Coconut Run has **no dog**. Dogs never go on chase lanes,
-because stopping to free one in a chase is a trap. The level's 9 dogs are listed in 2.8.
+Coconut Run has **no dog** on purpose. The level's 9 dogs are listed in 2.8. The chase budget for its
+countables is in 7A.1.
 
 **Chase numbers** (for `k.chase`; semantics from `new-levels-spec.md`, modelled on `ChaseCat`):
 
@@ -1466,11 +1465,11 @@ the finished files.
 | L1 now | 314 | 48 | 5 | 2 | 0 | ~97 | — |
 | **L1 layout 2** | **539** | **~86** (+9 Canopy, +8 Coconut, +15 Temple, +3 Burrow, +2 Hollow, +1 old corgi section unchanged) | **9** | **6** | **4** | ~166 | Burrow |
 | L2 now | 300 | 27 | 3 | 2 | 0 | ~90 | — |
-| **L2 layout 2** | **519** | **~62** | **7** | **6** | **3** | ~150 | Cat Flap Alley |
+| **L2 layout 2** | **519** | **~62** | **7** | **12** | **3** | ~150 | Cat Flap Alley |
 | L3 now | 244 | 23 | 5 | 3 | 0 | ~49 | — |
 | **L3 layout 2** | **419** | **~55** | **9** | **6** | **3** | ~85 | Maintenance Ducts |
 | Roomba Rush now | 301 | 17 | 2 | 1 | 0 | ~55 | — |
-| **Roomba Rush layout 2** | **459** | **~36** | **4** | **3** | **1** | ~84 | Sofa Summit |
+| **Roomba Rush layout 2** | **459** | **~36** | **4** | **2** | **1** | ~84 | Sofa Summit |
 | Glowworm Grotto now | 241 | 17 | 2 | 1 | 0 | ~39 | — |
 | **Glowworm Grotto layout 2** | **370** | **~34** | **4** | **3** | **1** | ~61 | Lumi's Nest Hollow |
 
@@ -1479,6 +1478,222 @@ the finished files.
 - **Kennel total with these numbers:** 9 + 7 + 9 + 4 + 4 = 33 in the extended stages, plus L4's 5 and
   L5's 5, for **43**. The parent plan's 3.5 milestones (5, 10, 15, 20, 25, all) and 3.9 dog points
   (1 per 3 dogs, about 14) need updating to that total. That is noted for the parent.
+
+---
+
+## 7A. Golden Bone feasibility audit and fixes
+
+**The rule:** a perfect run, every countable breakable and every dog in **one** run with first-visit
+moves, must be possible on every stage. The owner reported that some levels can't be 100%'d. The audit
+below confirms it for Scratchpost Canyon and Roomba Rush, fixes both in layout 1, and checks every
+layout-2 section and detour.
+
+- **On-foot stages** (L1, L3, Glowworm Grotto): no time pressure was found in layout 1. Bark Rock
+  prizes, Good Boy Route and colorPath contents are non-countable, and the Treat Tray can be retried.
+- **The two fixes in 7A.1 and 7A.2 can ship before the extension**, as a small bug-fix PR in layout-1
+  coordinates, so players can earn those Golden Bones now.
+
+### 7A.1 Scratchpost Canyon (the chase)
+
+**Model.** This is `ChaseCat.update` (`bigCat.js`, run state), ported from the coordinator's
+`audit/chase.mjs`:
+
+- target speed 6.7 at a gap under 5 m, then +0.375 per metre to 8.2 at 9 m, then +0.575 per metre,
+  capped at 10.5
+- damped with k = 2
+- a 7.5 m/s floor while leaping pits and logs
+- a catch at a gap under 2.4 m
+- Nobu runs at 8 m/s (`TUNING.RUN`) and stands still for `need` seconds at each countable
+- on respawn the cat starts 13 m behind the checkpoint with a 1.6 s wait (1.8 s at level start)
+- the steady lead at a full run is about 8.3 m
+
+A catch kills through `die()`, so **masks don't help**. Mega Bark would clear the walls, but it is a
+later move.
+
+**Needs**, in seconds standing still:
+
+| Countable | Need |
+| --- | --- |
+| 5-pack wall | 1.5–2.0 |
+| 4-pack (gapped) wall | 1.2–1.6 |
+| 2-high stack | 0.45–0.7 |
+| zipped, by bites | 1.1–1.4 |
+| zipped, by a slide | 0.1–0.2 |
+| one backpack off the lane | 0.3 |
+| one countable on the lane (a slide breaks it) | 0.1 |
+| a dog off the lane | 0.4 |
+
+**Budget** is the longest stop at that point that still survives, with every earlier stop in the
+same checkpoint segment taken at its need. A countable is **OK** when the budget is ≥ 1.3 × need.
+
+**Layout 1, as shipped:**
+
+| Segment (from) | Countable | Budget | Need | Verdict |
+| --- | --- | --- | --- | --- |
+| spawn (D 2) | wall D 29 (5) | 2.68 s | 1.5–2.0 | OK |
+| Snacks D 97 | wall D 114 (4) | 2.73 s | 1.2–1.6 | OK |
+| Snacks D 173 | stack D 246 (2), on its own | 1.01 s | 0.45–0.7 | OK |
+| Snacks D 173 | wall D 250 (5), after the stack | **0.58 s** | 1.5–2.0 | **IMPOSSIBLE** |
+| Snacks D 173 | zipped D 270, after both | **0 s** | 0.1–0.2 | **IMPOSSIBLE** |
+
+**Fix, as exact edits to `level2.js`** (layout 1; in layout 2 the same lines go through the new
+`D()`):
+
+```js
+// line 80 area: a new chase checkpoint after the dog
+k.snacks(0, 0, D(238));
+// line 82: the stack moves 4 m earlier
+k.stack(-3.6, 0, D(242), 2);          // was D(246)
+// line 83: the last wall gets a gap (4 packs)
+packWall(250, true);                  // was packWall(250)
+// line 89: no zipped backpack in the chase
+k.pack(-3, 0, D(270));                // was k.zipped(-3, 0, D(270)); or move the zipped into the Cardboard Fort in layout 2
+// new: a checkpoint after the last gap (this spec's addition; it lifts the D 288 / Vacuum Dock margins)
+k.snacks(0, 0, D(268));
+// packs at D(284) and D(288) stay where they are
+```
+
+**Layout 1 with the fix** (re-run with this spec's port):
+
+| Segment (from) | Countable | Budget | Need | Verdict |
+| --- | --- | --- | --- | --- |
+| Snacks D 238 | stack D 242 | 2.97 s | 0.7 | OK |
+| Snacks D 238 | wall D 250, gapped | 2.02 s | 1.6 | OK (1.26×; it holds at the realistic 1.2–1.6 range) |
+| Snacks D 268 | pack D 270 / D 284 / D 288 / Vacuum Dock D 293 | 3.10 / 2.59 / 2.17 / 1.72 s | 0.3 / 0.3 / 0.3 / 0.1 | OK |
+
+- **Without the D 268 Snacks**, D 288 is 0.33 s (TIGHT) and the Vacuum Dock is 0.15 s.
+- The dog at D 236 has 1.21 s in layout 1 (need 0.4, OK).
+
+**Layout 2, every L2 checkpoint segment** (final track d, with the corner cuts, the Fort and the
+gauntlet tail modelled):
+
+| Segment (from) | Countables, in order: budget / need | Result |
+| --- | --- | --- |
+| spawn 32 | wall 59: 2.75 / 2.0 · dog 90.5: 0.77 / 0.4 | OK |
+| Snacks D 97 (127) | cat 138: 2.84 / 0.2 · wall 144: 2.46 / 1.6 | OK |
+| Snacks D 116 (146, new: Cat Flap Alley entry) | sphere 160: 2.54 / 0.1 · dog 176: 2.19 / 0.4 | OK |
+| **Snacks SB + 2 (new)** | wall SB + 22: 2.51 / 1.6 · dog SB + 26: 0.94 / 0.4 | OK |
+| **Snacks SB + 33 (new)** | wall SB + 42: 3.08 / 1.6 · cat SB + 50: 1.55 / 0.2 | OK |
+| (with no Snacks inside the Switchbacks) | wall SB + 22 and later: **0 s** | **IMPOSSIBLE**: why the two Switchbacks Snacks exist |
+| Snacks CF + 4 (Fort) | Mystery CF + 8 (cat held) | OK |
+| Snacks D 173 (277) | pack SF + 20: 0.97 / 0.4 · pack SF + 22: 0.58 / 0.4 | OK (SF + 22 is 1.45×) |
+| **Snacks SF + 30 (moved from + 38)** | dog SF + 34: 3.06 / 0.4 | OK (at + 38 it was 0.42, TIGHT) |
+| Snacks SF + 51 (Riverbed entry) | stack SF + 58: 2.96 / 0.7 · pack SF + 75: 1.75 / 0.3 · pack SF + 85: 1.15 / 0.4 · **pack SF + 87.5 (staggered from + 85)**: 0.74 / 0.4 | OK |
+| Snacks D 238 (432) | **dog D 258.5 (moved from D 236)**: 0.56 / 0.4 · stack D 242: 3.06 / 0.7 · wall D 250 gapped: 2.10 / 1.6 | OK. With the dog left at D 236 it was 0.48 in the previous segment (TIGHT) |
+| **Snacks YA − 1 (new)** | Avalanche packs YA + 12 / + 30 / + 33 / + 46: 2.32 / 2.02 / 1.92 / 1.62 (needs 0.3 / 0.1 / 0.3 / 0.3) | OK |
+| Snacks D 268 (517) | packs D 270 / 284 / 288, Vacuum Dock: 3.02 / 2.59 / 2.17 / 1.72 | OK |
+
+- **The cat's corner cuts cost budget.** With cuts and no Switchbacks Snacks the segment is
+  impossible. The cut rule (gap after ≥ 3.5 m) stops a cut from **killing** outright, but not from
+  using up a player's stop time. Hence a Snacks for each wall.
+- **The Avalanche gauntlet tail** needs the chain's average forward speed ≥ 8 m/s (3.7), or its extra
+  time is added as a stop in this segment.
+
+**L1 Coconut Run** (coconut: 6.4 m/s close, a 9.0 m/s cap, a catch at 2.0 m, 13 m behind with a 1.6 s
+wait):
+
+| Segment | Countables: budget / need | Result |
+| --- | --- | --- |
+| Snacks CR − 2 | wall CR + 27 (5): 2.91 / 2.0 · stack CR + 47: 0.94 / 0.7 | OK. The stack is 1.34×; with the wall gapped (4) it is 2.91 / 1.6 and 1.0 / 0.7 |
+
+Keep the Coconut Run wall at 5 packs; it is tier 1, but the margins hold. If playtests show players
+dying there, gap it.
+
+### 7A.2 Roomba Rush (the ride)
+
+**Model** (from `audit/ride.mjs`):
+
+- Riding, Nobu **can't bite**, only ram. The player box is ±0.36 m; targets are a backpack or zipped
+  ±0.475, a Cat ±0.5, a sphere ±0.45.
+- The ride drives at 10.5 m/s, and steering is at most 6.8 m/s sideways.
+- Two countables `dx` apart sideways need at least this much d between them:
+  `(|dx| − 1.67) / 6.8 × 10.5 + 1 m`.
+  - 2.6 m apart → **≥ 2.5 m**; 4.8 m → 5.8 m; 5.2 m → **≥ 6.5 m**; 6.0 m → 7.7 m.
+  - Use 1.3× that on slippery floors.
+
+**Layout 1, as shipped:** only 6 of 11 countables can be reached in one run.
+
+| d | Group | Problem |
+| --- | --- | --- |
+| 68 | packs at −2.6, 0, 2.6 | 1 of 3 per run |
+| 160 | zipped −2.4, pack 2.4 | 1 of 2 |
+| 222 | cat −2.6, pack 2.6 | 1 of 2 |
+| 270 | packs −2.6, 0 | 1 of 2 |
+
+**Fix, as exact edits to `bonusRide.js`** (layout 1 lines; in layout 2 wrap d ≥ 130 in `S()`):
+
+```js
+// line 29: a diagonal row instead of a wall
+k.packs([[-2.6, 64], [0, 68], [2.6, 72]]);                   // was all at 68
+// lines 43-44: stagger by 6.5 m (4.8 m apart needs 5.8 m)
+k.zipped(-2.4, 0, 160); k.pack(2.4, 0, 166.5);               // was both at 160
+// line 55: 5.2 m apart needs 6.5 m
+k.cat(-2.6, 0, 222); k.pack(2.6, 0, 229);                    // was both at 222
+// line 61: 2.6 m apart needs 2.5 m
+k.pack(-2.6, 0, 270); k.pack(0, 0, 273); k.leg(2.7, 0, 270, { h: 3.4 });   // was packs both at 270
+```
+
+- **Zipped backpacks on a ride:** a Zipped Backpack takes three bites or bounces
+  (`breakables.js` `ZippedBackpack`). Check whether **one ram** opens it fully on a ride. If not,
+  replace the two zipped backpacks in Roomba Rush (d 160, and the new one in the Split) with plain
+  backpacks.
+- **Layout 2 check:** every layout-2 Roomba Rush countable, sorted by d, passes the stagger rule
+  (`ride-reach` port, 0 failures). That covers the old rows after the fix, the Split's living-room
+  side, the staggered Toy Box packs (TB + 31 / + 33.5), and the slippery Tile Slide order (cat −3.4,
+  pack 2.6, cat 3.4, pack −2.6, Snacks 0, at TS + 6 / 16 / 20 / 30 / 38).
+- **The Split** puts every countable on one side (5.3). A run can only take one side of a solid
+  divider.
+
+### 7A.3 New on-foot sections (L1, L3, Glowworm Grotto)
+
+No chase, so there is no stop budget. The checks are reachability with first-visit moves, and no
+countable left behind a one-way step.
+
+| Section | Countables reachable going forward? | One-way steps | Result |
+| --- | --- | --- | --- |
+| L1 Canopy Walk | yes: the ground packs CW + 9 / + 11 come before the first line; the platform packs CW + 30.5 are on the route; the Mystery is on the safe branch | the ziplines are one-way, but nothing countable is passed under them | OK |
+| L1 Sunken Temple | yes: the stairs, then the causeway (only tickets on the planks), then the altar, all in order | zipline ST + 41 and crumbles + 52 / + 54.5 (nothing countable behind them) | OK |
+| L1 box gauntlet | the boxes themselves, per `box-gauntlets-spec.md` | one route | OK, if the box spec counts its boxes |
+| L3 Sorting Belts | yes; the Dust Wall extra is non-countable | none | OK |
+| L3 Packaging Line | yes; the pack on the high box (PL + 34) can be reached on every box cycle | none (2.5D, so you can walk back) | OK |
+| L3 Vat Overflow | yes: the exit-ledge packs; the climb boxes per the box spec | rising vat (timing) | OK. A death resets the vat (4.5) |
+| Glowworm River / Cavern / Crystal Echo | yes | mushroom chain (re-climbable from the Cavern floor) | OK |
+
+### 7A.4 Detours: one row each
+
+| Detour | Kind | Exit | Skipped main-path stretch | Countables on it | Can you walk back? | Result |
+| --- | --- | --- | --- | --- | --- | --- |
+| L1 The Burrow | sunken open trench | downstream (mushroom at 251) | 226–251: the coconut hill end and the last gap | sphere 230, cat 236 (moved to x 0.4), rug 237.5 | yes: back over the 239–246 gap (double jump either way), uphill against the rolling coconuts | OK. Falling in from the hill means walking back |
+| L1 Waterfall Hollow | raised | downstream (ST + 66, on the altar) | ST + 29 … + 66 | cat ST + 62, stack + 62, pack + 63.5 (all on the altar floor) | yes: 4 m on the same floor; the one-way zipline and crumbles have no countables | OK |
+| L2 Cat Flap Alley | raised, **loop** | `D(117)`, by the flap | none | — | — | OK. Entry Snacks D 116, exit chase-reset Snacks D 117.5 |
+| L2 Dry Riverbed | beyond the wall, **loop** | SF + 52.5 | none | — | — | OK. Entry Snacks SF + 51, exit reset Snacks SF + 53 |
+| L3 Maintenance Ducts | raised | downstream (201) | 188–201, the hammer hall | the old Snacks at 190.5 | yes: the hammers swing both ways | OK |
+| L3 Overhead Rails | raised | downstream (311) | 276–311 | the fan catwalk's 1UP and pack, dogs at 279.2 and 294.5, the lint roller at 310.5 | yes: the crushers cycle both ways; the fan lifts from the floor | OK. Long (35 m), so the Sniffer points back |
+| Roomba Sofa Summit | raised, **loop** | SP + 46 | none | — | — | OK |
+| Glowworm Lumi's Nest Hollow | sunken, under the open pit | downstream (283) | 267–283 | none (unbreakable lunchboxes) | not needed | OK |
+
+**No detour is under water or smog.** The sunken ones are above the kill plane, −12 or the water
+level −0.5. The Burrow's mud is at −5.8 under a floor at −4.5, which kills only if Nobu falls into it.
+
+### 7A.5 Tests (pure, `npm test`)
+
+- **Data export.** Breakables and dogs are exported as data so the tests don't parse JS.
+  `src/levels/layouts.js` gains:
+
+  ```js
+  // Chase countables per stage, final d: [kind, x, d]; plus Snacks and blocked spans (pits, logs).
+  export const CHASE_DATA = { 2: { snacks: [...], blocked: [...], cuts: [...], hold: [[CF + 1, CF + 13, CF - 1]], items: [...] }, '1cr': {...} };
+  export const RIDE_DATA = { ride: { items: [['pack', -2.6, 64], ...], slippery: [[TS, TS + 40]] } };
+  ```
+
+- **Wiring.** `level2.js` and `bonusRide.js` place their countables **from this data** with one loop
+  (`for (const [kind, x, d] of RIDE_DATA.ride.items) k[kind](x, 0, d)`), so the test and the level
+  can't drift apart. Other content stays hand-authored.
+
+| File | What it checks |
+| --- | --- |
+| `tests/chase-budget.test.js` (new) | Port `audit/chase.mjs` as `simulateChase({ start, catStart, delay, stops, until, blocked, cuts, band, catchAt, mul })` in `src/levels/chaseModel.js` (pure, with the same constants as `ChaseCat`). **(1)** Layout 1 as shipped: the D 250 wall budget is < 1.5 s (documents the bug; delete after the fix ships). **(2)** For every segment in `CHASE_DATA[2]` and `CHASE_DATA['1cr']`, every countable's budget ≥ 1.3 × its need (needs by kind from the 7A.1 table). **(3)** The DDA multiplier 0.92 only increases budgets. **(4)** Steady lead at a full run, ≥ 8 m. **(5)** The constants match `ChaseCat`: 6.7, 10.5, 2.4, 0.375, 0.575, by importing them from a shared `CHASE_TUNING` export that `bigCat.js` uses too |
+| `tests/ride-reach.test.js` (new) | Port `audit/ride.mjs`. **(1)** Layout 1 as shipped: 5 failing pairs (documents the bug; delete after the fix). **(2)** `RIDE_DATA.ride.items`, sorted by d: every consecutive pair meets `(|dx| − 1.67) / 6.8 × 10.5 + 1` (× 1.3 on slippery spans). **(3)** No two countables share a d unless `|dx| ≤ 1.67`. **(4)** Every countable is on the reachable side of any divider (the Split) |
 
 ---
 
@@ -1661,6 +1876,7 @@ trialsClassic: {},   // layout-1 bests moved out of `trials`: same shape, layout
 | `tests/trial-layout.test.js` (new) | (1) A v2 save with `trials: { 1: { ms: 52000 } }` migrates to `trialsClassic[1].ms === 52000`, `layout === 1`, and `trials` is empty. (2) Migrating twice is a no-op. (3) `mergeScores` keeps the faster time per layout and never mixes layouts. (4) `trialMedal('1v2', 85)` is `'platinum'`, `trialMedal('1v2', 94)` is `'gold'`, `trialMedal('1', 55)` is `'gold'`. (5) `reset()` keeps both maps |
 | `tests/score-queue.test.js` (update) | (1) A v1 queue holding `nobu_trial_time:2` is dropped on read, and `posted` is kept. (2) `enqueue(pid, '2v2', 26000)` queues with `meta.level === '2v2'`. (3) `pendingRows` returns string variants. (4) `bad_variant` on a `v2` row is `keep`. (5) Rows for `'1v2'` below 25 700 are never queued |
 | `tests/bone-keep.test.js` (new) | (1) `bones[0] === true` from layout 1 stays true after a layout-2 clear with 41/86 broken. (2) The results data for that clear shows `goldenEarned: true` and the counters 41/86. (3) `bestDogs[0]` stays 5 after a run that freed 4 |
+| `tests/chase-budget.test.js`, `tests/ride-reach.test.js` (new) | Section 7A.5 |
 | `tests/chase.test.js` (new, pure) | Extract the rubber-band target function from `ChaseCat` into `chaseTarget(gap, mul)`. (1) `chaseTarget(4, 1) === 6.7`. (2) `chaseTarget(30, 1) === 10.5`. (3) `chaseTarget(30, 0.92) ≈ 9.66`. (4) The corner-cut rule: a cut is skipped when `gapAfter < 3.5`. (5) The vertical check: no catch when `abs(dy) >= 2.5` |
 
 Run with `npm test`. Browser behaviour needs the playtests in section 11.
@@ -1755,7 +1971,13 @@ Run with `npm test`. Browser behaviour needs the playtests in section 11.
    generalised chaser.
 3. **Ticket caps** for layout 2 need the owner's sign-off (1.7 method). Longer clears mean more
    `level_end` chunks.
-4. **Plan conflicts resolved here:**
+4. **Audit fixes 7A.1 and 7A.2 can ship now,** in layout-1 coordinates, ahead of the extension. They
+   change existing gameplay slightly: an extra Snacks, a gapped wall, a plain backpack instead of the
+   zipped one, and staggered ride rows.
+5. **Box-gauntlet questions** for `box-gauntlets-spec.md`: whether boxes are countable, and whether
+   `arrowChain` gives a forward push of ≥ 8 m/s (needed in the L2 chase, 3.7).
+6. **The zipped-backpack ram** on rides needs checking (7A.2).
+7. **Plan conflicts resolved here:**
    - L1 Moon Ledge vs the Burrow Hidden Bone: the Burrow keeps the bone (2.8).
    - The L3 glide gap vs the Ducts Hidden Bone: the Ducts keep the bone (4.8).
    - Classic layout replay: not supported (8.6).

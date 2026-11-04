@@ -64,12 +64,14 @@ level's breakables exported as data. A level that breaks the rules then fails CI
 
 ### Fix (checked, margin at least 1.3×)
 
-All edits are in `src/levels/level2.js`:
+All edits are in `src/levels/level2.js`. The extended-levels spec 7A.1 refines them for layout 2.
 
 1. Add `k.snacks(0, 0, D(238))`. This gives a fourth checkpoint, so the cat restarts 13 m back.
 2. Move `k.stack(-3.6, 0, D(246), 2)` to `D(242)`.
 3. Change `packWall(250)` to `packWall(250, true)`, which leaves 4 backpacks and a gap in the middle.
-4. Replace `k.zipped(-3, 0, D(270))` with `k.pack(-3, 0, D(270))`. Or move the Zipped Backpack into the
+4. Replace `k.zipped(-3, 0, D(270))` with `k.pack(-3, 0, D(270))`.
+5. Add `k.snacks(0, 0, D(268))`. The extended-levels spec (7A.1) found that without it, the Vacuum Dock at
+   D(293) is left with a budget of only 0.15 s. Or move the Zipped Backpack into the
    Cardboard Fort breather that the extension adds (extended-levels spec).
 
 | Stop after the fix | Budget | Needs | Margin |

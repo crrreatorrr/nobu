@@ -615,12 +615,12 @@ and hub floors become wrong. The plan:
 
   | Level | Gold / Silver / Bronze (s) | Platinum (s) | Proposed hub floor (ms) |
   | --- | --- | --- | --- |
-  | L1 | 94 / 119 / 155 | 86 | 25000 |
-  | L2 | 89 / 114 / 154 | 82 | 25000 |
-  | L3 | 77 / 98 / 132 | 70 | 20000 |
+  | L1 | 94 / 120 / 158 | 86 | 25700 |
+  | L2 | 90 / 114 / 156 | 82 | 26000 |
+  | L3 | 77 / 100 / 134 | 70 | 20600 |
 
-  These are the old targets scaled by the length ratio. The extended-levels spec replaces them with
-  numbers measured from dev-best runs.
+  These are the numbers in the extended-levels spec (section 0), worked out from the new path lengths.
+  Check them against dev-best runs before release.
 
 - **Order:**
   1. The hub PR adds the `v2` variants.
