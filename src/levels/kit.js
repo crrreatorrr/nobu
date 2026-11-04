@@ -16,6 +16,7 @@ import { SpinDrum, Toaster, RugPull, Zipline } from '../entities/props2.js';
 import { MarketClock, MarketPlatform, MarketTicker } from '../entities/market.js';
 import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
+import { addGatedHelpers } from './gatedKit.js';
 
 export { turtle };
 
@@ -265,7 +266,7 @@ export function makeKit(game, stage, tickets, track = null) {
       }
     },
   };
-  return k;
+  return addGatedHelpers(k, game, stage, track);
 }
 
 export function makeTrack(stage, points) {

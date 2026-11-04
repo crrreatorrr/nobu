@@ -123,6 +123,11 @@ export const TUTORIALS = {
   toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
   market: { img: 'pill_bot', title: 'MARKET PLATFORMS', text: 'GREEN edge = going UP next beat. RED = going DOWN. Watch the arrows, then jump.' },
   rugpull: { img: 'rug', title: 'RUG PULL', text: 'The floor is leaving. Step on it and RUN. Do NOT stop.' },
+  dustwall: { img: 'nobu_head', title: 'DUST WALL', text: 'Come back with a faster move.' },
+  dustwallUnlocked: { img: 'nobu_head', title: 'DUST DASH', text: 'Dust Dash breaks this wall.' },
+  smogvent: { img: 'nobu_head', title: 'SMOG VENT', text: 'Mega Bark clears the smog.' },
+  smogventLocked: { img: 'nobu_head', title: 'SMOG VENT', text: 'A stronger bark could clear this smog.' },
+  zoomiegate: { img: 'nobu_head', title: 'ZOOMIE GATE', text: 'This shutter needs a faster sprint.' },
   bite: { img: 'nobu_head', title: 'BITE!', text: 'Press <span class="key">J</span> or <span class="key">SHIFT</span> to bite. Chomp backpacks for Golden Tickets!' },
   jump: { img: 'nobu_title', title: 'JUMP!', text: '<span class="key">SPACE</span> to jump, again in mid-air to double jump. Hold for higher.' },
   dog: { img: 'dog_shiba_coned', title: 'TRAPPED DOG', text: 'Bite or jump near a coned dog to pop the cone off. Free them all!' },
@@ -176,3 +181,4 @@ export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'dea
 export const PROP_TEXT = { rugPull: 'RUG PULL!', arrows: ['▼', '■', '▲'] };
 
 
+export const MYSTERY_SURPRISE = { title: 'SURPRISE!', sub: 'RUN!' };
