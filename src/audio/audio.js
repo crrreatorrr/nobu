@@ -130,7 +130,7 @@ class AudioEngine {
     const r = (a, b) => a + Math.random() * (b - a);
     switch (name) {
       case 'splash': this._noise(.45, .22 * volume, 0, 'lowpass', 1600, 180); this._osc('sine', 140 * p, 45 * p, .25, .1 * volume); break;
-      case 'gurgle': this._osc('sine', 90 * p, 160 * p, .18, .12 * volume); this._osc('sine', 130 * p, 65 * p, .18, .1 * volume, .12); break;
+      case 'gurgle': this._noise(.3, .14 * volume, 0, 'lowpass', 400 * p, 90 * p); this._osc('sine', 130 * p, 65 * p, .18, .1 * volume, .12); break;
       case 'paddle': this._noise(.1, .1 * volume, 0, 'bandpass', 550, 200); this._osc('sine', 150 * p, 70 * p, .08, .06 * volume); break;
       case 'sizzle': this._noise(.22, .12 * volume, 0, 'highpass', 4500); break;
       case 'jump': this._osc('square', 260, 640, 0.14, 0.12); break;
