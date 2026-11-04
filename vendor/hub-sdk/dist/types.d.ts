@@ -1,9 +1,14 @@
 /** Game ids stored on the server and used in `/hub#from=<game>` and `play/<game>`. */
-export declare const GAME_IDS: readonly ["hpos10i", "nobu", "peoples-bitcoin", "sproto"];
+export declare const GAME_IDS: readonly ["hpos10i", "nobu", "peoples-bitcoin", "sproto", "sproto-fighter"];
 export type GameId = (typeof GAME_IDS)[number];
 /** Earn-once relics. The primary key on the server is (user, relic). */
 export declare const RELIC_IDS: readonly ["hpos10i_core", "genesis_shard", "cones_tip", "tinubu_crown", "tidebreaker_belt"];
 export type RelicId = (typeof RELIC_IDS)[number];
+/**
+ * The four Relics socketed on the Four Lights monument. The Tidebreaker Belt (Sproto Fighter)
+ * is a Relic too, but it sits on its own plinth in the Bar and does not count toward Four Lights.
+ */
+export declare const FOUR_LIGHTS_RELIC_IDS: readonly ["hpos10i_core", "genesis_shard", "cones_tip", "tinubu_crown"];
 export declare const RELIC_BY_GAME: Record<GameId, RelicId>;
 /**
  * Nakama leaderboard ids. Sort direction matches the architecture:

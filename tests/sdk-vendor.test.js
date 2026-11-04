@@ -17,9 +17,10 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // 0.4.0-redeem.1 / hub main f88b442: 80c344c55edb429d6b395c320df3a902c7c97019ce162c6d7cb001964993c404
 // 0.4.0-redeem.1 / hub 9ce6ade: f88b442 plus the dead-session outbox fix:
 //   810a0d205afa87755d257639dad4880d002da8f9e0b3f3dbe960558a1c274bc0
-// 0.4.0-redeem.1 / hub 9ce6ade plus the local tidebreaker_belt RELIC_IDS patch
-// and its VENDOR.md note (see vendor/hub-sdk/VENDOR.md).
-const CONTENT_MANIFEST_SHA256 = 'ef1dec9403b182cc74ef4bae387c01e3e887c3e70bef9321e886a70c15d2d20b';
+// 0.4.0-redeem.1 / hub 9ce6ade plus the local tidebreaker_belt RELIC_IDS patch:
+//   ef1dec9403b182cc74ef4bae387c01e3e887c3e70bef9321e886a70c15d2d20b
+// 0.4.0-redeem.1 / hub main 6d7176f (Belt and sproto-fighter upstream, no local patch).
+const CONTENT_MANIFEST_SHA256 = 'af71e57e79fd86f577d6cb47b53af4ccde4471bac2a79e1bbc52fcc3afb939a4';
 
 function listFiles(dir) {
   const out = [];
@@ -90,17 +91,20 @@ describe('vendored hub SDK', () => {
   });
 
   // live.js asRelics() keeps only ids isRelicId() accepts. Without the Belt here,
-  // profile.get would drop it and the Champion's Crown would never unlock.
-  it('accepts tidebreaker_belt as a relic id, and changes nothing else in the lists', async () => {
+  // profile.get would drop it and the Champion's Crown would never unlock. Hub main
+  // ships it (b065668), so the vendor tree carries no local patch.
+  it('accepts tidebreaker_belt as a relic id from upstream', async () => {
     const types = await import('../vendor/hub-sdk/dist/types.js');
     expect(types.RELIC_IDS).toEqual(['hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt']);
     expect(types.isRelicId('tidebreaker_belt')).toBe(true);
     expect(types.isRelicId('not_a_relic')).toBe(false);
-    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto']);
+    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter']);
     const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
     expect(live).toContain("value.filter((item) => typeof item === 'string' && isRelicId(item))");
     const dts = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     expect(dts).toContain('"tinubu_crown", "tidebreaker_belt"]');
+    const vendorNote = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
+    expect(vendorNote).not.toContain('## Local patch');
   });
 
   it('content manifest matches SDK 0.4.0-redeem.1 after maps and sourceMappingURL are removed', () => {
