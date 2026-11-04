@@ -1,8 +1,9 @@
+import { HANG, advanceHang } from '../src/player/hang.js';
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { World } from '../src/world/physics.js';
 import { drumPos, drumSpeed, toasterCycle } from '../src/entities/propsTiming.js';
-import { SpinDrum, Toaster, RugPull } from '../src/entities/props2.js';
+import { SpinDrum, Toaster, RugPull, Zipline } from '../src/entities/props2.js';
 import { MarketClock, MarketPlatform } from '../src/entities/market.js';
 
 vi.mock('../src/art/assets.js', () => ({ Assets: { tiled: () => null } }));
@@ -113,5 +114,40 @@ describe('Toaster rhythm', () => {
     stage.game.player.body.grounded = false;
     toaster.update(2.4);
     expect(stage.game.player.bounce).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Zipline attachment and player movement', () => {
+  function rider(stage) {
+    return Object.assign(stage.game.player, { mode: 'normal', biteT: 0.1, facing: 0 });
+  }
+  it('grabs near the start with a bite and only grabs the middle when falling', () => {
+    const stage = stageStub(), p = rider(stage);
+    const line = new Zipline(stage, new THREE.Vector3(0, 4, 0), new THREE.Vector3(0, 6, -10));
+    p.pos.set(0, 3.75, -5); p.vel.y = 2;
+    line.update(0.01); expect(p.hang).toBeUndefined();
+    p.vel.y = -2; line.update(0.01);
+    expect(p.hang.line).toBe(line); expect(p.hang.t).toBeCloseTo(0.5);
+    expect(p.biteT).toBe(-1);
+    line.onRespawn(); expect(p.hang).toBeNull();
+    p.pos.set(0, 2.75, -0.5); p.biteT = 0.1; p.body.grounded = true;
+    line.update(0.01); expect(p.hang.line).toBe(line);
+  });
+  it('carries uphill, releases with exact line momentum and refills the air jump', () => {
+    const stage = stageStub(), p = rider(stage);
+    const line = new Zipline(stage, new THREE.Vector3(0, 4, 0), new THREE.Vector3(0, 6, -10));
+    p.hang = { line, t: 0 };
+    expect(advanceHang(p, 0.25, false, 12.6)).toBe(false);
+    expect(p.pos.y).toBeGreaterThan(4 - HANG);
+    expect(p.pos.distanceTo(line.A.clone().lerp(line.B, p.hang.t).add(new THREE.Vector3(0, -HANG, 0)))).toBeCloseTo(0);
+    advanceHang(p, 0, true, 12.6);
+    expect(p.hang).toBeNull(); expect(p.vel.z).toBeCloseTo(line.velocity.z);
+    expect(p.vel.y).toBeCloseTo(line.velocity.y + 12.6 * 0.85); expect(p.canDouble).toBe(true);
+    expect(line.blockGrabT).toBe(0.25);
+    p.hang = { line, t: 0.99 };
+    expect(advanceHang(p, 0.25, false, 12.6)).toBe(true);
+    expect(p.pos.z).toBe(-10); expect(p.pos.y).toBe(6 - HANG);
+    expect(p.vel.y).toBeCloseTo(6 + line.velocity.y * 0.6);
+    expect(p.vel.z).toBeCloseTo(line.velocity.z * 0.6);
   });
 });

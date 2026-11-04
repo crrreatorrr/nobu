@@ -7,6 +7,7 @@ import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
 import { Assets } from '../art/assets.js';
 import { PROP_TEXT } from '../story/script.js';
+import { HANG } from '../player/hang.js';
 import { drumPos, drumSpeed, toasterCycle } from './propsTiming.js';
 
 const _point = new THREE.Vector3();
@@ -216,5 +217,60 @@ export class RugPull extends Entity {
       part.body.position.copy(part.home).sub(this.home); part.body.rotation.x = 0; part.body.visible = true; part.mesh.rotation.x = 0;
       part.solid.setCenter(part.home.x, part.home.y - 0.4, part.home.z, part.dim.w, 0.4, part.dim.d); part.solid.enabled = true;
     }
+  }
+}
+
+export class Zipline extends Entity {
+  constructor(stage, A, B, { speed = 9 } = {}) {
+    super(stage, A.x, A.y, A.z);
+    this.A = A.clone(); this.B = B.clone();
+    this.velocity = B.clone().sub(A); this.length = this.velocity.length();
+    if (!(this.length > 0 && speed > 0)) throw new Error('Zipline requires distinct ends and positive speed');
+    this.speed = speed; this.velocity.multiplyScalar(speed / this.length);
+    this.interactive = false; this.alwaysActive = true;
+    this.blockGrabT = 0; this.rollT = 0; this._point = new THREE.Vector3();
+    this._delta = B.clone().sub(A);
+    const end = this._delta.clone(), middle = end.clone().multiplyScalar(0.5); middle.y -= 0.5;
+    const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(), middle, end);
+    this.obj.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.035, 5, false), toon(0x35383d)));
+    const postGeometry = new THREE.BoxGeometry(0.14 * 1.6, 1.1 * 1.6, 0.14 * 1.6);
+    for (const endpoint of [new THREE.Vector3(), end]) {
+      const post = new THREE.Mesh(postGeometry, toon(0xc89058));
+      post.position.copy(endpoint); post.position.y -= 0.55 * 1.6; this.obj.add(post);
+    }
+    this.pulley = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.06, 6, 12), toon(0xe2bb42));
+    this.obj.add(this.pulley);
+    // Primitive socks are also suitable for L4's clothesline skin.
+    const sockGeometry = new THREE.BoxGeometry(0.18, 0.5, 0.09);
+    for (let i = 1; i <= 4; i++) {
+      const sock = new THREE.Mesh(sockGeometry, toon(i % 2 ? 0xf0e9dc : 0x75a9c8));
+      curve.getPoint(i / 5, sock.position); sock.position.y -= 0.27; this.obj.add(sock);
+    }
+  }
+  update(dt) {
+    this.blockGrabT = Math.max(0, this.blockGrabT - dt);
+    const p = this.player;
+    if (p.hang?.line === this) {
+      this.pulley.position.copy(this._delta).multiplyScalar(p.hang.t);
+      this.rollT -= dt;
+      if (this.rollT <= 0) { this.rollT += 0.25; audio.play('roll', 0.3); }
+      return;
+    }
+    if (p.hang || p.mode !== 'normal' || p.dead || p.frozen || p.ride || this.blockGrabT > 0 || p.biteT < 0.05 || p.biteT > 0.3) return;
+    this._point.copy(p.pos); this._point.y += HANG;
+    const t = this._point.sub(this.A).dot(this._delta) / (this.length * this.length);
+    if (t < 0 || t > 1 || (t > 0.2 && (p.body.grounded || p.vel.y >= 0))) return;
+    this._point.copy(this.A).addScaledVector(this._delta, t);
+    const dx = this._point.x - p.pos.x, dy = this._point.y - p.pos.y - HANG, dz = this._point.z - p.pos.z;
+    if (dx * dx + dy * dy + dz * dz > 1.2 * 1.2) return;
+    p.hang = { line: this, t }; p.biteT = -1;
+    p.body.grounded = false; p.body.ground = null; p.vel.set(0, 0, 0);
+    p.airDashT = 0; this.rollT = 0.25;
+    this.pulley.position.copy(this._delta).multiplyScalar(t);
+    audio.play('zip');
+  }
+  onRespawn() {
+    if (this.player.hang?.line === this) this.player.hang = null;
+    this.blockGrabT = 0; this.rollT = 0; this.pulley.position.set(0, 0, 0);
   }
 }

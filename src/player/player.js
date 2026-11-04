@@ -11,6 +11,7 @@ import { NobuPrims } from './nobuPrims.js';
 import { NobuGlb } from './nobuGlb.js';
 import { dressNobuModel, setCollarGlow } from './accessories.js';
 import { makeShadow, placeShadow } from '../entities/fx.js';
+import { advanceHang } from './hang.js';
 import { rideVacuumMesh } from '../entities/ride.js';
 
 export const TUNING = {
@@ -91,6 +92,8 @@ export class Player {
 
   reset() {
     this.mode = 'normal';
+    this.hang = null;
+    this._hangProjection = {};
     this.vel.set(0, 0, 0);
     this.facing = Math.PI;
     this.targetFacing = Math.PI;
@@ -202,6 +205,17 @@ export class Player {
     this.coyote = this.body.grounded ? T.COYOTE : Math.max(0, this.coyote - dt);
     this.landT += dt; this.jumpT += dt;
     if (this.flipT >= 0) { this.flipT += dt / 0.42; if (this.flipT >= 1) this.flipT = -1; }
+
+    if (this.hang) {
+      if (advanceHang(this, dt, input.pressed('jump'), T.JUMP)) audio.play('jump');
+      if (stage.track) {
+        const at = stage.track.project(this.pos.x, this.pos.z, this.body.trackHint ?? -1, this._hangProjection);
+        this.body.s = at.s; this.body.u = at.u; this.body.trackHint = at.i;
+      }
+      this._interact(stage);
+      this._animate(dt); this._updateShadow(stage);
+      return;
+    }
 
     const grounded = this.body.grounded;
 
@@ -605,6 +619,7 @@ export class Player {
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
     if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god || this.frozen) return false;
+    this.hang = null;
     const s = this.game.session;
     if (s && s.mask > 0) {
       s.setMask(s.mask - 1);
@@ -691,6 +706,7 @@ export class Player {
   die(type = 'angel') {
     if (this.mode === 'dead') return;
     if (this.god) { if (type === 'fall') this._rescue(); return; }
+    this.hang = null;
     if (this.mode === 'slide') this.body.h = 1.3;
     this.mode = 'dead';
     this.deathType = type;

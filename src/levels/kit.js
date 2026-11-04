@@ -12,7 +12,7 @@ import {
   UpdraftFan, SwingHammer, Crusher, CoconutRoller, conveyorStrip, sign, bossGate, logMesh,
 } from '../entities/props.js';
 import { palm, bush, fern, flowers, tuft, rock, fencePost, scratchPost, yarnPile, pipe, vat, vent, coneStack } from '../world/decor.js';
-import { SpinDrum, Toaster, RugPull } from '../entities/props2.js';
+import { SpinDrum, Toaster, RugPull, Zipline } from '../entities/props2.js';
 import { MarketClock, MarketPlatform, MarketTicker } from '../entities/market.js';
 import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
@@ -49,6 +49,7 @@ export function makeKit(game, stage, tickets, track = null) {
     backstop(d) { track.ground(d, d + 1.2, { w: 20, dy: 8, style: 'ground', depth: 9 }); },
     platform(x, y, d, w = 2.4, dd = 2.4, h = 0.5) { return add(new StaticPlatform(stage, ...W(x, y, d).toArray(), { w, d: dd, h, yaw: yawAt(d) })); },
     spinDrum(d, o = {}) { return add(new SpinDrum(stage, track, d, o)); },
+    zipline(x0, y0, d0, x1, y1, d1, o = {}) { return add(new Zipline(stage, W(x0, y0, d0), W(x1, y1, d1), o)); },
     toaster(x, y, d, o = {}) { return at(Toaster, x, y, d, { ...o, yaw: yawAt(d) }); },
     rugPull(d0, d1, o = {}) { return add(new RugPull(stage, track, d0, d1, o)); },
     market(x, y, d, o = {}) {
