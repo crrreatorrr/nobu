@@ -16,6 +16,10 @@ function build(proposed=false) {
   rows.push(line('P3',3,[p('floorEnd',0),p('pack',3),p('pack',6.4),p('pack',6.4+long),p('pack',9.8+long),p('pack',9.8+2*long),p('floorStart',13.1+2*long)],['held','bounceTap','bounceHeld','bounceTap','bounceHeld','bounceTap']));
   rows.push(line('P4',2,[p('floorEnd',0),p('stack',3),{...p('stack',5.8),height:2},{...p('stack',8.6),height:3},p('floorStart',11,3)],['held','bounceHeld','bounceHeld','bounceHeld'],'floor'));
   rows.push(line('P5',2,[p('floorEnd',0),blink(3,0),blink(6.5,1,-1),blink(10,2),blink(13.5,3,-1),p('floorStart',16,4)]));
+  if(proposed){
+    const pattern=rows.at(-1);pattern.pieces.push(p('lunch',8.25,1.5));
+    pattern.route=[step(0,1),step(1,2),step(2,6),step(6,3),step(3,4),step(4,5)];
+  }
   rows.push(line('P6',3,[p('floorEnd',0),...Array.from({length:8},(_,i)=>proposed && i===3?p('lunch',2.4*(i+1)):blink(2.4*(i+1),0,-.8*i,1.2,1.2)),p('floorStart',22.6)],Array(9).fill('held')));
   const falling=[...Array.from({length:8},(_,i)=>p('fall',i+1,0,{delay:proposed?.50:.45})),...Array.from({length:6},(_,i)=>p('fall',i+12,0,{delay:proposed?.50:.45})),...Array.from({length:5},(_,i)=>p('fall',i+21,1,{delay:proposed?.50:.45}))];
   const floorRun=line('P7',2,[p('floorEnd',0),...falling,p('floorStart',26.5,1)]);
@@ -58,7 +62,7 @@ export const PROPOSED_TEACH_PATTERNS=PROPOSED_PATTERNS.map(original=>{
     const ds=[0,3,6.4,10.5,13.9,18,21.3];t.pieces.forEach((p,i)=>p.dd=ds[i]);
     for(const s of t.route)if(s.move.startsWith('bounce'))s.move='bounceHeld';
   }
-  if(original.id==='P5')t.pieces[2].kind='lunch';
+  if(original.id==='P5'){t.pieces.pop();t.pieces[2].kind='lunch';t.route=t.pieces.slice(1).map((_,i)=>step(i,i+1));}
   if(original.id==='P6'){t.pieces[4].kind='blink';for(let i=1;i<=8;i++)t.pieces[i].params.phase=-(i-1);for(const i of [3,6])t.pieces[i].kind='lunch';}
   if(original.id==='P7'){
     t.pieces=t.pieces.filter(p=>p.kind!=='fall'||p.dd<=17);
@@ -117,10 +121,5 @@ export function placePattern(k, pattern, d0=0, { gauntlet=false }={}) {
   return placed;
 }
 
-// Pending owner decision: preserve all four P5 blink placements and add one permanent rest.
-export const P5_ACTION_REST_PROPOSAL=(()=>{
-  const pattern=structuredClone(PATTERNS.find(p=>p.id==='P5'));
-  pattern.pieces.push({kind:'lunch',dd:8.25,x:0,y:1.5});
-  pattern.route=[step(0,1),step(1,2),step(2,6),step(6,3),step(3,4),step(4,5)];
-  return pattern;
-})();
+// Owner additionally approved this permanent rest on 2026-11-04: ‘Add the permanent rest’.
+export const P5_ACTION_REST_PROPOSAL=PATTERNS.find(p=>p.id==='P5');

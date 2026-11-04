@@ -9,7 +9,7 @@ describe('reviewable pattern proposals using the same data as builders', () => {
     expect(validatePattern(P5_ACTION_REST_PROPOSAL)).toEqual([]);
   });
   it('does not silently replace the original unsafe literals',()=>{
-    for(const id of ['P2','P3','P6','P7','P16'])expect(validatePattern(AUTHORED_PATTERNS.find(p=>p.id===id)).length,id).toBeGreaterThan(0);
+    for(const id of ['P2','P3','P5','P6','P7','P16'])expect(validatePattern(AUTHORED_PATTERNS.find(p=>p.id===id)).length,id).toBeGreaterThan(0);
   });
   it('rejects the raised final bounce 5m out at tier4.5',()=>{
     const p={tier:4.5,pieces:[{kind:'pack',dd:0},{kind:'pack',dd:5,y:.5}],route:[{from:0,to:1,move:'bounceHeld'}]};

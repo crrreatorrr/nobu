@@ -11,6 +11,7 @@ The shared clock, kit installer, tutorials and dedicated dev strip are integrate
 | --- | --- | --- | --- |
 | P2 tier 1 | Packs at 3, 6.4, 9.8, 13.2; exit16.5 | Packs3,6.2,9.4,12.6; exit15.9 | Tap bounce4.2667×.75=3.20; preserve3.3 exit gap |
 | P3 tier 3 | Long steps5.2; centres3,6.4,11.6,15,20.2; exit23.5 | Long steps4.8; centres3,6.4,11.2,14.6,19.4; exit22.7 | Held bounce5.6×.86=4.816 |
+| P5 tier 2 | Four blinks with five timed actions including entry/exit | Add permanent lunchbox at x0,y1.5,dd8.25; preserve all four blinks | Three timed actions each half; owner additionally approved “Add the permanent rest” on2026-11-04 |
 | P6 tier 3 | Eight blinking boxes; prose calls them four actions | Fourth box (dd9.6) is a permanent lunchbox | Eight temporary landings cannot satisfy six actions between permanent rests |
 | P7 tier 2 | Fall delay.45 | Authored delay.50 | Universal tier2 tell.50 starts on contact; configured delay remains exact |
 | P16 tier 4 | Arrow16 tap, prose accepts gaps≤7.3; fall delay.32 | Explicit held arrow route; actual moving landing tested, delay.40 | Tap reach6.533×.92=6.011; held7.467×.92=6.869; tier4 tell.40 |
@@ -70,7 +71,7 @@ exclusions, all16 approved patterns and16 teach variants, source failures and st
 The separate spawn metadata regression proves controllers see the checkpoint's track position on their
 first frame, and arenas clear stale track metadata; no movement constants changed.
 
-Chromium/SwiftShader built the full normal strip (134entities,40timed boxes,10clocks), visited all16
+Chromium/SwiftShader built the normal strip before the additional P5 rest (134entities,40timed boxes,10clocks), visited all16
 entry pads, returned no gauntlet validation problems, and passed programmatic runtime checks for one
 clock advance per stage frame, checkpoint phase/slider reset, and blink/fall occupied returns.
 No JavaScript exceptions occurred. Two resource404s were observed alongside otherwise working assets.
@@ -83,12 +84,12 @@ check does not replace playtesting or guarantee a particular controller strategy
 The current audio API has no per-call clang volume setting; reversal uses the existing normal-level clang.
 Blink/fall use the existing implemented blip/roll placeholder cues, as explicitly permitted by the spec.
 
-## Additional action-boundary correction under review
+## Additional action-boundary correction approved
 
-A final conservative audit counts the initial timed landing from a permanent rest, as well as the exit.
-The source P5 normal route then has five timed actions against the tier2 limit of four. No validator
-threshold was relaxed. The proposed additional rest is exported as P5_ACTION_REST_PROPOSAL: a permanent
-lunchbox at x0,y1.5,dd8.25, preserving all four original blink boxes and their phases. Both halves have
-three timed actions. This additional normal-layout rest awaits owner approval before canonical activation.
-Teaching relay variants now use two launchers because three launchers plus their entry/exit require four
-actions; their source specified no exact teaching coordinates. The stronger boundary has a regression test.
+The owner additionally approved “Add the permanent rest” on **2026-11-04**. The canonical P5 now
+includes the permanent lunchbox at x0,y1.5,dd8.25, preserving all four original blink boxes and phases.
+Counting the initial timed landing and the exit produces three actions per half, within the tier2
+limit of four. P5_ACTION_REST_PROPOSAL aliases this canonical approved object; it is no longer pending.
+No validator threshold was relaxed, and a dedicated entry/exit boundary regression prevents omission.
+Teaching relay variants use two launchers because three launchers plus entry/exit require four actions;
+the source specified no exact teaching coordinates, so these are documented implementation choices.
