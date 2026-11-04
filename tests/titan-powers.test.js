@@ -17,6 +17,7 @@ import { World, moveBody } from '../src/world/physics.js';
 import { Stage } from '../src/world/stage.js';
 import { Player } from '../src/player/player.js';
 import { Session } from '../src/game/session.js';
+import { BOSS } from '../src/config/difficulty.js';
 import { input } from '../src/core/input.js';
 import { save } from '../src/core/save.js';
 import { buildBoss4Arena } from '../src/levels/boss4Arena.js';
@@ -536,4 +537,16 @@ it('actual Session retry never resurrects historical swarms and clears old leg c
   boss.spawnSwarm();
   expect(boss.minions).toHaveLength(3);
   expect(stage.entities.filter((e) => e instanceof retired[0].constructor && !e.dead)).toHaveLength(3);
+});
+
+it('keeps every Titan phase harder than the corresponding Cone phase through the live difficulty getters', () => {
+  const { boss } = fixture();
+  for (const phase of [1, 2, 3]) {
+    boss.phase = phase;
+    expect(boss.sp).toBeGreaterThan(BOSS.cone.speed[phase - 1]);
+    expect(boss.W).toBeLessThan(BOSS.cone.window[phase - 1]);
+    expect(boss.tele(1)).toBeLessThanOrEqual(BOSS.cone.tele[phase - 1]);
+    expect(boss.chainLen).toBeGreaterThanOrEqual(BOSS.cone.chain[phase - 1]);
+  }
+  expect(boss.maxHp).toBeGreaterThanOrEqual(BOSS.cone.hp);
 });
