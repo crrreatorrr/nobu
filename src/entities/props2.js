@@ -5,7 +5,7 @@ import { Solid } from '../world/physics.js';
 import { platformMesh } from './props.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
-import { drumPos, drumSpeed } from './propsTiming.js';
+import { drumPos, drumSpeed, toasterCycle } from './propsTiming.js';
 
 const _point = new THREE.Vector3();
 export function propWorld(track, x, y, d, out) {
@@ -60,7 +60,7 @@ export class SpinDrum extends Entity {
     const p = this.player, opts = this.opts;
     for (let i = 0; i < this.parts.length; i++) {
       const part = this.parts[i];
-      if (part.crumble && part.state === 'idle' && p.body.grounded && p.body.ground === part.solid) { part.state = 'shake'; part.t = 0; audio.play('roll'); }
+      if (dt > 0 && part.crumble && part.state === 'idle' && p.body.grounded && p.body.ground === part.solid) { part.state = 'shake'; part.t = 0; audio.play('roll'); }
       if (part.state === 'shake') {
         part.t += dt;
         if (part.t >= 0.55) { part.state = 'fall'; part.t = 0; }
@@ -95,4 +95,45 @@ export class SpinDrum extends Entity {
     for (const part of this.parts) { part.state = 'idle'; part.t = 0; part.fall = 0; part.vy = 0; }
     this._place(0); // Orbit time deliberately keeps running.
   }
+}
+
+const toasterBody = new THREE.BoxGeometry(1.6, 1, 1.2);
+const toastSlice = new THREE.BoxGeometry(0.42, 0.7, 0.75);
+export class Toaster extends Entity {
+  constructor(stage, x, y, z, { power = 15, period = 2.4, phase = 0, skin = 'toast', yaw = 0 } = {}) {
+    super(stage, x, y, z);
+    if (!(period >= 0.6)) throw new Error('Toaster period must leave time for its 0.6 second tell');
+    this.power = power; this.period = period; this.phase = phase; this.skin = skin;
+    this.t = 0; this.popT = 10; this.cycle = {};
+    toasterCycle(0, period, phase, this.cycle);
+    this.interactive = false; this.alwaysActive = true;
+    this.obj.rotation.y = yaw;
+    const body = new THREE.Mesh(toasterBody, toon(skin === 'valve' ? 0xc8a040 : 0xd8dde6));
+    body.position.y = 0.5; this.obj.add(body);
+    this.glow = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.04, 0.85), new THREE.MeshStandardMaterial({ color: 0x26180e, emissive: 0xff6a18, emissiveIntensity: 0 }));
+    this.glow.position.y = 1.02; this.obj.add(this.glow);
+    this.toast = [];
+    if (skin !== 'valve') for (const side of [-1, 1]) {
+      const slice = new THREE.Mesh(toastSlice, toon(0xe8ba76));
+      slice.position.set(side * 0.37, 0.85, 0); this.toast.push(slice); this.obj.add(slice);
+    }
+    const dim = {}; dimensions(1.6, 1.2, yaw, dim);
+    this.solid = stage.world.addBox(x, y, z, dim.w, 1, dim.d, { ref: this });
+  }
+  update(dt) {
+    const oldCycle = this.cycle.cycle, oldTick = this.cycle.tick;
+    this.t += dt; this.popT += dt;
+    toasterCycle(this.t, this.period, this.phase, this.cycle);
+    if (this.cycle.cycle > oldCycle) {
+      this.popT = 0;
+      const p = this.player;
+      if (p.body.grounded && p.body.ground === this.solid && !p.dead) p.bounce(this.power, { allowCut: false });
+      audio.play('boing');
+      if (this.skin === 'valve') this.fx?.puff?.(this.pos.x, this.pos.y + 1, this.pos.z, { color: 0xffffff, count: 12, speed: 4 });
+    } else if (this.cycle.tick > oldTick) audio.play('tick');
+    this.glow.material.emissiveIntensity = this.cycle.glow * 2;
+    const hop = Math.max(0, 2 - (this.popT - 0.3) ** 2 * (2 / 0.09));
+    for (const slice of this.toast) slice.position.y = 0.85 + hop;
+  }
+  onRespawn() { /* The authored rhythm deliberately continues through a death. */ }
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { World } from '../src/world/physics.js';
-import { drumPos, drumSpeed } from '../src/entities/propsTiming.js';
-import { SpinDrum } from '../src/entities/props2.js';
+import { drumPos, drumSpeed, toasterCycle } from '../src/entities/propsTiming.js';
+import { SpinDrum, Toaster } from '../src/entities/props2.js';
 
 vi.mock('../src/art/assets.js', () => ({ Assets: { tiled: () => null } }));
 vi.mock('../src/audio/audio.js', () => ({ audio: { play: vi.fn() } }));
@@ -38,5 +38,28 @@ describe('SpinDrum timing and rollback', () => {
     expect(slot.state).toBe('idle');
     expect(slot.solid.enabled).toBe(true);
     expect(slot.fall).toBe(0);
+  });
+});
+
+describe('Toaster rhythm', () => {
+  it('gives two tells before each pop and respects phase offsets', () => {
+    expect(toasterCycle(1.79)).toMatchObject({ tick: 0, cycle: 0 });
+    expect(toasterCycle(1.9)).toMatchObject({ tick: 1, cycle: 0 });
+    expect(toasterCycle(2.2)).toMatchObject({ tick: 2, cycle: 0 });
+    expect(toasterCycle(2.4)).toMatchObject({ tick: 0, cycle: 1 });
+    expect(toasterCycle(0, 2.4, 2.2)).toMatchObject({ tick: 2, cycle: 0 });
+  });
+  it('launches only a grounded rider at the pop, retaining its clock on respawn', () => {
+    const stage = stageStub(), toaster = new Toaster(stage, 2, 0, 5);
+    stage.game.player.body = { grounded: true, ground: toaster.solid };
+    toaster.update(2.35);
+    expect(stage.game.player.bounce).not.toHaveBeenCalled();
+    toaster.update(0.1);
+    expect(stage.game.player.bounce).toHaveBeenCalledWith(15, { allowCut: false });
+    toaster.onRespawn();
+    expect(toaster.t).toBeCloseTo(2.45);
+    stage.game.player.body.grounded = false;
+    toaster.update(2.4);
+    expect(stage.game.player.bounce).toHaveBeenCalledTimes(1);
   });
 });
