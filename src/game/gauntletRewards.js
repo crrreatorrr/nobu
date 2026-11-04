@@ -3,8 +3,8 @@ export {GAUNTLET_FIRST_CLEAR_TICKETS} from '../config/tickets.js';
 export const GAUNTLET_COSMETICS={g1:{allBoxes:'crate-collar',flawless:'crate-bandana'},g2:{allBoxes:'steel-sheen',flawless:'blink-collar'},g3:{allBoxes:'laundry-trail',flawless:'rainbow-trail'}};
 // Called at the ordinary level_end transaction, before its single save.write().
 // Returns whole Tickets; callers must not feed this through raw-pickup conversion.
-export function awardGauntlet(data,id,{broken,total,deaths,ms,godUsed=false,trial=false,remix=false}={}){
-  if(!Object.hasOwn(GAUNTLET_COSMETICS,id)||data.godMode||godUsed||trial||remix)return{tickets:0,medals:[]};
+export function awardGauntlet(data,id,{broken,total,deaths,ms,godUsed=false,trial=false,remix=false,rush=false,ranked=false,medal=false,board=false}={}){
+  if(!Object.hasOwn(GAUNTLET_COSMETICS,id)||data.godMode||godUsed||trial||remix||rush||ranked||medal||board)return{tickets:0,medals:[]};
   const row=(data.gauntlets||={})[id]||={},medals=[];
   const all=Number.isInteger(total)&&total>0&&broken===total;
   for(const[flag,earned]of[['clear',true],['allBoxes',all],['flawless',all&&deaths===0]])if(earned&&!row[flag]){row[flag]=true;medals.push(flag);}

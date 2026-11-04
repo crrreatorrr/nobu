@@ -2,7 +2,7 @@
 // Owns checkpoints (with Crash-style rollback on death), lives, tickets, masks, invincibility and stats.
 import * as THREE from 'three';
 import { ddaFor, armCheckpointPity } from './dda.js';
-import { awardGauntlet } from './gauntletRewards.js';
+import { awardGauntlet, GAUNTLET_FIRST_CLEAR_TICKETS } from './gauntletRewards.js';
 import {updateGauntletLook,clearGauntletLook} from '../player/gauntletLook.js';
 import { masteryTrialMedal, trialMastery, mergeTrialMastery, perfectRun } from './mastery.js';
 import { addBuddy } from '../entities/buddy.js';
@@ -172,7 +172,7 @@ export class Session {
     ui.loadingProgress(0.8, 'Warming up...');
     await this._warmUp();
     audio.setRate(this.def.gauntlet ? 1.08 : 1);
-    audio.playMusic(stage.theme.music);
+    audio.playMusic(stage.gauntletInfo?.music || stage.theme.music);
     ui.fade(0, 0);
     await ui.hideLoading();
     ui.showHud(4);
@@ -373,17 +373,24 @@ export class Session {
 
   async _finishGauntlet() {
     this.busy = true;
-    this.godUsed ||= !!save.data.godMode;
-    const broken = this.stage.entities.filter(e => e instanceof Breakable && e.countable && e.broken).length;
-    const result = awardGauntlet(save.data, String(this.level), { broken, total: this.breakablesTotal,
-      deaths: this.deaths, ms: Math.round(this.gauntletT * 1000), godUsed: this.godUsed,
-      trial: this.trial, remix: this.remix });
-    this.stats = { broken, breakables: this.breakablesTotal, deaths: this.deaths,
-      ms: Math.round(this.gauntletT * 1000), tickets: result.tickets };
-    this.levelTickets += result.tickets;
-    save.data.tickets += result.tickets;
-    if (result.tickets) this._grantLifeLines();
-    save.write();
+    this.game.player.frozen = true;
+    const result = await save.withGauntletEnd(() => {
+      this.godUsed ||= !!save.data.godMode;
+      const broken = this.stage.entities.filter(e => e instanceof Breakable && e.countable && e.broken).length;
+      const result = awardGauntlet(save.data, String(this.level), { broken, total: this.breakablesTotal,
+        deaths: this.deaths, ms: Math.round(this.gauntletT * 1000), godUsed: this.godUsed,
+        trial: this.trial, remix: this.remix, rush: this.rush || this.bossRush,
+        ranked: this.ranked, medal: this.medalMode || this.medalRun, board: this.boardRun });
+      this.stats = { broken, breakables: this.breakablesTotal, deaths: this.deaths,
+        ms: Math.round(this.gauntletT * 1000), tickets: result.tickets };
+      if (result.tickets) {
+        this._gauntletClearRaw = rawTicketsForWhole(result.tickets);
+        // A different tab may have crossed or spent below a life threshold meanwhile.
+        this._setLifeLine(Math.floor(save.data.tickets / 100));
+        this.addTickets(this._gauntletClearRaw, 'gauntlet-first-clear');
+      }
+      return result;
+    });
     // The same level_end bank used by other stages; this amount is already whole Tickets.
     hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch(err => console.warn('[hub] bank failed', err));
     this.game.player.frozen = true;
@@ -655,10 +662,13 @@ export class Session {
   onEnemyDefeated(entity) { if (!this.def?.gauntlet) hitSessionChain(this, entity); }
 
   addTickets(n, source) {
-    if (this.def?.gauntlet) return; // Gauntlets pay only the first-clear whole-Ticket reward.
     n = Math.floor(Number(n));
+    if (this.def?.gauntlet) {
+      if (source !== 'gauntlet-first-clear' || n !== this._gauntletClearRaw || n !== rawTicketsForWhole(GAUNTLET_FIRST_CLEAR_TICKETS)) return;
+      this._gauntletClearRaw = 0; // Consume the goal's one-use credit before any feedback.
+    }
     if (!(n > 0)) return;
-    if (this.phase === 'level' && !SNACK_EXCLUDED.has(source)) this.snack.raw += n;
+    if (this.phase === 'level' && !this.def?.gauntlet && !SNACK_EXCLUDED.has(source)) this.snack.raw += n;
     if (source === 'coconut') {
       const capRaw = rawTicketsForWhole(COCONUT_CAP_PER_CLEAR);
       const room = capRaw - this.coconutRaw;
