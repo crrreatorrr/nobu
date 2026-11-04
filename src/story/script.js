@@ -118,6 +118,11 @@ export const BETWEEN = {
 };
 
 export const TUTORIALS = {
+  spindrum: { img: 'nobu_head', title: 'SPIN CYCLE', text: 'Ride the platforms around the drum. Hop off when you reach the top!' },
+  zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
+  toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
+  market: { img: 'pill_bot', title: 'MARKET PLATFORMS', text: 'GREEN edge = going UP next beat. RED = going DOWN. Watch the arrows, then jump.' },
+  rugpull: { img: 'rug', title: 'RUG PULL', text: 'The floor is leaving. Step on it and RUN. Do NOT stop.' },
   bite: { img: 'nobu_head', title: 'BITE!', text: 'Press <span class="key">J</span> or <span class="key">SHIFT</span> to bite. Chomp backpacks for Golden Tickets!' },
   jump: { img: 'nobu_title', title: 'JUMP!', text: '<span class="key">SPACE</span> to jump, again in mid-air to double jump. Hold for higher.' },
   dog: { img: 'dog_shiba_coned', title: 'TRAPPED DOG', text: 'Bite or jump near a coned dog to pop the cone off. Free them all!' },
@@ -169,4 +174,5 @@ export const DEATH_CAPTIONS = {
 export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'death_angel', flat: 'death_flat', cone: 'death_cone', rug: 'death_rug' };
 // Shared copy for the expansion's authored gameplay props.
 export const PROP_TEXT = { rugPull: 'RUG PULL!', arrows: ['▼', '■', '▲'] };
+
 
