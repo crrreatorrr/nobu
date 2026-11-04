@@ -15,6 +15,39 @@ export function installDevTools(game) {
       await done;
       return T.info();
     },
+    // await T.props(): H04a lifecycle strip. T.at(10/26/55/76/96) visits each prop;
+    // T.die() tests the normal checkpoint rollback while a prop is moving.
+    async props() {
+      const [{ Session }, { makeKit, makeTrack, turtle }] = await Promise.all([
+        import('./game/session.js'), import('./levels/kit.js'),
+      ]);
+      await game.ui.fade(1); game.ui.clearScreen();
+      game.session?.dispose();
+      const session = new Session(game, 1);
+      session.def = { ...session.def, name: 'Gameplay prop strip', build(g, stage, tickets) {
+        const track = makeTrack(stage, turtle([0, 0, 0], [[140, 0, 0]]));
+        const k = makeKit(g, stage, tickets, track);
+        k.floor(-18, 96); k.floor(120, 140); k.walls([[-18, 4.3, 4.3], [140, 4.3, 4.3]]);
+        k.backstop(-18); k.backstop(140);
+        k.spinDrum(10, { y: 3.2, crumble: [1] });
+        k.tut(5, 'spindrum'); k.snacks(3, 0, 18);
+        k.platform(0, 1, 20); k.platform(0, 2, 22); k.platform(0, 2.75, 24);
+        k.zipline(0, 4, 26, 0, 5, 44); k.platform(0, 3.75, 44, 3, 4);
+        k.tut(21, 'zipline'); k.snacks(3, 0, 50);
+        k.toaster(0, 0, 55); k.platform(0, 4.2, 60, 3, 3); k.tut(52, 'toaster');
+        k.toaster(-3, 0, 64, { skin: 'valve' });
+        k.market(0, 3.2, 76, { group: 'b' }); k.market(0, 3.2, 80, { group: 'b', invert: true });
+        k.ticker(3, 2, 73, { group: 'b' }); k.tut(70, 'market'); k.snacks(3, 0, 90);
+        k.rugPull(96, 120); k.cat(0, 0, 105); k.tut(93, 'rugpull');
+        return { spawn: k.W(0, 0, 1), facing: track.yaw(1), camera: { mode: 'track', track, height: 4.3, dist: 8.6, ahead: 5.5 } };
+      } };
+      game.session = session; game.state = 'play'; game.flyingMasks.length = 0;
+      const done = session.startLevel();
+      for (let i = 0; i < 40 && !game.ui.talking; i++) await T.sleep(100);
+      await T.skipTalk(); await done;
+      return T.info();
+    },
+    die() { game.player.die('fall'); return T.info(); },
     warp(d, x = 0) { const p = game.player; p.pos.set(x, 0.5, -d); p.vel.set(0, 0, 0); game.camera.snap(p); return T.info(); },
     async boss() {
       game.session.reachBossGate();
