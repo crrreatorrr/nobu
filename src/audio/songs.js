@@ -4,6 +4,31 @@
 const bars = (...b) => b.join(' ');
 
 export const SONGS = {
+  // Titan: eight bars in D minor; motor-like square ostinato and sliding whirr.
+  boss4: {
+    bpm: 140,
+    tracks: [
+      { wave: 'square', vol: .11, gate: .48, filter: 'lowpass', cutoff: 850, notes: bars(
+        'D2 D3 A2 D3 D2 D3 F2 A2 D2 D3 A2 D3 C3 A2 F2 E2',
+        'D2 D3 A2 D3 D2 D3 F2 A2 C3 C3 G2 C3 A2 A2 E2 A2',
+        'Bb1 Bb2 F2 Bb2 Bb1 Bb2 D2 F2 C2 C3 G2 C3 C2 C3 E2 G2',
+        'A1 A2 E2 A2 A1 A2 C#2 E2 A1 A2 E2 A2 C#3 A2 E2 C#2',
+        'G1 G2 D2 G2 G1 G2 Bb1 D2 G1 G2 D2 G2 F2 D2 Bb1 A1',
+        'D2 D3 A2 D3 D2 D3 F2 A2 D2 D3 A2 D3 F3 E3 D3 A2',
+        'Bb1 Bb2 F2 Bb2 Bb1 Bb2 D2 F2 C2 C3 G2 C3 C2 C3 E2 G2',
+        'A1 A2 E2 A2 A1 A2 C#2 E2 A2 A2 E3 C#3 D3 A2 F2 D2') },
+      { wave: 'sawtooth', vol: .055, gate: .94, slide: 1.06, vibrato: 9, vibDepth: 9, filter: 'lowpass', cutoff: 1600, notes: bars(
+        'D4 - - - A4 - - - F4 - E4 - D4 - - -',
+        'F4 - - - A4 - C5 - Bb4 - A4 - G4 - E4 -',
+        'Bb4 - - - F4 - D4 - C5 - - - G4 - E4 -',
+        'A4 - - - E4 - C#4 - D4 - - - - - . .',
+        'G4 - Bb4 - D5 - - - C5 - Bb4 - A4 - G4 -',
+        'F4 - A4 - D5 - - - E5 - D5 - C5 - A4 -',
+        'Bb4 - F4 - D4 - - - C5 - G4 - E4 - - -',
+        'A4 - C#5 - E5 - - - D5 - A4 - F4 - D4 -') },
+    ],
+    drums: { kick: 'X..xX..xX..xX.x.', snare: '....x.......x.xx', hat: 'x.xxx.xxx.xxx.xx', clank: '..x.......x.....' },
+  },
   // Bouncy, island-y title theme (F major)
   title: {
     bpm: 118,

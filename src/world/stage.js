@@ -9,7 +9,7 @@ export const THEMES = {
   boss4: {
     name: 'Titan Living Room', ground: 'tex_house_ground', wall: 'tex_house_wall', platform: 'tex_house_platform',
     sky: 'bg_boss4', fog: 0xd8b890, fogNear: 45, fogFar: 125, hemiSky: 0xfff0d8, hemiGround: 0x8a5a32, sun: 0xffe0b0, sunI: 1.3, hemiI: 1.1,
-    dust: 0xf2e6d0, music: 'boss',
+    dust: 0xf2e6d0, music: 'boss4',
   },
   1: {
     name: 'Bark Jungle', ground: 'tex_l1_ground', wall: 'tex_l1_wall', platform: 'tex_l1_platform',
