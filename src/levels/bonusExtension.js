@@ -142,6 +142,10 @@ export function buildCaveExtension(k,game,stage,{ wideHollow = true } = {}) {
   k.dog(-2.6,-4.5,273,'dalmatian').dogId='cave:dalmatian-a';
   k.mystery(-2.2,-4.5,277,{slot:0});k.tixRing(-2.4,-4.5,279,1,6);
   k.mushroom(-2.4,-4.5,283,{power:17});placeHiddenBone(k,game,stage,-2.4,-4.5,284.5);
+  // Keep the camera above the lip and overhead lunchboxes while Nobu is below.
+  const camera=k.camZone(267,285,'track',{height:9,dist:8.4,ahead:2.5});
+  const inRange=camera.contains.bind(camera);
+  camera.contains=(s,y=game.player.pos.y)=>inRange(s,y)&&y<k.track.heightAt(s)-2;
   for(const entity of stage.entities.slice(hollowEntityStart))entity.detour=true;
   for(const ticket of game.tickets.list.slice(hollowTicketStart))ticket.detour=true;
 }

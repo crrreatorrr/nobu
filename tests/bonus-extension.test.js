@@ -370,3 +370,18 @@ test('Sofa loss starts one async transition while its fade is pending',async()=>
  p.pos.copy(stage.track.toWorld(190,-.8,.6));p.body.s=190;
  for(let i=0;i<5;i++)loop.update();expect(session.busy).toBe(true);expect(leave).toHaveBeenCalledOnce();
 });
+test('Hollow camera applies only below the path and restores on emergence or checkpoint respawn',async()=>{
+ const {GameCamera}=await import('../src/camera/camera.js');
+ const {stage,game,info}=build('cave'),tr=stage.track,zone=stage.entities.find(e=>e.constructor.name==='CamZone'&&e.d0===267);
+ game.camera=new GameCamera(1100/800);stage.defaultCamera=info.camera;game.camera.setMode('track',info.camera);
+ for(const d of [273,277,281]) {
+  game.player.pos.copy(tr.toWorld(d,-2.6,0));game.player.body.s=d;zone.update();expect(game.camera.opts).toBe(info.camera);
+  game.player.pos.copy(tr.toWorld(d,-2.6,-4.5));zone.update();expect(game.camera.opts).toBe(zone.opts);expect(zone.opts.height).toBe(9);expect(zone.opts.ahead).toBe(2.5);
+  game.camera.snap(game.player);const ndc=game.player.pos.clone().add(new THREE.Vector3(0,1,0)).project(game.camera.cam);
+  expect(Math.abs(ndc.x)).toBeLessThan(.8);expect(Math.abs(ndc.y)).toBeLessThan(.8);
+  game.player.pos.copy(tr.toWorld(d,-2.6,0));zone.update();expect(game.camera.opts).toBe(info.camera);
+ }
+ game.player.pos.copy(tr.toWorld(277,-2.6,-4.5));game.player.body.s=277;zone.update();
+ game.session.cp={pos:tr.toWorld(238,0,4.2)};zone.onRespawn();expect(game.camera.opts).toBe(info.camera);
+ game.session.cp={pos:tr.toWorld(277,-2.6,-4.5)};zone.onRespawn();expect(game.camera.opts).toBe(zone.opts);
+});
