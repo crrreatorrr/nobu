@@ -12,6 +12,7 @@ import {
   UpdraftFan, SwingHammer, Crusher, CoconutRoller, conveyorStrip, sign, bossGate, logMesh,
 } from '../entities/props.js';
 import { palm, bush, fern, flowers, tuft, rock, fencePost, scratchPost, yarnPile, pipe, vat, vent, coneStack } from '../world/decor.js';
+import { SpinDrum } from '../entities/props2.js';
 import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
 
@@ -46,6 +47,7 @@ export function makeKit(game, stage, tickets, track = null) {
     },
     backstop(d) { track.ground(d, d + 1.2, { w: 20, dy: 8, style: 'ground', depth: 9 }); },
     platform(x, y, d, w = 2.4, dd = 2.4, h = 0.5) { return add(new StaticPlatform(stage, ...W(x, y, d).toArray(), { w, d: dd, h, yaw: yawAt(d) })); },
+    spinDrum(d, o = {}) { return add(new SpinDrum(stage, track, d, o)); },
     // ---- breakables ----
     pack(x, y, d, n) { const p = W(x, y, d); return faced(add(new Backpack(stage, p.x, p.y, p.z, { tickets: n })), d); },
     packs(list, y = 0) { list.forEach(([x, d]) => k.pack(x, y, d)); },
