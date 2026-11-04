@@ -59,7 +59,7 @@ describe('per-level layout upgrades', () => {
   it('preserves an earned Golden Bone and old dog best through a partial extended clear', () => {
     save.setBone(1); save.setBestDogs(1, 5);
     const bank = vi.spyOn(hub, 'bank').mockResolvedValue(undefined);
-    const show = vi.fn(), game = { _showComplete: show, playCutscene: (_scene, done) => done() };
+    const show = vi.fn(), game = { _unlockMainChapters: Game.prototype._unlockMainChapters, _showComplete: show, playCutscene: (_scene, done) => done() };
     Game.prototype.levelCleared.call(game, { level: 1, levelTickets: 0,
       stats: { tickets: 0, broken: 41, breakables: 86, dogs: 4, dogsTotal: 9 } });
     expect(save.boneOf(1)).toBe(true);

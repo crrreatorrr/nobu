@@ -38,7 +38,7 @@ it('freezes actual gate counts before arena deaths and banks only on clear', asy
  s.deaths = 7;
  expect(runBones(s.stats, boneContext(s)).goodBoy).toBe(true);
  expect(save.data.boneBoard[1]).toBeUndefined();
- Game.prototype.levelCleared.call({ playCutscene() {} }, s);
+ Game.prototype.levelCleared.call({ playCutscene() {}, _unlockMainChapters: Game.prototype._unlockMainChapters }, s);
  expect(save.data.boneBoard[1]).toMatchObject({ golden: false, goodBoy: true });
  expect(save.data.dogsFreed['1:shiba-a']).toBe(true);
 });
@@ -87,6 +87,6 @@ it('restores dog entities and raw pickups together after checkpoint rollback', (
 it.each(['trial', 'remix', 'rush'])('cannot bank normal bones or dogs on a %s clear', (flag) => {
  const s = session(); s[flag] = true;
  s.stats = { ...s.liveStats(), broken: 2, dogs: 1, deathsAtGate: 0, freedIds: ['1:shiba-a'] };
- Game.prototype.levelCleared.call({ playCutscene() {} }, s);
+ Game.prototype.levelCleared.call({ playCutscene() {}, _unlockMainChapters: Game.prototype._unlockMainChapters }, s);
  expect(save.data.boneBoard[1]).toBeUndefined(); expect(save.data.dogsFreed['1:shiba-a']).toBeUndefined();
 });

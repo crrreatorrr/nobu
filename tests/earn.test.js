@@ -136,7 +136,7 @@ describe('case 1: one attempt produces one earn key', () => {
       stats: { tickets: 25, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 },
     };
     try {
-      Game.prototype.levelCleared.call({ playCutscene() {} }, session);
+      Game.prototype.levelCleared.call({ playCutscene() {}, _unlockMainChapters: Game.prototype._unlockMainChapters }, session);
       await Promise.all(tracker.pending);
       tracker.pending.length = 0;
       session.levelTickets = 40;
