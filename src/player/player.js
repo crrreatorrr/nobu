@@ -14,6 +14,8 @@ import { makeShadow, placeShadow } from '../entities/fx.js';
 import { advanceHang } from './hang.js';
 import { rideVacuumMesh } from '../entities/ride.js';
 import { applyBossFling } from './bossFling.js';
+import { MOON_JUMP, advanceMoonCharge, cancelMoonCharge } from './moonJump.js';
+export { MOON_JUMP } from './moonJump.js';
 
 import { TUNING } from '../config/movement.js';
 export { TUNING } from '../config/movement.js';
@@ -77,6 +79,7 @@ export class Player {
   }
 
   reset() {
+    this.moonHold = null;
     this.bossFling = null;
     this.mode = 'normal';
     this.hang = null;
@@ -190,7 +193,7 @@ export class Player {
   update(dt, stage, camBasis) {
     this._advanceDustFov(dt);
     this.dustDashCool = Math.max(0, (this.dustDashCool || 0) - dt);
-    if (this.frozen) { this.dustDashT = 0; this._clearDustFov(); this._animate(dt); return; }
+    if (this.frozen) { if (this.moonHold) cancelMoonCharge(this); this.dustDashT = 0; this._clearDustFov(); this._animate(dt); return; }
     if (this.mode === 'dead') { this._updateDeath(dt, stage); this._animate(dt); return; }
     if (this.mode === 'victory') { this._animate(dt); this._updateShadow(stage); return; }
 
@@ -235,6 +238,7 @@ export class Player {
     }
 
     const grounded = this.body.grounded;
+    const moonGesture = advanceMoonCharge(this, dt, mag, input);
 
     // ---- actions ----
     this.barkCool = Math.max(0, (this.barkCool || 0) - dt);
@@ -245,7 +249,7 @@ export class Player {
       // LT is also slide. In the air, with a charge, it dashes and does not flop.
       const wantDash = !grounded && input.pressed('dash') && this.abilities.airDash && this.dashCharges > 0;
       if (wantDash) this._startAirDash();
-      if (input.pressed('slide') && !wantDash) {
+      if (input.pressed('slide') && !wantDash && !moonGesture) {
         if (grounded) this._startSlide(mag > 0.2 ? Math.atan2(dx, dz) : this.facing);
         else this._startFlop();
       }
@@ -342,9 +346,12 @@ export class Player {
     // ---- jumping ----
     if (this.jumpBuffer > 0 && (this.mode === 'normal' || this.mode === 'slide')) {
       if (grounded || this.coyote > 0) {
+        const moon = !!this.moonHold?.charged && input.held('slide');
+        if (this.moonHold) cancelMoonCharge(this);
         const fromSlide = this.mode === 'slide';
         if (fromSlide) this._endSlide(true);
-        this._jump(T.JUMP);
+        this._jump(moon ? MOON_JUMP.speed : T.JUMP);
+        if (moon) { audio.play('boing', .7); audio.play('whoosh'); this.game.fx?.shock(this.pos.x, this.pos.y+.03, this.pos.z, { radius: 2.2, color: 0xffdf7b, life: .5 }); }
         if (fromSlide) {
           const f = this.forward;
           this.vel.x = f.x * T.SLIDE_JUMP_SPEED; this.vel.z = f.z * T.SLIDE_JUMP_SPEED;
@@ -511,6 +518,12 @@ export class Player {
     this.idleTime = 0;
   }
 
+  _moonCharged() {
+    audio.play('chime');
+    this.game.fx?.shock(this.pos.x, this.pos.y+.03, this.pos.z, { radius: 1.5, color: 0xffdf7b, life: .5 });
+    this.game.fx?.sparkle(this.pos.x, this.pos.y+.5, this.pos.z, { count: 12, color: 0xffdf7b, speed: 2, size: .25 });
+  }
+
   _startSlide(dir) {
     this.mode = 'slide';
     this.slideT = 0; this.dustDashUsed = false;
@@ -555,9 +568,14 @@ export class Player {
   _advanceDustFov(dt) { if (this.dustFov && (this.dustFov.time -= dt) <= 0) this._clearDustFov(); }
 
   _dustContact(e) {
+    if (typeof e.onDash === 'function') {
+      // A shape-specific boss may decline a broad AABB contact. Retry it on
+      // later dash frames rather than consuming the hit at the box's corner.
+      if (e.onDash(this) !== false) this.bitten.add(e);
+      return true;
+    }
     let action;
-    if (typeof e.onDash === 'function') action = e.onDash;
-    else if (e.kind === 'dustwall' && typeof e.contact === 'function') action = e.contact;
+    if (e.kind === 'dustwall' && typeof e.contact === 'function') action = e.contact;
     else if (e.maxHp !== undefined) action = () => {}; // Bosses explicitly opt into onDash.
     else if (typeof e.flip === 'function' && typeof e.onFlop === 'function') action = e.onFlop;
     else if (typeof e.onSlide === 'function') action = e.onSlide;
@@ -690,6 +708,7 @@ export class Player {
   // ---------- damage ----------
   trap(sec) {
     if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || !(sec > 0)) return false;
+    if (this.moonHold) cancelMoonCharge(this);
     this.bossFling = null;
     this.hang = null;
     this.mode = 'trapped'; this.trapT = sec; this.trapElapsed = 0;
@@ -724,6 +743,7 @@ export class Player {
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
     if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god || this.frozen) return false;
+    if (this.moonHold) cancelMoonCharge(this);
     this.hang = null;
     const s = this.game.session;
     if (s && s.mask > 0) {
@@ -811,6 +831,7 @@ export class Player {
   }
 
   die(type = 'angel') {
+    if (this.moonHold) cancelMoonCharge(this);
     this.bossFling = null;
     this._clearDustFov(); this.dustDashT = 0;
     if (this.mode === 'dead') return;
@@ -898,6 +919,7 @@ export class Player {
     if (this.ride && this.mode === 'normal') { st.speed = 0; st.idleTime = 0; }
     if (this.frozen && this.mode === 'normal') { st.speed = 0; st.grounded = true; }
     const pose = this.anim.update(dt, st);
+    if (this.moonHold?.time >= MOON_JUMP.tap) { pose.scaleY *= .8; pose.scaleXZ *= 1.1; }
     this.model.apply(pose);
     if (this.mode !== 'dead') {
       this.root.position.copy(this.pos);

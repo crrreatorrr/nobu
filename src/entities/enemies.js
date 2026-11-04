@@ -811,7 +811,9 @@ export class PumpPill extends PillBot {
   onStomp(p) {
     if (!this.alive) return;
     this.tag.visible = false;
-    super.onStomp(p);
+    if (this.unstompable) { this.onTouch(p); return; }
+    this.squash();
+    p.bounce(11 + 2 * this.pump);
   }
 }
 
