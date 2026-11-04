@@ -192,8 +192,9 @@ export class Player {
     const T = TUNING;
     const st = input.state;
     // camera-relative intent
-    let dx = camBasis.right.x * st.x + camBasis.forward.x * st.y;
-    let dz = camBasis.right.z * st.x + camBasis.forward.z * st.y;
+    const forwardInput = st.y * (this.game.camera.sideAxis ? 0.5 : 1);
+    let dx = camBasis.right.x * st.x + camBasis.forward.x * forwardInput;
+    let dz = camBasis.right.z * st.x + camBasis.forward.z * forwardInput;
     const len = Math.hypot(dx, dz);
     const mag = Math.min(1, len);
     if (len > 0.001) { dx /= len; dz /= len; }

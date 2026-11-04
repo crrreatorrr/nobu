@@ -103,6 +103,7 @@ export class Session {
     g.player.spawnAt(info.spawn, info.facing);
     g.mask.setLevel(this.mask, this.mask);
     g.mask.snapTo(g.player);
+    stage.defaultCamera = info.camera;
     g.camera.setMode(info.camera.mode, info.camera);
     g.camera.cam.fov = info.fov || 58;
     g.camera.cam.updateProjectionMatrix();
@@ -290,9 +291,9 @@ export class Session {
     g.ui.fade(1).then(() => g.trialDone(this, t, medal, best));
   }
 
-  _startChase(s, delay, first) {
+  _startChase(s, delay, first, { banner = true } = {}) {
     this.chase.begin(s, delay);
-    if (first) setTimeout(() => this.game.ui.banner('RUN!', 'Hold ↓ / S toward the camera', 2.2), delay * 1000 - 300);
+    if (first && banner) setTimeout(() => this.game.ui.banner('RUN!', 'Hold ↓ / S toward the camera', 2.2), delay * 1000 - 300);
   }
 
   async reachBossGate() {
