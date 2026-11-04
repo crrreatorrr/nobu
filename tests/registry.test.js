@@ -19,10 +19,10 @@ const oldMapOpen = (id, data) => {
 
 describe('level registry', () => {
   it('keeps the current map order, node positions and main-level ids', () => {
-    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3]);
+    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 'kennel']);
     expect(playOrder()).toEqual([1, 2, 3]);
     expect(MAP_ORDER.map((id) => levelDef(id).mapPos)).toEqual([
-      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 },
+      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 72 },
     ]);
     for (const id of [1, 2, 3]) {
       expect(levelDef(id).id).toBe(id);
@@ -68,10 +68,10 @@ describe('level registry', () => {
   });
 
   it('marks only current content shipped and only main levels trial-enabled', () => {
-    expect(MAP_ORDER.map((id) => levelDef(id).tier)).toEqual([1, 1.5, 2, 2.5, 3]);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => levelDef(id).tier)).toEqual([1, 1.5, 2, 2.5, 3]);
     expect(Object.values(LEVELS).every((def) => def.shipped)).toBe(true);
     expect(MAP_ORDER.filter((id) => levelDef(id).trial)).toEqual([1, 2, 3]);
-    for (const id of [4, 5, 6, 'g1', 'kennel', 'toString']) {
+    for (const id of [4, 5, 6, 'g1', 'toString']) {
       expect(levelDef(id)).toBeUndefined();
       expect(isOpen(id, { unlocked: 9 })).toBe(false);
     }
@@ -82,10 +82,10 @@ describe('level registry', () => {
 
   it('exposes migration dog ids in stable authoring order with current counts', () => {
     expect(LEVEL_IDS).toEqual(['1', '2', '3', '4', '5', '6', 'ride', 'cave']);
-    expect(MAP_ORDER.map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([5, 2, 3, 2, 5]);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([5, 2, 3, 2, 5]);
     expect(Object.keys(LEVEL_DOGS[1])).toEqual(['shiba-a', 'pug-a', 'dalmatian-a', 'shiba-b', 'corgi-a']);
     const ids = [];
-    for (const def of Object.values(LEVELS)) {
+    for (const def of Object.values(LEVELS).filter((d) => !d.meta)) {
       expect(def.dogs).toBe(LEVEL_DOGS[def.id]);
       for (const [dog, section] of Object.entries(def.dogs)) {
         const id = `${def.id}:${dog}`;

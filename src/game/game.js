@@ -15,7 +15,7 @@ import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
+import { KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
@@ -23,7 +23,11 @@ import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
 import { bankChain } from './rewards.js';
 import { nextGoal, savedGoalStats } from './hints.js';
 import { openCompleteTally, advanceCompleteTally } from './completeTally.js';
-import { goodBoyPercent, kennelUnlocks, totalDogs } from './progress.js';
+import { noticeKennelMilestones, goodBoyPercent, kennelUnlocks, totalDogs } from './progress.js';
+
+import { Kennel } from './kennel.js';
+import { kennelStatus, missingSecrets, selectedTint } from './kennelData.js';
+import { applyFurTint } from '../player/furTint.js';
 
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
 function esc(text) {
@@ -49,9 +53,7 @@ function bankBoneResults(session, st) {
     if (Object.hasOwn((session.def || levelDef(session.level)).dogs || {}, localId)) d.dogsFreed[`${session.level}:${localId}`] = true;
   }
   if (Object.keys(d.dogsFreed).length) d.open.kennel = true;
-  const unlocks = kennelUnlocks(d, totalDogs(LEVELS));
-  st.kennelFresh = unlocks.slice(d.kennel.seen || 0);
-  d.kennel.seen = Math.max(d.kennel.seen || 0, unlocks.length);
+  st.kennelFresh = noticeKennelMilestones(d, LEVELS);
   return fresh;
 }
 
@@ -91,6 +93,7 @@ export class Game {
     this.camera.cam.aspect = w / h;
     this.camera.cam.updateProjectionMatrix();
     if (this.titleCam) { this.titleCam.aspect = w / h; this.titleCam.updateProjectionMatrix(); }
+    if (this.kennel?.yard.camera) { this.kennel.yard.camera.aspect = w / h; this.kennel.yard.camera.updateProjectionMatrix(); }
   }
 
   async boot() {
@@ -145,6 +148,7 @@ export class Game {
       case 'play': this.updatePlay(dt); break;
       case 'pause': this.updatePause(dt); break;
       case 'wardrobe': this.updateWardrobe(dt); break;
+      case 'kennel': this.kennel.update(dt, input); break;
       case 'complete': this.updateComplete(dt); break;
       case 'gameover': this.updateGameOver(dt); break;
       case 'credits': this.updateCredits(dt); break;
@@ -155,6 +159,8 @@ export class Game {
   render() {
     if (this.state === 'title' || this.state === 'credits' || this.state === 'wardrobe') {
       this.renderer.render(this.titleScene, this.titleCam);
+    } else if (this.state === 'kennel') {
+      this.renderer.render(this.kennel.yard.scene, this.kennel.yard.camera);
     } else if ((this.state === 'play' || this.state === 'pause') && this.session?.stage) {
       this.renderer.render(this.session.stage.scene, this.camera.cam);
     } else {
@@ -192,7 +198,7 @@ export class Game {
   }
 
   _dressTitleNobuGear() {
-    if (this.titleNobu) dressNobuModel(this.titleNobu, this.loadout);
+    if (this.titleNobu) { dressNobuModel(this.titleNobu, this.loadout); this.applyKennelTint(this.titleNobu, {}); }
   }
 
   _applyHubGear() {
@@ -215,11 +221,28 @@ export class Game {
     this._dressTitleNobuGear();
   }
 
+  applyKennelTint(model = this.player?.model, context = this.session || {}) {
+    applyFurTint(model, selectedTint(save.data, LEVELS, context));
+  }
+
+  openKennel(mode = null) {
+    if (!isOpen('kennel', save.data)) return false;
+    this.kennel?.dispose();
+    this.session?.dispose(); this.session = null;
+    this.ui.trialTime(null); this.ui.hideHud(); this.ui.bossHide(); this.ui.clearScreen();
+    this.state = 'kennel';
+    this.kennel = new Kennel(this, KENNEL_TEXT);
+    if (mode === 'sniffer' && this.kennel.mode !== 'golden' && this.kennel.status.unlocks.includes('sniffer')) { this.kennel.mode = 'sniffer'; audio.play('sniff'); this.kennel.draw(); }
+    this.ui.fade(0);
+    return true;
+  }
+
   toTitle() {
     this.ui.trialTime(null);
     this.state = 'title';
     this.session = null;
     this._refreshTitleNobu();
+    this.applyKennelTint(this.titleNobu, {});
     this.titleScene.background = Assets.tex('bg_title');
     this.titleMenu = null;
     this.ui.hideHud();
@@ -254,7 +277,7 @@ export class Game {
   updateTitle(dt) {
     // Nobu idles on the title screen: the animator cycles through his silly idles
     this.titleIdle += dt;
-    const pose = this.titleAnim.update(dt, { mode: 'normal', speed: 0, vy: 0, grounded: true, biteT: -1, flipT: -1, landT: 1, jumpT: 1, idleTime: this.titleIdle, flopPhase: null });
+    const pose = this.titleAnim.update(dt, { mode: save.data.kennel.goldenSeen ? 'victory' : 'normal', speed: 0, vy: 0, grounded: true, biteT: -1, flipT: -1, landT: 1, jumpT: 1, idleTime: this.titleIdle, flopPhase: null });
     this.titleNobu.apply(pose);
     this.titleMask.position.y = 1.55 + Math.sin(this.titleIdle * 2) * 0.1;
     this.titleMask.rotation.y = Math.sin(this.titleIdle * 1.3) * 0.3;
@@ -366,31 +389,33 @@ export class Game {
     let nodes = '';
     for (const n of MAP_ORDER) {
       const p = levelDef(n).mapPos;
-      const bonus = levelDef(n).bonus;
+      const bonus = levelDef(n).bonus, meta = !!levelDef(n).meta;
       const locked = !isOpen(n, d);
       const beaten = bonus ? !!d.bonus?.[n]?.beaten : save.beatenOf(n);
       nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
-        ${!beaten && !bonus ? '<div class="cone-cloud"></div>' : ''}
+        ${!beaten && !bonus && !meta ? '<div class="cone-cloud"></div>' : ''}
         ${!bonus && save.boneOf(n) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
         ${!bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
         ${n === this.mapSel ? `<img class="nobu-marker" src="${Assets.url('nobu_head')}">` : ''}
-        <div class="dot">${locked ? '🔒' : bonus ? '★' : n}</div>
+        <div class="dot">${locked ? '🔒' : meta ? '🐾' : bonus ? '★' : n}</div>
         <div class="label">${bonus && locked ? 'BONUS' : LEVEL_NAMES[n]}</div></div>`;
     }
     const lv = this.mapSel;
-    const bonusSel = levelDef(lv).bonus;
-    const head = bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
-    const status = esc(goalHint(this, lv));
-    const tr = !bonusSel && save.beatenOf(lv)
+    const bonusSel = levelDef(lv).bonus, metaSel = !!levelDef(lv).meta;
+    const head = metaSel ? KENNEL_TEXT.title : bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
+    const status = esc(metaSel ? KENNEL_TEXT.mapDescription : goalHint(this, lv));
+    const sniffer = !metaSel && kennelStatus(d, LEVELS).unlocks.includes('sniffer') ? missingSecrets(d, LEVELS).find((def) => String(def.id) === String(lv)) : null;
+    const snifferLine = sniffer ? `<div class="hint">${esc(KENNEL_TEXT.secretLine(sniffer))}</div>` : '';
+    const tr = !!levelDef(lv).trial && save.beatenOf(lv)
       ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
       : '';
-    const world = !bonusSel && save.beatenOf(lv) ? this._worldLine(lv) : '';
+    const world = !!levelDef(lv).trial && save.beatenOf(lv) ? this._worldLine(lv) : '';
     const total = save.totalTrialMs();
     const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
-    const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${this.ui.boneBoard(lv, { bonus: bonusSel })}
-      <div class="hint">${status}</div>${tr}${world}${totalNote}
-      <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title</div>
+    const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel })}
+      <div class="hint">${status}</div>${snifferLine}${tr}${world}${totalNote}
+      <div class="hint" style="margin-top:6px">${metaSel ? esc(KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
     this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
@@ -532,13 +557,15 @@ export class Game {
     if (input.pressed('left') || input.pressed('down')) { if (i > 0) { this.mapSel = open[i - 1]; audio.play('menu'); this._drawMap(); } }
     if (input.pressed('exchange')) { audio.play('select'); this.openExchange(); return; }
     if (input.pressed('hub')) { audio.play('select'); this.exitToHub(); return; }
-    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); this.startLevel(this.mapSel); }
+    if (input.pressed('bark') && kennelStatus(d, LEVELS).unlocks.includes('sniffer')) { this.openKennel('sniffer'); return; }
+    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta) this.openKennel(); else this.startLevel(this.mapSel); }
     else if (input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
 
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
+    if (levelDef(n)?.meta) return this.openKennel();
     await this.ui.fade(1);
     this.ui.clearScreen();
     this.ui.trialTime(null);

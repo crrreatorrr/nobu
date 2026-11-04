@@ -1,6 +1,7 @@
 // A play session for one level: the path stage, then its boss arena (bonus stages end at a goal instead).
 // Owns checkpoints (with Crash-style rollback on death), lives, tickets, masks, invincibility and stats.
 import * as THREE from 'three';
+import { addBuddy } from '../entities/buddy.js';
 import { Stage } from '../world/stage.js';
 import { TicketSystem } from '../entities/tickets.js';
 import { FX } from '../entities/fx.js';
@@ -13,7 +14,7 @@ import { ConedDog } from '../entities/dogs.js';
 import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.js';
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
-import { levelDef, LEVEL_NAMES } from '../levels/registry.js';
+import { LEVELS, levelDef, LEVEL_NAMES } from '../levels/registry.js';
 import { LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT, SECTION_TEXT } from '../story/script.js';
 import { createChain, refreshChain, chainPitch } from './rewards.js';
 import { hitSessionChain, finishSessionChain, updateSessionChain, removeChainDrops } from './chain.js';
@@ -120,6 +121,7 @@ export class Session {
     g.player.attach(stage.scene);
     g.mask.attach(stage.scene);
     g.player.spawnAt(info.spawn, info.facing);
+    g.applyKennelTint?.(g.player.model, this);
     g.mask.setLevel(this.mask, this.mask);
     g.mask.snapTo(g.player);
     stage.defaultCamera = info.camera;
@@ -170,6 +172,7 @@ export class Session {
     ui.showHud(4);
     this._pushHud();
     g.player.setRide(info.ride || null);
+    this.buddy = addBuddy(this, save.data, LEVELS);
     if (this.trial) this._setupTrial();
     g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
     if (LEVEL_INTRO[this.level] && !this.trial) {

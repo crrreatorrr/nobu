@@ -12,7 +12,7 @@ const copy = { title: 'Kennel', names: { jukebox: 'Jukebox', buddy: 'Buddy', gol
   goldenTitle: 'Golden Kennel', goldenSpeaker: 'SPROTO MASK', golden: 'Every. Single. Dog.', continue: 'Continue',
   controls: 'Controls', choose: 'Choose', play: 'Play', labels: { none: 'NONE' } };
 const fixture = (n) => {
-  const dogs = Object.values(LEVELS).flatMap((d) => Object.keys(d.dogs).map((id) => `${d.id}:${id}`));
+  const dogs = Object.values(LEVELS).flatMap((d) => Object.keys(d.dogs || {}).map((id) => `${d.id}:${id}`));
   save.data.dogsFreed = Object.fromEntries(dogs.slice(0, n).map((id) => [id, true]));
   const screen = document.createElement('div'), game = { ui: { screen, setScreen(html) { screen.innerHTML = html; } }, toMap: vi.fn() };
   return { game, kennel: new Kennel(game, copy), screen };
