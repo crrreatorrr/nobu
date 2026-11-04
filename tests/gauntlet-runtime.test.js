@@ -32,10 +32,10 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); delete navigator.getGamepads; });
 function screenGame(host = 1) {
   const screen = document.createElement('div');
-  return { mapSel: host, exchangeOpen: false, player: { abilities: {} }, ui: { screen,
+  return Object.assign(Object.create(Game.prototype), { mapSel: host, exchangeOpen: false, player: { abilities: {} }, ui: { screen,
     setScreen(html) { screen.innerHTML = html; }, boneBoard: vi.fn(() => ''), hideHud: vi.fn(), bossHide: vi.fn(),
     trialTime: vi.fn(), clearScreen: vi.fn(), fade: vi.fn(async () => {}) },
-    _worldLine: () => '', startLevel: vi.fn(), toMap: vi.fn() };
+    _worldLine: () => '', startLevel: vi.fn(), toMap: vi.fn() });
 }
 test('ships pinned gauntlets with no ordinary bones/dogs/trial/map nodes or base-percent inflation', () => {
   const ordinary = Object.fromEntries(Object.entries(LEVELS).filter(([, d]) => !d.gauntlet));
@@ -129,6 +129,27 @@ test('gauntlet pause omits ordinary Bone Board and quit disposes the session bef
   save.data.open[4] = true;
   game._drawMap = vi.fn(); game._unlockMainChapters = vi.fn(); Game.prototype.toMap.call(game, 'g3');
   expect(dispose).toHaveBeenCalledOnce(); expect(game.mapSel).toBe(4); expect(game.session).toBeNull();
+});
+test('actual Session death keeps its ordinary death rate, then restores gauntlet tempo on respawn and invincibility expiry', async () => {
+  vi.useFakeTimers();
+  const noop = () => {}, game = { state: 'play', player: { pos: new THREE.Vector3(), body: {}, abilities: {},
+    spawnAt: vi.fn(), update: noop }, mask: { setLevel: noop, snapTo: noop, update: noop },
+    ui: { setHud: noop, deathCard: noop, fade: async () => {}, clearScreen: noop, showHud: noop },
+    fx: { clear: noop, update: noop }, camera: { snap: noop, update: noop }, gameOver: vi.fn() };
+  const session = new Session(game, 'g1'); game.session = session;
+  session.stage = { entities: [], update: noop, followSky: noop };
+  session.tickets = { list: [], restoreAfter: noop, clearFlying: noop, update: noop };
+  session.projectiles = { clear: noop, update: noop };
+  session.cp = { pos: new THREE.Vector3(), seq: 0, tickets: 0, levelTickets: 0, freedIds: [] };
+  const lives = save.data.lives; session.onPlayerDeath('fall');
+  expect(audio.setRate).toHaveBeenLastCalledWith(1);
+  await vi.advanceTimersByTimeAsync(3000);
+  expect(session.deaths).toBe(1); expect(game.player.spawnAt).toHaveBeenCalledOnce();
+  expect(save.data.lives).toBe(lives - 1); expect(audio.setRate).toHaveBeenLastCalledWith(1.08);
+  session.invincibleT = .01; session.update(.02);
+  expect(session.invincibleT).toBe(0); expect(session.mask).toBe(2); expect(audio.setRate).toHaveBeenLastCalledWith(1.08);
+  session.def = LEVELS[1]; session.invincibleT = .01; session.update(.02);
+  expect(audio.setRate).toHaveBeenLastCalledWith(1);
 });
 
 for (const [id, info] of Object.entries(GAUNTLET_INFO)) test(`${id} actual host contains a reachable supported Polaroid which saves immediately and stays grey after checkpoint retry`, () => {

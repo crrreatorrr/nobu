@@ -847,6 +847,7 @@ export class Session {
     }
     g.mask.snapTo(g.player);
     this._pushHud();
+    if (this.def?.gauntlet) audio.setRate(1.08);
     if (this.chase && this.stage.track) {
       const pr = this.stage.track.project(cp.pos.x, cp.pos.z);
       this.chase.begin(pr.s - 13, 1.6);
@@ -877,7 +878,7 @@ export class Session {
       this.invincibleT -= dt;
       if (this.invincibleT <= 0) {
         this.invincibleT = 0;
-        audio.setRate(1);
+        audio.setRate(this.def?.gauntlet ? 1.08 : 1);
         this.setMask(2);
       }
     }
