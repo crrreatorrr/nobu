@@ -30,3 +30,15 @@ Seven stable dog IDs:4:corgi-a,4:pug-a,4:dalmatian-a,4:shiba-a,4:corgi-b,4:dalma
 Local helper mechanics add no Ticket payers: Iron, steam fan, Dust Bunny splitting and ambush. Oranges remain actual CoconutRoller instances; Cookie Jar entry/exit remain TreatTray instances and their ordinary bonus-round payers are measured. No new media or vendor changes.
 
 H41 arena contract: separate `src/levels/boss4Arena.js`, export `buildBoss4Arena`. Registry/theme/song integration is coordinated separately with the root after H60 shared-file ownership; playable activation requires the real boss and arena.
+
+## Verification on d2188be
+
+- `npm_config_cache=/tmp/nobu-npm-cache npm ci`: passed.
+- `npm test -- --maxWorkers=2`:58files/583tests passed, including16new Laundry tests.
+- `npm run build`: passed,120modules; ordinary existing bundle-size warning only. The level remains unshipped, so production intentionally does not import its builder yet; Vitest imports and executes the actual builder and all local helpers.
+- `git diff --cached --check`: passed before source commit.
+- No browser launched because the shared GPU queue is reserved for other tasks. First-time human playtests, full controller recording, visual readability, and a one-run Golden Bone clear remain unrun.
+
+Actual World/moveBody checks prove bounded-speed ballistic landings on actual receiver solids (including packs on shelves); they reject head contacts and intermediate landings. Moving drum boarding advances the real SpinDrum each frame, then tests actual rideGround/moveBody carry order. These checks are feasibility evidence and do not claim full input recordings.
+
+The literal Cereal bypass is demonstrated by an8m/s-bounded, double-at0.45s Glide flight on the open right side(u3) fromd345.5tod366, with no intermediate platform landing or head collision. Roof/baffle changes would need review because the earlier Smog Vent/high green-bone shelf also allows approaching above an ordinary roof. The minimal rest/tell proposal is independent of that decision.
