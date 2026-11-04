@@ -395,7 +395,7 @@ export class ChaseCat extends Entity {
 // ---------------- Boss ----------------
 export class BigCatBoss extends Boss {
   constructor(stage, x, y, z) {
-    super(stage, x, y, z, { name: 'THE BIG CAT', portrait: 'portrait_cat', hp: 6, phaseHp: 2 });
+    super(stage, x, y, z, { name: 'THE BIG CAT', portrait: 'portrait_cat', key: 'cat' }); // Old hp 6, phaseHp 2.
     this.rig = new CatRig(0.95);
     this.obj.add(this.rig.root);
     this.home = new THREE.Vector3(x, y, z);
@@ -465,8 +465,6 @@ export class BigCatBoss extends Boss {
   get fwd() { return new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); }
 
   start() { this.active = true; this.setState('stalk'); this.nextAttackAt = 1.4; }
-
-  get sp() { return this.phase === 3 ? 1.45 : this.phase === 2 ? 1.2 : 1; }
 
   ai(dt) {
     const p = this.player;
@@ -566,7 +564,7 @@ export class BigCatBoss extends Boss {
         this.sinceVuln = 0;
         if (!this.hinted) { this.hinted = true; this.game.ui.banner('DIZZY!', 'Jump on its head or bite it!', 2); }
         if (this.landT > 0) { this.landT -= dt; this.rig.pose('land', dt, 1); } else this.rig.pose('dizzy', dt);
-        const dur = (this.phase === 1 ? 2.8 : this.phase === 2 ? 2.4 : 2.0) + (this.longDizzy ? 1.2 : 0);
+        const dur = this.W + (this.longDizzy ? 1.2 : 0); // Old 2.8 / 2.4 / 2.0, plus unchanged ultimate bonus.
         if (this.stateT > dur) { this.longDizzy = false; this.toStalk(); audio.play('hiss'); }
         break;
       }

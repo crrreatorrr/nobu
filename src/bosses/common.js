@@ -6,6 +6,7 @@ import { audio } from '../audio/audio.js';
 import { canvasTex, rand } from '../core/util.js';
 import { toon } from '../player/nobuPrims.js';
 import { TUNING } from '../player/player.js';
+import { BOSS, FLOOR, ULT_CHARGE } from '../config/difficulty.js';
 
 import { Assets } from '../art/assets.js';
 
@@ -401,13 +402,16 @@ function slashTexture() {
 
 // ---------- Boss base ----------
 export class Boss extends Entity {
-  constructor(stage, x, y, z, { name, portrait, hp, phaseHp }) {
+  constructor(stage, x, y, z, { name, portrait, key }) {
     super(stage, x, y, z);
+    this.key = key;
     this.name = name;
     this.portrait = portrait;
-    this.maxHp = hp;
-    this.hp = hp;
-    this.phaseHp = phaseHp; // hits per phase
+    this.maxHp = this.D.hp; // Old Bird/Cat 6, Cone 9.
+    this.hp = this.D.hp;
+    this.phaseHp = this.D.perStage; // Old Bird/Cat 2, Cone 3 hits per phase.
+    this.stages = this.D.stages;
+    this.dda = { tele: 1, window: 0 }; // Inert until the H20 boss-DDA hook.
     this.phase = 1;
     this.vulnerable = false;
     this.hitCool = 0;
@@ -421,7 +425,7 @@ export class Boss extends Entity {
     this.meshes = [];
     // rechargeable ultimate: the SPECIAL gauge fills over time (faster each phase, and a bit with every hit)
     this.charge = 0;
-    this.chargeTimes = [0, 26, 20, 15]; // seconds to fill, per phase
+    this.chargeTimes = ULT_CHARGE.slice(); // Old [0, 26, 20, 15], seconds per phase.
     this.ulting = false;
     // evolution: every new stage the boss transforms (cinematic + new parts + aura) and hits harder and faster
     this.stageLook = 1;
@@ -432,6 +436,13 @@ export class Boss extends Entity {
     this.baseGlow = new THREE.Color(0, 0, 0);
     this.evolving = null;
   }
+
+  // Shared difficulty reads; the new tell/chain/DDA hooks remain unused in M0.
+  get D() { return BOSS[this.key]; }
+  get sp() { return this.D.speed[this.phase - 1]; }
+  get W() { return Math.max(FLOOR.windowSec, this.D.window[this.phase - 1] + this.dda.window); }
+  tele(base) { return Math.max(FLOOR.teleSec, base * this.D.tele[this.phase - 1] * this.dda.tele); }
+  get chainLen() { return this.D.chain[this.phase - 1]; }
 
   // The group that grows each stage (subclasses point this at their model root).
   get evolveRoot() { return this.rig?.root || this.rig || this.obj; }

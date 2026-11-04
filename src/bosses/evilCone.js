@@ -48,7 +48,7 @@ function weighCone(x, y, z) {
 
 export class EvilCone extends Boss {
   constructor(stage, x, y, z) {
-    super(stage, x, y, z, { name: 'THE EVIL CONE', portrait: 'portrait_cone', hp: 9, phaseHp: 3 });
+    super(stage, x, y, z, { name: 'THE EVIL CONE', portrait: 'portrait_cone', key: 'cone' }); // Old hp 9, phaseHp 3.
     this.buildModel();
     this.setBox(2.6, 2.8, 2.6, -1.4);
     this.home = new THREE.Vector3(0, 3.2, -6);
@@ -159,8 +159,6 @@ export class EvilCone extends Boss {
       if (r) { this.bones = r.bones; this.bones.shadow.scale.setScalar(0.0001); }
     }
   }
-
-  get sp() { return [1, 1, 1.25, 1.5][this.phase]; }
 
   idleAnim(dt) {
     this.anim(dt);
@@ -601,7 +599,7 @@ export class EvilCone extends Boss {
       }
       case 'overheat': {
         // drops, tips over, steams: SHORT vulnerability window (longer after the ultimate)
-        const win = (this.phase === 1 ? 1.8 : this.phase === 2 ? 1.4 : 1.1) + (this.longHeat ? 1.0 : 0);
+        const win = this.W + (this.longHeat ? 1.0 : 0); // Old 1.8 / 1.4 / 1.1, plus unchanged ultimate bonus.
         if (this.stateT < 0.45) {
           this.pos.y = damp(this.pos.y, ground + 1.0, 10, dt);
           this.coneBody.rotation.z = damp(this.coneBody.rotation.z, 1.25, 10, dt);
