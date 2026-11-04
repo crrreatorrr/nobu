@@ -21,19 +21,23 @@ The plan, in priority order:
 1. **Reward loops first (section 3).** Give each level a six-bone board, like Crash 4's six gems. Add a
    Chomp Chain combo, Mystery Backpacks, a rescued-dog Kennel with milestone unlocks, a "next goal" hint
    after each level, and move-gated secrets in old levels so every new boss move sends players back.
-2. **Two new levels with two new bosses (sections 6 and 7).** Chapter 2, "The Smog Returns," unlocks
-   after the Evil Cone:
+2. **Three new levels and two new bosses (sections 6 and 7).** Chapter 2, "The Smog Returns," unlocks
+   after the Evil Cone. In play order:
    - **Level 4, Laundry Day:** the Owner's House at dog scale, ending in the boss **Roomba Titan**.
+   - **Level 6, Smog Rapids:** a river level with raft rides and on-foot landings, from the house drains
+     down to the pipeline. It has no boss and ends at a goal.
    - **Level 5, Pump & Dump Pipeline:** a trading-floor factory, ending in the true final boss,
      **the Pump Queen**.
    - Both bosses are harder than the Evil Cone.
+   - Ids follow the order the levels were added, not the play order. Level 6 is played before Level 5.
 3. **More powers for every boss (section 7).** The three existing bosses each get one new power per
    stage, a stage hazard in the arena and a stronger ultimate at each stage. The bosses are placed on a
    difficulty ladder: each stage is harder than the last, and each boss is harder than the one before.
    `tests/difficulty.test.js` checks that both orders hold.
 4. **Longer existing levels (section 6.3).**
-   - Levels 1–3 and both bonus stages grow by about 30–40%, with 2–3 new sections each.
-   - Each also gets a detour route and +2 dogs (+1 for each bonus stage).
+   - Levels 1–3 grow by about 70% and the bonus stages by about 50%, with 3–4 new sections each.
+   - Each main level gets two detour routes and +4 dogs; each bonus stage gets one detour and +2 dogs.
+   - The new levels are planned at the same scale: L4 about 480 m, L6 about 450 m and L5 about 460 m.
    - Extended levels go on new trial boards (`1v2`, `2v2`, `3v2`); the old boards are kept as "Classic."
 5. **Difficulty as data (section 4).** Move the difficulty numbers into a `src/config/difficulty.js` tier
    table. Formalise the Crash-style hidden DDA ladder, which already starts with the pity mask. Add opt-in
@@ -191,8 +195,12 @@ The game is about rescuing dogs, so the meta reward should show the dogs.
   | 25 | **Sniffer:** a bark on the map lists the room or section of each missing Hidden Bone and dog (the anti-grind hint, after Astro Bot's radar bird) |
   | all | Golden Kennel cutscene and a Nobu dance on the title screen |
 
-- With the extensions and the two new levels there are about **37 dogs**: L1 7, L2 5, L3 7, Roomba
-  Rush 3, Glowworm Grotto 3, L4 5 and L5 5. The milestones are spread across that total.
+- With the extensions and the three new levels there are **54 dogs**:
+  - L1 9, L2 7, L3 9.
+  - Roomba Rush 4, Glowworm Grotto 4.
+  - L4 7, L6 7, L5 7.
+- The milestone thresholds above were drafted for a smaller game. The rewards spec spreads them over
+  the 54, with the last one at all 54.
 
 ### 3.6 Move-gated secrets (chapter loop and backtracking)
 
@@ -236,13 +244,13 @@ Bark Rocks already do this; extend it to every move.
 The counter is a percent with explicit weights, so 100% is reachable without mastery content.
 
 - **The base 100% is the completion track:**
-  - Story clears: 5 main levels × 4 = 20.
-  - Bone Boards: 5 main levels × 6 slots = 30.
+  - Story clears: 6 main levels × 4 = 24.
+  - Bone Boards: 6 main levels × 6 slots = 36.
   - Bonus-stage boards: 2 × 3 = 6.
-  - Colored bones: 4.
-  - Dogs: 1 point per 3 dogs, about 12.
+  - Colored bones: 5 (red, blue, green, yellow, purple).
+  - Dogs: 1 point per 3 dogs, 54 / 3 = 18.
   - Kennel milestones: 6.
-  - Total: about 78 points, scaled to 100%.
+  - Total: 95 points, scaled to 100%. The rewards spec has the exact table.
 - **Above 100% is the mastery track**, up to 200%: Platinum Tags, no-hit boss medals, Remix bones and the
   boss rush.
 - Mastery points are **never needed for the story or the secret ending.** The secret ending needs 80%.
@@ -267,7 +275,7 @@ here instead of literals. The numbers below are first passes, to be tuned in pla
 
 ```js
 // Level tiers: 1 = Bark Jungle ... 5 = Pump & Dump. Bonus stages use the tier of the level before them.
-export const LEVEL_TIER = { 1: 1, ride: 1.5, 2: 2, cave: 2.5, 3: 3, 4: 4, 5: 5 };
+export const LEVEL_TIER = { 1: 1, ride: 1.5, 2: 2, cave: 2.5, 3: 3, 4: 4, 6: 4.5, 5: 5 }; // 4.5 = halfway between rows
 export const TIER = {
   enemySpeed:   [1.00, 1.08, 1.16, 1.24, 1.32],   // multiplier on each enemy's authored speed
   hazardPeriod: [1.00, 0.95, 0.90, 0.85, 0.80],   // hammers, crushers, flip planks (lower = faster)
@@ -344,6 +352,7 @@ for 4.6.
 | 2 Scratchpost Canyon | 2 | the chase | 4–6 |
 | 3 Cone Factory | 3 | conveyors, crushers, hammers, fan | 6–10 |
 | 4 Laundry Day | 4 | spin drums, ziplines, toaster launchers, mid-level stampede | 8–12 |
+| 6 Smog Rapids | 4.5 | raft rides, whirlpools, rapids drops, on-foot landings | 9–13 |
 | 5 Pump & Dump | 5 | market platforms, Pump Pill stepping stones, rug-pull collapse | 10–15 |
 
 The extended L1–L3 keep their tier. Their target death counts rise about 30% with length, and the
@@ -411,17 +420,21 @@ existing levels and bonus stages.
   lore: pump.fun minions already exist.
 - **Unlocks:**
   - Level 4 opens when the Evil Cone is beaten (`beaten[2]`).
-  - Level 5 opens when the Titan is beaten.
+  - Level 6 opens when the Titan is beaten.
+  - Level 5 opens when Level 6 is cleared.
   - The secret ending needs the Pump Queen beaten **and** Good Boy % ≥ 80.
-- **Ids:** the new levels are `4` and `5`. Never renumber 1–3.
-- **Map:** the map node list grows to `[1, 'ride', 2, 'cave', 3, 4, 5, 'kennel']`. Placeholder: the same
-  `level_map` image with two new pins on the right edge; the map scrolls or pages if needed.
+- **Ids:** the new levels are `4`, `5` and `6`. Level 6 is played between 4 and 5. Never renumber 1–3.
+- **Map:** the map node list grows to `[1, 'ride', 2, 'cave', 3, 4, 6, 5, 'kennel']`. Placeholder: the same
+  `level_map` image with three new pins on the right edge; the map scrolls or pages if needed.
 - **Mega Bark is guaranteed** by then, so both levels can need it. The Wizard Hat's "bosses are skipped"
   rule applies to the new bosses too.
-- **Trials:** L4 and L5 trials run **locally** until metaverse-hub adds variants `"4"` and `"5"` to
+- **Trials:** L4, L6 and L5 trials run **locally** until metaverse-hub adds variants `"4"`, `"5"` and `"6"` to
   `NOBU_FLOOR_MS` and to `TRIAL_FLOOR_MS` in `config/trials.js` (section 10).
 
-### 6.1 Level 4: Laundry Day (Owner's House, about 300 m, tier 4)
+### 6.1 Level 4: Laundry Day (Owner's House, about 480 m, tier 4)
+
+The table below is the core route, about 300 m. `docs/expansion/new-levels-spec.md` adds one more
+main-path section and two detours to reach about 480 m, and gives every placement.
 
 - **Theme:** dog-scale giant house: rugs, furniture legs, cables, toy piles, a laundry room, a kitchen
   counter and basement stairs.
@@ -446,7 +459,10 @@ existing levels and bonus stages.
 - **Trial targets (first pass):** gold 62 s, silver 78 s, bronze 100 s, platinum 56 s.
 - **Green bone** opens a **green path** in L5 (and a short one in L1), extending the colored-bone loop.
 
-### 6.2 Level 5: Pump & Dump Pipeline (factory trading floor, about 280 m, tier 5)
+### 6.2 Level 5: Pump & Dump Pipeline (factory trading floor, about 460 m, tier 5)
+
+The table below is the core route, about 280 m. `docs/expansion/new-levels-spec.md` adds one more
+main-path section and two detours to reach about 460 m.
 
 - **Theme:** the Cone Factory's back office, re-tinted magenta and green, with candle-chart neon,
   tickers, vats and pipes.
@@ -476,21 +492,24 @@ existing levels and bonus stages.
 
 ### 6.3 Extending Levels 1–3 and both bonus stages
 
-Every existing stage gets about 30–40% longer. Each one gains **new sections on the main path**, plus
-**one detour** that leaves the path and rejoins it. All of it is built from the same kit and the
+Levels 1–3 get about 70% longer and the bonus stages about 50%. Each stage gains **new sections on the
+main path**, plus detours that leave the path and rejoin it: **two per main level** and **one per bonus
+stage**. All of it is built from the same kit and the
 placeholder assets.
 
 | Stage | Length to the boss gate or goal, now → extended | New sections | Detour | New dogs | New breakables (approx.) |
 | --- | --- | --- | --- | --- | --- |
-| L1 Bark Jungle | 313 m → ~435 m | Canopy Walk, Coconut Run | The Burrow | +2 (5 → 7) | +18 |
-| L2 Scratchpost Canyon | ~302 m → ~420 m | Switchbacks, Yarn Avalanche, Cardboard Fort breather | Cat Flap Alley | +2 (3 → 5) | +16 |
-| L3 Cone Factory | 243 m → ~350 m | Packaging Line (2.5D), Vat Overflow | Maintenance Ducts | +2 (5 → 7) | +16 |
-| Roomba Rush | 312 m → ~400 m | Kitchen Tile Slide, Dog-Door Leap | Living Room / Kitchen split | +1 | +10 |
-| Glowworm Grotto | 252 m → ~330 m | Crystal Echo, Underground River | none (it is already a dark maze) | +1 | +10 |
+| L1 Bark Jungle | 313 m → ~540 m | Canopy Walk, Coconut Run, + one more | The Burrow, + a second | +4 (5 → 9) | +30 |
+| L2 Scratchpost Canyon | ~302 m → ~520 m | Switchbacks, Yarn Avalanche, Cardboard Fort breather, + one more | Cat Flap Alley, + a second | +4 (3 → 7) | +28 |
+| L3 Cone Factory | 243 m → ~420 m | Packaging Line (2.5D), Vat Overflow, + one more | Maintenance Ducts, + a second | +4 (5 → 9) | +26 |
+| Roomba Rush | 312 m → ~470 m | Kitchen Tile Slide, Dog-Door Leap, + one more | Living Room / Kitchen split | +2 (2 → 4) | +16 |
+| Glowworm Grotto | 252 m → ~380 m | Crystal Echo, Underground River, + one more | one detour | +2 (2 → 4) | +16 |
 
-Once L1 is extended to about 435 m, Level 4 (about 300 m) and Level 5 (about 280 m) would be shorter
-than the first level. Give each one a detour of its own, built like the ones below, so they come out at
-about 380 m and 360 m. They stay harder because of their tier, not their length.
+- The tables below describe the sections chosen first.
+- `docs/expansion/extended-levels-spec.md` designs the extra section and the second detour for each
+  stage, and gives every placement and the final numbers.
+- The new levels are planned at the same scale: L4 about 480 m, L6 about 450 m and L5 about 460 m. Later
+  levels stay harder because of their tier, not because they are longer.
 
 #### How a level is extended (the technique)
 
@@ -581,9 +600,12 @@ and hub floors become wrong. The plan:
 
   | Level | Gold / Silver / Bronze (s) | Platinum (s) | Proposed hub floor (ms) |
   | --- | --- | --- | --- |
-  | L1 | 76 / 96 / 125 | 69 | 20000 |
-  | L2 | 72 / 92 / 124 | 66 | 20000 |
-  | L3 | 64 / 82 / 110 | 58 | 17000 |
+  | L1 | 94 / 119 / 155 | 86 | 25000 |
+  | L2 | 89 / 114 / 154 | 82 | 25000 |
+  | L3 | 77 / 98 / 132 | 70 | 20000 |
+
+  These are the old targets scaled by the length ratio. The extended-levels spec replaces them with
+  numbers measured from dev-best runs.
 
 - **Order:**
   1. The hub PR adds the `v2` variants.
@@ -592,6 +614,30 @@ and hub floors become wrong. The plan:
 - **Alternative (not recommended):** keep the trial route the same length and put all new content in
   detours. Old boards stay valid, but the main path doesn't actually get longer, which is not what was
   asked.
+
+### 6.4 Level 6: Smog Rapids (river, about 450 m, tier 4.5)
+
+The full authoring spec is `docs/expansion/level6-spec.md`.
+
+- **Where it sits:** played between Level 4 and Level 5. It unlocks when the Roomba Titan is beaten;
+  clearing it unlocks Level 5.
+- **Story:** the smog pours out of the Owner's House drains into the river that runs down to the Pump &
+  Dump Pipeline. Nobu rides it downstream.
+- **Archetype:** a mixed river level, like Crash's jet-ski levels:
+  - **Raft rides:** auto-forward on the current; steer and hop. A new `k.raft(d0, d1, {...})` helper
+    built from the Roomba Rush ride controller. The placeholder raft is an existing asset; the level6
+    spec picks which.
+  - **On-foot landings** between the rides, for platforming, dogs and backpacks.
+- **Water hazards:**
+  - Whirlpools (the vortex code from the Evil Cone).
+  - Rapids drops, floating logs, smog slicks.
+  - Drain-pipe outflows that push the raft sideways.
+  - Rolling barrels (`CoconutRoller`).
+- **No boss:** the level ends at a goal, like the bonus stages. It is still a full main level, with a
+  six-bone Bone Board, 7 dogs, two detours, a Good Boy Route, a Hidden Bone and 2–3 Mystery Backpacks.
+- **Colored bone:** the **purple bone** is found here and opens a purple path in an earlier level (the
+  level6 spec says which).
+- **Trial:** local only until the hub adds variant `"6"`.
 
 ---
 
@@ -788,11 +834,11 @@ These refactors come first. None of them changes behaviour.
 
 ### 10.2 Cross-repo dependencies (metaverse-hub)
 
-- **Trial boards for levels 4 and 5:**
-  - Add `"4"` and `"5"` to `NOBU_FLOOR_MS` in `server/modules/src/leaderboard.ts`. Proposed floors:
-    15000 and 13000.
+- **Trial boards for levels 4, 5 and 6:**
+  - Add `"4"`, `"5"` and `"6"` to `NOBU_FLOOR_MS` in `server/modules/src/leaderboard.ts`.
+  - The floors scale with the longer levels; the level specs give the numbers.
   - Add them to the board variant list, then re-vendor `hub-sdk` here.
-  - Until then, `TRIAL_LEVELS` stays `[1, 2, 3]`, so L4 and L5 trials are local only and never queued
+  - Until then, `TRIAL_LEVELS` stays `[1, 2, 3]`, so L4, L5 and L6 trials are local only and never queued
     for upload.
 - **Versioned boards for the extended L1–L3 (6.3):**
   - Add `"1v2"`, `"2v2"` and `"3v2"` to `NOBU_FLOOR_MS`.
@@ -837,9 +883,10 @@ Each milestone is one PR from a `claude/<slug>` branch, reviewed by a different 
 | M2 | **Boss powers** | 7.2–7.4 new powers and arena changes for the Bird, Cat and Cone; `chain` runner; medals; boss DDA | The difficulty test passes; each new power is playtested once per stage |
 | M2b | **Extended L1–L3 + bonus stages** | 6.3 splice points, new sections, detours, +dogs, retuned chase speed, layout-2 trial targets | Each stage playtested start to finish; old Golden Bones kept; extended trials stay local until the hub `v2` variants are live |
 | M3 | **Level 4 + Roomba Titan** | 6.1, 7.5, Dust Dash, Dust Walls in L1–L4, green path | Story unlock works; median deaths on first play are near 4.4 |
-| M4 | **Level 5 + Pump Queen** | 6.2, 7.6, Moon Jump, Moon Ledges in L1–L5, yellow path, true ending | Full playthrough 1 → 5; secret ending at 80% |
+| M3b | **Level 6 Smog Rapids** | 6.4, `k.raft`, purple bone and path | Unlock chain Titan → L6 → L5 works; the raft is playtested |
+| M4 | **Level 5 + Pump Queen** | 6.2, 7.6, Moon Jump, Moon Ledges in every level, yellow path, true ending | Full playthrough in play order (1, 2, 3, 4, 6, 5); secret ending at 80% |
 | M5 | **Kennel + mastery** | Kennel, milestones, Platinum Tags, Perfect Run, Smog Remixes, Boss Rush | The 200% track is complete |
-| M6 | **Hub follow-up** | L4/L5 trial boards and the `v2` variants for L1–L3 (needs the hub PR first) | Scores post for every level on the right board |
+| M6 | **Hub follow-up** | L4/L5/L6 trial boards and the `v2` variants for L1–L3 (needs the hub PR first) | Scores post for every level on the right board |
 
 M1, M2 and M2b can run in parallel after M0, because they touch different files (session/UI, bosses
 and level files). M3 needs all three, because L1's Canopy Walk teaches the ziplines that L4 tests.

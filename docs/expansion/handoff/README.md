@@ -16,6 +16,7 @@ what "done" means and the PR text.
 | `docs/expansion/rewards-spec.md` | Chomp Chain, Mystery Backpack, Bone Board, Kennel, tally, hints, Good Boy %, DDA, mastery, save v3, Ticket budget |
 | `docs/expansion/bosses-spec.md` | All 5 bosses per stage, the `chain` runner, 4-stage evolve, medals, Dust Dash, Moon Jump |
 | `docs/expansion/new-levels-spec.md` | The kit helper API (new props, camera modes), Level 4 and Level 5 authoring specs, Chapter 2 story |
+| `docs/expansion/level6-spec.md` | Level 6 Smog Rapids: the raft helper and the full authoring spec |
 | `docs/expansion/extended-levels-spec.md` | L1–L3 and bonus-stage extensions, splice points, trial layout versioning, the hub change |
 
 ## Rules for every task
@@ -67,10 +68,11 @@ Phase 2  bosses       H20 boss system (chain runner, 4-stage evolve, medals, bos
 Phase 2b extensions   H34 trial layout versioning (NOBU side)   H35 hub PR (metaverse-hub)   (parallel, after H01)
                       H30 L1   H31 L2   H32 L3   H33 bonus stages   (parallel, after H04a-c and H34)
 Phase 3  Chapter 2a   H40 Level 4 Laundry Day (after H04a-c, H11)   H41 Roomba Titan + Dust Dash (after H20)
-Phase 4  Chapter 2b   H50 Level 5 Pump & Dump (after H40)   H51 Pump Queen + Moon Jump + true ending (after H41)
+Phase 3b Chapter 2b   H45 Level 6 Smog Rapids (after H40)
+Phase 4  Chapter 2c   H50 Level 5 Pump & Dump (after H45)   H51 Pump Queen + Moon Jump + true ending (after H41)
 Phase 5  meta         H60 Kennel   H61 mastery UI (Platinum, Perfect Run, medals list)
                       H62 Smog Remixes (after H50)   H63 Boss Rush (after H51)
-Phase 6  hub          H70 L4/L5 trial boards (after H35 is deployed by the owner)
+Phase 6  hub          H70 L4/L5/L6 trial boards (after H35 is deployed by the owner)
 ```
 
 ## Task list
@@ -100,13 +102,14 @@ Phase 6  hub          H70 L4/L5 trial boards (after H35 is deployed by the owner
 | H35 | Hub: v2 trial variants (metaverse-hub repo) | `nobu-trial-v2` | S |
 | H40 | Level 4 Laundry Day | `level4-laundry` | XL |
 | H41 | Roomba Titan, Dust Dash | `boss-roomba-titan` | XL |
+| H45 | Level 6 Smog Rapids (raft) | `level6-rapids` | XL |
 | H50 | Level 5 Pump & Dump Pipeline | `level5-pump` | XL |
 | H51 | Pump Queen, Moon Jump, true ending | `boss-pump-queen` | XL |
 | H60 | Kennel and milestones | `kennel` | L |
 | H61 | Mastery UI | `mastery-ui` | M |
 | H62 | Smog Remixes | `smog-remix` | L |
 | H63 | Boss Rush | `boss-rush` | M |
-| H70 | L4/L5 trial boards | `trial-l4-l5` | S |
+| H70 | L4/L5/L6 trial boards | `trial-l4-l6` | S |
 
 Sizes: S ≈ under 300 changed lines, M ≈ 300–800, L ≈ 800–1500, XL ≈ larger, so split it into reviewable
 commits.
@@ -115,6 +118,6 @@ commits.
 
 - Merge PRs and deploy. The hub goes first for any board change (H35, H70); see `handoff.md` for the
   deploy order.
-- Sign off on the per-level Ticket caps (rewards spec) before H12, H30–H33, H40 and H50 merge.
+- Sign off on the per-level Ticket caps (rewards spec) before H12, H30–H33, H40, H45 and H50 merge.
 - Tell players about the trial board reset (H34, H35) before it ships.
 - Replace placeholders with real art when ready.
