@@ -1183,8 +1183,8 @@ are pending owner approval; they do not change this economic tally.
 - This is a worst-case source measurement, independent of random pack rolls. The
   literal recipe before replacing pit guide Tickets measures143field raw and
  152whole including the same arena reserve and Coconut allowance.
-- G1's already-owned Glide bypass and the Boiler permanent-rest/final-warning
-  corrections are explicitly pending owner review; route feasibility and simulations
+- G1's already-owned Glide bypass, the Boiler rest/warning corrections, and the
+  unsupported pity checkpoint's proposed relocation409→407.5 are pending owner review; route feasibility and simulations
   do not establish manual Golden Bone completion or first-time playtest acceptance.
 
 ---

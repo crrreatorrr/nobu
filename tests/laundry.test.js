@@ -202,3 +202,27 @@ test('actual hot-water instance respects authored good-pace margins and reset; e
  water.y=8;water.state='rising';water.onRespawn();expect(water.y).toBe(-3);expect(water.state).toBe('armed');
  expect(measureTicketBudget(stage,tickets,7)).toEqual(LAUNDRY_BUDGET);
 });
+test('candidate pity relocation uses existing permanent floor and armed checkpoint respawn settles',()=>{
+ const literal=build(),candidate=build(.01,true),spot=({stage})=>stage.entities.find(e=>e.kind==='pitysnacks'&&stage.track.project(e.pos.x,e.pos.z).s>406);
+ const bad=spot(literal);expect(literal.stage.world.groundBelow(bad.pos.x,bad.pos.y+.1,bad.pos.z,.2)).toBe(-Infinity);
+ const{stage,game}=candidate,cp=spot(candidate);game.session.checkpoint=vi.fn();cp.arm();cp.hit();expect(game.session.checkpoint).toHaveBeenCalledOnce();
+ const start=game.session.checkpoint.mock.calls[0][0],body={pos:start.clone(),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:false};
+ for(let i=0;i<60;i++){body.vel.y-=25/60;moveBody(stage.world,body,1/60);}
+ expect(body.grounded).toBe(true);expect(body.pos.y).toBeCloseTo(start.y,3);expect(stage.track.project(start.x,start.z).s).toBeCloseTo(407.5,2);
+ for(const e of stage.entities.filter(e=>e.kind==='pitysnacks'||e.constructor.name==='Snacks'))expect(stage.world.groundBelow(e.pos.x,e.pos.y+.1,e.pos.z,.2),`checkpoint ${e.pos.toArray()}`).toBeGreaterThan(-Infinity);
+});
+const { GameCamera }=await import('../src/camera/camera.js');
+test('local framing keeps player poses within bounds and restores the original track camera after each area',()=>{
+ const{stage,game,result}=build();stage.finalize();stage.scene.updateMatrixWorld(true);stage.defaultCamera=result.camera;game.camera=new GameCamera(1100/800);
+ for(const[d,u,y,expectedHeight]of [[86.5,0,3.2,6.5],[385,-6.2,0,14]]){
+  game.player.pos.copy(stage.track.toWorld(d,u,y));Object.assign(game.player.body,{s:d,u,grounded:true});
+  const zone=stage.entities.find(e=>e.constructor.name==='CamZone'&&e.contains(d));zone.apply(d);game.camera.snap(game.player);game.camera.cam.updateMatrixWorld();
+  expect(game.camera.opts.height).toBe(expectedHeight);expect(game.camera.sideAxis).toBe(false);
+  for(const h of [.2,1.2]){const ndc=game.player.pos.clone().add(new THREE.Vector3(0,h,0)).project(game.camera.cam);expect(Math.abs(ndc.x)).toBeLessThan(.9);expect(Math.abs(ndc.y)).toBeLessThan(.9);expect(ndc.z).toBeLessThan(1);}
+  const target=game.player.pos.clone().add(new THREE.Vector3(0,1,0)),origin=game.camera.cam.position,direction=target.clone().sub(origin),distance=direction.length(),ray=new THREE.Raycaster(origin,direction.normalize(),.1,distance-.1);
+  ray.camera=game.camera.cam;
+  const opaque=ray.intersectObjects(stage.scene.children,true).filter(hit=>{if(!hit.object.isMesh)return false;let obj=hit.object;while(obj){if(!obj.visible)return false;obj=obj.parent;}const m=hit.object.material;return !m?.transparent||m.opacity>.5;});
+  expect(opaque.map(hit=>({type:hit.object.geometry?.type,distance:hit.distance,point:hit.point.toArray(),entity:stage.entities.find(e=>{let o=hit.object;while(o){if(o===e.obj)return true;o=o.parent;}return false;})?.constructor.name,color:hit.object.material?.color?.getHex()})),`visible player pose at${d}`).toEqual([]);
+  zone.apply(zone.d1+1);expect(game.camera.opts).toBe(result.camera);expect(game.camera.mode).toBe('track');
+ }
+});

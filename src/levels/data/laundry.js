@@ -24,3 +24,6 @@ export const L4_DETOURS = [{id:'topShelf',entry:120,exit:120,y:9.5,loop:true,ski
 export const L4_RISING = {d0:408,d1:457,y0:-3,y1:8,rate:.6};
 export const L4_RISING_CHECKS = [[410.5,.98,1.5],[415,5.18,3.5],[419.5,8.98,5.5],[423,9.38,7],[426.5,9.38,9],[430,9.78,11],[432.8,9.6,12],[435.6,11.4,14],[438.2,11.98,15],[441,13.58,16],[444.4,13.58,17],[447.8,13.58,18]];
 export const L4_HIDDEN = {x:-6.2,y:0,d:386,section:'basement',move:'dust'};
+
+// Proposed supported Boiler pity coordinate; literal409 remains the default pending owner approval.
+export const L4_PITY_CANDIDATE=L4_PITY.map(p=>p[2]===409?[p[0],p[1],407.5]:[...p]);

@@ -40,6 +40,8 @@ export function buildLevel4(game,stage,tickets,{corrections=false}={}) {
   k.section(50, 125, L4_TEXT.sections.laundry);
   F(50, 60);
   k.tut(52, 'spindrum');
+  // Clear rotating foreground rims without changing the camera-relative controls.
+  k.camZone(58,105,'track',{height:6.5,dist:6,ahead:4.2});
   k.water(60, 104.5, { w: 12.4, y: -1.4, color: 0xd8ecff });       // soap suds: a fall-out pit
   // Drum 1: slow (one turn per 8 s, 2.5 m/s at the rim). Board at the bottom, step off at the front.
   k.spinDrum(64, { y: 3.2, r: 3.2, n: 4, period: 8 });
@@ -167,6 +169,7 @@ export function buildLevel4(game,stage,tickets,{corrections=false}={}) {
   k.squirrel(0, 0, 376, { range: 1.5, ambush: { at: 370, drop: 5 } });
   k.pitySnacks(2.4, 0, 374);
   // left alcove: Dust Wall (Dust Dash, so a replay after the Titan) guarding the Hidden Bone
+  k.camZone(379,393,'track',{height:14,dist:3.5,ahead:2.5});
   k.floor(380, 392, { x: -5.6, w: 3.2 });
   const dustWall=k.dustWall(-4.6, 0, 384, { w: 2.4, h: 2.6 });
   const hidden=k.hiddenBone(-6.2, 0, 386, { move: 'dust' });
@@ -189,7 +192,7 @@ export function buildLevel4(game,stage,tickets,{corrections=false}={}) {
   k.camZone(408, 448, 'rise', { dist: 9.5, height: 2.2, lookUp: 3.0 });
   // the flood: starts when you enter at 408, rises 0.6 m/s from -3 to +8, drains once you pass 457
   k.rising(408, 457, { y0: -3, y1: 8, rate: 0.6, trigger: 'enter' });
-  k.pitySnacks(0, 0, 409);                                         // gauntlet start
+  k.pitySnacks(0, 0, corrections ? 407.5 : 409);                                         // gauntlet start
   k.arrowChain([[0, 0, 410.5], [0, 4.2, 415.0], [0, 8.0, 419.5]], { power: 16 });   // up the boiler pipes
   k.platform(2.6, 4.6, 415.5, 1.8, 1.8); k.dog(2.6, 4.6, 415.5, 'shiba').dogId = '4:shiba-b';      // dog 7: a side pipe off chain box 2
   k.blinkBox(0, 8.4, 423.0, { on: 1.0, off: 0.9, group: 'boil' });
