@@ -61,7 +61,9 @@ export function buildL1Extensions(k,game,stage,{labels,corrections=false}={}) {
 
   // Open trench: no roof, no later-move countables, and no top-level darkness on the old hill.
   const before=stage.entities.length;k.section(228,258,labels.burrow,{detour:true});k.floor(228,258,{x:-2.5,w:3.6,y:-4.5,depth:2});
-  for(let d=228;d<258;d+=6){k.platform(-4.6,-4.5,d+3,.6,6,4.5);k.platform(-.45,-4.5,d+3,.5,6,4.5);}
+  // Keep the authored wall dimensions; short curved pieces avoid broad diagonal AABBs.
+  const wallStep=corrections?1:6;
+  for(let d=228;d<258;d+=wallStep){k.platform(-4.6,0,d+wallStep/2,.6,wallStep,4.5);k.platform(-.45,0,d+wallStep/2,.5,wallStep,4.5);}
   const dark=k.dark(228,258,{radius:5,baseY:-4.5,x:-2.5});const contains=dark.contains.bind(dark);dark.contains=(s,y=game.player.pos.y)=>y<k.track.heightAt(s)-1.5 && contains(s,y);
   k.water(232,236,{y:-5.8,w:3.6});k.lunch(-2.5,-5,233);k.lunch(-2.5,-5,235);k.shellback(-2.5,-4.5,239,{range:1.2});
   k.dog(-2.6,-4.5,244,'dalmatian').dogId='1:dalmatian-b';k.pack(-3.4,-4.5,246);k.pack(-1.6,-4.5,246);k.tix(-2.5,-4.3,229,-2.5,-4.3,250,7);k.mushroom(-2.5,-4.5,251,{power:17});

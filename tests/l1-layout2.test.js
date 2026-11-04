@@ -209,3 +209,25 @@ test('Hollow return can walk laterally to every skipped payer, activate altar st
  session.respawn();expect(dog.freed).toBe(false);expect(H.detour.used).toBe(false);expect(session.freedIds.has(dog.dogId)).toBe(false);
  await H.detour.travel();expect(session.bonusRound?.tray).toBe(H.detour);expect(g.player.pos.equals(H.detour.round.start)).toBe(true);
  });
+
+test('Burrow walls stand4.5m above its floor and the opened old pocket remains a real entrance',()=>{
+ const{s}=build(),tr=s.track;
+ const walls=s.entities.filter(e=>e.constructor.name==='StaticPlatform'&&Math.abs(e.solid.max.y-e.solid.min.y-4.5)<.001);
+ expect(walls).toHaveLength(60);
+ for(const wall of walls){const q=tr.project(wall.pos.x,wall.pos.z);expect(wall.solid.max.y-tr.heightAt(q.s)).toBeCloseTo(0,1);expect(wall.solid.max.y-wall.solid.min.y).toBeCloseTo(4.5,6);}
+ const cracked=s.entities.find(e=>e.constructor.name==='CrackedFloor');cracked.solid.enabled=false;
+ const body={pos:tr.toWorld(227,-3.4,.01),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:false};
+ for(let i=0;i<120;i++){body.vel.y=Math.max(-28,body.vel.y-36/60);moveBody(s.world,body,1/60);if(body.grounded)break;}
+ expect(body.grounded).toBe(true);expect(body.pos.y-tr.heightAt(227)).toBeCloseTo(-4.5,1);
+ const target=tr.toWorld(230,-2.5,-4.5);
+ for(let i=0;i<90;i++){const delta=target.clone().sub(body.pos).setY(0);if(delta.length()<.1)break;delta.setLength(Math.min(6,delta.length()*60));body.vel.set(delta.x,-1,delta.z);moveBody(s.world,body,1/60);}
+ if(body.pos.distanceTo(target)>=.2)fs.writeFileSync('/tmp/h30-burrow-walk.json',JSON.stringify({target:target.toArray(),pos:body.pos.toArray(),q:tr.project(body.pos.x,body.pos.z),ground:body.ground?.ref?.constructor.name,bodyS:body.s,u:body.u}));
+ expect(body.pos.distanceTo(target)).toBeLessThan(.2);
+});
+
+test('literal6m diagonal wall AABBs block the trench while the same1m-tessellated corridor permits walking',()=>{
+ const walk=({s})=>{const tr=s.track,target=tr.toWorld(230,-2.5,-4.5),b={pos:tr.toWorld(228.3,-2.5,-4.5),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:true};
+  for(let i=0;i<90;i++){const delta=target.clone().sub(b.pos).setY(0);if(delta.length()<.1)break;delta.setLength(Math.min(6,delta.length()*60));b.vel.set(delta.x,-1,delta.z);moveBody(s.world,b,1/60);}return b.pos.distanceTo(target);
+ };
+ expect(walk(raw)).toBeGreaterThan(.4);expect(walk(candidate)).toBeLessThan(.2);
+});

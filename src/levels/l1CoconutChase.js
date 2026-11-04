@@ -19,6 +19,12 @@ export class L1CoconutChase extends Chaser {
   constructor(stage,track){
     super(stage,track,C.start,C.end,{model:'giant_coconut',rig:new CoconutRig(),speed:C.base,catchUp:1,catchUpSpeed:C.max,catchAt:C.catchAt});
     this.alwaysActive=true;this.warned=false;
+    // A low stone lintel catches the giant coconut while Nobu runs underneath.
+    const arch=new THREE.Group(),stone=toon(0x777b68),block=new THREE.BoxGeometry(1,1,1);
+    for(const [x,y,w,h,d]of [[-4,1.9,1.2,3.8,1.6],[4,1.9,1.2,3.8,1.6],[0,4.4,9.2,1.2,1.6]]){
+      const part=new THREE.Mesh(block,stone);part.position.set(x,y,0);part.scale.set(w,h,d);arch.add(part);
+    }
+    arch.position.copy(track.toWorld(C.end));arch.rotation.y=track.yaw(C.end);stage.scene.add(arch);this.endArch=arch;
   }
   warn(){
     if(this.warned)return;this.warned=true;
