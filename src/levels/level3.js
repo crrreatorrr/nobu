@@ -1,3 +1,6 @@
+import { addMoonReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[3]]);
 import { trialLayout } from '../config/trials.js';
 import { POLAROID_SPOTS } from './data/gauntlets.js';
 import { L3_MOVES, L3_MOVES_V2, L3_LAYOUT2_INFO, L3_SECTIONS } from './data/l3-layout.js';
@@ -158,6 +161,7 @@ function buildFactory(game, stage, tickets, extended = false) {
   k.trigger(245, () => game.session.reachBossGate());
 
   if (extended) addFactoryExtension(rawKit, game, stage, tickets, track);
+  if (extended) { addMoonReturnExtras(rawKit,stage,3); }
 
   // --- decor ---
   const decorEnd = extended ? 427 : END;

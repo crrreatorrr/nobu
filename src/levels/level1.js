@@ -1,3 +1,6 @@
+import { addMoonReturnExtras, addColoredReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[1]]);
 import { trialLayout } from '../config/trials.js';
 import { POLAROID_SPOTS } from './data/gauntlets.js';
 import { L1_START,L1_MOVES_CLASSIC,L1_MOVES_EXTENDED,L1_SECTIONS_EXTENDED,shiftL1 } from './data/l1-layout2.js';
@@ -204,6 +207,7 @@ export function buildLevel1(game, stage, tickets, { layout = trialLayout(1), lab
   k.gate(S(313),'MECHA BIRD');
   k.trigger(extended ? 540 : 315,()=>game.session.reachBossGate());
   if (extended) buildL1Extensions(k,game,stage,{labels,corrections});
+  if (extended) { addMoonReturnExtras(k,stage,1); addColoredReturnExtras(k,stage,1); }
 
   // --- decor ---
   k.banks(-6, END, (x, y, d) => {

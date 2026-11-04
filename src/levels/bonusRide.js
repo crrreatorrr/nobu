@@ -1,3 +1,6 @@
+import { addMoonReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES['ride']]);
 import { BONUS_BUDGETS_V2, RIDE_SPLICES, RIDE_MOVES_V2, shiftedBonusKit } from './data/bonus-layout2.js';
 import { buildRideExtension } from './bonusExtension.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
@@ -71,6 +74,7 @@ function buildLayout(game, stage, tickets, candidate) {
   k.trigger(304, () => game.session.reachGoal());
 
   if (candidate) buildRideExtension(raw, game, stage);
+  if (candidate) { addMoonReturnExtras(raw,stage,'ride'); }
 
   // ---- decor: furniture and plants up on the raised floor beside the run ----
   const shelfMat = toon(0x8a5a32), lampMat = toon(0xfff1c8), potMat = toon(0xd86a3a), bookMats = [0xd84a3a, 0x3a7ad8, 0x3ab060, 0xe8b02a, 0x8a4ac8].map((c) => toon(c));

@@ -1,3 +1,6 @@
+import { addMoonReturnExtras, addColoredReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[2]]);
 // Layout2 is active; public uploads remain gated separately by HUB_LAYOUT.
 export const ACTIVE = true;
 import { LEVEL_BUDGETS } from './data/budgets.js';
@@ -109,6 +112,7 @@ export function buildLevel2Extended(game, stage, tickets, {corrections = true} =
 
   for(const section of canyonMainSections(SECTION_TEXT))k.section(section.d0,section.d1,section.name);
   buildCanyonSections(k, game, stage, cat,{switchbacks:SECTION_TEXT.switchbacks,fort:SECTION_TEXT.cardboardFort,forest:SECTION_TEXT.scratchpostForest,avalanche:SECTION_TEXT.yarnAvalanche,flap:SECTION_TEXT.catFlapAlley,river:SECTION_TEXT.dryRiverbed},{corrections});
+  addMoonReturnExtras(k,stage,2); addColoredReturnExtras(k,stage,2);
   for(const dog of dogs){const e=k.dog(dog.x,dog.y??0,dog.d,dog.breed,{id:dog.id});e.detour=!!dog.detour;}
   stage.layoutVersion = 2;
 

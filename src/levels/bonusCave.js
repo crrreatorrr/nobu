@@ -1,3 +1,6 @@
+import { addMoonReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES['cave']]);
 import { BONUS_BUDGETS_V2, CAVE_SPLICES, CAVE_MOVES_V2, shiftedBonusKit, CAVE_NESTS_V2 } from './data/bonus-layout2.js';
 import { buildCaveExtension } from './bonusExtension.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
@@ -88,6 +91,7 @@ function buildLayout(game, stage, tickets, candidate, options = {}) {
   k.trigger(245, () => game.session.reachGoal());
 
   if (candidate) buildCaveExtension(raw, game, stage, options);
+  if (candidate) { addMoonReturnExtras(raw,stage,'cave'); }
 
   // ---- decor: glowing crystals and stalagmites ----
   const crystalMats = [0x7af0ff, 0xb08aff, 0x8affc8].map((c) => new THREE.MeshBasicMaterial({ color: c }));

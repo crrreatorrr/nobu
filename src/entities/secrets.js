@@ -82,7 +82,7 @@ function pawTexture(base = '#ffd23f', paw = '#f0a020') {
     g.strokeStyle = '#fff6c8'; g.lineWidth = 8; g.strokeRect(4, 4, 120, 120);
   }));
 }
-export const BONE_COLORS = { red: { base: '#ff5a5a', paw: '#b82020', hex: 0xff4040, name: 'RED' }, blue: { base: '#5ab0ff', paw: '#1a5ab8', hex: 0x3a9aff, name: 'BLUE' }, green: { base: '#5aff8a', paw: '#1a9a40', hex: 0x3ae070, name: 'GREEN' }, purple: { base: '#bd8aff', paw: '#60309a', hex: 0xa968e8, name: 'PURPLE' } };
+export const BONE_COLORS = { red: { base: '#ff5a5a', paw: '#b82020', hex: 0xff4040, name: 'RED' }, blue: { base: '#5ab0ff', paw: '#1a5ab8', hex: 0x3a9aff, name: 'BLUE' }, green: { base: '#5aff8a', paw: '#1a9a40', hex: 0x3ae070, name: 'GREEN' }, purple: { base: '#bd8aff', paw: '#60309a', hex: 0xa968e8, name: 'PURPLE' }, yellow: { base: '#ffe95a', paw: '#a47812', hex: 0xffd73a, name: 'YELLOW' } };
 export class GoodBoyRoute extends Entity {
   // plats: [{ x, y, z, w, d, yaw }] in world space; top: index of the platform that pays out the jackpot
   // color: a colored-bone path (BONE_COLORS key); unlocked paths rise as soon as Nobu comes near, locked ones

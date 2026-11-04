@@ -1,3 +1,6 @@
+import { addMoonReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[4]]);
 // H40 builder remains unshipped until the H41 Titan and real arena are integrated.
 import * as THREE from 'three';
 import { POLAROID_SPOTS } from './data/gauntlets.js';
@@ -225,6 +228,7 @@ export function buildLevel4(game,stage,tickets,{corrections=true,sealedCereal=tr
   for(let d=60;d<=104;d+=5)stage.emitter(...k.W(0,-.8,d).toArray(),'bubble',{r:4.5,color:0xd8ecff});
   for(const d of [412,430,448]){const lamp=new THREE.PointLight(0xff8a3a,3,14);lamp.position.copy(k.W(0,6,d));stage.scene.add(lamp);}
   stage.timedPatterns.push(laundryCerealPattern(stage),laundryBoilerPattern(stage));
+  addMoonReturnExtras(k,stage,4);
   return {spawn:k.W(0,0,1),facing:track.yaw(1),camera:{mode:'track',track,height:4.3,dist:8.6,ahead:5.5}};
 }
 
