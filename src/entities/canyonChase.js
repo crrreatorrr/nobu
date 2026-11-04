@@ -4,13 +4,13 @@ import { CF } from '../levels/data/l2-extended.js';
 import { chaseDda } from './chaser.js';
 export class CanyonChase extends ChaseCat {
   constructor(stage, track, s, cuts = []) { super(stage, track, s); this.cuts = cuts; this.usedCuts = new Set(); this.holdPose = 'swipe'; }
-  begin(s, delay) { super.begin(s, delay); this.usedCuts = new Set(); this.inFort = false; this.speedMul = chaseDda(this.session); }
+  begin(s, delay) { super.begin(s, delay); this.usedCuts = new Set(); this.inFort = false; this.holdT=0; this.speedMul = chaseDda(this.session); }
   hold() { this.state = 'stop'; this.speed = 0; this.leap = null; }
   update(dt) {
     const s=this.player.body.s??0;
     if(s>=CF+1&&s<CF+13){
       if(!this.inFort){this.s=CF-1;this.y=this.track.heightAt(this.s);this._place();}
-      this.inFort=true;this.hold();
+      this.inFort=true;this.hold();this.holdT=(this.holdT??0)+dt;this.holdK=(Math.sin(this.holdT*5)+1)/2;
     } else if(this.inFort){this.inFort=false;this.begin(CF-1,1);}
     super.update(dt);
   }

@@ -33,6 +33,7 @@ export class TopplingPost extends Entity {
     if(this.dangerous&&!this.wasDangerous&&this.distToPlayer()<14){audio.play('stomp');this.game.camera.shake(.25,.2);}
     this.wasDangerous=this.dangerous;
   }
+  onRespawn(){this.t=this.phase;this.wasDangerous=false;this.update(0);}
   onTouch(p){if(this.dangerous&&p.pos.y<this.pos.y+1.2)p.die('flat');}
   onStomp(p){this.onTouch(p);}
   onBite(){}

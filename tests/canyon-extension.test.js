@@ -153,3 +153,10 @@ test('authored pity checkpoint arms after seven ordinary deaths, stays in its CP
  }
  const{stage,game}=fixture();game.session.deathsAtCp=7;game.session.cp={pos:stage.track.toWorld(201.5)};const spot=stage.entities.find(e=>e.kind==='pitysnacks'&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-234.5)<.1);spot.onRespawn();expect(spot.armed).toBe(false);
 });
+
+test('real Session respawn restores every toppling post phase, shadow and danger state',async()=>{
+ const{Session}=await import('../src/game/session.js'),{stage,game,built}=fixture(),s=new Session(game,'2');game.session=s;s.stage=stage;s.tickets=game.tickets;s.chase=built.chase;s.projectiles={clear(){}};
+ Object.assign(game.fx,{clear(){},burst(){},puff(){}});game.ui.setHud=()=>{};game.mask={snapTo(){},setLevel(){}};game.player.spawnAt=pos=>{game.player.pos.copy(pos);const pr=stage.track.project(pos.x,pos.z);game.player.body.s=pr.s;game.player.body.u=pr.u;};s.checkpoint(built.spawn);
+ const posts=stage.entities.filter(e=>e instanceof TopplingPost);for(const post of posts){post.t=post.period*.8;post.update(0);post.dangerous=true;post.shadow.material.opacity=.9;}
+ s.respawn();for(const post of posts){expect(post.t).toBe(post.phase);expect(post.dangerous).toBe(false);expect(post.interactive).toBe(false);expect(post.shadow.material.opacity).toBeLessThan(.9);}
+});

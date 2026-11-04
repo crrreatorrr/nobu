@@ -249,7 +249,7 @@ export class Chaser extends Entity {
         if (p.dead && this.state === 'run') this.state = 'gloat';
       }
     } else if (this.state === 'stop') {
-      this.rig.pose(this.holdPose ?? 'idle', dt);
+      this.rig.pose(this.holdPose ?? 'idle', dt, this.holdK ?? 1);
     }
     if (!this.legacy) {
       this.alwaysActive = this.state === 'wait' || this.state === 'run';
