@@ -39,3 +39,18 @@ it('respects arena/trial contexts, partial ground time and the final-number HUD 
   s.phase='boss'; hitSessionChain(s,{}); expect(s.chain.n).toBe(0);
   s.phase='level'; hitSessionChain(s,{countable:false}); expect(s.chain.n).toBe(0);
 });
+it('keeps excluded Freeze Pack break pitch normal while countable backpacks use the combo pitch', async () => {
+  const { Backpack } = await import('../src/entities/breakables.js');
+  const pack = { countable:false,session:{chainSoundPitch:2},markBroken:()=>true,hide(){},pos:new THREE.Vector3(),fx:{burst(){},puff(){}},game:{tickets:{spawnFlying(){}}},tickets:1 };
+  Backpack.prototype.break.call(pack);
+  expect(audio.play).toHaveBeenLastCalledWith('break',1);
+  pack.countable=true;Backpack.prototype.break.call(pack);
+  expect(audio.play).toHaveBeenLastCalledWith('break',2);
+});
+it('partial Zipped Backpack bites refresh the active chain and do not count as a break', async () => {
+  const { ZippedBackpack } = await import('../src/entities/breakables.js');
+  const refresh=vi.fn(),mark=vi.fn();
+  const pack = { broken:false,hits:3,tickets:8,session:{chainRefresh:refresh},tags:Array.from({length:3},()=>({visible:true,getWorldPosition:()=>new THREE.Vector3()})),fx:{burst(){}},pos:new THREE.Vector3(),game:{tickets:{spawnFlying(){}}},markBroken:mark };
+  ZippedBackpack.prototype.break.call(pack,{},'bite');
+  expect(refresh).toHaveBeenCalledOnce();expect(mark).not.toHaveBeenCalled();expect(pack.hits).toBe(2);expect(pack.tickets).toBe(7);
+});

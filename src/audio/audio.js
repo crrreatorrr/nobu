@@ -248,6 +248,8 @@ class AudioEngine {
       case 'fade': this._osc('sine', 880, 330, 0.6, 0.1); this._osc('sine', 660, 250, 0.7, 0.07, 0.1); break;
       case 'menu': this._osc('square', 660, 660, 0.05, 0.08); break;
       case 'select': this._osc('square', 880, 1320, 0.12, 0.12); this._osc('triangle', 1320, 1760, 0.1, 0.1, 0.06); break;
+      case 'sniff': this._noise(0.12, 0.2, 0, 'bandpass', 1800, 3200, 4); this._noise(0.12, 0.2, 0.15, 'bandpass', 1800, 3200, 4); break;
+      case 'kennel': ['C5', 'G5', 'C6', 'G6', 'C7'].forEach((n, i) => this._osc('sawtooth', noteFreq(n), noteFreq(n), 0.2, 0.035, i * 0.06)); break;
       case 'chainUp': this._osc('square', 660 * p, 1320 * p, 0.08, 0.1); this._osc('triangle', 1320 * p, 1980 * p, 0.1, 0.06, 0.04); break;
       case 'blip': this._osc('square', (520 + Math.random() * 120) * p, 520 * p, 0.03, 0.04); break;
       case 'blipLow': this._osc('sawtooth', 160 + Math.random() * 40, 140, 0.05, 0.06, 0, this.sfxGain, { filter: 'lowpass', freq: 900 }); break;

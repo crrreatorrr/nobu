@@ -17,3 +17,9 @@ it('applies tally blip pitch while preserving random variation at default pitch'
   audio.play('blip'); expect(osc.mock.calls[0].slice(0,3)).toEqual(['square',580,520]);
   audio.play('blip',2); expect(osc.mock.calls[1].slice(0,3)).toEqual(['square',1160,1040]);
 });
+it('provides the future Sniffer double sniff and half-volume Kennel arpeggio from the same synth recipes', () => {
+  audio.ctx={};audio.muted=false;
+  const noise=vi.spyOn(audio,'_noise').mockImplementation(()=>{}),osc=vi.spyOn(audio,'_osc').mockImplementation(()=>{});
+  audio.play('sniff');expect(noise.mock.calls).toEqual([[.12,.2,0,'bandpass',1800,3200,4],[.12,.2,.15,'bandpass',1800,3200,4]]);
+  audio.play('kennel');expect(osc).toHaveBeenCalledTimes(5);expect(osc.mock.calls.every(c=>c[4]===.035)).toBe(true);
+});
