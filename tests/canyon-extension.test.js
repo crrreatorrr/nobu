@@ -133,3 +133,8 @@ test('data exports account for every countable and exact dog location in the can
  for(const item of [...CORRECTED_CHASE_ITEMS,...EXTENDED_DETOUR_ITEMS,CANYON_BOUNCE_ITEM])expect(stage.entities.some(e=>e.countable&&e.pos.distanceTo(stage.track.toWorld(item.d,item.x,item.y))<.05)).toBe(true);
  for(const dog of CORRECTED_DOGS){const e=stage.entities.find(e=>e.dogId===dog.id);expect(e.pos.distanceTo(stage.track.toWorld(dog.d,dog.x,dog.y??0))).toBeLessThan(.01);}
 });
+
+test('the two-lane yarn stage alternates single balls and authored hazard DDA stays off in trials',()=>{
+ const{stage,game}=fixture();const roller=stage.entities.filter(e=>e instanceof YarnAvalanche)[1];game.player.pos.set(999,0,999);game.player.body.s=roller.until;roller.timer=0;roller.update(0);expect(roller.balls.map(b=>b.u)).toEqual([-2.4]);roller.timer=0;roller.update(0);expect(roller.balls.map(b=>b.u)).toEqual([-2.4,2.4]);
+ const post=stage.entities.find(e=>e instanceof TopplingPost);post.t=0;game.session.deathsAtCp=5;post.update(.1);expect(post.t).toBeCloseTo(.092);game.session.trial=true;post.update(.1);expect(post.t).toBeCloseTo(.192);
+});

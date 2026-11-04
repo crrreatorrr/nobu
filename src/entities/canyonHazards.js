@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { chaseDda } from './chaser.js';
 import { Entity } from './entity.js';
 import { CoconutRoller } from './props.js';
 import { audio } from '../audio/audio.js';
@@ -20,6 +21,7 @@ export class TopplingPost extends Entity {
     this.setBox(Math.abs(Math.cos(yaw))*w+Math.abs(Math.sin(yaw))*d,1.2,Math.abs(Math.sin(yaw))*w+Math.abs(Math.cos(yaw))*d);
   }
   update(dt) {
+    dt*=chaseDda(this.session);
     this.t+=dt;
     const t=((this.t%this.period)+this.period)%this.period, warnStart=this.period*.5, fallStart=Math.max(warnStart+.8,this.period*.72), fallEnd=Math.min(this.period-.1,fallStart+.24);
     const q=t<warnStart?1-Math.min(1,t/(this.period*.35)):t<fallStart?0:t<fallEnd?(t-fallStart)/(fallEnd-fallStart):1;
@@ -56,6 +58,7 @@ export class YarnAvalanche extends CoconutRoller {
   }
   freeLane(){const seed=this.session?.runSeed??1;return ((Math.imul(seed|0,1664525)+Math.imul(this.volley+1,1013904223))>>>0)%this.lanes.length;}
   update(dt) {
+    dt*=chaseDda(this.session);
     const p=this.player,ps=p.body.s??0,session=this.session,active=ps>this.until-6&&ps<this.d;
     this.timer-=dt;
     const free=this.skip==='shadow'?this.freeLane():-1;
@@ -63,7 +66,7 @@ export class YarnAvalanche extends CoconutRoller {
     if(active&&this.timer<=0){
       this.timer=this.every;
       for(let i=0;i<this.lanes.length;i++){
-        if(i===free||session.coconutSpawned>=rawTicketsForWhole(COCONUT_CAP_PER_CLEAR))continue;
+        if((this.skip==='shadow'?i===free:i!==this.volley%this.lanes.length)||session.coconutSpawned>=rawTicketsForWhole(COCONUT_CAP_PER_CLEAR))continue;
         const m=new THREE.Mesh(this.geo,this.mat);m.castShadow=true;this.stage.scene.add(m);
         this.balls.push({id:++session.coconutSeq,m,s:this.d,u:this.lanes[i]});session.coconutSpawned++;
       }
