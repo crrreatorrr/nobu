@@ -7,20 +7,20 @@ import { EvilCone } from '../src/bosses/evilCone.js';
 
 const old = {
   bird: { hp: 6, perStage: 2, speed: [1, 1.2, 1.4], window: [2.7, 2.4, 2.2] },
-  cat: { hp: 6, perStage: 2, speed: [1, 1.2, 1.45], window: [2.8, 2.4, 2] },
+  cat: { hp: 6, perStage: 2, speed: [1, 1.2, 1.45], window: [2.7, 2.4, 2] },
   cone: { hp: 9, perStage: 3, speed: [1, 1.25, 1.5], window: [1.8, 1.4, 1.1] },
 };
 const boss = (key) => new Boss({ game: {} }, 0, 0, 0, { key, name: key, portrait: key });
 
 describe('authored difficulty configuration', () => {
-  it('keeps other M0 rows unchanged while preserving planned level tiers', () => {
-    expect(M2_ON).toBe(false);
+  it('activates all three M2 boss rows while preserving planned level tiers', () => {
+    expect(M2_ON).toBe(true);
     expect(LEVEL_TIER).toEqual({ 1: 1, ride: 1.5, 2: 2, cave: 2.5, 3: 3, 4: 4, 6: 4.5, 5: 5 });
     expect(TIER).toEqual({ enemySpeed: [1, 1.08, 1.16, 1.24, 1.32], hazardPeriod: [1, 0.95, 0.9, 0.85, 0.8],
       crumbleDelay: [0.6, 0.55, 0.5, 0.45, 0.4], snacksGap: [70, 80, 90, 95, 100] });
   });
 
-  it.each(Object.keys(old))('keeps every moved %s value equal to its old literal', (key) => {
+  it.each(Object.keys(old))('applies the authored %s health, speed and window values', (key) => {
     const b = boss(key), expected = old[key];
     expect(BOSS[key]).toMatchObject(expected);
     expect([b.hp, b.maxHp, b.phaseHp, b.stages]).toEqual([expected.hp, expected.hp, expected.perStage, 3]);
@@ -28,8 +28,8 @@ describe('authored difficulty configuration', () => {
       b.phase = phase;
       expect(b.sp).toBe(expected.speed[phase - 1]);
       expect(b.W).toBe(expected.window[phase - 1]);
-      expect(b.tele(1)).toBe(key === 'bird' ? [1, .88, .78][phase - 1] : key === 'cone' ? [.9, .8, .7][phase - 1] : 1);
-      expect(b.chainLen).toBe(key === 'bird' ? [1, 1, 2][phase - 1] : key === 'cone' ? [1, 2, 3][phase - 1] : 1);
+      expect(b.tele(1)).toBe({ bird: [1, .88, .78], cat: [.95, .84, .74], cone: [.9, .8, .7] }[key][phase - 1]);
+      expect(b.chainLen).toBe({ bird: [1, 1, 2], cat: [1, 2, 2], cone: [1, 2, 3] }[key][phase - 1]);
     }
   });
 
