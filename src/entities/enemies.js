@@ -9,6 +9,7 @@ import { audio } from '../audio/audio.js';
 import { rand, canvasTex, damp } from '../core/util.js';
 import { TUNING } from '../player/player.js';
 import { Assets } from '../art/assets.js';
+import { remixEnemySpeed } from '../config/difficulty.js';
 
 const M = {};
 function mats() {
@@ -68,6 +69,10 @@ export class Enemy extends Entity {
     this.obj.add(this.shadow);
     this.state = 'alive';
     this.t = rand(0, 10);
+    const session = stage.game.session;
+    this.movementMultiplier = session?.remix && session.phase !== 'boss'
+      ? remixEnemySpeed(session.def?.tier ?? stage.tier ?? 1) : 1;
+    this.movementT = this.t;
     this.facing = opts.facing ?? 0;
     this.knockV = new THREE.Vector3();
   }
@@ -116,6 +121,7 @@ export class Enemy extends Entity {
 
   update(dt) {
     this.t += dt;
+    this.movementT += dt * this.movementMultiplier;
     if (this.state === 'knocked') {
       this.stateT += dt;
       this.pos.addScaledVector(this.knockV, dt);
@@ -151,7 +157,7 @@ export class Enemy extends Entity {
     this.dir ??= 1;
     this.off ??= 0;
     const v = this.opts.dirV || (axis === 'z' ? AXIS_Z : AXIS_X);
-    this.off += this.dir * speed * dt;
+    this.off += this.dir * speed * this.movementMultiplier * dt;
     if (this.off > range) { this.off = range; this.dir = -1; } else if (this.off < -range) { this.off = -range; this.dir = 1; }
     this.pos.x = this.home.x + v.x * this.off;
     this.pos.z = this.home.z + v.z * this.off;
@@ -327,7 +333,7 @@ export class Broccoli extends Enemy {
     } else if (this.opts.chase) {
       // summoned minions march straight at Nobu
       this.facing = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
-      if (toP > 0.8 && !p.dead) { this.pos.x += Math.sin(this.facing) * this.speed * dt; this.pos.z += Math.cos(this.facing) * this.speed * dt; }
+      if (toP > 0.8 && !p.dead) { this.pos.x += Math.sin(this.facing) * this.speed * this.movementMultiplier * dt; this.pos.z += Math.cos(this.facing) * this.speed * this.movementMultiplier * dt; }
       const w = Math.sin(this.t * 9);
       this.arms[0].rotation.x = w * 0.6; this.arms[1].rotation.x = -w * 0.6;
     } else {
@@ -433,7 +439,8 @@ export class ConeDrone extends Enemy {
   behave(dt) {
     if (this.opts.range !== 0) {
       const v = this.opts.dirV || (this.opts.axis === 'z' ? AXIS_Z : AXIS_X);
-      const o = Math.sin(this.t * (this.opts.speed ?? 1.1)) * (this.opts.range ?? 3);
+      const movementClock = this.movementMultiplier === 1 ? this.t : this.movementT;
+      const o = Math.sin(movementClock * (this.opts.speed ?? 1.1)) * (this.opts.range ?? 3);
       this.pos.x = this.home.x + v.x * o;
       this.pos.z = this.home.z + v.z * o;
     }
@@ -631,7 +638,7 @@ export class PillBot extends Enemy {
       this.pill.rotation.set(-0.35 + Math.sin(this.modeT * 40) * 0.08, 0, 0);
       if (this.modeT > 0.5) { this.mode = 'tumble'; this.modeT = 0; audio.play('roll'); }
     } else if (this.mode === 'tumble') {
-      const sp = 6.5;
+      const sp = 6.5 * this.movementMultiplier;
       this.pos.x += this.tumbleDir.x * sp * dt;
       this.pos.z += this.tumbleDir.z * sp * dt;
       // keep within patrol leash so it doesn't tumble off the level
@@ -766,7 +773,7 @@ export class PumpPill extends PillBot {
       this.pill.rotation.set(-0.15 * Math.min(1, this.modeT / this.hopWait), 0, 0);
       if (this.modeT > this.hopWait && !p.dead) {
         // pump hop toward Nobu: faster and further as it gets bigger
-        const sp = Math.min(d / 0.75, 3.6 + this.pump * 0.7);
+        const sp = Math.min(d / 0.75, (3.6 + this.pump * 0.7) * this.movementMultiplier);
         this.vx = (dx / d) * sp; this.vz = (dz / d) * sp;
         this.vy = 7.5;
         this.mode = 'air'; this.modeT = 0;

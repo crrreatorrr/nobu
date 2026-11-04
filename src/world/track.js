@@ -25,7 +25,10 @@ export function turtle(start, moves, heading = 0) {
 }
 
 export class Track {
-  constructor(points) {
+  constructor(points, { mirror = false, axisX = points[0].x } = {}) {
+    this.mirror = !!mirror;
+    this.mirrorAxisX = axisX;
+    if (this.mirror) points = points.map(p => new THREE.Vector3(2 * axisX - p.x, p.y, p.z));
     this.curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
     this.length = this.curve.getLength();
     const n = Math.ceil(this.length / STEP);
@@ -55,6 +58,22 @@ export class Track {
     let found = null;
     for (const section of this.sections) if (s >= section.d0 && s < section.d1 && (!found || section.d0 >= found.d0)) found = section;
     return found;
+  }
+
+  // Authoring coordinates reflect once. Physics continues using physical u and
+  // the ordinary right-handed frame through toWorld/project/right.
+  authorU(u = 0) { return this.mirror && u !== 0 ? -u : u; }
+  authorToWorld(s, u = 0, y = 0, out = new THREE.Vector3()) {
+    return this.toWorld(s, this.authorU(u), y, out);
+  }
+  authorRight(s, out = new THREE.Vector3()) {
+    this.right(s, out);
+    return this.mirror ? out.negate() : out;
+  }
+  authorYawOffset(angle = 0) { return this.mirror ? -angle : angle; }
+  authorWallAt(s) {
+    const w = this.wallAt(s);
+    return this.mirror && w ? { ...w, left: w.right, right: w.left } : w;
   }
 
   // Secret warp: falling into the pit between d0..d1 with lateral u in [u0, u1] warps to `target` instead of dying.
