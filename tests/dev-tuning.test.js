@@ -68,6 +68,16 @@ describe('development telemetry data', () => {
     player.body.grounded = true; player.pos.y = 0;
     expect(sectionFor(stage, player, 15, context).name).toBe('Box Run');
   });
+  it('keeps a later high main-route jump out of an earlier raised detour', () => {
+    const { stage, player } = fixture();
+    stage.detours[0].entryD = 12;
+    stage.track.sections.push({ d0: 370, d1: 390, name: 'Vat Climb' });
+    Object.assign(player.body, { s: 378, grounded: false });
+    player.pos.y = 12;
+    expect(sectionFor(stage, player)?.name).toBe('Vat Climb');
+    player.body.s = 15;
+    expect(sectionFor(stage, player)?.name).toBe('Sky Walk');
+  });
 });
 
 describe('development-only tooling integration', () => {
