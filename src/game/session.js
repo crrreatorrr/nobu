@@ -5,6 +5,7 @@ import { Stage } from '../world/stage.js';
 import { TicketSystem } from '../entities/tickets.js';
 import { FX } from '../entities/fx.js';
 import { Projectiles } from '../bosses/common.js';
+import { bossDda, bossMedals, newBossRun } from '../bosses/medals.js';
 import { BlueSphere, backpackModel } from '../entities/breakables.js';
 import { Breakable } from '../entities/entity.js';
 import { Enemy } from '../entities/enemies.js';
@@ -13,7 +14,7 @@ import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
 import { levelDef, LEVEL_NAMES } from '../levels/registry.js';
-import { LEVEL_INTRO, BOSS_TALK } from '../story/script.js';
+import { LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT } from '../story/script.js';
 import { SNACK_EXCLUDED, applyRunResults, boneContext, snackTier } from './bones.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
@@ -67,6 +68,11 @@ export class Session {
     this.deathsAtCp = 0;
     this.busy = false;     // transitions / dialogue
     this.over = false;
+    this.bossRun = null;
+    this.bossClock = 0;
+    this.bossDeaths = {};
+    this.bossStageDeaths = 0;
+    this.bossDdaUsed = false;
   }
 
   nextSeq() { return ++this.seq; }
@@ -459,11 +465,16 @@ export class Session {
     await g.ui.say(BOSS_TALK[this.def.bossKey].intro);
     g.camera.endCinematic();
     g.player.frozen = false;
-    g.ui.bossShow(boss.name, boss.portrait);
+    g.ui.bossShow(boss.name, boss.portrait, boss.stages);
     g.ui.bossCharge(0, false);
     audio.playMusic(stage.theme.music);
     g.ui.banner('FIGHT!', boss.name, 1.4);
     boss.start();
+    this.bossRun = newBossRun();
+    this.bossClock = 0;
+    this.bossDeaths = {};
+    this.bossStageDeaths = 0;
+    this.bossDdaUsed = false;
     g.camera.opts.focus = boss.pos;
     g.camera.opts.focusWeight = 0.2;
     this.busy = false;
@@ -475,6 +486,8 @@ export class Session {
     boss.active = false;
     this.projectiles.clear();
     this.bossPhaseCp = phase;
+    this.bossStageDeaths = 0;
+    boss.dda = { tele: 1, window: 0 };
     await wait(600);
     if (g.player.dead || this.over) { this.busy = false; return; }
     g.player.frozen = true;
@@ -496,6 +509,9 @@ export class Session {
     // a little help: a fresh Blue Sphere each phase
     const sp = this.info.spheres?.[phase - 1];
     if (sp) { const s = new BlueSphere(this.stage, sp.x, sp.y, sp.z); s.countable = false; this.stage.add(s); }
+    // Bird/Cat retry from stage 1, so later stages must restore their own help
+    // when reached again rather than losing it at the earlier restart.
+    this._applyBossDda(phase);
     boss.stateT = 0; // the phase-change reaction (rage/roar) starts now, after the dialogue
     boss.active = true;
     boss.beginPhase?.();
@@ -504,6 +520,7 @@ export class Session {
 
   onBossDefeated(boss) {
     const g = this.game;
+    this._awardBossMedals(boss);
     if (this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
     this.busy = true;
     this.projectiles.clear();
@@ -517,6 +534,7 @@ export class Session {
       g.player.victory();
       g.camera.cinematic(g.player.pos.clone().add(new THREE.Vector3(0, 2.2, 5.5)), g.player.pos.clone().add(new THREE.Vector3(0, 1, 0)), 2);
       audio.playMusic('complete');
+      this._showBossMedals?.();
     }, 2600);
     setTimeout(() => {
       g.ui.fade(1).then(() => g.levelCleared(this));
@@ -524,6 +542,49 @@ export class Session {
   }
 
   // ---------- events from entities ----------
+  _bossContext() {
+    return { god: !!(save.data.godMode || this.game.player?.god), trial: this.trial,
+      remix: !!this.remix, rush: !!this.rush, ranked: !!this.ranked, medal: !!this.medalMode,
+      skipped: !!this.bossSkipped };
+  }
+
+  _applyBossDda(phase, resetMask = false) {
+    this.bossStageDeaths = this.bossDeaths[phase] || 0;
+    const help = bossDda(this.bossStageDeaths, this._bossContext());
+    this.boss.dda = { tele: help.tele, window: help.window };
+    if (resetMask || help.masks) this.setMask(resetMask ? help.masks : Math.max(this.mask, help.masks));
+    if (help.masks) {
+      this.bossDdaUsed = true;
+      if (this.bossRun) this.bossRun.void = true;
+    }
+  }
+
+  onPlayerHurt() {
+    if (this.phase !== 'boss' || !this.boss || this.boss.defeated) return;
+    this.boss.onPlayerHurt();
+    if (this.bossRun) this.bossRun.noHit = false;
+  }
+
+  _awardBossMedals(boss) {
+    if (!this.bossRun || boss !== this.boss) return;
+    const previous = save.data.bossMedals?.[boss.key] || {};
+    this.bossRun.noHit &&= !boss.tookHitThisFight;
+    this.bossRun.void ||= this.bossDdaUsed;
+    const record = bossMedals(boss.key, this.bossRun, previous, this._bossContext());
+    this.newBossMedals = null;
+    if (!record) return;
+    this.newBossMedals = { noHit: record.noHit && !previous.noHit, speed: record.speed && !previous.speed };
+    (save.data.bossMedals ||= {})[boss.key] = record;
+    save.write();
+  }
+
+  _showBossMedals() {
+    const earned = this.newBossMedals;
+    if (!earned || (!earned.noHit && !earned.speed)) return;
+    this.game.ui.banner(earned.noHit ? BOSS_MEDAL_TEXT.noHit : BOSS_MEDAL_TEXT.speed,
+      earned.noHit && earned.speed ? BOSS_MEDAL_TEXT.speed : '', 3);
+  }
+
   onBreak() { this._pushHud(); }
   onEnemyDefeated() {}
 
@@ -627,6 +688,12 @@ export class Session {
   onPlayerDeath(type) {
     if (this.dying) return;
     this.dying = true;
+    this.onPlayerHurt(); // Includes direct pit/crusher deaths which bypass hurt().
+    if (this.phase === 'boss' && this.boss && !this.boss.defeated) {
+      const phase = this.boss.phase;
+      this.bossDeaths[phase] = (this.bossDeaths[phase] || 0) + 1;
+      this.bossStageDeaths = this.bossDeaths[phase];
+    }
     this.deaths++;
     const g = this.game;
     this.invincibleT = 0;
@@ -685,7 +752,7 @@ export class Session {
     if (g.player.ride) g.player.ride.speedK = 0;
     g.camera.snap(g.player);
     // pity mask after a few deaths at the same checkpoint (classic!)
-    this.setMask(this.deathsAtCp >= 3 ? 1 : 0);
+    if (this.phase !== 'boss') this.setMask(this.deathsAtCp >= 3 ? 1 : 0);
     g.mask.snapTo(g.player);
     this._pushHud();
     if (this.chase && this.stage.track) {
@@ -694,8 +761,9 @@ export class Session {
     }
     if (this.phase === 'boss' && this.boss) {
       this.boss.killMinions?.();
-      const phase = this.def.bossKey === 'cone' ? this.bossPhaseCp : 1;
+      const phase = this.boss.phaseCheckpoints === false ? 1 : this.bossPhaseCp;
       this.boss.resetToPhase(phase);
+      this._applyBossDda(phase, true);
       g.ui.bossHp(this.boss.hp / this.boss.maxHp, phase);
       this.boss.active = true;
     }
@@ -706,6 +774,12 @@ export class Session {
     const g = this.game;
     if (!this.stage) return;
     this.godUsed ||= !!save.data.godMode;
+    if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
+      this.bossRun.t += dt;
+      this.bossClock = this.bossRun.t;
+      // Enabling God Mode for any part of a fight permanently voids this attempt.
+      if (save.data.godMode || g.player.god) this.bossRun.void = true;
+    }
     if (this.invincibleT > 0) {
       this.invincibleT -= dt;
       if (this.invincibleT <= 0) {

@@ -76,6 +76,10 @@ export class Player {
     this.mode = 'normal';
     this.hang = null;
     this._hangProjection = {};
+    this.trapT = 0; this.trapElapsed = 0;
+    this.conedT = 0;
+    this.dustDashT = 0;
+    this.game.ui?.setConed?.(false);
     this.vel.set(0, 0, 0);
     this.facing = Math.PI;
     this.targetFacing = Math.PI;
@@ -153,7 +157,9 @@ export class Player {
   // Boss moves, plus Mega Bark from the hat and an air dash from the clown collar. Never writes beaten.
   // The crown's triple jump and wider bite are read straight from gear (maxAirJumps, biteMult).
   get abilities() {
-    return { glide: save.beatenOf(1), zoom: save.beatenOf(2), bark: save.beatenOf(3) || !!this.gear.spell_bark, airDash: !!this.gear.air_dash };
+    const dustDash = save.beatenOf(4), moonJump = save.beatenOf(5);
+    return { glide: save.beatenOf(1), zoom: save.beatenOf(2), bark: save.beatenOf(3) || !!this.gear.spell_bark,
+      airDash: !!this.gear.air_dash, dustDash, moonJump, dust: dustDash, moon: moonJump };
   }
   // Air jumps per jump: 1 (double jump), +count while the Champion's Crown is on (triple jump).
   // God mode gives 3; the crown does not stack on top of it.
@@ -196,6 +202,16 @@ export class Player {
     this.coyote = this.body.grounded ? T.COYOTE : Math.max(0, this.coyote - dt);
     this.landT += dt; this.jumpT += dt;
     if (this.flipT >= 0) { this.flipT += dt / 0.42; if (this.flipT >= 1) this.flipT = -1; }
+    if (this.conedT > 0) {
+      this.conedT = Math.max(0, this.conedT - dt);
+      if (!this.conedT) this.clearConed();
+    }
+    if (this.mode === 'trapped') {
+      const canEscape = this.trapElapsed <= 0.3;
+      this.trapElapsed += dt;
+      this.trapT = Math.max(0, this.trapT - dt - (input.pressed('bite') ? 0.25 : 0));
+      if ((canEscape && input.pressed('slide')) || !this.trapT) this.mode = 'normal';
+    }
 
     if (this.hang) {
       if (advanceHang(this, dt, input.pressed('jump'), T.JUMP)) audio.play('jump');
@@ -277,6 +293,8 @@ export class Player {
       dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
       const bankTarget = Math.max(-0.32, Math.min(0.32, -(dYaw / Math.max(dt, 1e-4)) * 0.05 * Math.min(1, hs / T.RUN)));
       this.bank = damp(this.bank || 0, grounded ? bankTarget : bankTarget * 0.4, 10, dt);
+    } else if (this.mode === 'trapped') {
+      this.vel.x = 0; this.vel.z = 0;
     } else if (this.mode === 'slide') {
       this.slideT += dt;
       const f = this.forward;
@@ -354,7 +372,8 @@ export class Player {
     const wasGrounded = this.body.grounded;
     rideGround(this.body);
     // external push (boss wind gusts, suction): moved through collision like normal velocity, cleared each frame
-    const px = this.mode === 'dead' ? 0 : this.pushX || 0, pz = this.mode === 'dead' ? 0 : this.pushZ || 0;
+    const noPush = this.mode === 'dead' || this.mode === 'trapped';
+    const px = noPush ? 0 : this.pushX || 0, pz = noPush ? 0 : this.pushZ || 0;
     this.vel.x += px; this.vel.z += pz;
     const preX = this.pos.x, preZ = this.pos.z;
     for (let i = 0; i < steps; i++) moveBody(stage.world, this.body, h);
@@ -427,6 +446,7 @@ export class Player {
 
   // Double jump, and the crown's third jump. Each one spends one of maxAirJumps.
   _airJump() {
+    this.clearConed();
     this.airJumps--;
     this.airDashT = 0;
     this._refillAirDash();
@@ -455,6 +475,7 @@ export class Player {
   }
 
   _startBite() {
+    if (this.conedT > 0) return;
     this.biteT = 0;
     this.bitten = new Set();
     audio.play('bite');
@@ -543,6 +564,7 @@ export class Player {
   }
 
   _onLand(solid, impact, wasGrounded) {
+    if (this.mode === 'flop' && this.flopPhase === 'fall') this.clearConed();
     if (!wasGrounded) {
       this.airDashT = 0;
       this._refillAirDash();
@@ -576,7 +598,7 @@ export class Player {
       min: { x: p.x - 0.36, y: p.y, z: p.z - 0.36 },
       max: { x: p.x + 0.36, y: p.y + this.body.h, z: p.z + 0.36 },
     };
-    const biting = this.biteT >= 0.1 && this.biteT <= 0.75;
+    const biting = !(this.conedT > 0) && this.biteT >= 0.1 && this.biteT <= 0.75;
     const f = this.forward;
     const bx = p.x + f.x * 0.75, by = p.y + 0.75, bz = p.z + f.z * 0.75;
     const sliding = this.mode === 'slide' || (!!this.ride && this.mode === 'normal');
@@ -585,6 +607,11 @@ export class Player {
       if (e.dead || !e.interactive || !e.box) continue;
       if (Math.abs(e.pos.z - p.z) > 8) continue;
       const eb = e.box;
+      if (this.dustDashT > 0 && !this.bitten.has(e) && e.onDash && overlaps(pbox, eb)) {
+        this.bitten.add(e); e.onDash(this);
+        if (this.dead) return;
+        continue;
+      }
       if (biting && !this.bitten.has(e) && (sphereBox(bx, by, bz, biteR, eb) || sphereBox(p.x, p.y + 0.7, p.z, 0.75, eb))) {
         this.bitten.add(e);
         e.onBite?.(this);
@@ -607,6 +634,38 @@ export class Player {
   }
 
   // ---------- damage ----------
+  trap(sec) {
+    if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || !(sec > 0)) return false;
+    this.hang = null;
+    this.mode = 'trapped'; this.trapT = sec; this.trapElapsed = 0;
+    this.vel.x = 0; this.vel.z = 0; this.biteT = -1;
+    this.airDashT = 0; this.dustDashT = 0; this.flopPhase = null;
+    this.body.h = 1.3;
+    return true;
+  }
+  cone(sec) {
+    if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || this.god || !(sec > 0)) return false;
+    const s = this.game.session;
+    if (s?.mask > 0) {
+      s.setMask(s.mask - 1); this._reportHurt(); audio.play('maskLost');
+      return true;
+    }
+    this.conedT = sec; this.biteT = -1;
+    this.deathCone.position.set(0, 1.15, 0.12);
+    this.deathCone.visible = true;
+    this.game.ui?.setConed?.(true);
+    return true;
+  }
+  clearConed() {
+    this.conedT = 0;
+    if (this.deathCone && this.deathType !== 'cone') this.deathCone.visible = false;
+    this.game.ui?.setConed?.(false);
+  }
+  _reportHurt() {
+    const s = this.game.session;
+    if (s?.onPlayerHurt) s.onPlayerHurt();
+    else s?.boss?.onPlayerHurt?.();
+  }
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
     if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god || this.frozen) return false;
@@ -623,6 +682,7 @@ export class Player {
         this.vel.x = (dx / d) * 6; this.vel.z = (dz / d) * 6;
       }
       if (this.body.grounded) this.vel.y = 6;
+      this._reportHurt();
       return true;
     }
     // Mask first, then the Golden Collar, then death. Pits and crushers call die() and skip this.
@@ -641,6 +701,7 @@ export class Player {
       if (this.body.grounded) this.vel.y = 6;
       this.game.accessories?.flashCollar(false);
       this._paintGear();
+      this._reportHurt();
       return true;
     }
     this.die(type);
@@ -698,6 +759,8 @@ export class Player {
     if (this.mode === 'dead') return;
     if (this.god) { if (type === 'fall') this._rescue(); return; }
     this.hang = null;
+    this._reportHurt();
+    this.clearConed();
     if (this.mode === 'slide') this.body.h = 1.3;
     this.mode = 'dead';
     this.deathType = type;

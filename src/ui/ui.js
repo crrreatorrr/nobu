@@ -24,6 +24,10 @@ export class UI {
 
   constructor(root) {
     this.root = root;
+    this.conedVignette = h('div', 'coned-vignette');
+    this.conedVignette.setAttribute('aria-hidden', 'true');
+    this.conedVignette.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background:radial-gradient(ellipse,transparent 40%,rgba(130,80,180,.65));';
+    root.appendChild(this.conedVignette);
     // HUD
     this.hud = h('div', 'hud');
     this.slots = {};
@@ -129,6 +133,7 @@ export class UI {
     }
   }
   godBadge(on) { this.god.classList.toggle('on', !!on); }
+  setConed(on) { this.conedVignette.style.display = on ? 'block' : 'none'; }
   // time trial clock: text, or null to hide; `frozen` tints it icy while a Freeze Pack holds it
   // Called every frame during a trial, so the DOM is touched only when the shown text changes.
   trialTime(text, frozen = false) {
@@ -144,15 +149,16 @@ export class UI {
   hideHud() { for (const s of Object.values(this.slots)) { s.timer = 0; s.el.classList.remove('show'); } }
 
   // ---------- boss bar ----------
-  bossShow(name, portrait) {
+  bossShow(name, portrait, stages = 3) {
+    this.bossStages = stages;
     this.boss.querySelector('img').src = Assets.url(portrait);
     this.boss.querySelector('.bb-name').textContent = name;
     this.bossHp(1, 1);
     this.boss.classList.add('show');
   }
-  bossHp(frac, phase) {
+  bossHp(frac, phase, stages = this.bossStages ?? 3) {
     this.bbFill.style.width = `${Math.max(0, frac) * 100}%`;
-    this.bbPhase.textContent = phase ? `PHASE ${phase}` : '';
+    this.bbPhase.textContent = phase ? `PHASE ${phase}${stages === 4 ? ' ' + '●'.repeat(phase) + '○'.repeat(Math.max(0, stages - phase)) : ''}` : '';
   }
   // special-attack gauge: fills up, flashes when the ultimate is ready
   bossCharge(frac, ready = false) {
