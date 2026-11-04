@@ -310,6 +310,12 @@ export const BONE_TEXT = {
   liveStats: (s, p) => `Breakables ${s.broken}/${s.breakables} · Dogs ${s.dogs}/${s.dogsTotal} · Snacks ${p}%`,
   deaths: (n) => `${n}/3 deaths`, kennel: (id) => `KENNEL: ${id.toUpperCase()} UNLOCKED!`,
 };
+export const REMIX_TEXT = {
+  banner: { title: 'SMOG REMIX', subtitle: 'Mirrored · no assistance · earn its own Golden Bone' },
+  complete: { title: 'SMOG REMIX CLEAR!', earned: 'REMIX GOLDEN BONE!', missed: 'Every backpack and every dog in one run', already: 'Remix Golden Bone already earned' },
+  toggle: 'SMOG REMIX', locked: 'Beat the Pump Queen to unlock Smog Remixes', controls: 'R / RT: Smog Remix',
+  bone: 'Remix Golden Bone', normal: 'NORMAL',
+};
 export const BOSS_MEDAL_TEXT = { noHit: 'NO-HIT!', speed: 'SPEED MEDAL' };
 export const SECTION_TEXT = {
   sorting: 'Sorting Belts', packaging: 'Packaging Line', vatOverflow: 'Vat Overflow', maintenanceDucts: 'Maintenance Ducts', overheadRails: 'Overhead Rails',
@@ -400,11 +406,6 @@ export const RUSH_TEXT = {
   locked: 'Beat the Pump Queen to unlock the Cone Gauntlet', controls: '◀ ▶ choose · SPACE / ENTER play · ESC title',
   clear: 'BOSS RUSH CLEAR!', noHit: 'NO-HIT CLEAR!', ineligible: 'God Mode · no Rush record',
   record: 'CLEAR MEDAL', noHitRecord: 'NO-HIT MEDAL', best: 'Best', continue: 'Press any key',
-};
-export const REMIX_TEXT = {
-  banner: { title: 'SMOG REMIX', subtitle: 'Mirrored · no assistance · earn its own Golden Bone' },
-  complete: { title: 'SMOG REMIX CLEAR!', earned: 'REMIX GOLDEN BONE!', missed: 'Every backpack and every dog in one run', already: 'Remix Golden Bone already earned' },
-  toggle: 'SMOG REMIX', locked: 'Beat the Pump Queen to unlock Smog Remixes',
 };
 
 export const L6_TEXT = {

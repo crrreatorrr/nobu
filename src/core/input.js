@@ -12,6 +12,7 @@ const KEYMAP = {
   KeyL: 'bark', KeyE: 'bark',
   KeyT: 'trial',
   KeyG: 'gauntlet',
+  KeyR: 'remix',
   KeyI: 'wardrobe',
   KeyU: 'dash',
   KeyX: 'exchange',
@@ -79,6 +80,7 @@ class Input {
       if (b(1) || b(4) || b(6) || b(7)) this.pad.held.add('slide');
       if (b(4)) this.pad.held.add('wardrobe'); // LB. The map opens the wardrobe; slide still fires in play.
       if (b(6)) this.pad.held.add('dash'); // LT. In the air with the collar, this dashes instead of flopping.
+      if (b(7)) this.pad.held.add('remix'); // RT toggles Smog Remix on the map; slide remains available in play.
       if (b(9)) this.pad.held.add('pause');
       if (b(0) || b(9)) this.pad.held.add('confirm');
       if (b(1) || b(8)) this.pad.held.add('back');

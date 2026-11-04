@@ -16,6 +16,8 @@ import { RushSession } from './rushSession.js';
 import { rushAvailable } from './rushArenas.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime, ownsAsyncLifecycle, isPipelineSession } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
+import { remixAvailable, sessionModes } from './remix.js';
+import { REMIX_TEXT } from '../story/script.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
@@ -243,6 +245,7 @@ export class Game {
   openKennel(mode = null) {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (!isOpen('kennel', save.data)) return false;
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.kennel?.dispose();
     this.session?.dispose(); this.session = null;
     this.ui.trialTime(null); this.ui.hideHud(); this.ui.bossHide(); this.ui.clearScreen();
@@ -410,16 +413,17 @@ export class Game {
   }
 
   toMap(sel = 1) {
+    const fromRemix = !!this.session?.remix;
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     this.session = null;
     sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
-    this._unlockMainChapters();
-    if (levelDef(4)?.shipped && save.data.finished && !save.data.seenCh2) {
+    if (!fromRemix) this._unlockMainChapters();
+    if (!fromRemix && levelDef(4)?.shipped && save.data.finished && !save.data.seenCh2) {
       this.playCutscene(CHAPTER2, () => { save.data.seenCh2 = true; save.write(); this.toMap(4); });
       return;
     }
-    if (this._trySecretEnding(() => this.toMap(sel))) return;
+    if (!fromRemix && this._trySecretEnding(() => this.toMap(sel))) return;
     this.exchangeOpen = false;
     this.ui.trialTime(null);
     this.state = 'map';
@@ -437,6 +441,8 @@ export class Game {
 
   _drawMap(fresh = []) {
     const d = save.data;
+    const available = remixAvailable(d, levelDef(this.mapSel));
+    if (!available) this.mapRemix = false;
     let nodes = '';
     for (const n of MAP_ORDER) {
       const p = levelDef(n).mapPos;
@@ -446,10 +452,10 @@ export class Game {
       const gauntlet = hostGauntlet(n);
       nodes += `<div data-level="${n}" class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
         ${!beaten && !bonus && !meta ? '<div class="cone-cloud"></div>' : ''}
-        ${!bonus && save.boneOf(n) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
-        ${!meta && !bonus ? perfectPaw(!!d.perfect?.[n], MASTERY_TEXT) : ''}
-        ${gauntlet && isOpen(gauntlet.id, d) ? `<span data-gauntlet-pin="${gauntlet.id}" title="${esc(gauntlet.name)}">📷</span>` : ''}
-        ${!bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
+        ${!bonus && (this.mapRemix ? d.remix?.[n]?.golden : save.boneOf(n)) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
+        ${!this.mapRemix && !meta && !bonus ? perfectPaw(!!d.perfect?.[n], MASTERY_TEXT) : ''}
+        ${!this.mapRemix && gauntlet && isOpen(gauntlet.id, d) ? `<span data-gauntlet-pin="${gauntlet.id}" title="${esc(gauntlet.name)}">📷</span>` : ''}
+        ${!this.mapRemix && !bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
         ${n === this.mapSel ? `<img class="nobu-marker" src="${Assets.url('nobu_head')}">` : ''}
         <div class="dot">${locked ? '🔒' : meta ? '🐾' : bonus ? '★' : n}</div>
         <div class="label">${bonus && locked ? 'BONUS' : LEVEL_NAMES[n]}</div></div>`;
@@ -461,25 +467,27 @@ export class Game {
     const rushStatus = [isOpen(lv, d) ? RUSH_TEXT.description : RUSH_TEXT.locked,
       d.rush?.clear ? RUSH_TEXT.record : '', d.rush?.noHit ? RUSH_TEXT.noHitRecord : '',
       d.rush?.bestMs ? `${RUSH_TEXT.best} ${fmtTime(d.rush.bestMs / 1000)}` : ''].filter(Boolean).join(' · ');
-    const status = esc(rushSel ? rushStatus : metaSel ? KENNEL_TEXT.mapDescription : goalHint(this, lv));
-    const sniffer = !metaSel && kennelStatus(d, LEVELS).unlocks.includes('sniffer') ? missingSecrets(d, LEVELS).find((def) => String(def.id) === String(lv)) : null;
+    const status = esc(this.mapRemix ? REMIX_TEXT.complete.missed : rushSel ? rushStatus : metaSel ? KENNEL_TEXT.mapDescription : goalHint(this, lv));
+    const sniffer = !this.mapRemix && !metaSel && kennelStatus(d, LEVELS).unlocks.includes('sniffer') ? missingSecrets(d, LEVELS).find((def) => String(def.id) === String(lv)) : null;
     const snifferLine = sniffer ? `<div class="hint">${esc(KENNEL_TEXT.secretLine(sniffer))}</div>` : '';
-    const tr = !!levelDef(lv).trial && save.beatenOf(lv)
+    const tr = !this.mapRemix && !!levelDef(lv).trial && save.beatenOf(lv)
       ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
       : '';
-    const targets = !metaSel && levelDef(lv).trial && save.beatenOf(lv) ? `<div class="hint">${trialTargetLine(trialVariant(lv), d.trials?.[lv])}</div>` : '';
-    const eligible = !metaSel && levelDef(lv).trial && d.trials?.[lv] ? eligibleTrialLine(d.trials[lv], MASTERY_TEXT) : '';
-    const bossList = metaSel ? '' : bossMedalPanel(d, LEVELS, lv, MASTERY_TEXT);
+    const targets = !this.mapRemix && !metaSel && levelDef(lv).trial && save.beatenOf(lv) ? `<div class="hint">${trialTargetLine(trialVariant(lv), d.trials?.[lv])}</div>` : '';
+    const eligible = !this.mapRemix && !metaSel && levelDef(lv).trial && d.trials?.[lv] ? eligibleTrialLine(d.trials[lv], MASTERY_TEXT) : '';
+    const bossList = this.mapRemix || metaSel ? '' : bossMedalPanel(d, LEVELS, lv, MASTERY_TEXT);
     const gauntlet = hostGauntlet(lv), gauntletRow = gauntlet && d.gauntlets?.[gauntlet.id];
-    const gauntletLine = gauntlet && isOpen(gauntlet.id, d)
+    const gauntletLine = !this.mapRemix && gauntlet && isOpen(gauntlet.id, d)
       ? `<div class="hint" data-gauntlet-entry="${gauntlet.id}">📷 ${esc(gauntlet.name.toUpperCase())} · ${esc(GAUNTLET_TEXT.enter)}<br>${gauntletMedals(gauntletRow)}${gauntletRow?.bestMs ? ` · ${esc(GAUNTLET_TEXT.localBest)} ${fmtTime(gauntletRow.bestMs / 1000)}` : ''}</div>` : '';
-    const world = !!levelDef(lv).trial && save.beatenOf(lv) ? this._worldLine(lv) : '';
+    const world = !this.mapRemix && !!levelDef(lv).trial && save.beatenOf(lv) ? this._worldLine(lv) : '';
     const total = save.totalTrialMs();
-    const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
+    const totalNote = !this.mapRemix && total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
-    const secretHint = levelDef(5)?.shipped && d.beaten?.[5] && !d.secretSeen
+    const secretHint = !this.mapRemix && levelDef(5)?.shipped && d.beaten?.[5] && !d.secretSeen
       ? `<div class="hint">${esc(SECRET_ENDING_HINT(goodBoyPercent(d, LEVELS).total))}</div>` : '';
-    const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel })}
+    const remixLine = available ? `<div class="hint">${esc(REMIX_TEXT.controls)} · ${esc(this.mapRemix ? REMIX_TEXT.toggle : REMIX_TEXT.normal)}</div>` : !bonusSel && !metaSel ? `<div class="hint">${esc(REMIX_TEXT.locked)}</div>` : '';
+    const board = this.mapRemix ? `<div class="hint">${d.remix?.[lv]?.golden ? '🦴' : '○'} ${esc(REMIX_TEXT.bone)}</div>` : metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel });
+    const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${board}${remixLine}
       <div class="hint">${status}</div>${secretHint}${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${gauntletLine}${world}${totalNote}
       <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
@@ -631,6 +639,9 @@ export class Game {
     if (this.exchangeOpen) { this.updateExchange(); return; }
     if (input.pressed('wardrobe')) { audio.play('select'); this.openWardrobe('map'); return; }
     const d = save.data;
+    if (input.pressed('remix') && remixAvailable(d, levelDef(this.mapSel))) {
+      this.mapRemix = !this.mapRemix; audio.play('menu'); this._drawMap(); return;
+    }
     const open = MAP_ORDER.filter((n) => isOpen(n, d));
     const i = open.indexOf(this.mapSel);
     if (input.pressed('right') || input.pressed('up')) { if (i < open.length - 1) { this.mapSel = open[i + 1]; audio.play('menu'); this._drawMap(); } }
@@ -640,16 +651,18 @@ export class Game {
     if (input.pressed('bark') && kennelStatus(d, LEVELS).unlocks.includes('sniffer')) { this.openKennel('sniffer'); return; }
     if (input.pressed('gauntlet')) {
       const def = hostGauntlet(this.mapSel);
-      if (def && isOpen(def.id, d)) { audio.play('select'); this.startLevel(def.id); }
+      if (!this.mapRemix && def && isOpen(def.id, d)) { audio.play('select'); this.startLevel(def.id); }
       return; // RB also maps to bite: consume it before ordinary-level confirmation.
     }
-    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta && !levelDef(this.mapSel).rush) this.openKennel(); else this.startLevel(this.mapSel); }
-    else if (input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
+    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta && !levelDef(this.mapSel).rush) this.openKennel(); else this.startLevel(this.mapSel, { remix: !!this.mapRemix }); }
+    else if (!this.mapRemix && input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
 
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
+    sessionModes(opts);
+    if (opts.remix && !remixAvailable(save.data, levelDef(n))) return false;
     if (n === 'rush' && !rushAvailable(save.data)) return false;
     if (levelDef(n)?.meta && n !== 'rush') return this.openKennel();
     if (levelDef(n)?.gauntlet && !isOpen(n, save.data)) return;
@@ -666,9 +679,11 @@ export class Game {
       save.write();
     }
     this.state = 'play';
-    this.session = n === 'rush' ? new RushSession(this) : new Session(this, n, opts);
+    const session = this.session = n === 'rush' ? new RushSession(this) : new Session(this, n, opts);
     this.flyingMasks.length = 0;
-    await this.session.startLevel();
+    await session.startLevel();
+    if (epoch !== this._launchEpoch || this.session !== session || session.disposed) return false;
+    if (opts.remix && this.state === 'play') this.ui.banner(REMIX_TEXT.banner.title, REMIX_TEXT.banner.subtitle, 2.2);
   }
 
   updatePlay(dt) {
@@ -737,9 +752,10 @@ export class Game {
     const s = this.session;
     const live = s?.stage && s.phase === 'level' ? s.liveStats() : s?.stats;
     const pct = live?.snackPotential ? Math.floor(live.snackRaw / live.snackPotential * 100) : 0;
+    const board = s?.remix ? `<div class="sub-title">${esc(REMIX_TEXT.toggle)}</div>` : live ? this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) }) : '';
     const stats = s?.def?.gauntlet
       ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
-      : live ? `${this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) })}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(goalHint(this, s.level, live))}</div>` : '';
+      : live ? `${board}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(s.remix ? REMIX_TEXT.complete.missed : goalHint(this, s.level, live))}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
       <div class="hint" style="margin-top:20px">◀ ▶ adjust · ESC resume</div>`, 'dim');
   }
@@ -771,10 +787,11 @@ export class Game {
       else if (it.id === 'hub') { this.exitToHub(); }
       else if (it.id === 'quit') {
         this.ui.pinHud(false);
-        const level = this.session.level;
-        if (!this.session.rush) save.write();
-        if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
-        this.ui.fade(1).then(() => this.toMap(level));
+        const session = this.session, level = session.level;
+        const epoch = this._launchEpoch;
+        if (!session.rush) save.write();
+        if (retiresOnLeave(session) && !session.disposed) session.dispose();
+        this.ui.fade(1).then(() => { if (this._launchEpoch === epoch && this.session === session) this.toMap(level); });
       }
     }
   }
@@ -873,10 +890,22 @@ export class Game {
   }
 
   // ---------------- level complete ----------------
+  remixCleared(session, result) {
+    if (this.session !== session || session.disposed) return false;
+    this.state = 'complete'; this.completeMode = 'remix';
+    this.tally = null; this.tallyStats = null; this.completeT = 0;
+    this.completeMinT = 2.3; this.completeNext = { n: session.level, bonus: true };
+    this.ui.hideHud(); this.ui.bossHide(); audio.playMusic('complete');
+    const text = result.fresh ? REMIX_TEXT.complete.earned : result.golden ? REMIX_TEXT.complete.already : REMIX_TEXT.complete.missed;
+    this.ui.setScreen(`<div class="big-title">${esc(REMIX_TEXT.complete.title)}</div><div class="sub-title">${esc(session.def.name)}</div><div class="big-title">${result.golden ? '🦴' : '○'}</div><div class="hint">${esc(text)}</div>`, 'dim');
+    return true;
+  }
+
   levelCleared(session) {
     const stage = session.stage, epoch = session._lifecycleEpoch || 0;
     const current = () => pipelineCurrent(this, session, stage, epoch);
     if (!current()) return false;
+    if (session.remix) return session._finishRemix();
     const n = levelDef(session.level).id;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
     const d = save.data;
@@ -898,6 +927,7 @@ export class Game {
   goalLevelCleared(session) {
     if (session.def?.goal && !session.def.bonus &&
       (session.disposed || this.session !== session || this.stage !== session.stage)) return false;
+    if (session.remix) return session._finishRemix();
     const n = session.level, st = session.stats;
     save.setBeaten(n); save.setBestDogs(n, st.dogs);
     this._unlockMainChapters();
@@ -909,6 +939,7 @@ export class Game {
 
   // Colored bone found: it opens a path in an earlier level.
   collectBone(color) {
+    if (this.session?.remix) return false;
     const where = BONE_TEXT.destinations;
     save.data.colorBones ||= {};
     const fresh = !save.data.colorBones[color];
@@ -1056,7 +1087,7 @@ export class Game {
       const lvl = this.session?.level || save.data.lastLevel || 1;
       save.data.lives = START_LIVES;
       save.write();
-      if (this.goSel === 0) this.startLevel(lvl);
+      if (this.goSel === 0) this.startLevel(lvl, { remix: !!this.session?.remix });
       else this.toTitle();
     }
   }
