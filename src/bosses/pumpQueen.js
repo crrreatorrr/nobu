@@ -7,6 +7,8 @@ import { toon } from '../player/nobuPrims.js';
 import { textTexture } from '../entities/fx.js';
 import { audio } from '../audio/audio.js';
 import { QUEEN_STAGE_POWERS, QUEEN_TICKER_TEXT } from '../story/script.js';
+import { materialSet, modelSkeletons } from './catResources.js';
+import { queenHazardsPaused, queenProceduralCleanup } from './queenResources.js';
 
 export const QUEEN_PLANS = Object.freeze({
   1: ['mint', 'wave', 'pump', 'mint', 'chain', 'pump'],
@@ -92,9 +94,12 @@ export class PumpQueen extends Boss {
     this.collectMeshes();
     this.setStageLook(1);
     this.refreshBox();
+    this.disposeResources = queenProceduralCleanup(stage, [this.obj, this.beam.group], [this.tickerTexture]);
   }
   buildModel() {
     let model = Assets.model('model_pump_queen', 5.5);
+    const primitive = !model,
+      alias = !!model && !Assets.models?.has('model_pump_queen');
     if (!model) {
       model = new THREE.Group();
       const body = new THREE.Mesh(new THREE.CapsuleGeometry(1.2, 3.1, 8, 24), toon(0xd23cff));
@@ -104,7 +109,19 @@ export class PumpQueen extends Boss {
     fitQueenModel(model);
     this.rig.add(model);
     this.model = model;
+    const supersededMaterials = primitive || alias ? materialSet(model) : new Set();
+    const supersededSkeletons = modelSkeletons(model);
+    const supersededGeometry = new Set();
+    if (primitive)
+      model.traverse((obj) => {
+        if (obj.isMesh) supersededGeometry.add(obj.geometry);
+      });
     const rig = autoRig(model, { height: 5.5, joints: JOINTS, parents: PARENTS, weigh, yaw: -Math.PI / 2 });
+    if (rig) {
+      for (const material of supersededMaterials) material.dispose();
+      for (const skeleton of supersededSkeletons) skeleton.dispose();
+      for (const geometry of supersededGeometry) geometry.dispose();
+    }
     this.bones = rig?.bones;
     this.crownAnchor = new THREE.Group();
     this.crownAnchor.position.y = this.bones ? 5.2 - (3.5 * 5.5) / 4 : 5.2;
@@ -122,7 +139,22 @@ export class PumpQueen extends Boss {
         p.position.set(Math.cos((i * Math.PI * 2) / 5) * 0.8, 0.35, Math.sin((i * Math.PI * 2) / 5) * 0.8);
         this.crown.add(p);
       }
-    } else fitQueenModel(this.crown, 1.1);
+    } else {
+      const clones = new Map();
+      const cloneMaterial = (material) => {
+        if (!clones.has(material)) clones.set(material, material.clone());
+        return clones.get(material);
+      };
+      this.crown.traverse((obj) => {
+        if (obj.isMesh) {
+          obj.geometry = obj.geometry.clone();
+          obj.material = Array.isArray(obj.material)
+            ? obj.material.map(cloneMaterial)
+            : cloneMaterial(obj.material);
+        }
+      });
+      fitQueenModel(this.crown, 1.1);
+    }
     this.crown.rotation.z = 0.15;
     this.crownAnchor.add(this.crown);
     this.crownGlow = glowPart(0xffed8a, 1.7);
@@ -188,6 +220,18 @@ export class PumpQueen extends Boss {
     this.active = true;
     this.beginPhase();
   }
+  update(dt) {
+    if (queenHazardsPaused(this.game) && this.active && !this.evolving && !this.defeated) {
+      this.refreshBox();
+      return;
+    }
+    super.update(dt);
+  }
+  evolve(phase) {
+    const result = super.evolve(phase);
+    if (!this.pillarCleanup) this.pillarCleanup = queenProceduralCleanup(this.stage, [this.pillar]);
+    return result;
+  }
   beginPhase() {
     this.killMinions();
     this.arena.setPhase(this.phase);
@@ -248,7 +292,7 @@ export class PumpQueen extends Boss {
     if (s === 'pump' && !this.hasLadder()) {
       this.setState('awaitLadder');
       this.pendingPump = true;
-    }
+    } else if (s === 'pump') this.pendingPump = false;
     if (s === 'airdrop') {
       const targets = this.arena.pillars
         .slice()

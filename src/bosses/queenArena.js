@@ -5,6 +5,7 @@ import { audio } from '../audio/audio.js';
 import { toon } from '../player/nobuPrims.js';
 import { textTexture } from '../entities/fx.js';
 import { QUEEN_TICKER_TEXT } from '../story/script.js';
+import { queenHazardsPaused, queenProceduralCleanup } from './queenResources.js';
 
 export const QUEEN_OUTER = Object.freeze(
   Array.from({ length: 12 }, (_, i) =>
@@ -73,6 +74,7 @@ export class QueenRing extends Entity {
     this.reset();
   }
   update(dt) {
+    if (queenHazardsPaused(this.game)) return;
     const p = this.player;
     this.hotT = Math.max(0, this.hotT - dt);
     for (const tile of this.tiles) {
@@ -153,6 +155,11 @@ export class QueenArena extends Entity {
       this.tickers.push(mesh);
     }
     this.setPhase(1);
+    this.disposeResources = queenProceduralCleanup(
+      stage,
+      [this.ring.obj, ...this.pillars.map((p) => p.obj), ...this.tickers],
+      Object.values(this.tickerTextures)
+    );
   }
   nearest(position, { outer = false, inner = false } = {}) {
     let best = null,
@@ -204,7 +211,7 @@ export class QueenArena extends Entity {
     const others = this.pillars
       .filter((p) => p !== safe)
       .sort((a, b) => a.pos.distanceToSquared(safe.pos) - b.pos.distanceToSquared(safe.pos));
-    this.ultimate = { elapsed: 0, tell, safe, decoys: others.slice(0, phase - 1) };
+    this.ultimate = { elapsed: 0, tell, safe, decoys: others.slice(0, phase - 1), settledAt: null };
     return safe;
   }
   endUltimate() {
@@ -212,6 +219,7 @@ export class QueenArena extends Entity {
     this.ring.hotT = 0;
   }
   update(dt) {
+    if (queenHazardsPaused(this.game)) return;
     this.clock += dt;
     for (const texture of Object.values(this.tickerTextures)) texture.offset.x += dt * 0.08;
     const player = this.player;
@@ -268,7 +276,7 @@ export class QueenArena extends Entity {
             bounded = true;
           }
           if (p === u.safe || u.decoys.includes(p)) {
-            height = p === u.safe || t < 2.8 ? 2.5 : -6;
+            height = p === u.safe || u.settledAt === null || t < u.settledAt + 0.8 ? 2.5 : -6;
             color = 0x4aff8a;
             glow = p === u.safe ? 0.95 : Math.floor(t * 10) % 2 ? 0.85 : 0.08;
           }
@@ -282,6 +290,8 @@ export class QueenArena extends Entity {
       }
       p.wasOverridden = bounded;
       p.place(height, color, glow);
+      if (u && p === u.safe && u.elapsed >= u.tell && u.settledAt === null && Math.abs(p.pos.y - 2.5) < 1e-6)
+        u.settledAt = u.elapsed - u.tell;
     }
     if (this.crash?.elapsed >= this.crash?.tell + 4) this.crash = null;
     if (this.liquidation?.elapsed > (11 * 0.45) / this.speed + 3.5) this.liquidation = null;
