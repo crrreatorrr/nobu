@@ -5,6 +5,8 @@
 // Decor (palms, bushes, rocks, pipes...) lives in world/decor.js.
 import * as THREE from 'three';
 import { Entity } from './entity.js';
+import { updraft } from './updraft.js';
+export { updraft } from './updraft.js';
 import { Solid } from '../world/physics.js';
 import { Assets } from '../art/assets.js';
 import { toon } from '../player/nobuPrims.js';
@@ -495,12 +497,7 @@ export class UpdraftFan extends Entity {
     this.t += dt;
     this.blades.rotation.y += dt * 18;
     const p = this.player;
-    const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z;
-    if (!p.dead && dx * dx + dz * dz < 1.2 && p.pos.y > this.pos.y + 0.3 && p.pos.y < this.pos.y + this.height) {
-      p.vel.y = Math.min(11, p.vel.y + this.power * dt * 2);
-      p.body.grounded = false;
-      p.canDouble = true;
-    }
+    updraft(p, dt, this.pos, this.height, this.power);
     if (Math.random() < dt * 16) {
       const a = rand(0, Math.PI * 2), r = rand(0, 0.85);
       this.fx.smokeCard(this.pos.x + Math.cos(a) * r, this.pos.y + 0.6, this.pos.z + Math.sin(a) * r, {

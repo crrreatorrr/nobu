@@ -12,6 +12,9 @@ export const CARRY_MAX = 100;
 /** Server max_amount for one level_end earnTickets call. Larger earns are chunked. */
 export const LEVEL_END_MAX_AMOUNT = 20;
 
+/** Maximum Mystery payout: three whole Tickets, counted once in level budgets. */
+export const MYSTERY_RAW_MAX = 9;
+
 const SCALE_DENOMINATOR = Math.round(1 / NOBU_TICKET_SCALE);
 
 /** Whole Tickets represented by `raw` unscaled pickups. The remainder stays in `raw`. */
