@@ -1,8 +1,8 @@
 // M0 moves existing numbers without enabling the later boss powers or tuning.
-// H21 enables Bird explicitly; H22/H23 enable their own rows with their powers.
+// Each existing boss row activates with its corresponding power ticket.
 export const M2_ON = false;
 
-// Bird/Cat retain their original restart policy until the H20 owner decision.
+// The owner chose stage-1 retries for Bird/Cat in H20.
 // Session also honors an explicit per-instance phaseCheckpoints override.
 export const BOSS_PHASE_CHECKPOINTS = { bird: false, cat: false, cone: true, titan: true, queen: true };
 
@@ -22,7 +22,7 @@ export const BOSS = {
   cat: { hp: 6, perStage: 2, stages: 3, speed: [1, 1.2, 1.45], window: M2_ON ? [2.7, 2.4, 2] : [2.8, 2.4, 2],
     tele: M2_ON ? [0.95, 0.84, 0.74] : [1, 1, 1], chain: M2_ON ? [1, 2, 2] : [1, 1, 1] },
   cone: { hp: 9, perStage: 3, stages: 3, speed: [1, 1.25, 1.5], window: [1.8, 1.4, 1.1],
-    tele: M2_ON ? [0.9, 0.8, 0.7] : [1, 1, 1], chain: M2_ON ? [1, 2, 3] : [1, 1, 1] },
+    tele: [0.9, 0.8, 0.7], chain: [1, 2, 3] },
   titan: { hp: 9, perStage: 3, stages: 3, speed: [1.15, 1.35, 1.55], window: [1.7, 1.35, 1.05],
     tele: [0.85, 0.76, 0.68], chain: [2, 2, 3] },
   queen: { hp: 12, perStage: 3, stages: 4, speed: [1.2, 1.4, 1.6, 1.7], window: [1.6, 1.3, 1.05, 0.95],

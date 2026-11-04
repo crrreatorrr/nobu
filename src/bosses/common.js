@@ -10,6 +10,7 @@ import { BOSS, BOSS_PHASE_CHECKPOINTS, FLOOR, ULT_CHARGE } from '../config/diffi
 import { chainBlocked, clearChain, pickChain, startChain, endAttack } from './chain.js';
 import { segmentDistanceSq, segmentBoxTime } from './geometry.js';
 import { CageCover } from './arena.js';
+import { pullToward as pullBossToward } from './vortex.js';
 
 import { Assets } from '../art/assets.js';
 
@@ -828,7 +829,10 @@ export function dirTo(from, to) {
 
 // Constant horizontal suction, integrated through Player's existing collision
 // substeps. Distinct pulls can compose without allocating a temporary vector.
-export function pullToward(player, target, force) {
+export function pullToward(player, target, force, options) {
+  // Numeric strength selects the canonical Cone/Titan vortex contract.
+  // Existing callers keep their constant player/target/force signature.
+  if (typeof target === 'number') return pullBossToward(player, target, force, options);
   const dx = target.x - player.pos.x, dz = target.z - player.pos.z;
   const distance = Math.hypot(dx, dz);
   if (!distance || player.dead) return;
