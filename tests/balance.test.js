@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -38,6 +39,7 @@ afterEach(() => {
 
 function playSession() {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   session.game = {
     ui: { setHud() {}, banner() {}, fade: () => Promise.resolve(), trialTime() {} },
     player: { spawnAt() {}, ride: null, frozen: false, pos: new THREE.Vector3(), victory() {} },

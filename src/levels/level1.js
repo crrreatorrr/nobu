@@ -1,4 +1,6 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
 // Level 1: Bark Jungle — a winding, rolling jungle path. Teaches everything, then mixes it up:
 // high-road ledge, lily pads, rope drawbridge, Bone Switch stairs, flipping planks, coconut hill,
 // a belly-flop secret, and a fork before the boss gate.
@@ -12,6 +14,7 @@ export function buildLevel1(game, stage, tickets) {
     [25, -28, 1.5], [22, 22, 0], [25, 35, 3.2], [20, -18, -0.5], [25, -34, 0.4], [30, 26, 0], [24, 0, 0],
   ]));
   const k = makeKit(game, stage, tickets, track);
+  installSections(k, '1', SECTION_TEXT);
   const END = 322;
 
   // walls: [d, left, right, height]

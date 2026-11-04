@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Game } from '../src/game/game.js';
 import { Session } from '../src/game/session.js';
@@ -14,6 +15,7 @@ beforeEach(async () => {
 
 function bareSession(attempt) {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   session.game = {
     ui: { setHud() {}, banner() {}, fade: () => Promise.resolve() },
     player: { spawnAt() {}, ride: null },

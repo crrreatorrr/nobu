@@ -14,7 +14,10 @@ import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
 import { levelDef, LEVEL_NAMES } from '../levels/registry.js';
-import { LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT } from '../story/script.js';
+import { LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT, SECTION_TEXT } from '../story/script.js';
+import { createChain, refreshChain, chainPitch } from './rewards.js';
+import { hitSessionChain, finishSessionChain, updateSessionChain, removeChainDrops } from './chain.js';
+import { missesBySection, boundedMiss } from './hints.js';
 import { SNACK_EXCLUDED, applyRunResults, boneContext, snackTier } from './bones.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
@@ -48,6 +51,8 @@ export class Session {
     this.freezeMs = 0;       // clock time held by Freeze Packs this trial (informational, sent as score meta)
     this.deaths = 0;
     this.seq = 0;
+    this.runSeed = (Math.random() * 2 ** 32) >>> 0;
+    this.chain = createChain();
     this.mask = 0;
     this.invincibleT = 0;
     this.phase = 'level';
@@ -76,6 +81,8 @@ export class Session {
   }
 
   nextSeq() { return ++this.seq; }
+  get chainSoundPitch() { return this.phase === 'level' ? chainPitch(this.chain.n) : 1; }
+  chainRefresh() { if (this.phase === 'level') refreshChain(this.chain); }
 
   // ---------- stage setup ----------
   _newStage(themeKey) {
@@ -200,6 +207,7 @@ export class Session {
   // ---------- Treat Tray bonus round ----------
   async enterBonusRound(tray) {
     if (this.busy || this.bonusRound) return;
+    finishSessionChain(this);
     const g = this.game, p = g.player, R = tray.round;
     this.busy = true;
     p.frozen = true;
@@ -217,9 +225,11 @@ export class Session {
 
   async _leaveBonusRound(kept) {
     const g = this.game, p = g.player, B = this.bonusRound;
+    finishSessionChain(this);
     this.busy = true;
     p.frozen = true;
     if (!kept) {
+      removeChainDrops(this, B.seq);
       // roll back everything grabbed up there
       for (const e of this.stage.entities) if (e instanceof Breakable && e.broken && e.brokenSeq > B.seq) e.restore();
       this.tickets.restoreAfter(B.seq);
@@ -316,6 +326,7 @@ export class Session {
   async reachBossGate() {
     if (this.phase !== 'level' || this.busy) return;
     if (import.meta.env.DEV) this.game.devTuning?.gate(this);
+    finishSessionChain(this);
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
     this.deathsAtGate = this.deaths;
     this.busy = true;
@@ -330,6 +341,7 @@ export class Session {
   async reachGoal() {
     if (this.phase !== 'level' || this.busy) return;
     if (import.meta.env.DEV) this.game.devTuning?.gate(this);
+    finishSessionChain(this);
     const g = this.game;
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
     this.deathsAtGate = this.deaths;
@@ -403,7 +415,7 @@ export class Session {
 
   liveStats() {
     const ents = this.stage.entities;
-    return { level: this.level, broken: ents.filter((e) => e instanceof Breakable && e.countable && e.broken).length, breakables: this.breakablesTotal, dogs: ents.filter((e) => e instanceof ConedDog && e.freed).length, dogsTotal: this.dogsTotal, deathsAtGate: this.deathsAtGate ?? this.deaths, snackRaw: this.snack.raw, snackPotential: this.snack.potential, snackTier: snackTier(this.snack.raw, this.snack.potential), hiddenFound: this.hiddenFound };
+    return { level: this.level, broken: ents.filter((e) => e instanceof Breakable && e.countable && e.broken).length, breakables: this.breakablesTotal, dogs: ents.filter((e) => e instanceof ConedDog && e.freed).length, dogsTotal: this.dogsTotal, deathsAtGate: this.deathsAtGate ?? this.deaths, snackRaw: this.snack.raw, snackPotential: this.snack.potential, snackTier: snackTier(this.snack.raw, this.snack.potential), hiddenFound: this.hiddenFound, bestChain: Math.max(this.chain.best, this.chain.n), ...this._missStats() };
   }
 
   collectHiddenBone() {
@@ -413,6 +425,15 @@ export class Session {
     applyRunResults(save.data, this.level, { hidden: true }, { bonus: this.def.bonus });
     save.write();
     return true;
+  }
+
+  _missStats() {
+    const stage = this.stage, sections = stage.sections || this.def.sections || [];
+    const project = (x, z) => stage.track?.project(x, z) || { s: NaN };
+    return {
+      sectionMiss: missesBySection(stage.entities.filter((e) => e instanceof Breakable && e.countable && !e.broken), sections, project, SECTION_TEXT.path),
+      missedDogs: missesBySection(stage.entities.filter((e) => e instanceof ConedDog && !e.freed), sections, project, SECTION_TEXT.path),
+    };
   }
 
   _recordLevelStats() {
@@ -427,6 +448,11 @@ export class Session {
       dogs: ents.filter((e) => e instanceof ConedDog && e.freed).length,
       dogsTotal: this.dogsTotal,
     };
+    const ctx = boneContext(this);
+    if (!ctx.trial && !ctx.remix && !ctx.rush) {
+      save.data.lastMiss[this.level] = boundedMiss(this.stats.sectionMiss);
+      save.write();
+    }
   }
 
   async startBoss() {
@@ -587,8 +613,8 @@ export class Session {
       earned.noHit && earned.speed ? BOSS_MEDAL_TEXT.speed : '', 3);
   }
 
-  onBreak() { this._pushHud(); }
-  onEnemyDefeated() {}
+  onBreak(entity) { hitSessionChain(this, entity); this._pushHud(); }
+  onEnemyDefeated(entity) { hitSessionChain(this, entity); }
 
   addTickets(n, source) {
     n = Math.floor(Number(n));
@@ -669,7 +695,9 @@ export class Session {
   }
 
   checkpoint(pos, snacks) {
+    this.chain.sphereGiven = false;
     this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
+    for (const entity of this.stage.entities) if (entity.kind !== 'mystery') entity.onCheckpoint?.();
     this._lifeLineHold = false;
     this.deathsAtCp = 0;
     this.game.ui.banner('CHECKPOINT!', 'yum', 1.4);
@@ -697,6 +725,7 @@ export class Session {
       this.bossDeaths[phase] = (this.bossDeaths[phase] || 0) + 1;
       this.bossStageDeaths = this.bossDeaths[phase];
     }
+    finishSessionChain(this);
     this.deaths++;
     const g = this.game;
     this.invincibleT = 0;
@@ -725,6 +754,9 @@ export class Session {
   }
 
   respawn() {
+    finishSessionChain(this);
+    this.chain.sphereGiven = false;
+    removeChainDrops(this);
     const g = this.game;
     const cp = this.cp;
     this.deathsAtCp++;
@@ -794,6 +826,7 @@ export class Session {
     this.stage.update(dt, g.player);
     g.player.update(dt, this.stage, g.camera.basis);
     if (import.meta.env.DEV) g.devTuning?.update(this, dt);
+    updateSessionChain(this, dt);
     if (this.rain) this._updateRain(dt);
     if (this.bonusRound && !this.busy && !g.player.dead && g.player.pos.y < this.bonusRound.R.floorY - 4) this._leaveBonusRound(false);
     if (this.trialRunning && !this.busy && !g.player.frozen && !g.player.dead && !g.ui.talking) {
@@ -826,7 +859,7 @@ export class Session {
     g.camera.shake(0.45, 0.3);
     g.fx.ring(pos.x, pos.y, pos.z, { color: 0xffffff, radius: 2.4 });
     g.fx.puff(pos.x, pos.y + 0.1, pos.z, { count: 8, size: 0.5, color: 0xf0e8d8, speed: 4 });
-    for (const e of this.stage.entities) {
+    for (const e of [...this.stage.entities]) {
       if (e.dead || !e.onFlop || !e.interactive) continue;
       const dx = e.pos.x - pos.x, dz = e.pos.z - pos.z, dy = e.pos.y - pos.y;
       if (dx * dx + dz * dz < 2.5 * 2.5 && Math.abs(dy) < 1.6) e.onFlop(g.player);

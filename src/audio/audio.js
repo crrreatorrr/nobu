@@ -140,7 +140,7 @@ class AudioEngine {
       case 'chompHit': this._osc('triangle', 700, 260, 0.12, 0.3); this._noise(0.1, 0.25, 0, 'highpass', 2500); break;
       case 'break':
         this._noise(0.28, 0.55, 0, 'lowpass', 3500, 250, 1);
-        this._osc('sine', 110, 50, 0.18, 0.4);
+        this._osc('sine', 110 * p, 50 * p, 0.18, 0.4);
         this._noise(0.06, 0.3, 0.05, 'bandpass', 2500, 2500, 3);
         break;
       case 'ticket': {
@@ -200,7 +200,7 @@ class AudioEngine {
         this._osc('sawtooth', 160, 90, 1.0, 0.3, 0, this.sfxGain, { vibrato: 9, vibDepth: 25, filter: 'lowpass', freq: 900 });
         this._noise(0.9, 0.25, 0, 'bandpass', 600, 300, 1);
         break;
-      case 'squash': this._osc('square', 420, 110, 0.12, 0.2); this._osc('sine', 200, 60, 0.12, 0.3); break;
+      case 'squash': this._osc('square', 420 * p, 110 * p, 0.12, 0.2); this._osc('sine', 200 * p, 60 * p, 0.12, 0.3); break;
       case 'knock': this._osc('triangle', 800, 280, 0.12, 0.3); this._noise(0.25, 0.15, 0.03, 'bandpass', 1200, 4000, 1); break;
       case 'hurt': this._osc('square', 500, 180, 0.3, 0.2); break;
       case 'death':
@@ -248,7 +248,10 @@ class AudioEngine {
       case 'fade': this._osc('sine', 880, 330, 0.6, 0.1); this._osc('sine', 660, 250, 0.7, 0.07, 0.1); break;
       case 'menu': this._osc('square', 660, 660, 0.05, 0.08); break;
       case 'select': this._osc('square', 880, 1320, 0.12, 0.12); this._osc('triangle', 1320, 1760, 0.1, 0.1, 0.06); break;
-      case 'blip': this._osc('square', 520 + Math.random() * 120, 520, 0.03, 0.04); break;
+      case 'sniff': this._noise(0.12, 0.2, 0, 'bandpass', 1800, 3200, 4); this._noise(0.12, 0.2, 0.15, 'bandpass', 1800, 3200, 4); break;
+      case 'kennel': ['C5', 'G5', 'C6', 'G6', 'C7'].forEach((n, i) => this._osc('sawtooth', noteFreq(n), noteFreq(n), 0.2, 0.035, i * 0.06)); break;
+      case 'chainUp': this._osc('square', 660 * p, 1320 * p, 0.08, 0.1); this._osc('triangle', 1320 * p, 1980 * p, 0.1, 0.06, 0.04); break;
+      case 'blip': this._osc('square', (520 + Math.random() * 120) * p, 520 * p, 0.03, 0.04); break;
       case 'blipLow': this._osc('sawtooth', 160 + Math.random() * 40, 140, 0.05, 0.06, 0, this.sfxGain, { filter: 'lowpass', freq: 900 }); break;
       case 'switch': this._osc('square', 400, 400, 0.08, 0.15); this._osc('square', 800, 800, 0.15, 0.15, 0.09); break;
       case 'roll': this._noise(0.6, 0.3 * volume, 0, 'bandpass', 300, 1500, 2); break;

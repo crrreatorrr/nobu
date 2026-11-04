@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,6 +20,7 @@ beforeEach(async () => {
 
 function trialSession(seconds) {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   session.level = 1;
   session.levelTickets = 0;
   session.trialT = seconds;

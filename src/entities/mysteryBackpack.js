@@ -31,7 +31,7 @@ export class MysteryBackpack extends ZippedBackpack {
   }
   break() {
     if (!this.markBroken()) return;
-    this.hide(); audio.play('break');
+    this.hide(); audio.play('break', this.session.chainSoundPitch ?? 1);
     let result = rollMystery(this.session.runSeed, this.session.level, this.slot);
     if (result === 'tramp' && !this.allowTramp) result = 'sphere';
     this.result = result;

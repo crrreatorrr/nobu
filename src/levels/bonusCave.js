@@ -1,4 +1,6 @@
 import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
 // Bonus stage: Glowworm Grotto. Pitch dark; Lumi the glowworm lights a circle around Nobu and fades over
 // time. When the glow runs out Lumi waits at the next glow nest, a faint beacon in the dark.
 // Shellbacks, Lid Knights, steel lunchbox stepping stones, arrow launches and crumbling ledges.
@@ -12,6 +14,7 @@ export function buildBonusCave(game, stage, tickets) {
     [36, 0, 0], [30, -16, -1], [30, 20, 0.6], [30, -12, -0.8], [30, 16, 0], [30, -20, 1], [30, 12, 0], [30, 0, -0.6], [24, 0, 0],
   ]));
   const k = makeKit(game, stage, tickets, track);
+  installSections(k, 'cave', SECTION_TEXT);
   const END = 252;
   const HALF = 4.3, W = HALF * 2;
   const F = (a, b, o = {}) => k.floor(a, b, { w: W, ...o });

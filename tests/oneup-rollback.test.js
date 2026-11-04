@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { save, START_LIVES } from '../src/core/save.js';
 import { TicketSystem } from '../src/entities/tickets.js';
@@ -14,6 +15,7 @@ beforeEach(async () => {
 
 function playSession() {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   const ui = { setHud() {}, banner() {}, fade: () => Promise.resolve() };
   session.game = {
     ui,

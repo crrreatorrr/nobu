@@ -15,11 +15,14 @@ import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
+import { REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
-import { applyRunResults, runBones, boneContext } from './bones.js';
+import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
+import { bankChain } from './rewards.js';
+import { nextGoal, savedGoalStats } from './hints.js';
+import { openCompleteTally, advanceCompleteTally } from './completeTally.js';
 import { goodBoyPercent, kennelUnlocks, totalDogs } from './progress.js';
 
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
@@ -27,10 +30,19 @@ function esc(text) {
   return String(text).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
 }
 
+function goalHint(game, id, stats = null) {
+  const def = levelDef(id), data = save.data;
+  return nextGoal(savedBoard(data, id), stats || savedGoalStats(data, id, def), {
+    hidden: def.hidden, bonus: def.bonus, trialAvailable: !!def.trial, god: !!(data.godMode || stats?.godUsed || (stats && String(game.session?.level) === String(id) && game.session.godUsed)),
+    sniffer: kennelUnlocks(data, totalDogs(LEVELS)).includes('sniffer'),
+  }, game.player?.abilities || {}, REWARD_TEXT).text;
+}
+
 function bankBoneResults(session, st) {
   const ctx = boneContext(session, st.godUsed || session.godUsed || save.data.godMode);
   if (ctx.trial || ctx.remix || ctx.rush) return [];
   const d = save.data;
+  st.chainRecord = bankChain(d, session.level, st, ctx);
   const fresh = applyRunResults(d, session.level, runBones(st, ctx), { bonus: (session.def || levelDef(session.level)).bonus });
   for (const id of st.freedIds || []) {
     const localId = id.startsWith(`${session.level}:`) ? id.slice(String(session.level).length + 1) : id;
@@ -368,9 +380,7 @@ export class Game {
     const lv = this.mapSel;
     const bonusSel = levelDef(lv).bonus;
     const head = bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
-    const status = bonusSel
-      ? (d.bonus?.[lv]?.beaten ? `Cleared! Best tickets: ${d.bonus[lv].best}` : lv === 'ride' ? 'A runaway robot vacuum is loose in the house. Ride it!' : 'Pitch dark. Stay close to Lumi the glowworm.')
-      : save.beatenOf(lv) ? `Cleared! Dogs best: ${save.bestDogsOf(lv)} · ${save.boneOf(lv) ? 'Golden Bone earned' : 'Golden Bone: break everything + free every dog'}` : 'The cone smog still hangs over this place...';
+    const status = esc(goalHint(this, lv));
     const tr = !bonusSel && save.beatenOf(lv)
       ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
       : '';
@@ -607,7 +617,7 @@ export class Game {
     const s = this.session;
     const live = s?.stage && s.phase === 'level' ? s.liveStats() : s?.stats;
     const pct = live?.snackPotential ? Math.floor(live.snackRaw / live.snackPotential * 100) : 0;
-    const stats = live ? `${this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) })}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div>` : '';
+    const stats = live ? `${this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) })}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(goalHint(this, s.level, live))}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
       <div class="hint" style="margin-top:20px">◀ ▶ adjust · ESC resume</div>`, 'dim');
   }
@@ -783,6 +793,8 @@ export class Game {
     const n = session.level;
     const [g, s, b, p] = TRIAL_TARGETS[trialVariant(n)];
     this.state = 'complete';
+    this.completeMode = 'trial';
+    this.tally = null; this.tallyStats = null;
     this.completeT = 0;
     this.completeNext = { n, bonus: true };
     this.completeMinT = 2.3;
@@ -815,35 +827,18 @@ export class Game {
   }
 
   _showComplete(n, st, fresh = [], bonus = false) {
-    this.state = 'complete';
-    this.completeT = 0;
-    this.completeNext = { n, bonus };
-    this.completeMinT = Math.max(2.3, 2.4 + fresh.length * 0.4);
-    audio.playMusic('complete');
-    const row = (img, label, val, cls = '') => `<div class="stat-row ${cls}"><img src="${Assets.url(img)}"><span>${label}</span><span class="val">${val}</span></div>`;
-    this.ui.setScreen(`
-      <div class="big-title" style="margin-bottom:2vh">${bonus ? 'BONUS STAGE CLEAR!' : `LEVEL ${n} COMPLETE!`}</div>
-      <div class="complete-wrap">
-        <img class="complete-nobu" src="${Assets.url('nobu_complete')}">
-        <div class="stats">
-          ${row('ticket', 'TICKETS', st.tickets)}
-          ${row(Assets.has('backpack_icon') ? 'backpack_icon' : 'backpack', 'BREAKABLES', `${st.broken}/${st.breakables}`, st.broken >= st.breakables ? '' : 'miss')}
-          ${row('dog_corgi_free', 'DOGS FREED', `${st.dogs}/${st.dogsTotal}`, st.dogs >= st.dogsTotal ? '' : 'miss')}
-          ${!bonus && trialLayout(n) > 1 && st.goldenEarned ? row('golden_bone', 'GOLDEN BONE', 'EARNED!', 'reward') : ''}
-          ${this.ui.boneBoard(n, { bonus, fresh })}${(st.kennelFresh || []).map((id) => `<div class="hint">${BONE_TEXT.kennel(id)}</div>`).join('')}
-        </div>
-      </div>
-      <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
-    this.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #5a2399, #1a0530)';
-    const rows = [...this.ui.screen.querySelectorAll('.stat-row')];
-    rows.forEach((r, i) => setTimeout(() => { r.classList.add('show'); audio.play('ticket'); }, 500 + i * 450));
-    fresh.forEach((key, i) => setTimeout(() => { if (this.state === 'complete') { audio.play('stamp'); if (i === fresh.length - 1) audio.play('oneUp'); } }, (2 + i * 0.4) * 1000));
-    this.ui.fade(0);
+    openCompleteTally(this, n, st, fresh, bonus, {
+      board: this.ui.boneBoard(n, { bonus }), hint: goalHint(this, n, st),
+      milestones: (st.kennelFresh || []).map((id) => ({ id, text: BONE_TEXT.kennel(id) })),
+    });
   }
 
   async updateComplete(dt) {
-    this.completeT += dt;
-    if (this.completeT > (this.completeMinT || 2.3) && input.anyPressed() && this.completeNext) {
+    const pressed = input.anyPressed();
+    let ready;
+    if (this.completeMode === 'tally') ready = advanceCompleteTally(this, dt, pressed);
+    else { this.completeT += dt; ready = this.completeT > (this.completeMinT || 2.3) && pressed; }
+    if (ready && this.completeNext) {
       const { n, bonus } = this.completeNext;
       this.completeNext = null;
       audio.play('select');

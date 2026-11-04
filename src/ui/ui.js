@@ -40,6 +40,7 @@ export class UI {
       this.slots[key] = { el: s, v, timer: 0, pinned: false };
     };
     mk('tickets', 'hud-tickets', Assets.url('ticket'));
+    mk('chain', 'hud-chain');
     mk('lives', 'hud-lives', Assets.url('nobu_head'));
     mk('dogs', 'hud-dogs', Assets.url('dog_shiba_free'));
     // mask pips
@@ -144,8 +145,14 @@ export class UI {
     if (shown !== this._trialText) { this._trialText = shown; this.trialEl.textContent = shown; }
     if (!!frozen !== this._trialFrozen) { this._trialFrozen = !!frozen; this.trialEl.classList.toggle('frozen', !!frozen); }
   }
-  showHud(t = 3) { for (const s of Object.values(this.slots)) { s.timer = t; s.el.classList.add('show'); } }
-  pinHud(on) { this.hudPinned = on; if (on) this.showHud(999); else for (const s of Object.values(this.slots)) s.timer = 1.5; }
+  chain(n, { ended = false } = {}) {
+    const slot = this.slots.chain;
+    if (n < 2) { slot.timer = 0; slot.el.classList.remove('show'); return; }
+    this.setHud('chain', `x${n}`, { bump: !ended });
+    slot.timer = ended ? 0.6 : Infinity;
+  }
+  showHud(t = 3) { for (const [key, s] of Object.entries(this.slots)) if (key !== 'chain') { s.timer = t; s.el.classList.add('show'); } }
+  pinHud(on) { this.hudPinned = on; if (on) this.showHud(999); else for (const [key, s] of Object.entries(this.slots)) if (key !== 'chain') s.timer = 1.5; }
   hideHud() { for (const s of Object.values(this.slots)) { s.timer = 0; s.el.classList.remove('show'); } }
 
   // ---------- boss bar ----------
@@ -260,8 +267,8 @@ export class UI {
   }
 
   update(dt) {
-    for (const s of Object.values(this.slots)) {
-      if (this.hudPinned) continue;
+    for (const [key, s] of Object.entries(this.slots)) {
+      if (this.hudPinned && key !== 'chain') continue;
       if (s.timer > 0) { s.timer -= dt; if (s.timer <= 0) s.el.classList.remove('show'); }
     }
     if (this.popupT > 0) { this.popupT -= dt; if (this.popupT <= 0) this.popup.classList.remove('show'); }
