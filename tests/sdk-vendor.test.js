@@ -17,9 +17,14 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // 0.4.0-redeem.1 / hub main f88b442: 80c344c55edb429d6b395c320df3a902c7c97019ce162c6d7cb001964993c404
 // 0.4.0-redeem.1 / hub 9ce6ade: f88b442 plus the dead-session outbox fix:
 //   810a0d205afa87755d257639dad4880d002da8f9e0b3f3dbe960558a1c274bc0
-// 0.4.0-redeem.1 / hub 9ce6ade plus the local tidebreaker_belt RELIC_IDS patch
-// and its VENDOR.md note (see vendor/hub-sdk/VENDOR.md).
-const CONTENT_MANIFEST_SHA256 = 'ef1dec9403b182cc74ef4bae387c01e3e887c3e70bef9321e886a70c15d2d20b';
+// 0.4.0-redeem.1 / hub 9ce6ade plus the local tidebreaker_belt RELIC_IDS patch:
+//   ef1dec9403b182cc74ef4bae387c01e3e887c3e70bef9321e886a70c15d2d20b
+// 0.4.0-redeem.1 / hub main 6d7176f (Belt and sproto-fighter upstream, no local patch):
+//   af71e57e79fd86f577d6cb47b53af4ccde4471bac2a79e1bbc52fcc3afb939a4
+// 0.5.0 / hub 441b7c4 (realtime, ScoreResult, getLeaderboard):
+//   7d994bb3744c3d2f59e3bfa6e235b728554b7644a4f4b521b9fb7fd1033b7b76
+// 0.5.0 / hub 1c8b72e (early match data kept for the new match handle).
+const CONTENT_MANIFEST_SHA256 = '1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b';
 
 function listFiles(dir) {
   const out = [];
@@ -66,9 +71,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.4.0-redeem.1 from hub main', () => {
+  it('package.json is SDK 0.5.0', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.4.0-redeem.1');
+    expect(pkg.version).toBe('0.5.0');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -89,21 +94,36 @@ describe('vendored hub SDK', () => {
     expect(nakama).toContain('Authorization: `Basic ${btoa(`${serverKey}:`)}`');
   });
 
+  // The trial board (CONTRACT C9/C13): unranked sessions post, and the answer comes back.
+  it('submitScore posts from unranked sessions and returns the ScoreResult; getLeaderboard exists', () => {
+    const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
+    const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
+    expect(live).not.toContain('active.ranked');
+    expect(live).toContain("return client.rpc('score.submit'");
+    expect(live).toContain("'leaderboard.top'");
+    expect(types).toContain('submitScore(boardId: string, value: number, meta?: object): Promise<ScoreResult | void>;');
+    expect(types).toContain('getLeaderboard?(');
+    expect(types).toContain('export interface ScoreResult');
+  });
+
   // live.js asRelics() keeps only ids isRelicId() accepts. Without the Belt here,
-  // profile.get would drop it and the Champion's Crown would never unlock.
-  it('accepts tidebreaker_belt as a relic id, and changes nothing else in the lists', async () => {
+  // profile.get would drop it and the Champion's Crown would never unlock. Hub main
+  // ships it (b065668), so the vendor tree carries no local patch.
+  it('accepts tidebreaker_belt as a relic id from upstream', async () => {
     const types = await import('../vendor/hub-sdk/dist/types.js');
     expect(types.RELIC_IDS).toEqual(['hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt']);
     expect(types.isRelicId('tidebreaker_belt')).toBe(true);
     expect(types.isRelicId('not_a_relic')).toBe(false);
-    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto']);
+    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter']);
     const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
     expect(live).toContain("value.filter((item) => typeof item === 'string' && isRelicId(item))");
     const dts = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     expect(dts).toContain('"tinubu_crown", "tidebreaker_belt"]');
+    const vendorNote = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
+    expect(vendorNote).not.toContain('## Local patch');
   });
 
-  it('content manifest matches SDK 0.4.0-redeem.1 after maps and sourceMappingURL are removed', () => {
+  it('content manifest matches SDK 0.5.0 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);

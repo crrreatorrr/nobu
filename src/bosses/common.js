@@ -9,6 +9,11 @@ import { TUNING } from '../player/player.js';
 
 import { Assets } from '../art/assets.js';
 
+// Scratch vectors for the per-frame projectile loop (no allocation per frame).
+const _pc = new THREE.Vector3();
+const _bite = new THREE.Vector3();
+const _axis = new THREE.Vector3();
+
 // Put a Higgsfield GLB body inside an animated rig group, hiding the primitive meshes of `hideRoots`.
 export function attachGlb(parent, id, height, offsetY = 0, hideRoots = []) {
   const m = Assets.model(id, height);
@@ -179,7 +184,7 @@ export class Projectiles {
 
   update(dt) {
     const p = this.game.player;
-    const pc = new THREE.Vector3(p.pos.x, p.pos.y + 0.65, p.pos.z);
+    const pc = _pc.set(p.pos.x, p.pos.y + 0.65, p.pos.z);
     const biting = p.biteT >= 0.1 && p.biteT <= 0.75;
     // The Champion's Crown widens bites on rockets and hairballs by the same factor as on enemies.
     const biteMult = p.biteMult ?? 1;
@@ -224,7 +229,7 @@ export class Projectiles {
           const b = pr.mesh.position.clone().addScaledVector(pr.vel, -0.12);
           this.game.fx.smokeCard(b.x, b.y, b.z, { size: 0.16, life: 0.6, colors: [0xffd080, 0x8a8090], grow: 2, g: -0.6, alpha: 0.85 });
         }
-        if (biting && pr.mesh.position.distanceTo(new THREE.Vector3(p.pos.x + p.forward.x * 0.75, p.pos.y + 0.75, p.pos.z + p.forward.z * 0.75)) < 1.1 * biteMult) {
+        if (biting && pr.mesh.position.distanceTo(_bite.set(p.pos.x + p.forward.x * 0.75, p.pos.y + 0.75, p.pos.z + p.forward.z * 0.75)) < 1.1 * biteMult) {
           this.game.fx.explosion(pr.mesh.position.x, pr.mesh.position.y - 0.5, pr.mesh.position.z, { radius: 1.2 });
           audio.play('chompHit');
           pr.life = 0;
@@ -274,7 +279,7 @@ export class Projectiles {
         if (bounced) { audio.play('boing'); this.game.fx.dust(m.x, pr.groundY, m.z, { count: 4, size: 0.4, color: 0xf0d0a0, speed: 2 }); }
         // roll: spin around the axis perpendicular to travel
         const sp = pr.vel.length();
-        const axis = new THREE.Vector3(pr.vel.z, 0, -pr.vel.x).normalize();
+        const axis = _axis.set(pr.vel.z, 0, -pr.vel.x).normalize();
         pr.spin.rotateOnWorldAxis(axis, (sp / pr.radius) * dt);
         if (Math.random() < dt * 8) this.game.fx.dust(m.x, pr.groundY, m.z, { count: 1, size: 0.3, color: 0xf0d0a0, speed: 1 });
         const s = pr.life < 0.4 ? Math.max(0.01, pr.life / 0.4) : Math.min(1, pr.t / 0.25);
@@ -303,7 +308,7 @@ export class Projectiles {
         if (pr.kind === 'cone' && pr.gravity) pr.mesh.lookAt(pr.mesh.position.clone().add(pr.vel));
         if (pr.biteable && biting) {
           const f = p.forward;
-          const bc = new THREE.Vector3(p.pos.x + f.x * 0.75, p.pos.y + 0.75, p.pos.z + f.z * 0.75);
+          const bc = _bite.set(p.pos.x + f.x * 0.75, p.pos.y + 0.75, p.pos.z + f.z * 0.75);
           if (bc.distanceTo(pr.mesh.position) < 1.1 * biteMult) {
             this.game.fx.burst(pr.mesh.position.x, pr.mesh.position.y, pr.mesh.position.z, { count: 8, colors: [0xc8742a, 0xa85a20], size: 0.12 });
             audio.play('chompHit');

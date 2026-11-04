@@ -28,7 +28,7 @@ function serverTimeField() {
 }
 
 export function createHubSdk() {
-  return {
+  const api = {
     async init(gameId) {
       sdk.calls.init += 1;
       if (sdk.initError) throw sdk.initError;
@@ -59,9 +59,18 @@ export function createHubSdk() {
       return result;
     },
 
+    // SDK 0.5 resolves a ScoreResult. `sdk.scoreLegacy` mimics an older SDK that resolves
+    // nothing, and `sdk.scoreImpl` scripts any other answer.
     async submitScore(boardId, value, meta) {
       sdk.calls.score.push({ boardId, value, meta });
       if (sdk.scoreError) throw take('scoreError', 'scoreErrorOnce');
+      if (sdk.scoreImpl) return sdk.scoreImpl(boardId, value, meta);
+      if (sdk.scoreLegacy) return undefined;
+      const key = `${boardId}:${meta?.level ?? ''}`;
+      const prev = sdk.scoreBoard.get(key);
+      const posted = prev == null || value < prev;
+      if (posted) sdk.scoreBoard.set(key, value);
+      return { accepted: true, posted, value: sdk.scoreBoard.get(key), order: 'asc' };
     },
 
     async earnTickets(amount, reason, key) {
@@ -126,6 +135,17 @@ export function createHubSdk() {
 
     exit() {},
   };
+  // getLeaderboard is optional in the SDK. `sdk.noBoardRead` leaves it out, like an older vendor tree.
+  if (!sdk.noBoardRead) {
+    api.getLeaderboard = async (boardId, opts = {}) => {
+      sdk.calls.board.push({ boardId, opts });
+      if (sdk.boardError) throw sdk.boardError;
+      const value = sdk.scoreBoard.get(`${boardId}:${opts.variant ?? ''}`);
+      const rows = value == null ? [] : [{ userId: 'player-1', name: 'nobu fan', value, rank: 1 }];
+      return { boardId, variant: opts.variant ?? '', order: 'asc', rows, me: rows[0] || null };
+    };
+  }
+  return api;
 }
 
 export { hubError };

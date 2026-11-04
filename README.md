@@ -48,6 +48,17 @@ and four jumps in a row (ground jump + three in the air). The setting is saved; 
     in front of you. Cracked **Bark Rocks** in the levels hide 1UPs and tickets; only a bark opens them.
 - **Time trials:** on the map, press `T` (pad Y) on a beaten level. Ice **Freeze Packs** stop the clock for 1-3 s,
   deaths cost no lives, and the run ends at the boss gate with a gold / silver / bronze dog tag and your best time.
+  Trials are **gear-free**: wardrobe items do nothing in a trial, while the boss moves (glide, zoomies, bark) stay.
+  - **Public scores:** played from the hub, every trial time (in integer ms) goes to the hub board
+    `nobu_trial_time`, one board per level (variant = level), where the plaza shows it. NOBU stays single player.
+    Times are queued in localStorage (`nobu-hub-scores-v1`, per hub player and level, fastest only) and sent
+    on init, after each trial, when the network comes back and when the tab becomes visible, retrying after
+    2 s, 10 s, 60 s and then every 5 min. A row is kept until the hub answers for it.
+  - Times outside the hub bounds are never sent: under 15 s (levels 1-2) or 12 s (level 3), or over 30 min
+    (`src/config/trials.js`, the same numbers as the hub). God mode never posts. A best set while playing
+    standalone (no hub session) stays local and is never uploaded later.
+  - The map shows the level's world record (and your rank) when the hub can be read, and the total of your
+    three trial bests once all exist.
 - **Good Boy Route:** reach the right spot in levels 1 and 3 without dying and golden paw platforms rise to a
   ledge with a 1UP and a ticket jackpot.
 - **Treat Tray bonus round** (level 1): hop in the golden bowl to be whisked up to a sky course of platforms full of
@@ -87,7 +98,11 @@ and four jumps in a row (ground jump + three in the air). The setting is saved; 
   - 2 masks give a gold aura.
   - 3 masks give ~20s of invincibility, with faster music and the mask covering Nobu's face.
 - **Rewards:** break everything and free every dog in a level to earn a Golden Bone.
-- **Progress:** lives start at 4, with game over and continue. Progress is saved in localStorage.
+- **Progress:** lives start at 4, with game over and continue. Progress is saved in localStorage
+  (`nobu-saviour-dog-save-v1`). The save is checked on load; one that cannot be read is copied to
+  `nobu-saviour-dog-save-v1.corrupt` before the game starts fresh. With two tabs open, a write keeps the faster
+  trial time and the bigger dog and ticket bests from either tab. **New Game keeps your trial bests**, because
+  they are public on the hub board and permanent.
 - **Wardrobe (hub Relic items):** a Relic earned in another hub game unlocks one NOBU item. Open it from the
   title, the map (`I` / LB) or the pause menu. Each slot holds one item. In Ranked, items are cosmetic only.
 
@@ -125,6 +140,8 @@ src/
   bosses/              Mecha Bird, Big Cat (+ chase), Evil Cone, shared projectiles + evolution (common.js)
   art/procedural.js    code-drawn textures for the bonus stages and the newer tutorial icons
   gear/                hub Relic items: catalog, ownership (from hub init), local loadout
+  hub/                 hubBridge.js (SDK wrapper, Ticket outbox), scoreQueue.js (offline trial score queue)
+  config/              tickets.js (Ticket tuning), trials.js (trial board, bounds, medal targets)
   ui/                  HUD, text boxes, pop-ups, menus (DOM)
   audio/               Web Audio synth: every sound effect and all music
   story/script.js      all dialogue, cutscene text, tutorials, death captions

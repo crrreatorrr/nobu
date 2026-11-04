@@ -362,13 +362,34 @@ export class Game {
     const tr = !bonusSel && d.beaten[lv - 1]
       ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[lv][0])}`}</div>`
       : '';
+    const world = !bonusSel && d.beaten[lv - 1] ? this._worldLine(lv) : '';
+    const total = save.totalTrialMs();
+    const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
     const info = `<div class="map-panel"><div class="sub-title">${head}</div>
-      <div class="hint">${status}</div>${tr}
+      <div class="hint">${status}</div>${tr}${world}${totalNote}
       <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
     this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
+  }
+
+  // Hub board line for the selected level, fetched at most once a minute per level. Empty when
+  // standalone, offline, or when the vendored SDK cannot read boards.
+  _worldLine(lv) {
+    this._tops ||= {};
+    const slot = this._tops[lv];
+    if (!slot || (!slot.loading && Date.now() - slot.at > 60_000)) {
+      this._tops[lv] = { ...(slot || {}), loading: true, at: Date.now() };
+      hub.trialTop(lv).then((top) => {
+        this._tops[lv] = { top, loading: false, at: Date.now() };
+        if (top && this.state === 'map' && this.mapSel === lv && !this.exchangeOpen) this._drawMap();
+      }, () => { this._tops[lv] = { top: null, loading: false, at: Date.now() }; });
+    }
+    const top = this._tops[lv]?.top;
+    if (!top) return '';
+    const me = top.me ? ` · you #${top.me.rank} ${fmtTime(top.me.value / 1000)}` : '';
+    return `<div class="hint">WORLD top ${fmtTime(top.value / 1000)}${me}</div>`;
   }
 
   _exchangeHtml() {

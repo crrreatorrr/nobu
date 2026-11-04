@@ -308,3 +308,21 @@ describe('bite radius', () => {
     expect(biteAt(p, target(1.9))).toBe(false);
   });
 });
+
+describe('time trials are gear-free', () => {
+  it('drops gear params in a trial and keeps boss moves', () => {
+    const p = stubPlayer(loadoutWith(CROWN));
+    save.data.beaten = [true, true, false];
+    expect(p.maxAirJumps).toBeGreaterThan(1);
+    expect(p.biteMult).toBeGreaterThan(1);
+
+    p.game.session = { trial: true };
+    expect(p.gear).toEqual({});
+    expect(p.maxAirJumps).toBe(1);
+    expect(p.biteMult).toBe(1);
+    expect(p.abilities).toMatchObject({ glide: true, zoom: true, bark: false });
+
+    p.game.session = { trial: false };
+    expect(p.maxAirJumps).toBeGreaterThan(1);
+  });
+});

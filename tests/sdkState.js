@@ -9,7 +9,7 @@ export function hubError(code, message = code) {
 
 function fresh() {
   return {
-    calls: { earn: [], event: [], exchange: [], score: [], init: 0 },
+    calls: { earn: [], event: [], exchange: [], score: [], board: [], init: 0 },
     earnLedger: new Map(),
     exchangeLedger: new Map(),
     exchangeInflight: new Map(),
@@ -27,6 +27,12 @@ function fresh() {
     loseExchangeOnce: false,
     scoreError: null,
     scoreErrorOnce: false,
+    scoreImpl: null,
+    scoreLegacy: false,
+    // Server best per `${boardId}:${level}`, lowest wins (asc board).
+    scoreBoard: new Map(),
+    noBoardRead: false,
+    boardError: null,
     initError: null,
     exchangeResponder: null,
     ticketBalance: null,
