@@ -3,6 +3,7 @@
 // and gaps, dodge toy piles, table legs, cats and rugs. A Vacuum Dock near the end pops every rug.
 import * as THREE from 'three';
 import { makeKit, makeTrack, turtle } from './kit.js';
+import { RIDE_BREAKABLES } from './data/ride-breakables.js';
 import { toon } from '../player/nobuPrims.js';
 import { fern, bush } from '../world/decor.js';
 import { rand, pick } from '../core/util.js';
@@ -26,7 +27,6 @@ export function buildBonusRide(game, stage, tickets) {
   k.toys(2.2, 0, 44, 2.6); k.tix(-2.4, 0, 41, -2.4, 0, 47, 3);
   k.cable(56);
   k.tixArc(0, 0, 54, 0, 59, 1.6, 4);
-  k.packs([[-2.6, 68], [0, 68], [2.6, 68]]);
   // drive under the coffee table
   k.leg(-2.9, 0, 80, { h: 3.4 }); k.leg(2.9, 0, 80, { h: 3.4 });
   k.tix(0, 0, 77, 0, 0, 84, 4);
@@ -35,33 +35,25 @@ export function buildBonusRide(game, stage, tickets) {
   F(99, 196);
   k.mouse(0, 0, 106, { range: 3.4, speed: 5.5 });
   k.dog(-3.2, 0, 112, 'shiba');
-  k.rug(-2.6, 0, 118); k.rug(2.6, 0, 118);
   k.tix(0, 0, 115, 0, 0, 121, 4);
-  k.snacks(0, 0, 128);
   k.cable(138);
   k.toys(0, 0, 150, 2.8); k.tix(-2.8, 0, 147, -2.8, 0, 153, 3); k.tix(2.8, 0, 147, 2.8, 0, 153, 3);
-  k.zipped(-2.4, 0, 160);
-  k.pack(2.4, 0, 160);
   // chair-leg slalom
   k.leg(-1.6, 0, 170, { h: 4.2, color: 0xa86a3a });
   k.leg(1.6, 0, 180, { h: 4.2, color: 0xa86a3a });
   k.leg(-1.6, 0, 190, { h: 4.2, color: 0xa86a3a });
   k.tix(2.2, 0, 168, 2.2, 0, 172, 2); k.tix(-2.2, 0, 178, -2.2, 0, 182, 2);
-  k.oneUp(0, 1.9, 187);
   // second gap
   k.tixArc(0, 0, 194, 0, 204, 2.6, 6);
   F(201, END + 1);
-  k.sphere(0, 0, 212);
-  k.cat(-2.6, 0, 222); k.pack(2.6, 0, 222);
   k.cable(234);
   k.toys(2.2, 0, 246, 2.6);
   k.dog(-3.2, 0, 250, 'corgi');
-  k.rug(0, 0, 258); k.rug(-3, 0, 258);
   k.tix(2.8, 0, 255, 2.8, 0, 261, 3);
-  k.packs([[-2.6, 270], [0, 270]]); k.leg(2.7, 0, 270, { h: 3.4 });
+  k.leg(2.7, 0, 270, { h: 3.4 });
   k.mouse(0, 0, 278, { range: 3.4, speed: 6 });
-  k.vacSwitch(0, 0, 286);
   k.tix(0, 0, 290, 0, 0, 300, 6);
+  for (const { kind, x, y, d } of RIDE_BREAKABLES) k[kind](x, y, d);
   k.gate(302, 'EXIT', 0x3ec46d);
   k.trigger(304, () => game.session.reachGoal());
 
