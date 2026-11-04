@@ -7,7 +7,7 @@ export const L4_WALLS = [[-8,4.3,4.3,2.8],[52,4.3,4.3,2.8],[56,6.2,6.2,3.4],[120
 export const L4_SECTIONS = [[-8,50,'hallway'],[50,125,'laundry'],[125,180,'ironing'],[180,250,'kitchen'],[250,330,'stampede'],[330,400,'basement'],[400,486,'boiler']];
 export const L4_DRUMS = [{d:64,y:3.2,r:3.2,n:4,period:8},{d:79,y:3.2,r:3.4,n:4,period:6.5,crumble:[2]}];
 export const L4_CHECKPOINTS = [48.5,181,248,333,403];
-export const L4_PITY = [[0,3.2,72.6],[0,0,113.5],[-2.4,0,179],[-2.4,0,218],[-3.4,0,288],[0,0,345.5],[2.4,0,374],[0,0,409]];
+export const L4_PITY = [[0,3.2,72.6],[0,0,113.5],[-2.4,0,179],[-2.4,0,218],[-3.4,0,288],[0,0,345.5],[2.4,0,374],[0,0,407.5]];
 export const L4_DOGS = [
  {id:'corgi-a',breed:'corgi',x:3.2,y:0,d:35,section:'hallway'},
  {id:'pug-a',breed:'pug',x:-3.6,y:6.6,d:67,section:'laundry'},
@@ -25,5 +25,5 @@ export const L4_RISING = {d0:408,d1:457,y0:-3,y1:8,rate:.6};
 export const L4_RISING_CHECKS = [[410.5,.98,1.5],[415,5.18,3.5],[419.5,8.98,5.5],[423,9.38,7],[426.5,9.38,9],[430,9.78,11],[432.8,9.6,12],[435.6,11.4,14],[438.2,11.98,15],[441,13.58,16],[444.4,13.58,17],[447.8,13.58,18]];
 export const L4_HIDDEN = {x:-6.2,y:0,d:386,section:'basement',move:'dust'};
 
-// Proposed supported Boiler pity coordinate; literal409 remains the default pending owner approval.
-export const L4_PITY_CANDIDATE=L4_PITY.map(p=>p[2]===409?[p[0],p[1],407.5]:[...p]);
+// Historical recipe is retained only for regression comparisons. The owner approved407.5.
+export const L4_PITY_LITERAL=L4_PITY.map(p=>p[2]===407.5?[p[0],p[1],409]:[...p]);

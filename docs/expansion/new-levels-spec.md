@@ -1,4 +1,4 @@
-> Source imported from `crrreatorrr/nobu` commit `fb95a0a8072ebd02202e4b3d045e4e609b335829`, `docs/expansion/new-levels-spec.md` (verified SHA-256 `1a364587058460a9882a0e97b39805d79a3d97543cf71fffc9ef47375af4e137`). H40 updates §3.12 below; other sections retain the verified source wording and may describe future work.
+> Source imported from `crrreatorrr/nobu` commit `fb95a0a8072ebd02202e4b3d045e4e609b335829`, `docs/expansion/new-levels-spec.md` (verified SHA-256 `1a364587058460a9882a0e97b39805d79a3d97543cf71fffc9ef47375af4e137`). H40 records approved corrections in§3.7a/3.8 and the measured tally in§3.12; other sections retain the verified source wording and may describe future work.
 
 # New levels spec: kit helpers, Level 4 (Laundry Day) and Level 5 (Pump & Dump Pipeline)
 
@@ -952,7 +952,7 @@ A dark descent, with the green bone and the two alcoves.
   k.fallBox(-0.6, 1.0, 355.0);
   k.slideBox(0, 1.0, 358.4, { axis: 'x', range: 1.6, speed: 1.5 });
   k.blinkBox(-1.0, 1.4, 361.8, { on: 1.0, off: 1.0, phase: 1.1, group: 'cereal' });
-  for (const [x, y, d] of [[-1.2, 0, 348.2], [1.0, 0.6, 351.6], [-0.6, 1.0, 355.0], [0, 1.0, 358.4], [-1.0, 1.4, 361.8]]) k.tix(x, y + 0.6, d, x, y + 0.6, d, 1);
+  for (const [x, y, d] of [[-1.2, 0, 348.2], [1.0, 0.6, 351.6], [-0.6, 1.0, 355.0], [0, 1.0, 358.4], [-1.0, 1.4, 361.8]]) k.guideArc(x, y + 0.6, d, x, d, 0, 1);
   F(365, 404);
   k.shellback(0, 0, 368, { range: 1.6 });
   k.dustBunny(-1.6, 0, 372, { range: 1.6 }); k.dustBunny(1.6, 0, 373, { range: 1.6 });   // harder pass: a pair
@@ -969,7 +969,7 @@ A dark descent, with the green bone and the two alcoves.
   k.barkRock(4.8, 0, 384, { prize: 'tickets', tickets: 15 });
   k.dog(5.4, 0, 387.5, 'corgi');                                   // dog 5
   k.sphere(0, 0, 394);
-  k.tix(0, 0, 359, 0, 0, 369, 5);
+  k.guideArc(0, 0, 359, 0, 369, 1, 5);
   k.tix(0, 0, 378, 0, 0, 392, 5);
 ```
 
@@ -977,6 +977,27 @@ A dark descent, with the green bone and the two alcoves.
 - **The right alcove is 2.2 m wide** (x 3.9–6.1, wall at 6.1). The Bark Rock covers x 3.75–5.85, which
   leaves 0.25 m, too narrow for Nobu (body width about 0.7 m). Check this in play. If he squeezes past,
   move the rock to x 5.0.
+
+### 3.7a Approved implementation correction: sealed Cereal lane
+
+The owner requires timing boxes and authorized the necessary tested local geometry.
+The five boxes retain their original coordinates. `buildCerealLane(stage,track)`
+adds a visible cutaway cabinet, tiled collision surfaces, cross-baffles at the
+landing corridors, and an upper end closure that blocks approaching over the roof
+from the6m green-bone shelf. Its exit threshold atd364.3 is2.8m above the final
+BlinkBox's standing surface, with1.5m of headroom. Use the existing Double Jump to
+reach it; the Story-owned DOUBLE/JUMP sign marks this launch. The floor and dog
+behind it remain in place. No movement ability is disabled.
+
+The cabinet replaces the complete Glide bypass; it adds no countable or economic
+source. The live route and trial timing, a twelve-frame starting window, paid-move
+bypass searches, high-shelf approach and safe roof return are checked in
+`tests/cereal-lane.test.js`. See `h40-review.md` for final evidence and manual limits.
+
+The owner also approved three Boiler corrections below: pity409→407.5 on existing
+ground; the first final arrow at438.2 becomes a permanent Lunchbox rest; and the
+last FallBox warning increases0.35→0.40s. These correct actual support and tier4
+rest/warning failures while leaving movement tuning unchanged.
 
 ### 3.8 Section 7 (new, hardest): Boiler Room (d 400–470), Box Gauntlet G2
 
@@ -994,21 +1015,22 @@ climb with no other route, under a rising flood of hot water. It ends with a lon
   k.camZone(408, 448, 'rise', { dist: 9.5, height: 2.2, lookUp: 3.0 });
   // the flood: starts when you enter at 408, rises 0.6 m/s from -3 to +8, drains once you pass 457
   k.rising(408, 457, { y0: -3, y1: 8, rate: 0.6, trigger: 'enter' });
-  k.pitySnacks(0, 0, 409);                                         // gauntlet start
+  k.pitySnacks(0, 0, 407.5);                                         // gauntlet start
   k.arrowChain([[0, 0, 410.5], [0, 4.2, 415.0], [0, 8.0, 419.5]], { power: 16 });   // up the boiler pipes
   k.platform(2.6, 4.6, 415.5, 1.8, 1.8); k.dog(2.6, 4.6, 415.5, 'shiba');      // dog 7: a side pipe off chain box 2
   k.blinkBox(0, 8.4, 423.0, { on: 1.0, off: 0.9, group: 'boil' });
   k.slideBox(0, 8.4, 426.5, { axis: 'x', range: 1.6, speed: 1.7 });
   k.fallBox(0, 8.8, 430.0, { delay: 0.4 });
   k.bounceChain([[0, 8.6, 432.8], [0, 10.4, 435.6]]);              // 2 backpacks: each bounce breaks one
-  k.arrowChain([[0, 11.0, 438.2], [0, 12.6, 441.0]], { power: 16 });
+  k.lunch(0, 11.0, 438.2); // approved permanent rest
+  k.arrowChain([[0, 12.6, 441.0]], { power: 16 });
   k.blinkBox(1.0, 12.6, 444.4, { on: 1.0, off: 0.9, phase: 1.0, group: 'boil' });
-  k.fallBox(-0.6, 12.6, 447.8, { delay: 0.35 });
+  k.fallBox(-0.6, 12.6, 447.8, { delay: 0.40 });
   k.zipline(0, 14.2, 449.5, 0, 1.4, 459.5);                        // the long line down to the gate floor
   F(457.5, 492);
-  k.tixArc(0, 0.5, 410.5, 0, 415, 4.5, 4);
-  k.tixArc(0, 4.2, 415, 0, 419.5, 4.5, 4);
-  k.tix(0, 8.8, 423, 0, 9.2, 430, 4);
+  k.guideArc(0, 0.5, 410.5, 0, 415, 4.5, 4);
+  k.guideArc(0, 4.2, 415, 0, 419.5, 4.5, 4);
+  k.guideArc(0, 8.8, 423, 0, 430, 0.4, 4);
   k.tix(0, 12.45, 451, 0, -0.15, 458.5, 5);
   k.packs([[-2.4, 464], [2.4, 466]]);
   k.gate(476, 'ROOMBA TITAN', 0x3a3d44);
@@ -1183,9 +1205,9 @@ are pending owner approval; they do not change this economic tally.
 - This is a worst-case source measurement, independent of random pack rolls. The
   literal recipe before replacing pit guide Tickets measures143field raw and
  152whole including the same arena reserve and Coconut allowance.
-- G1's already-owned Glide bypass, the Boiler rest/warning corrections, and the
-  unsupported pity checkpoint's proposed relocation409→407.5 are pending owner review; route feasibility and simulations
-  do not establish manual Golden Bone completion or first-time playtest acceptance.
+- The owner approved the Boiler rest/warning corrections and pity relocation409→407.5,
+  and required the sealed Cereal lane in3.7a. Simulations do not establish manual
+  Golden Bone completion or first-time playtest acceptance.
 
 ---
 

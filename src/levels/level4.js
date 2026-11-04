@@ -1,6 +1,7 @@
 // H40 builder remains unshipped until the H41 Titan and real arena are integrated.
 import * as THREE from 'three';
 import { makeKit, makeTrack, turtle } from './kit.js';
+import { buildCerealLane } from './cerealLane.js';
 import { laundryBoilerPattern, laundryCerealPattern } from './data/laundryRoutes.js';
 export { L4_DRUMS as DRUMS } from './data/laundry.js';
 export { LAUNDRY_BUDGET as BUDGET } from './data/laundryBudget.js';
@@ -10,7 +11,7 @@ import { L4_TEXT } from '../story/script.js';
 import { houseProp } from '../world/laundryDecor.js';
 import { L4_TRACK, L4_WALLS, L4_END } from './data/laundry.js';
 import { pick, rand } from '../core/util.js';
-export function buildLevel4(game,stage,tickets,{corrections=false}={}) {
+export function buildLevel4(game,stage,tickets,{corrections=true,sealedCereal=true}={}) {
   stage.tier=4;
   const track=makeTrack(stage,turtle([0,0,10],L4_TRACK));
   if(track.length<490)throw new Error('Laundry track must cover 490 metres');
@@ -161,6 +162,7 @@ export function buildLevel4(game,stage,tickets,{corrections=false}={}) {
   k.slideBox(0, 1.0, 358.4, { axis: 'x', range: 1.6, speed: 1.5 });
   k.blinkBox(-1.0, 1.4, 361.8, { on: 1.0, off: 1.0, phase: 1.1, group: 'cereal' });
   for (const [x, y, d] of [[-1.2, 0, 348.2], [1.0, 0.6, 351.6], [-0.6, 1.0, 355.0], [0, 1.0, 358.4], [-1.0, 1.4, 361.8]]) k.guideArc(x, y + 0.6, d, x, d, 0, 1);
+  if(sealedCereal){buildCerealLane(stage,track);k.sign(-2.6,2.2,362.8,L4_TEXT.cerealExitSign);}
   F(365, 404);
   k.shellback(0, 0, 368, { range: 1.6 });
   k.dustBunny(-1.6, 0, 372, { range: 1.6 }); k.dustBunny(1.6, 0, 373, { range: 1.6 });   // harder pass: a pair

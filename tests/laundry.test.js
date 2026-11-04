@@ -29,12 +29,12 @@ const { Backpack } = await import('../src/entities/breakables.js');
 const { DustBunny, Iron, SteamFan, ironMotion } = await import('../src/entities/laundry.js');
 const { validatePattern } = await import('../src/levels/gauntletMath.js');
 const { writeFileSync } = await import('node:fs');
-function build(roll=.01,corrections=false){
+function build(roll=.01,corrections=true,sealedCereal=true){
  const random=vi.spyOn(Math,'random').mockReturnValue(roll);
  try {
  const game={player:{pos:new THREE.Vector3(),body:{s:0},abilities:{}},ui:{tutorial(){},banner(){}},fx:{puff(){},dust(){},burst(){},smokeCard(){},sparkle(){}},camera:{shake(){}},session:{level:'4',def:{tier:4},deaths:0,runSeed:42,nextSeq:()=>1,onBreak(){},onEnemyDefeated(){},addTickets(){}}};
  const stage=new Stage(game,'4'); const tickets=new TicketSystem(game,stage);game.tickets=tickets;
- const result=buildLevel4(game,stage,tickets,{corrections});tickets.finalize();return {game,stage,tickets,result};
+ const result=buildLevel4(game,stage,tickets,{corrections,sealedCereal});tickets.finalize();return {game,stage,tickets,result};
  }finally{random.mockRestore();}
 }
 test('literal builder has stable seven rescues, three Mystery slots, complete sections and real track',()=>{
@@ -77,13 +77,13 @@ test('ambush canonical visibility stays hidden before trigger, drops, then rearm
 });
 const { laundryBoilerPattern:boiler, laundryCerealPattern:cereal } = await import('../src/levels/data/laundryRoutes.js');
 test('record literal Boiler fairness failures and test the minimal rest/tell proposal',()=>{
- const {stage}=build(),literal=validatePattern(boiler(stage)),candidate=validatePattern(boiler(build(.01,true).stage));
+ const {stage}=build(.01,false,false),literal=validatePattern(boiler(stage)),candidate=validatePattern(boiler(build(.01,true).stage));
  writeFileSync('/tmp/h40-boiler-fairness.json',JSON.stringify({literal,candidate},null,2));
  expect(literal.some(p=>p.problem.includes('Timed actions'))).toBe(true);expect(literal.some(p=>p.problem.includes('contact tell'))).toBe(true);
  expect(candidate).toEqual([]);
 });
 
-test('Cereal actual-world route passes tier4 held-jump and moving-window requirements',()=>{const{stage}=build();expect(validatePattern(cereal(stage))).toEqual([]);});
+test('Cereal actual-world route passes tier4 jump and moving-window requirements',()=>{const{stage}=build();expect(validatePattern(cereal(stage))).toEqual([]);});
 const { moveBody } = await import('../src/world/physics.js');
 const { L4_STAMPEDE, L4_CHASE_PACKS } = await import('../src/levels/data/laundry.js');
 const { run:chaseRun, budget:chaseBudget, chaseStops } = await import('../tools/audit/chaseModel.js');
@@ -146,7 +146,7 @@ test('actual World collision lands every Top Shelf outbound jump and both toaste
  expect(jumpLanding(stage,[2.4,1,200.5],[2.4,4.2,205],{velocity:15*1.15,cut:true})).not.toBeNull();
 });
 test('document the literal Cereal Glide bypass rather than claiming chosen-route proof rules it out',()=>{
- const{stage}=build();expect(jumpLanding(stage,[3,0,345.5],[3,0,366],{doubleAt:.45,glide:true})).not.toBeNull();
+ const{stage}=build(.01,false,false);expect(jumpLanding(stage,[3,0,345.5],[3,0,366],{doubleAt:.45,glide:true})).not.toBeNull();
 });
 const { SpinDrum }=await import('../src/entities/props2.js');
 const { drumPos }=await import('../src/entities/propsTiming.js');
@@ -181,7 +181,7 @@ test('actual drum forward-rim jumps reach both shelves and Drum1 top reaches the
  for(const[from,to]of [[[0,3.2,67.2],[0,3.2,71.5]],[[0,3.2,82.4],[0,3.2,86.5]],[[0,6.4,64],[-3.6,6.6,67]]])expect(jumpLanding(stage,from,to)).not.toBeNull();
 });
 test('candidate Cereal and Boiler jump shapes land on actual solids while lit, including the proposed permanent rest',()=>{
- const{stage}=build(.01,true);
+ const{stage}=build(.01,true,false);
  // Timing windows are separately checked by validatePattern. Here collision shapes
  // are tested in their lit interval so an off-phase cannot masquerade as bad geometry.
  for(const p of stage.timedBoxes)if(p.entity.solid)p.entity.solid.enabled=true;
@@ -203,7 +203,7 @@ test('actual hot-water instance respects authored good-pace margins and reset; e
  expect(measureTicketBudget(stage,tickets,7)).toEqual(LAUNDRY_BUDGET);
 });
 test('candidate pity relocation uses existing permanent floor and armed checkpoint respawn settles',()=>{
- const literal=build(),candidate=build(.01,true),spot=({stage})=>stage.entities.find(e=>e.kind==='pitysnacks'&&stage.track.project(e.pos.x,e.pos.z).s>406);
+ const literal=build(.01,false,false),candidate=build(.01,true),spot=({stage})=>stage.entities.find(e=>e.kind==='pitysnacks'&&stage.track.project(e.pos.x,e.pos.z).s>406);
  const bad=spot(literal);expect(literal.stage.world.groundBelow(bad.pos.x,bad.pos.y+.1,bad.pos.z,.2)).toBe(-Infinity);
  const{stage,game}=candidate,cp=spot(candidate);game.session.checkpoint=vi.fn();cp.arm();cp.hit();expect(game.session.checkpoint).toHaveBeenCalledOnce();
  const start=game.session.checkpoint.mock.calls[0][0],body={pos:start.clone(),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:false};
