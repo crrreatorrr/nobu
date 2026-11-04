@@ -1,6 +1,7 @@
 // Authoring helpers. Levels are written in track coordinates:
 //   d = distance along the winding path, x = lateral offset (+ = right), y = height above the path.
 import * as THREE from 'three';
+import { installBoxHelpers } from './boxKit.js';
 import { Backpack, BlueSphere, OneUp, Trampoline, Snacks, Cat, Rug, LintRoller, ZippedBackpack, VacuumSwitch, Lunchbox } from '../entities/breakables.js';
 import { Broccoli, Squirrel, ConeDrone, Vacuum, Mouse, YarnBall, PillBot, LidKnight, Shellback } from '../entities/enemies.js';
 import { FloorCable, ToyPile, FurnitureLeg } from '../entities/ride.js';
@@ -268,6 +269,7 @@ export function makeKit(game, stage, tickets, track = null) {
     },
   };
   addGatedHelpers(k, game, stage, track);
+  installBoxHelpers(k, game, stage);
   return installEnvironmentKit(k, game, stage, tickets, track, waterMaterial);
 }
 

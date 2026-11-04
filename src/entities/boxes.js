@@ -37,6 +37,9 @@ const boxGeo = new RoundedBoxGeometry(.98, .98, .98, 3, .1);
 const bandGeo = new THREE.BoxGeometry(1, .16, 1);
 const outlineGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, .98, 1));
 const steel = new THREE.MeshPhongMaterial({ color: 0xb8c2d0, shininess: 70 });
+boxGeo.userData.shared=true;
+bandGeo.userData.shared=true;
+outlineGeo.userData.shared=true;
 function boxMesh(color, diamond = false) {
   const group = new THREE.Group();
   const body = new THREE.Mesh(boxGeo, steel); body.position.y = .49;

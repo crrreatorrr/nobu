@@ -6,6 +6,8 @@ const ringGeo=new THREE.RingGeometry(.28,.36,20);
 const ringMat=new THREE.MeshLambertMaterial({color:0xffd23f,side:THREE.DoubleSide});
 const guideGeo=new THREE.SphereGeometry(.08,6,4);
 const guideMat=new THREE.MeshBasicMaterial({color:0xffd23f});
+ringGeo.userData.shared=true;
+guideGeo.userData.shared=true;
 export function installBoxHelpers(k, game, stage) {
   stage.timedBoxes ||= [];
   stage.timedPatterns ||= [];
@@ -30,9 +32,8 @@ export function installBoxHelpers(k, game, stage) {
     }
     return e;
   };
-  k.bounceChain=(points,{y=0}={})=>points.map(point=>{
+  k.bounceChain=(points,{y=0,gauntlet=stage.gauntlet || /^g[1-3]$/.test(String(game.session?.level))}={})=>points.map(point=>{
     const [x,a,b]=point,d=b??a,yy=y+(b===undefined?0:a);
-    const gauntlet=stage.gauntlet || /^g[1-3]$/.test(String(game.session?.level));
     const e=k.pack(x,yy,d,gauntlet?0:1);
     const update=e.update?.bind(e);e.update=dt=>{update?.(dt);if(e.distToPlayer?.()<7)game.ui?.tutorial?.('bouncechain');};
     const ring=new THREE.Mesh(ringGeo,ringMat);ring.rotation.x=-Math.PI/2;ring.position.y=1.015;

@@ -30,10 +30,10 @@ describe('reviewable pattern proposals using the same data as builders', () => {
     expect(validatePattern({tier:1,pieces:[{kind:'lunch',dd:0},{kind:'lunch',dd:3}],route:[{from:0,to:1,move:'arrowHeld'}]}).some(p=>p.problem.includes('requires'))).toBe(true);
   });
   it('places every authored stack box and hazard from the tested data',()=>{
-    const calls=[];const k=new Proxy({}, {get:(_,name)=>name==='boxPatterns'?[]:(...args)=>{calls.push([name,...args]);return {name,args};}});
+    const calls=[];const k=new Proxy({}, {get:(_,name)=>name==='boxPatterns'?[]:(...args)=>{calls.push([name,...args]);return name==='bounceChain'?args[0].map(()=>({name})): {name,args};}});
     const p=PROPOSED_PATTERNS.find(p=>p.id==='P4');placePattern(k,p,100,{gauntlet:true});
     expect(calls.filter(c=>c[0]==='pack').map(c=>c.slice(1))).toEqual([[0,0,103,0],[0,0,105.8,0],[0,1,105.8,0],[0,0,108.6,0],[0,1,108.6,0],[0,2,108.6,0]]);
     calls.length=0;placePattern(k,PROPOSED_PATTERNS.find(p=>p.id==='P2'),0,{gauntlet:false});
-    expect(calls.filter(c=>c[0]==='pack').map(c=>c.at(-1))).toEqual([1,1,1,1]);
+    expect(calls.find(c=>c[0]==='bounceChain')).toEqual(['bounceChain',[[0,0,3],[0,0,6.2],[0,0,9.4],[0,0,12.600000000000001]],{gauntlet:false}]);
   });
 });

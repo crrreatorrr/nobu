@@ -81,7 +81,13 @@ export function placePattern(k, pattern, d0=0, { gauntlet=false }={}) {
   k.boxPatterns?.push({...pattern,d0});
   if(pattern.floor==='floor')k.floor(d0+entry.dd,d0+exit.dd,{y:0});
   k.floor(d0-5,d0+entry.dd,{y:entry.y});k.floor(d0+exit.dd,d0+exit.dd+5,{y:exit.y});
+  const bounceIndices=new Set(pattern.route.filter(s=>s.move.startsWith('bounce') && pattern.pieces[s.from].kind==='pack').map(s=>s.from));
+  if(bounceIndices.size){
+    const points=[...bounceIndices].map(i=>{const p=pattern.pieces[i];return[p.x||0,p.y||0,d0+p.dd];});
+    placed.push(...k.bounceChain(points,{gauntlet}));
+  }
   for(let i=0;i<pattern.pieces.length;i++) {
+    if(bounceIndices.has(i))continue;
     const p=pattern.pieces[i],d=d0+p.dd,x=p.x||0,y=p.y||0;
     const opts=p.params||{};let e;
     switch(p.kind) {
