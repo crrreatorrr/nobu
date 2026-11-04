@@ -26,9 +26,9 @@ describe('save: trial scores', () => {
     }));
     save.load();
     expect(save.data.trials).toEqual({});
-    expect(save.data.bestDogs).toEqual([0, 0, 0]);
+    expect(save.data.bestDogs).toEqual({});
     expect(save.data.bonus).toEqual({});
-    expect(save.data.beaten).toEqual([true, false, false]);
+    expect(save.data.beaten).toEqual({ '1': true });
   });
 
   it('copies an unreadable save aside before starting fresh', () => {
@@ -41,7 +41,7 @@ describe('save: trial scores', () => {
 
   it('a second tab cannot overwrite a faster time or a bigger best', () => {
     save.data.trials = { 1: { best: 50, ms: 50000, medal: 'gold', pid: null } };
-    save.data.bestDogs = [3, 0, 0];
+    save.data.bestDogs = { '1': 3 };
     save.data.bonus = { ride: { beaten: true, best: 20 } };
     save.write();
 
@@ -49,7 +49,7 @@ describe('save: trial scores', () => {
     const other = disk();
     other.trials[1] = { best: 44, ms: 44000, medal: 'gold', pid: 'p' };
     other.trials[2] = { best: 60, ms: 60000, medal: 'silver', pid: 'p' };
-    other.bestDogs = [1, 5, 0];
+    other.bestDogs = { '1': 1, '2': 5 };
     other.bonus = { ride: { beaten: true, best: 35 }, cave: { found: true } };
     localStorage.setItem(SAVE_KEY, JSON.stringify(other));
 
@@ -59,7 +59,7 @@ describe('save: trial scores', () => {
     const now = disk();
     expect(now.trials[1].ms).toBe(44000);
     expect(now.trials[2].ms).toBe(60000);
-    expect(now.bestDogs).toEqual([3, 5, 0]);
+    expect(now.bestDogs).toEqual({ '1': 3, '2': 5 });
     expect(now.bonus.ride.best).toBe(35);
     expect(now.bonus.cave.found).toBe(true);
     expect(now.lives).toBe(2);
@@ -70,14 +70,14 @@ describe('save: trial scores', () => {
   it('reset() starts a new game but keeps trial bests', () => {
     save.data.trials = { 2: { best: 58, ms: 58000, medal: 'silver', pid: 'p' } };
     save.data.unlocked = 3;
-    save.data.bestDogs = [4, 4, 4];
+    save.data.bestDogs = { '1': 4, '2': 4, '3': 4 };
     save.write();
     save.reset();
     expect(save.data.unlocked).toBe(1);
-    expect(save.data.bestDogs).toEqual([0, 0, 0]);
+    expect(save.data.bestDogs).toEqual({});
     expect(save.data.trials[2].ms).toBe(58000);
     expect(disk().trials[2].ms).toBe(58000);
-    expect(disk().bestDogs).toEqual([0, 0, 0]);
+    expect(disk().bestDogs).toEqual({});
   });
 
   it('totalTrialMs() sums the three bests once all exist', () => {
