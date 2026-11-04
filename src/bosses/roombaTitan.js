@@ -98,7 +98,7 @@ export class RoombaTitan extends Boss {
     const distance=16*this.sp*dt,steps=Math.max(1,Math.ceil(distance/.15));
     for(let i=0;i<steps;i++){
       this.pos.addScaledVector(this.chargeDir,distance/steps);
-      for(const e of [...(this.arena?.pillars??[]),...(this.arena?.legs??[])])if(e.solid.enabled&&Math.abs(this.pos.x-e.pos.x)<this.radius+.6&&Math.abs(this.pos.z-e.pos.z)<this.radius+.6){this.pos.addScaledVector(this.chargeDir,-.6);this.stun();return;}
+      for(const e of [...(this.arena?.pillars??[]),...(this.arena?.legs??[])])if(e.solid.enabled&&Math.hypot(Math.max(0,Math.abs(this.pos.x-e.pos.x)-.6),Math.max(0,Math.abs(this.pos.z-e.pos.z)-.6))<this.radius){this.pos.addScaledVector(this.chargeDir,-.6);this.stun();return;}
       if(this.phase>=3)for(const {cat}of this.arena?.tntSpots??[])if(!cat.dead&&this.pos.distanceTo(cat.pos)<this.radius+.5){cat.pounce();this.stun();return;}
       if(this._wallHit())return;
     }
@@ -122,7 +122,7 @@ export class RoombaTitan extends Boss {
       else {this.moveCharge(dt);for(const b of this.brushes)b.rotation.y+=dt*30;}
     }else if(s==='cable'){
       // Radius-three disc plugs its rear into the z=-12 socket after reversing there.
-      if(t<this.tell){this.lane.position.set(0,.035,-5);this.lane.rotation.y=0;this.lane.scale.set(.5,1,14);this.lane.material.color.setHex(0xffdc55);this.lane.visible=true;}
+      if(t<this.tell){this.lane.position.set(Math.sin(-Math.PI/3)*7,.035,-12+Math.cos(-Math.PI/3)*7);this.lane.rotation.y=-Math.PI/3;this.lane.scale.set(.5,1,14);this.lane.material.color.setHex(0xffdc55);this.lane.visible=true;}
       else if(!this.did){this.did=true;this.lane.visible=false;const life=(2*Math.PI/3)/(1.6*this.sp);this.proj.cableArc(this.arena?.socket??new THREE.Vector3(0,0,-12),14,-Math.PI/3,Math.PI/3,.5,{life});this.cableLife=life;audio.play('zip');}
       if(this.did&&this.phase>=3&&!this.backCable&&t>=this.tell+this.cableLife){this.backCable=true;this.proj.cableArc(this.arena.socket,14,Math.PI/3,-Math.PI/3,.5,{life:this.cableLife});}
       if(this.did&&t>=this.tell+this.cableLife*(this.phase>=3?2:1)){this.backCable=false;this.endAttack();}
