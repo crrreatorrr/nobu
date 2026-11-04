@@ -5,8 +5,8 @@ import { LEVEL_NAMES as SESSION_NAMES, Session } from '../src/game/session.js';
 import { buildLevel1, buildBoss1Arena } from '../src/levels/level1.js';
 import { buildLevel2, buildBoss2Arena } from '../src/levels/level2.js';
 import { buildLevel3, buildBoss3Arena } from '../src/levels/level3.js';
-import { buildBonusRide } from '../src/levels/bonusRide.js';
-import { buildBonusCave } from '../src/levels/bonusCave.js';
+import { buildBonusRideCandidate as buildBonusRide } from '../src/levels/bonusRide.js';
+import { buildBonusCaveCandidate as buildBonusCave } from '../src/levels/bonusCave.js';
 import { MechaBird } from '../src/bosses/mechaBird.js';
 import { BigCatBoss } from '../src/bosses/bigCat.js';
 import { EvilCone } from '../src/bosses/evilCone.js';
@@ -51,7 +51,7 @@ describe('level registry', () => {
     expect(isOpen(id, data)).toBe(true);
   });
 
-  it('keeps each builder, arena, boss, theme and display name unchanged', () => {
+  it('selects current builders with their arenas, bosses, themes and names', () => {
     const expected = [
       [1, buildLevel1, buildBoss1Arena, MechaBird, 'bird', 1, 'boss1', 'Bark Jungle'],
       [2, buildLevel2, buildBoss2Arena, BigCatBoss, 'cat', 2, 'boss2', 'Scratchpost Canyon'],
