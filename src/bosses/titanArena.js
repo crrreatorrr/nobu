@@ -241,9 +241,6 @@ export class TitanArena extends Entity {
   }
   reset() {
     this.restoreLights();
-    this.setWalls(13);
-    this.conveyor.reset();
-    this.conveyor.enabled = this.phase >= 2;
     for (const leg of this.legs) {
       leg.solid.enabled = false;
       leg.dead = true;
@@ -251,6 +248,9 @@ export class TitanArena extends Entity {
       leg.obj.visible = false;
     }
     this.legs = [];
+    this.setWalls(13);
+    this.conveyor.reset();
+    this.conveyor.enabled = this.phase >= 2;
     for (const { cat } of this.tntSpots) {
       cat.refresh();
       cat.dead = this.phase < 3;

@@ -60,6 +60,14 @@ export function normalizeTitanModel(model) {
 }
 
 export class TitanVacuum extends Vacuum {
+  // Summons are rebuilt by the attack, never by a level checkpoint's generic
+  // Enemy.reset loop (including ones retired in an earlier phase).
+  reset() {
+    this.dead = true;
+    this.visible = false;
+    this.interactive = false;
+    this.obj.visible = false;
+  }
   behave(dt) {
     this.chaseBody ||= {
       pos: this.pos,
@@ -305,7 +313,6 @@ export class RoombaTitan extends Boss {
       );
       audio.play('roll', 0.7);
     }
-    if (s === 'patrol') this.patrolOrigin = this.pos.clone();
     if (s === 'swarm') audio.play('beep');
   }
   afterAttack() {
@@ -447,7 +454,8 @@ export class RoombaTitan extends Boss {
       return;
     }
     if (s === 'patrol') {
-      const a = t * 1.2,
+      this.patrolAngle = (this.patrolAngle || 0) + dt * 1.2;
+      const a = this.patrolAngle,
         target = new THREE.Vector3(Math.sin(a) * 4, 0, -3 + Math.sin(a * 2) * 2),
         delta = target.sub(this.pos),
         distance = delta.length();
@@ -576,8 +584,12 @@ export class RoombaTitan extends Boss {
         this.stun(this.W + 1);
       }
     }
-    this.rig.rotation.y =
-      s === 'ultimate' ? this.rig.rotation.y : Math.atan2(this.chargeDir.x, this.chargeDir.z);
+    if (s === 'patrol' || s === 'suction') {
+      const want = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
+      const difference = want - this.rig.rotation.y;
+      this.rig.rotation.y += Math.atan2(Math.sin(difference), Math.cos(difference)) * Math.min(1, dt * 6);
+    } else if (s !== 'ultimate')
+      this.rig.rotation.y = s === 'cable' ? 0 : Math.atan2(this.chargeDir.x, this.chargeDir.z);
   }
   onStomp(p) {
     const top = this.pos.y + 1.8 * this.stageScale[this.phase];

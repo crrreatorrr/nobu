@@ -16,6 +16,7 @@ import { Projectiles } from '../src/bosses/common.js';
 import { World, moveBody } from '../src/world/physics.js';
 import { Stage } from '../src/world/stage.js';
 import { Player } from '../src/player/player.js';
+import { Session } from '../src/game/session.js';
 import { input } from '../src/core/input.js';
 import { save } from '../src/core/save.js';
 import { buildBoss4Arena } from '../src/levels/boss4Arena.js';
@@ -483,4 +484,56 @@ it('finishes the promised two-second intro and defeat cosmetics never create ent
   boss.update(2);
   expect(boss.defeatLEDs.every((l) => l.material.opacity === 0)).toBe(true);
   expect(boss.defeatProps.every((p) => p.mesh.position.y >= 0.2)).toBe(true);
+});
+
+it('actual Session retry never resurrects historical swarms and clears old leg collisions before reset placement', () => {
+  save.reset();
+  save.data.godMode = false;
+  const f = fixture(),
+    p = realPlayer(f),
+    { boss, stage, game, titanArena: a } = f;
+  const s = (game.session = new Session(game, 3));
+  s.stage = stage;
+  s.boss = boss;
+  s.phase = 'boss';
+  s.bossPhaseCp = 3;
+  s.projectiles = new Projectiles(game, stage);
+  s.tickets = { restoreAfter: vi.fn(), clearFlying: vi.fn() };
+  s._pushHud = vi.fn();
+  s._undoLifeLinesAbove = vi.fn();
+  game.mask = { snapTo: vi.fn(), setLevel: vi.fn() };
+  game.ui.setHud = vi.fn();
+  game.camera.snap = vi.fn();
+  s.cp = {
+    pos: new THREE.Vector3(0, 0, 9),
+    facing: Math.PI,
+    seq: 0,
+    tickets: 0,
+    levelTickets: 0,
+    lifeLine: 0,
+    freedIds: new Set()
+  };
+  boss.phase = 3;
+  a.setPhase(3);
+  boss.spawnSwarm();
+  const retired = boss.minions.slice();
+  boss.killMinions();
+  boss.spawnSwarm();
+  const current = boss.minions.slice();
+  const leg = a.addLeg(0, 9);
+  p.pos.set(0, 0, 9);
+  a.reset();
+  expect(p.pos.toArray()).toEqual([0, 0, 9]);
+  expect(leg.solid.enabled).toBe(false);
+  s.respawn();
+  expect(p.pos.toArray()).toEqual([0, 0, 9]);
+  expect([...retired, ...current].every((m) => m.dead && !m.obj.visible)).toBe(true);
+  expect(boss.minions).toHaveLength(0);
+  expect(boss.hp).toBe(3);
+  expect(a.wallR).toBe(13);
+  expect(a.stocked).toBe(true);
+  expect(a.lumi.visible).toBe(false);
+  boss.spawnSwarm();
+  expect(boss.minions).toHaveLength(3);
+  expect(stage.entities.filter((e) => e instanceof retired[0].constructor && !e.dead)).toHaveLength(3);
 });
