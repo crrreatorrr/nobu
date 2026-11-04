@@ -14,3 +14,9 @@ it('covers each current path without gaps and names every stable dog and tempora
     expect(rows.every((r) => /^[A-Z][\w'-]*(?: [A-Z][\w'-]*){0,2}$/.test(r.name))).toBe(true);
   }
 });
+it('installs the canonical rows through the existing helper without altering geometry', async () => {
+  const { installSections } = await import('../src/levels/sections.js');
+  const calls = []; const k = { section: (...args) => calls.push(args) };
+  installSections(k,1,SECTION_TEXT);
+  expect(calls).toEqual(levelSections(1,SECTION_TEXT).map(({d0,d1,name}) => [d0,d1,name]));
+});

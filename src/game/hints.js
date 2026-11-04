@@ -1,7 +1,11 @@
 // Saved map hints use only recorded misses and permanent metadata, never a fabricated run.
 export function boundedMiss(misses = {}) {
-  return Object.fromEntries(Object.entries(misses).filter(([, n]) => Number.isFinite(n) && n > 0)
-    .sort((a, b) => b[1] - a[1]).slice(0, 12).map(([key, n]) => [key.slice(0, 40), Math.floor(n)]));
+  const clipped = {};
+  for (const [key, n] of Object.entries(misses)) if (Number.isFinite(n) && n > 0) {
+    const name = key.slice(0, 40);
+    clipped[name] = Math.max(clipped[name] || 0, Math.floor(n));
+  }
+  return Object.fromEntries(Object.entries(clipped).sort((a, b) => b[1] - a[1]).slice(0, 12));
 }
 export function sectionName(sections, s, entity = {}) {
   // An overlapping sky loop must not relabel main-path objects at the same distance.
@@ -28,12 +32,12 @@ export function nextGoal(board = {}, stats = {}, ctx = {}, abilities = {}, copy 
   }
   if (!board.hidden && ctx.hidden) {
     const { move, section: near } = ctx.hidden;
-    if (move && !abilities[move]) return result('hintNewMove');
+    if (move && !abilities[move] && !ctx.sniffer) return result('hintNewMove');
     if (near) return result('hintHidden', [near]);
   }
   if (!board.golden) return result('hintGoldenMany', [packs]);
   // Completion means all slots; don't advertise a complete board with an unearned slot.
-  if (!board.goodBoy && !ctx.god) return result('hintGoodBoyGoal');
+  if (!board.goodBoy) return result('hintGoodBoyGoal');
   if (!ctx.bonus && (board.snack || 0) < 3) return result('hintSnackGoal', [[40, 60, 80][board.snack || 0]]);
   return result(ctx.trialAvailable ? 'hintCompleteTrial' : 'hintComplete');
 }
