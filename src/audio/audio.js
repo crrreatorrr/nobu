@@ -238,6 +238,9 @@ class AudioEngine {
         this._osc('triangle', 420 * p, 140 * p, 0.12, 0.25 * volume, 0.025);
         this._noise(0.055, 0.16 * volume, 0.025, 'bandpass', 1200, 4000, 1);
         break;
+      case 'crashSiren':
+        for (let i = 0; i < 4; i++) this._osc('sawtooth', i % 2 ? 440 : 880, i % 2 ? 880 : 440, .22, .09 * volume, i * .22, this.sfxGain, { filter: 'lowpass', freq: 1800 });
+        break;
       case 'charge': this._osc('sawtooth', 120 * p, 900 * p, 0.7, 0.12, 0, this.sfxGain, { filter: 'lowpass', freq: 1800 }); this._osc('sine', 240 * p, 1800 * p, 0.7, 0.08); break;
       case 'catnip':
         ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => this._osc('triangle', noteFreq(n) * p, noteFreq(n) * p, 0.18, 0.12 * volume, i * 0.045));

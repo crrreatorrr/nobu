@@ -567,6 +567,7 @@ export class Session {
     audio.stopMusic();
     audio.play('bossRoar');
     if (this.def.bossKey === 'cone') g.ui.say(BOSS_TALK.cone.death);
+    if (this.def.bossKey === 'queen') g.ui.say(BOSS_TALK.queen.death);
     setTimeout(() => {
       g.ui.bossHide();
       g.player.victory();

@@ -2,6 +2,7 @@
 // Nobu never speaks. Everyone else does.
 
 export const SPEAKERS = {
+  queen: { name: 'THE PUMP QUEEN', portrait: 'portrait_queen', blip: 'blip' },
   mask: { name: 'SPROTO MASK', portrait: 'sproto_mask', blip: 'blip' },
   titan: { name: 'ROOMBA TITAN', portrait: 'portrait_titan', blip: 'blipLow' },
   bird: { name: 'MECHA BIRD', portrait: 'portrait_bird', blip: 'blip' },
@@ -19,6 +20,11 @@ export const INTRO = [
 ];
 
 export const RESCUE = {
+5: [
+  { img: 'story_rescue_3', speaker: '', text: 'The Pump Queen deflates with a long, sad squeak. Her crown rolls across the floor and spins to a stop.' },
+  { img: 'story_rescue_3', speaker: 'THE PUMP QUEEN', text: 'It was supposed to go up... FOREVER...' },
+  { img: 'story_rescue_3', speaker: 'SPROTO MASK', text: 'Nothing goes up forever. Except Nobu. Nobu goes up now.' },
+],
 4: [
   { img: 'story_rescue_1', speaker: '', text: 'The Roomba Titan sputters, beeps sadly and spits out a mountain of cones. And one soggy map.' },
   { img: 'story_rescue_1', speaker: 'SPROTO MASK', text: 'The map shows a river of smog running from the House to some kind of... Pipeline. First stop: the rapids.' },
@@ -44,7 +50,33 @@ export const ENDING = [
   { img: 'story_ending', speaker: 'SPROTO MASK', text: '...honestly? Iconic. THE END. (Golden Bones still waiting, if you\'re a completionist.)' },
 ];
 
+export const QUEEN_ENDING = [
+  { img: 'story_ending', speaker: '', text: 'The pipeline falls quiet. Every ticker reads $0.00. Somewhere, a tail starts wagging.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'No more pumps. No more cones. Just one very good dog with a MOON JUMP.' },
+];
+
+export const SECRET_ENDING = [
+  { img: 'story_ending', speaker: '', text: 'Back at the Kennel, the rescued dogs gather beneath the stars. Nobu has brought more than a victory home.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'Look at this pack, Nobu. Every rescue, every adventure... this is what being a good boy was for.' },
+  { img: 'story_ending', speaker: '', text: 'Nobu says nothing. He leaps toward the moon. The whole Kennel joins in the zoomies.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'TO THE MOON, GOOD BOYS. THE TRUE END.' },
+];
+
+export const SECRET_ENDING_HINT = (percent) => `GOOD BOY ${percent}% · reach 80% for the true ending`;
+
 export const BOSS_TALK = {
+queen: {
+  intro: [
+    ['queen', 'Well well. The little Akita who keeps crashing my charts.'],
+    ['queen', 'Who do you think pumped the Evil Cone? Me, darling. Every cone on this island is my bag.'],
+    ['queen', 'Now be a good boy and buy the top.'],
+    ['mask', 'She only opens up at the top of a PUMP. Hop the pills to reach her CROWN!'],
+  ],
+  phase2: [['queen', 'Don\'t you feel it, puppy? The FOMO? Come closer...'], ['mask', 'That beam pulls you in! ZOOMIES out, or GLIDE to a candle!']],
+  phase3: [['queen', 'Bubbles never pop, sweetie. Number go up.'], ['mask', 'Pop her bubble with a MEGA BARK, then bite!']],
+  phase4: [['queen', 'Fine! RUG PULL! Everybody out!'], ['mask', 'She\'s walled in! SLIDE, then BITE to DUST DASH through!']],
+  death: [['queen', 'No no no... it\'s just a dip... buy the dip... somebody buy the dip...']],
+},
 titan: {
   intro: [
     ['titan', 'BEEP. FOREIGN OBJECT DETECTED. CLASSIFICATION: DOG. CLASSIFICATION: DIRT.'],
@@ -122,6 +154,10 @@ export const LEVEL_INTRO = {
 
 // Mask chatter after finishing a level (between levels).
 export const BETWEEN = {
+5: [
+  ['mask', 'NEW MOVE: MOON JUMP! Hold SLIDE without moving, then JUMP. To the moon!'],
+  ['mask', 'See those glowing ledges way up high in every level? Moon Ledges. Go see what\'s up there.'],
+],
 4: [
   ['mask', 'NEW MOVE: DUST DASH! SLIDE, then BITE mid-slide to burst forward.'],
   ['mask', 'Grey fuzzy walls? Dash right through them. There were a few of those back in the old levels...'],
@@ -144,6 +180,7 @@ export const BETWEEN = {
 };
 
 export const TUTORIALS = {
+  moonJump: { img: 'nobu_head', title: 'NEW MOVE: MOON JUMP!', text: 'Hold SLIDE without moving, then JUMP. To the moon!' },
   dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
 
   crystals: { img: 'nobu_head', title: 'CRYSTAL ECHO', text: 'Bite crystals to light the path. The platforms stay solid when their light fades.' },
@@ -310,3 +347,6 @@ export const MAIN_UNLOCK_TEXT = {
   6: ['NEW STAGE', 'SMOG RAPIDS'],
   5: ['NEW STAGE', 'PUMP & DUMP PIPELINE'],
 };
+
+export const QUEEN_STAGE_POWERS = { 2: 'FOMO beam · parachute airdrops · faster candles', 3: 'Bubble shield · candle crash · crumbling ring', 4: 'Liquidation · Dust Dash wake · chains of four' };
+export const QUEEN_TICKER_TEXT = { pump: '▲ PUMP ▲', dump: '▼ DUMP ▼', zero: '$0.00' };

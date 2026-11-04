@@ -14,6 +14,8 @@ import { makeShadow, placeShadow } from '../entities/fx.js';
 import { advanceHang } from './hang.js';
 import { rideVacuumMesh } from '../entities/ride.js';
 import { applyBossFling } from './bossFling.js';
+import { MOON_JUMP, advanceMoonCharge, cancelMoonCharge } from './moonJump.js';
+export { MOON_JUMP } from './moonJump.js';
 
 import { TUNING } from '../config/movement.js';
 export { TUNING } from '../config/movement.js';
@@ -77,6 +79,8 @@ export class Player {
   }
 
   reset() {
+    this.moonHold = null;
+    this.earnedBossBarkCool = 0;
     this.bossFling = null;
     this.mode = 'normal';
     this.hang = null;
@@ -190,7 +194,7 @@ export class Player {
   update(dt, stage, camBasis) {
     this._advanceDustFov(dt);
     this.dustDashCool = Math.max(0, (this.dustDashCool || 0) - dt);
-    if (this.frozen) { this.dustDashT = 0; this._clearDustFov(); this._animate(dt); return; }
+    if (this.frozen) { if (this.moonHold) cancelMoonCharge(this); this.dustDashT = 0; this._clearDustFov(); this._animate(dt); return; }
     if (this.mode === 'dead') { this._updateDeath(dt, stage); this._animate(dt); return; }
     if (this.mode === 'victory') { this._animate(dt); this._updateShadow(stage); return; }
 
@@ -235,9 +239,11 @@ export class Player {
     }
 
     const grounded = this.body.grounded;
+    const moonGesture = advanceMoonCharge(this, dt, Math.hypot(st.x, st.y), input);
 
     // ---- actions ----
     this.barkCool = Math.max(0, (this.barkCool || 0) - dt);
+    this.earnedBossBarkCool = Math.max(0, (this.earnedBossBarkCool || 0) - dt);
     this.barkT = (this.barkT ?? 1) + dt;
     if (this.mode === 'normal' && !this.ride) {
       if (input.pressed('bark') && this.abilities.bark && this.barkCool <= 0) this._bark();
@@ -245,7 +251,7 @@ export class Player {
       // LT is also slide. In the air, with a charge, it dashes and does not flop.
       const wantDash = !grounded && input.pressed('dash') && this.abilities.airDash && this.dashCharges > 0;
       if (wantDash) this._startAirDash();
-      if (input.pressed('slide') && !wantDash) {
+      if (input.pressed('slide') && !wantDash && !moonGesture) {
         if (grounded) this._startSlide(mag > 0.2 ? Math.atan2(dx, dz) : this.facing);
         else this._startFlop();
       }
@@ -276,6 +282,8 @@ export class Player {
       R.whirrT = (R.whirrT ?? 0) - dt;
       if (grounded && R.whirrT <= 0) { R.whirrT = 0.55; audio.play('whirr'); }
       if (grounded && Math.random() < 0.18) this.game.fx?.dust(this.pos.x - rideF.x * 0.75, this.pos.y, this.pos.z - rideF.z * 0.75, { count: 1, size: 0.18, color: this._dustColor(), speed: 0.8, life: 0.3, dirX: -rideF.x * 2, dirZ: -rideF.z * 2 });
+    } else if (this.mode === 'normal' && this.moonHold) {
+      this._approach(0, 0, T.DECEL * dt);
     } else if (this.mode === 'normal') {
       // Zoomies: keep holding slide after a slide to stay at sprint speed
       if (this.zoomArmed && !input.held('slide')) this.zoomArmed = false;
@@ -342,9 +350,12 @@ export class Player {
     // ---- jumping ----
     if (this.jumpBuffer > 0 && (this.mode === 'normal' || this.mode === 'slide')) {
       if (grounded || this.coyote > 0) {
+        const moon = !!this.moonHold?.charged && input.held('slide');
+        if (this.moonHold) cancelMoonCharge(this);
         const fromSlide = this.mode === 'slide';
         if (fromSlide) this._endSlide(true);
-        this._jump(T.JUMP);
+        this._jump(moon ? MOON_JUMP.speed : T.JUMP);
+        if (moon) { audio.play('boing', .7); audio.play('whoosh'); this.game.fx?.shock(this.pos.x, this.pos.y+.03, this.pos.z, { radius: 2.2, color: 0xffdf7b, life: .5 }); }
         if (fromSlide) {
           const f = this.forward;
           this.vel.x = f.x * T.SLIDE_JUMP_SPEED; this.vel.z = f.z * T.SLIDE_JUMP_SPEED;
@@ -511,6 +522,12 @@ export class Player {
     this.idleTime = 0;
   }
 
+  _moonCharged() {
+    audio.play('chime');
+    this.game.fx?.shock(this.pos.x, this.pos.y+.03, this.pos.z, { radius: 1.5, color: 0xffdf7b, life: .5 });
+    this.game.fx?.sparkle(this.pos.x, this.pos.y+.5, this.pos.z, { count: 12, color: 0xffdf7b, speed: 2, size: .25 });
+  }
+
   _startSlide(dir) {
     this.mode = 'slide';
     this.slideT = 0; this.dustDashUsed = false;
@@ -555,9 +572,14 @@ export class Player {
   _advanceDustFov(dt) { if (this.dustFov && (this.dustFov.time -= dt) <= 0) this._clearDustFov(); }
 
   _dustContact(e) {
+    if (typeof e.onDash === 'function') {
+      // A shape-specific boss may decline a broad AABB contact. Retry it on
+      // later dash frames rather than consuming the hit at the box's corner.
+      if (e.onDash(this) !== false) this.bitten.add(e);
+      return true;
+    }
     let action;
-    if (typeof e.onDash === 'function') action = e.onDash;
-    else if (e.kind === 'dustwall' && typeof e.contact === 'function') action = e.contact;
+    if (e.kind === 'dustwall' && typeof e.contact === 'function') action = e.contact;
     else if (e.maxHp !== undefined) action = () => {}; // Bosses explicitly opt into onDash.
     else if (typeof e.flip === 'function' && typeof e.onFlop === 'function') action = e.onFlop;
     else if (typeof e.onSlide === 'function') action = e.onSlide;
@@ -586,6 +608,17 @@ export class Player {
       if (e.onBark) { e.onBark(this); continue; }
       if (!e.interactive || e.kind === 'rug' || (e.kind === 'cat' && d < 3.5)) continue;
       e.onExplosion?.({ pos: p });
+    }
+    // A paid replacement cannot remove a mandatory earned move. Only bosses
+    // explicitly providing this callback receive the independently bounded
+    // base bark; the Spell Bark loop above continues to skip every boss.
+    if (spell?.skip_bosses !== true || !save.beatenOf(3) || this.earnedBossBarkCool > 1e-9) return;
+    const base = BARK_BASE;
+    for (const e of this.game.stage.entities) {
+      if (e.dead || e.maxHp === undefined || typeof e.onEarnedBark !== 'function') continue;
+      const dx = e.pos.x-p.x, dz = e.pos.z-p.z, distance = Math.hypot(dx,dz);
+      if (distance < .05 || distance > base.range_m || Math.abs(e.pos.y-p.y)>base.y_tol_m || (dx*f.x+dz*f.z)/distance<base.cone_dot) continue;
+      if (e.onEarnedBark(this) !== false) this.earnedBossBarkCool = base.cooldown_s;
     }
   }
 
@@ -690,6 +723,7 @@ export class Player {
   // ---------- damage ----------
   trap(sec) {
     if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || !(sec > 0)) return false;
+    if (this.moonHold) cancelMoonCharge(this);
     this.bossFling = null;
     this.hang = null;
     this.mode = 'trapped'; this.trapT = sec; this.trapElapsed = 0;
@@ -724,6 +758,7 @@ export class Player {
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
     if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god || this.frozen) return false;
+    if (this.moonHold) cancelMoonCharge(this);
     this.hang = null;
     const s = this.game.session;
     if (s && s.mask > 0) {
@@ -811,6 +846,7 @@ export class Player {
   }
 
   die(type = 'angel') {
+    if (this.moonHold) cancelMoonCharge(this);
     this.bossFling = null;
     this._clearDustFov(); this.dustDashT = 0;
     if (this.mode === 'dead') return;
@@ -898,6 +934,7 @@ export class Player {
     if (this.ride && this.mode === 'normal') { st.speed = 0; st.idleTime = 0; }
     if (this.frozen && this.mode === 'normal') { st.speed = 0; st.grounded = true; }
     const pose = this.anim.update(dt, st);
+    if (this.moonHold?.time >= MOON_JUMP.tap) { pose.scaleY *= .8; pose.scaleXZ *= 1.1; }
     this.model.apply(pose);
     if (this.mode !== 'dead') {
       this.root.position.copy(this.pos);
