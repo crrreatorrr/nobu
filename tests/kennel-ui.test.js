@@ -35,8 +35,8 @@ it('saves an unlocked freed Buddy breed, returns to map without creating a Sessi
   kennel.update(.01, press('pause')); kennel.update(.01, press('pause')); expect(game.toMap).toHaveBeenCalledWith('kennel'); expect(game.session).toBeUndefined();
 });
 it('shows Golden speech once and persists its acknowledgement independently from trueending', () => {
-  const { kennel, screen } = fixture(17); expect(kennel.mode).toBe('golden'); expect(screen.textContent).toContain('SPROTO MASK');
+  const { kennel, screen } = fixture(Infinity); expect(kennel.mode).toBe('golden'); expect(screen.textContent).toContain('SPROTO MASK');
   kennel.status.unlocks.push('sniffer'); kennel.update(.01, press('bark')); expect(kennel.mode).toBe('golden');
   kennel.update(.01, press('confirm')); expect(save.data.kennel.goldenSeen).toBe(true); expect(save.data.secretSeen).toBe(false);
-  save.load(); const again = fixture(17); expect(again.kennel.mode).toBe('main');
+  save.load(); const again = fixture(Infinity); expect(again.kennel.mode).toBe('main');
 });

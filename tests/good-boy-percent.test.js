@@ -23,10 +23,10 @@ it('uses 95 base points at 54 dogs and reaches 100 without mastery', () => {
   delete s.colorBones.red;
   expect(goodBoyPercent(s, all).base).toBe(98);
 });
-it('ships only 46 points today and hides impossible milestones', () => {
-  expect(basePointsMax(today)).toBe(46);
+it('ships 48 base points with the extended bonuses and hides impossible milestones', () => {
+  expect(basePointsMax(today)).toBe(48);
   expect(goodBoyPercent(filled(today), today).base).toBe(100);
-  expect(kennelUnlocks(filled(today), 17)).toEqual(['jukebox', 'buddy', 'golden']);
+  expect(kennelUnlocks(filled(today), 21)).toEqual(['jukebox', 'buddy', 'golden']);
   expect(goodBoyPercent({}, today)).toEqual({ base: 0, mastery: 0, total: 0 });
 });
 it('reaches 200 including the nine gauntlet medals inside mastery', () => {
