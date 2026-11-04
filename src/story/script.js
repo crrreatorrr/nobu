@@ -267,5 +267,5 @@ export const TITAN_STAGE_POWERS = { 2: 'Suction · Mini-Roombas · rotating rug'
 export const TITAN_FLOP_HINT = 'BELLY FLOP the button!';
 export const BONUS_EXTENSION_TEXT = {
   ride: { split: 'Living Room Split', ramps: 'Toy Box Ramps', tile: 'Kitchen Tile Slide', door: 'Dog-Door Leap', sofa: 'Sofa Summit' },
-  cave: { river: 'Underground River', mushrooms: 'Mushroom Bounce Cavern', crystals: 'Crystal Echo', hollow: 'Lumi’s Nest Hollow' },
+  cave: { river: 'Underground River', mushrooms: 'Mushroom Bounce Cavern', crystals: 'Crystal Echo', hollow: "Lumi's Nest Hollow" },
 };
