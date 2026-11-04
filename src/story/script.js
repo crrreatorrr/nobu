@@ -152,6 +152,7 @@ export const TUTORIALS = {
   iron: { img: 'nobu_head', title: 'HOT IRON', text: 'It sweeps the whole board. Ride the steam vents up and let it pass underneath.' },
   stampede: { img: 'vacuum', title: 'STAMPEDE!', text: 'RUN toward the camera! Hold <span class="key">↓</span> / <span class="key">S</span> and jump the cables!' },
   boiler: { img: 'nobu_head', title: 'BOILER FLOOD', text: 'Hot water is rising! Keep climbing. Don\'t stop!' },
+  sorting: { img: 'nobu_head', title: 'SORTING BELTS', text: 'Belts go different ways. Switch lanes!' },
   spindrum: { img: 'nobu_head', title: 'SPIN CYCLE', text: 'Ride the platforms around the drum. Hop off when you reach the top!' },
   zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
   toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
@@ -248,6 +249,7 @@ export const BONE_TEXT = {
 };
 export const BOSS_MEDAL_TEXT = { noHit: 'NO-HIT!', speed: 'SPEED MEDAL' };
 export const SECTION_TEXT = {
+  sorting: 'Sorting Belts', packaging: 'Packaging Line', vatOverflow: 'Vat Overflow', maintenanceDucts: 'Maintenance Ducts', overheadRails: 'Overhead Rails',
   start: 'Start', highRoad: 'High Road', clearing: 'Backpack Clearing', treatLedge: 'Treat Ledge',
   lilyPond: 'Lily Pond', canopy: 'Canopy Walk', boneSwitch: 'Bone Switch', planks: 'Plank Bridge',
   belly: 'Belly-flop Pocket', lastGap: 'Last Gap', fork: 'The Fork', firstGap: 'First Gap',

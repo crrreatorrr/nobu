@@ -34,6 +34,13 @@ export function sectionFor(stage, player, d = player?.body?.s, context) {
   if (!track || !Number.isFinite(d)) return null;
   let onDetour = (stage.detours || []).some((detour) => {
     if (detour.solids?.has(player?.body?.ground)) return true;
+    // Height is only a fallback inside this branch's authored section. A high
+    // jump much later on the main route must not inherit an earlier sky path.
+    const inSection = (track.sections || []).some((section) => section.detour &&
+      d >= section.d0 && d < section.d1 &&
+      (!Number.isFinite(detour.entryD) ||
+        (detour.entryD >= section.d0 && detour.entryD < section.d1)));
+    if (!inSection) return false;
     const offset = player?.pos?.y - track.heightAt(d);
     if (detour.y > 0) return offset >= detour.y - 1;
     if (detour.y < 0) return offset <= detour.y + 1;

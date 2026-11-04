@@ -161,7 +161,7 @@ test('ordinary stage and arena share raw remainder before floor; coconut is a se
 
 for (const id of ['1', '2', '3']) {
   test(`level ${id} ${id==='1'?'Classic ':''}Mystery slots are optional, on permanent floor, before any later move, and four metres from Cats/Rugs`, () => {
-    const { stage } = build(id,false,.001,id==='1'?{layout:1}:{}), track = stage.track;
+    const { stage } = build(id,false,.001,['1','3'].includes(id)?{layout:1}:{}), track = stage.track;
     const mysteries = stage.entities.filter((e) => e instanceof MysteryBackpack);
     expect(mysteries.map((e) => e.slot)).toEqual([0, 1]);
     for (const m of mysteries) {

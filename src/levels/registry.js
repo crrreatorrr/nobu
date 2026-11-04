@@ -1,6 +1,7 @@
 import { buildLevel4 } from './level4.js';
 import { buildBoss4Arena } from './boss4Arena.js';
 import { RoombaTitan } from '../bosses/roombaTitan.js';
+import { L3_SECTIONS } from './data/l3-layout.js';
 import { L4_SECTIONS } from './data/laundry.js';
 // The shipped levels, their map presentation and their entry rules live together.
 // Keep map order explicit: integer object keys alone would put both bonuses last.
@@ -57,6 +58,10 @@ export const LEVELS = {
     Boss: EvilCone, bossKey: 'cone', theme: 3, bossTheme: 'boss3', bonus: false,
     tier: 3, unlock: mainOpen(3), mapPos: { x: 77, y: 27 }, trial: true, shipped: true,
     dogs: LEVEL_DOGS['3'],
+    sections: [...L3_SECTIONS.map(([d0,d1,key])=>({d0,d1,name:SECTION_TEXT[key]})),
+      {d0:188,d1:201,name:SECTION_TEXT.maintenanceDucts,detour:true},
+      {d0:276,d1:312,name:SECTION_TEXT.overheadRails,detour:true}].sort((a,b)=>a.d0-b.d0),
+    hidden: {section:SECTION_TEXT.maintenanceDucts,move:'bark'},
   },
   4: {
     id: 4, name: L4_TEXT.name, build: buildLevel4, arena: buildBoss4Arena,

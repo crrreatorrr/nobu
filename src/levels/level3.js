@@ -1,3 +1,6 @@
+import { trialLayout } from '../config/trials.js';
+import { L3_MOVES, L3_MOVES_V2, L3_LAYOUT2_INFO, L3_SECTIONS } from './data/l3-layout.js';
+import { shiftedFactoryKit, addFactoryExtension } from './level3Extension.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
@@ -10,13 +13,22 @@ import { makeKit, makeTrack, turtle } from './kit.js';
 import { rand, pick } from '../core/util.js';
 import { buildConeArena } from '../bosses/coneArena.js';
 
-export function buildLevel3(game, stage, tickets) {
-  const track = makeTrack(stage, turtle([0, 0, 10], [
-    [22, 0, 0], [22, 38, 0], [24, 0, 0], [22, -48, 0], [22, 0, 1.2], [24, 40, 0], [20, 0, 0], [22, -42, -1.2],
-    [22, 0, 0], [22, 34, 1], [22, 0, 0], [24, -30, 0], [24, 0, 0],
-  ]));
-  const k = makeKit(game, stage, tickets, track);
-  installSections(k, '3', SECTION_TEXT);
+export function buildLevel3(game, stage, tickets, { layout = trialLayout(3) } = {}) {
+  return buildFactory(game, stage, tickets, layout === 2);
+}
+
+// Explicit layout-2 entry point for geometry and feasibility checks.
+export function buildLevel3Layout2(game, stage, tickets) {
+  return buildFactory(game, stage, tickets, true);
+}
+export { L3_LAYOUT2_INFO };
+
+function buildFactory(game, stage, tickets, extended = false) {
+  const track = makeTrack(stage, turtle([0, 0, 10], extended ? L3_MOVES_V2 : L3_MOVES));
+  const rawKit = makeKit(game, stage, tickets, track);
+  const k = extended ? shiftedFactoryKit(rawKit) : rawKit;
+  if (extended) for (const [d0,d1,key] of L3_SECTIONS) rawKit.section(d0,d1,SECTION_TEXT[key]);
+  else installSections(k, '3', SECTION_TEXT);
   const END = 252;
   const H = 3.4;
   k.walls([[-8, 4.3, 4.3, H], [47, 4.3, 4.3, H], [48.5, 2.1, 2.1, H], [65.5, 2.1, 2.1, H], [67, 4.3, 4.3, H],
@@ -143,16 +155,19 @@ export function buildLevel3(game, stage, tickets) {
   k.gate(243, 'THE EVIL CONE', 0x8a1a3a);
   k.trigger(245, () => game.session.reachBossGate());
 
+  if (extended) addFactoryExtension(rawKit, game, stage, tickets, track);
+
   // --- decor ---
-  k.banks(-6, END, (x, y, d) => {
+  const decorEnd = extended ? 427 : END;
+  k.banks(-6, decorEnd, (x, y, d) => {
     const r = Math.random();
     if (r < 0.32) k.pipe(x, y, d, rand(4, 9));
     else if (r < 0.55) k.vat(x, y, d, rand(1.2, 1.8));
     else if (r < 0.66) k.vent(x, y, d);
     else k.cones(x, y, d, Math.floor(rand(2, 5)));
   }, { every: 4.5 });
-  k.edges(-4, END, (x, y, d) => k.cones(x, y, d, Math.floor(rand(1, 3))), { every: 6 });
-  for (let d = 4; d < END; d += 12) k.bgDog(pick([-1, 1]) * rand(5.6, 6.6), H, d, { height: 1.0, cage: true });
+  k.edges(-4, decorEnd, (x, y, d) => k.cones(x, y, d, Math.floor(rand(1, 3))), { every: 6 });
+  for (let d = 4; d < decorEnd; d += 12) k.bgDog(pick([-1, 1]) * rand(5.6, 6.6), H, d, { height: 1.0, cage: true });
 
   // TODO H30–H33: move this temporary secret to the authored extension alcove.
   placeHiddenBone(k, game, stage, -2.4, 0, 68);

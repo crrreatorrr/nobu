@@ -20,13 +20,13 @@ const dataAt = (n, reg = full) => ({ dogsFreed: Object.fromEntries(all(reg).slic
 beforeEach(() => { vi.restoreAllMocks(); resetWorld(); });
 
 describe('Kennel shipped milestone and stable dog data', () => {
-  it('hides thresholds above32, unlocks exactly8/16/24/32/all32, and never counts unshipped dogs', () => {
-    expect(kennelStatus(dataAt(0, current), current).milestones.map((m) => m.target)).toEqual([8, 16, 24, 32, 32]);
+  it('hides thresholds above36, unlocks exactly8/16/24/32/all36, and never counts unshipped dogs', () => {
+    expect(kennelStatus(dataAt(0, current), current).milestones.map((m) => m.target)).toEqual([8, 16, 24, 32, 36]);
     expect(kennelStatus(dataAt(7, current), current).unlocks).toEqual([]);
     expect(kennelStatus(dataAt(8, current), current).unlocks).toEqual(['jukebox']);
     expect(kennelStatus(dataAt(16, current), current).unlocks).toEqual(['jukebox', 'buddy']);
-    const d = dataAt(32, current); d.dogsFreed['5:shiba-a'] = true;
-    expect(kennelStatus(d, current)).toMatchObject({ total: 32, freed: 32, unlocks: ['jukebox', 'buddy', 'fur', 'gallery', 'golden'] });
+    const d = dataAt(36, current); d.dogsFreed['5:shiba-a'] = true;
+    expect(kennelStatus(d, current)).toMatchObject({ total: 36, freed: 36, unlocks: ['jukebox', 'buddy', 'fur', 'gallery', 'golden'] });
   });
   it('uses final8/16/24/32/42/54 thresholds and preserves released identity order', () => {
     expect(kennelStatus(dataAt(54), full).milestones.map((m) => m.target)).toEqual([8, 16, 24, 32, 42, 54]);
@@ -113,7 +113,7 @@ it('retains milestone identities when shipped-total Golden precedes future Fur',
   expect(noticeKennelMilestones(d, full)).toEqual([]);
 });
 it('migrates count-only milestones only from earned current unlocks, idempotently, and unions tab flags', () => {
-  const d = dataAt(32, current); d.v = 3; d.kennel.seen = 5;
+  const d = dataAt(36, current); d.v = 3; d.kennel.seen = 5;
   localStorage.setItem(SAVE_KEY, JSON.stringify(d)); save.load();
   expect(save.data.kennel.seenMilestones).toEqual({ jukebox: true, buddy: true, fur: true, gallery: true, golden: true });
   save.write(); save.load(); expect(save.data.kennel.seenMilestones.golden).toBe(true);

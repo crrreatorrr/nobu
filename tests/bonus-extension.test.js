@@ -121,7 +121,7 @@ test('a single actual Player ride collision opens the new living-room Zipped Bac
  game.fx={burst:vi.fn(),puff:vi.fn()};game.tickets.spawnFlying=vi.fn();
  const p=Object.create(Player.prototype);Object.assign(p,{game,pos:pack.pos.clone(),body:{h:1.3},mode:'normal',ride:{},bitten:new Set(),biteT:-1,vel:new THREE.Vector3(),facing:stage.track.yaw(168)});
  Player.prototype._interact.call(p,{entities:[pack]});
- expect(pack.broken).toBe(true);expect(pack.solid.enabled).toBe(false);expect(game.tickets.spawnFlying).toHaveBeenCalledWith(pack.pos.x,pack.pos.y+.8,pack.pos.z,8);
+ expect(pack.broken).toBe(true);expect(pack.solid.enabled).toBe(false);expect(game.tickets.spawnFlying).toHaveBeenCalledWith(pack.pos.x,pack.pos.y+.8,pack.pos.z,8,undefined);
 });
 test('actual extra payers beyond each fixed cap are rejected rather than changing policy',()=>{
  for(const id of ['ride','cave']){

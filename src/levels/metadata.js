@@ -12,7 +12,7 @@ export const LEVEL_DOGS = {
   4: Object.fromEntries(L4_DOGS.map(dog=>[dog.id,L4_TEXT.sections[dog.section]])),
   1: { 'shiba-a': 'Start', 'pug-a': 'Treat Ledge', 'dalmatian-a': 'Bone Switch', 'shiba-b': 'Belly-flop Pocket', 'corgi-a': 'Last Gap', ...Object.fromEntries(Object.entries(L1_ADDED_DOGS).map(([id,key])=>[id,SECTION_TEXT[key]])) },
   2: { 'corgi-a': 'First Gap', 'pug-a': 'Blue Path', 'shiba-a': 'Mushroom Landing' },
-  3: { 'pug-a': 'Crusher Alley', 'dalmatian-a': 'Rug Puzzle', 'corgi-a': 'Fan Catwalk', 'shiba-a': 'Vacuum Hall', 'dalmatian-b': 'Final Stretch' },
+  3: { 'pug-a': 'Crusher Alley', 'dalmatian-a': 'Rug Puzzle', 'corgi-a': 'Fan Catwalk', 'shiba-a': 'Vacuum Hall', 'dalmatian-b': 'Final Stretch', 'shiba-b': SECTION_TEXT.sorting, 'pug-b': SECTION_TEXT.packaging, 'corgi-b': SECTION_TEXT.maintenanceDucts, 'dalmatian-c': SECTION_TEXT.overheadRails },
   ride: { 'shiba-a': 'Hallway', 'corgi-a': 'Toy Piles', 'pug-a': 'Living Room Split', 'dalmatian-a': 'Sofa Summit' },
   cave: { 'pug-a': 'First Pit', 'shiba-a': 'Red Bone', 'corgi-a': 'Underground River', 'dalmatian-a': "Lumi's Nest Hollow" },
 };
