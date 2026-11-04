@@ -61,6 +61,8 @@ export class Chaser extends Entity {
     this.legacy = !!opts.legacy;
     this.d0 = d0; this.d1 = d1; this.model = opts.model; this.count = opts.count ?? 1;
     this.speed0 = opts.speed ?? 7; this.catchUp = opts.catchUp ?? 1;
+    this.catchUpSpeed = this.legacy ? Infinity : (opts.catchUpSpeed ?? Infinity);
+    this.catchAt = this.legacy ? 2.4 : (opts.catchAt ?? 2.4);
     this.rig = opts.rig || new PursuerRig(opts);
     this.obj.add(this.rig.root);
     this.alwaysActive = true;
@@ -163,7 +165,7 @@ export class Chaser extends Entity {
       if (this.state === 'idle' || this.state === 'done') return;
       if (this.model === 'giant_coconut' && this.pitT > 0) {
         this.pitT -= dt;
-        if (this.pitT <= 0) { this.s = Math.min(ps - 2.4, Math.max(this.pitEnd, ps - 13)); this.y = this.track.heightAt(this.s); this.obj.visible = true; this.visible = true; this._place(); }
+        if (this.pitT <= 0) { this.s = Math.min(ps - this.catchAt, Math.max(this.pitEnd, ps - 13)); this.y = this.track.heightAt(this.s); this.obj.visible = true; this.visible = true; this._place(); }
         return;
       }
     }
@@ -176,7 +178,8 @@ export class Chaser extends Entity {
       const gap = ps - this.s;
       if (this.state === 'run') {
         // smooth rubber band: eases toward a speed that rises with the gap (no stepped jumps)
-        const target = chaseSpeed(gap, this.legacy ? 6.7 : this.speed0, this.catchUp, this.legacy ? 1 : chaseDda(this.session));
+        const target = this.legacy ? chaseSpeed(gap, 6.7, this.catchUp, 1)
+          : Math.min(this.catchUpSpeed, chaseSpeed(gap, this.speed0, this.catchUp, 1)) * chaseDda(this.session);
         if (!this.leap) this.speed = damp(this.speed, target, 2, dt);
       } else {
         this.speed = damp(this.speed, 0, 3.5, dt);
@@ -202,7 +205,7 @@ export class Chaser extends Entity {
         const len = e + REAR - this.s;
         if (this.model === 'giant_coconut' && !this.track.groundAt(this.s + REACH, 0, this._g)) { this.pitT = 0.6; this.pitEnd = e + REAR; this.obj.visible = false; this.visible = false; return; }
         this.leap = { s0: this.s, s1: e + REAR, y0: this.y, h: clamp(0.6 + len * 0.17, 1.4, 3.6) };
-        this.speed = Math.max(this.speed, 7.5); // a committed pounce, never a slow float
+        this.speed = Math.min(this.catchUpSpeed, Math.max(this.speed, 7.5)); // Legacy's cap is Infinity.
         this._footfall(HIND_PAWS, true);
       }
       if (this.leap) {
@@ -234,8 +237,8 @@ export class Chaser extends Entity {
         this.lastStep = step;
       }
       if (this.state === 'run') {
-        if (gap < 2.4 && !p.dead) {
-          if (p.god) this.s = ps - 2.4; // god mode: it can only breathe down your neck
+        if (gap < this.catchAt && !p.dead) {
+          if (p.god) this.s = ps - this.catchAt; // god mode: it can only breathe down your neck
           else {
             p.die(this.model === 'smog_wall' ? 'cone' : 'flat');
             this.state = 'gloat';
