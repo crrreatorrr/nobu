@@ -11,6 +11,9 @@ import { HANG } from '../player/hang.js';
 import { drumPos, drumSpeed, toasterCycle } from './propsTiming.js';
 
 const _point = new THREE.Vector3();
+const _direction = new THREE.Vector3();
+const DRUM_SOUND = Object.freeze({ volume: 0.4 });
+const ZIP_SOUND = Object.freeze({ volume: 0.3 });
 export function propWorld(track, x, y, d, out) {
   return track ? track.toWorld(d, x, y, out) : out.set(x, y, -d);
 }
@@ -74,7 +77,8 @@ export class SpinDrum extends Entity {
       drumPos(i, this.t, opts, part.coord);
       propWorld(this.track, part.coord.x, part.coord.y + part.fall, part.coord.d, part.point);
       part.body.position.copy(part.point).sub(this.home);
-      const yaw = this.track ? this.track.yaw(part.coord.d) : 0;
+      const forward = this.track ? this.track.tangent(part.coord.d, _direction) : null;
+      const yaw = forward ? Math.atan2(forward.x, forward.z) : 0;
       part.body.rotation.y = yaw;
       part.mesh.rotation.z = part.state === 'shake' ? Math.sin(part.t * 45) * 0.03 : 0;
       part.body.rotation.x = part.state === 'fall' ? part.t * 1.5 : 0;
@@ -91,7 +95,7 @@ export class SpinDrum extends Entity {
   update(dt) {
     const turn = Math.floor(this.t / this.opts.period);
     this.t += dt;
-    if (Math.floor(this.t / this.opts.period) > turn) audio.play('whirr');
+    if (Math.floor(this.t / this.opts.period) > turn) audio.play('whirr', 1, DRUM_SOUND);
     this._place(dt);
   }
   onRespawn() {
@@ -109,6 +113,7 @@ export class Toaster extends Entity {
     this.power = power; this.period = period; this.phase = phase; this.skin = skin;
     this.t = 0; this.popT = 10; this.cycle = {};
     toasterCycle(0, period, phase, this.cycle);
+    // Keep the local pop phase running when the stage culls distant geometry.
     this.interactive = false; this.alwaysActive = true;
     this.obj.rotation.y = yaw;
     const body = new THREE.Mesh(toasterBody, toon(skin === 'valve' ? 0xc8a040 : 0xd8dde6));
@@ -227,6 +232,7 @@ export class Zipline extends Entity {
     this.velocity = B.clone().sub(A); this.length = this.velocity.length();
     if (!(this.length > 0 && speed > 0)) throw new Error('Zipline requires distinct ends and positive speed');
     this.speed = speed; this.velocity.multiplyScalar(speed / this.length);
+    // A long cable can be grabbed near either end, beyond its origin's culling radius.
     this.interactive = false; this.alwaysActive = true;
     this.blockGrabT = 0; this.rollT = 0; this._point = new THREE.Vector3();
     this._delta = B.clone().sub(A);
@@ -253,7 +259,7 @@ export class Zipline extends Entity {
     if (p.hang?.line === this) {
       this.pulley.position.copy(this._delta).multiplyScalar(p.hang.t);
       this.rollT -= dt;
-      if (this.rollT <= 0) { this.rollT += 0.25; audio.play('roll', 0.3); }
+      if (this.rollT <= 0) { this.rollT += 0.25; audio.play('roll', 1, ZIP_SOUND); }
       return;
     }
     if (p.hang || p.mode !== 'normal' || p.dead || p.frozen || p.ride || this.blockGrabT > 0 || p.biteT < 0.05 || p.biteT > 0.3) return;

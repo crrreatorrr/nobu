@@ -18,6 +18,7 @@ export class MarketClock extends Entity {
     super(stage, 0, 0, 0);
     if (!(bpm > 0)) throw new Error('Market BPM must be positive');
     this.bpm = bpm; this.step = 120 / bpm; this.t = 0; this.k = 0;
+    this.music = stage.theme.music;
     this.platforms = []; this.interactive = false; this.alwaysActive = true;
   }
   level(group = 'a', k = this.k) {
@@ -31,7 +32,8 @@ export class MarketClock extends Entity {
     return previous + (current - previous) * smooth((this.t - this.k * this.step) / 0.45);
   }
   update(dt) {
-    this.t += dt;
+    const musicalTime = audio.musicTime(this.music);
+    this.t = musicalTime === null ? this.t + dt : musicalTime;
     const step = Math.floor((this.t + 1e-10) / this.step);
     if (step === this.k) return;
     this.k = step;
@@ -55,6 +57,7 @@ export class MarketPlatform extends Entity {
     if (!(amp >= 0 && amp <= 2.6)) throw new Error('Market amplitude must be at most 2.6 m');
     this.clock = clock; this.group = group; this.amp = amp; this.sign = invert ? -1 : 1;
     clock.level(group); clock.platforms.push(this);
+    // Keep physical platform centers current even while the music advances offscreen.
     this.interactive = false; this.alwaysActive = true;
     this.obj.rotation.y = yaw;
     const mesh = platformMesh(stage, w, 0.4, dd);

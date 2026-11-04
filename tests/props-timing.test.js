@@ -7,7 +7,7 @@ import { SpinDrum, Toaster, RugPull, Zipline } from '../src/entities/props2.js';
 import { MarketClock, MarketPlatform } from '../src/entities/market.js';
 
 vi.mock('../src/art/assets.js', () => ({ Assets: { tiled: () => null } }));
-vi.mock('../src/audio/audio.js', () => ({ audio: { play: vi.fn() } }));
+vi.mock('../src/audio/audio.js', () => ({ audio: { play: vi.fn(), musicTime: vi.fn(() => null) } }));
 vi.mock('../src/entities/fx.js', () => ({ textSprite: () => new THREE.Sprite() }));
 
 function stageStub() {
