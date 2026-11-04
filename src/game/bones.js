@@ -2,6 +2,7 @@
 export const SNACK_TIERS = [0.4, 0.6, 0.8];
 export const GOOD_BOY_MAX_DEATHS = { default: 3 };
 export const SNACK_EXCLUDED = new Set(['coconut', 'mystery', 'jackpot', 'bark']);
+export const staticSnackPotential = (tickets) => tickets.filter((ticket) => !SNACK_EXCLUDED.has(ticket.source)).length;
 export function snackTier(raw, potential) {
   if (!(potential > 0)) return 0;
   return SNACK_TIERS.filter((t) => raw >= Math.ceil(potential * t)).length;

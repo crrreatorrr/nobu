@@ -1,4 +1,6 @@
-import { beforeEach, expect, it } from 'vitest';
+// Classic regression fixtures; active layout2 migration/upload gating is checked separately.
+vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
+import { beforeEach, expect, it, vi } from 'vitest';
 import { save, SAVE_KEY, sanitizeTrials } from '../src/core/save.js';
 import { resetWorld } from './helpers.js';
 const rec = (ms, godUsed, more = {}) => ({ best: ms / 1000, ms, godUsed, pid: godUsed ? null : 'clean-player', layout: 1, ...more });

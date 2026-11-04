@@ -170,7 +170,8 @@ describe('v3 progress shared with older and newer tabs', () => {
     expect(save.data.bones).toEqual({});
     expect(save.data.dogsFreed).toEqual({});
     expect(save.data.boneBoard).toEqual({});
-    expect(save.data.trials[1].ms).toBe(44000);
+    expect(save.data.trials[1]).toBeUndefined();
+    expect(save.data.trialsClassic[1].ms).toBe(44000);
     expect(save.data.trialsClassic[2].ms).toBe(60000);
     expect(save.data.bossMedals.bird.noHit).toBe(true);
     expect(save.data.bossMedals.cat.speed).toBe(true);

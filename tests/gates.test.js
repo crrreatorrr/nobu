@@ -3,7 +3,7 @@ import * as THREE from 'three';
 vi.mock('../src/art/assets.js', () => ({ Assets: { model: () => null, tex: () => new THREE.Texture(), tiled: () => new THREE.Texture(), aspect: () => 1, has: () => false } }));
 vi.mock('../src/core/util.js', async (original) => ({ ...(await original()), canvasTex: () => new THREE.Texture() }));
 vi.mock('../src/audio/audio.js', () => ({ audio: { play: vi.fn() } }));
-vi.mock('../src/story/script.js', () => ({ MYSTERY_SURPRISE: { title: 'SURPRISE!', sub: 'RUN!' } }));
+vi.mock('../src/story/script.js', async (original) => ({ ...(await original()), MYSTERY_SURPRISE: { title: 'SURPRISE!', sub: 'RUN!' } }));
 import { World, moveBody } from '../src/world/physics.js';
 import { ConedDog } from '../src/entities/dogs.js';
 import { DustWall, MoonLedge, SmogVent, ZoomieGate, PitySnacks } from '../src/entities/gatedObjects.js';

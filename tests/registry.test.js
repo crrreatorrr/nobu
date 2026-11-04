@@ -82,8 +82,8 @@ describe('level registry', () => {
 
   it('exposes migration dog ids in stable authoring order with current counts', () => {
     expect(LEVEL_IDS).toEqual(['1', '2', '3', '4', '5', '6', 'ride', 'cave']);
-    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([5, 4, 3, 4, 5]);
-    expect(Object.keys(LEVEL_DOGS[1])).toEqual(['shiba-a', 'pug-a', 'dalmatian-a', 'shiba-b', 'corgi-a']);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 3, 4, 5]);
+    expect(Object.keys(LEVEL_DOGS[1])).toEqual(['shiba-a','pug-a','dalmatian-a','shiba-b','corgi-a','pug-b','dalmatian-b','corgi-b','shiba-c']);
     const ids = [];
     for (const def of Object.values(LEVELS).filter((d) => !d.meta)) {
       expect(def.dogs).toBe(LEVEL_DOGS[def.id]);
@@ -94,6 +94,6 @@ describe('level registry', () => {
         ids.push(id);
       }
     }
-    expect(new Set(ids).size).toBe(21);
+    expect(new Set(ids).size).toBe(25);
   });
 });

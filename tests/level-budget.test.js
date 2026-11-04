@@ -89,18 +89,18 @@ for (const Cls of [ZippedBackpack, Trampoline]) {
   });
 }
 
-function build(id, arena = false, roll = .001) {
+function build(id, arena = false, roll = .001, options = {}) {
   const random = vi.spyOn(Math, 'random').mockReturnValue(roll);
   try {
     save.load();
     const game = {
-      player: { pos: new THREE.Vector3(), abilities: {} },
+      player: { pos: new THREE.Vector3(), body: { s: 0, u: 0, h: 1.3 }, abilities: {} },
       ui: { tutorial() {}, banner() {} }, fx: {}, camera: { shake() {} },
       session: { level: id, deaths: 0, runSeed: 42, nextSeq: () => 1, onBreak() {}, addTickets() {} },
     };
     const def = LEVELS[id], stage = new Stage(game, arena ? def.bossTheme : def.theme);
     const tickets = new TicketSystem(game, stage); game.tickets = tickets;
-    (arena ? def.arena : def.build)(game, stage, tickets); tickets.finalize();
+    (arena ? def.arena : def.build)(game, stage, tickets, options); tickets.finalize();
     return { stage, tickets, measured: measureTicketBudget(stage, tickets) };
   } finally { random.mockRestore(); }
 }
@@ -156,12 +156,12 @@ test('every shipped registry id has a declaration and fixed cap, and planned lev
 
 test('ordinary stage and arena share raw remainder before floor; coconut is a separate shared allowance', () => {
   expect(ticketBudget(LEVEL_BUDGETS[2])).toEqual({ raw: 235, coconut: 0, wholeMax: 78 });
-  expect(ticketBudget(LEVEL_BUDGETS[1])).toEqual({ raw: 350, coconut: 15, wholeMax: 131 });
+  expect(ticketBudget(LEVEL_BUDGETS[1])).toEqual({ raw: 565, coconut: 15, wholeMax: 203 });
 });
 
 for (const id of ['1', '2', '3']) {
-  test(`level ${id} Mystery slots are optional, on permanent floor, before any later move, and four metres from Cats/Rugs`, () => {
-    const { stage } = build(id), track = stage.track;
+  test(`level ${id} ${id==='1'?'Classic ':''}Mystery slots are optional, on permanent floor, before any later move, and four metres from Cats/Rugs`, () => {
+    const { stage } = build(id,false,.001,id==='1'?{layout:1}:{}), track = stage.track;
     const mysteries = stage.entities.filter((e) => e instanceof MysteryBackpack);
     expect(mysteries.map((e) => e.slot)).toEqual([0, 1]);
     for (const m of mysteries) {
@@ -236,9 +236,9 @@ test('T.budget reports measured changes and rejects special contexts', async () 
   const table = vi.spyOn(console, 'table').mockImplementation(() => {});
   const error = vi.spyOn(console, 'error').mockImplementation(() => {});
   try {
-    expect(inspectTicketBudget(game)).toMatchObject({ wholeMax: 131, cap: 131, differences: [] });
+    expect(inspectTicketBudget(game)).toMatchObject({ wholeMax: 203, cap: 205, differences: [] });
     stage.add(new Backpack(stage, 0, 0, 0, { tickets: 12 }));
-    expect(inspectTicketBudget(game)).toMatchObject({ differences: [{ source: 'packs', declared: 150, measured: 162 }], error: expect.stringMatching(/exceeds fixed cap/) });
+    expect(inspectTicketBudget(game)).toMatchObject({ differences: [{ source: 'packs', declared: 262, measured: 274 }], error: expect.stringMatching(/exceeds fixed cap/) });
     game.session.devStrip = true;
     expect(() => inspectTicketBudget(game)).toThrow(/fresh ordinary level/);
   } finally { table.mockRestore(); error.mockRestore(); }

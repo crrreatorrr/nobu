@@ -14,6 +14,19 @@ function fixture(opts = {}) {
   return {chase,track,game,player};
 }
 describe('Chaser runtime', () => {
+  it.each([0, 5])('honors an absolute nine-metre-per-second cap before DDA (deaths=%i)', (deaths) => {
+    const { chase, player, game } = fixture({ speed: 6.4, catchUp: 1, catchUpSpeed: 9, catchAt: 2 });
+    game.session.deathsAtCp = deaths; player.body.s = 80; chase.begin(0, 0);
+    const cap = 9 * (deaths >= 5 ? .92 : 1);
+    for (let i = 0; i < 1441; i++) { chase.update(1 / 240); expect(chase.speed).toBeLessThanOrEqual(cap); }
+    expect(chase.speed).toBeCloseTo(cap, 4); expect(player.die).not.toHaveBeenCalled();
+  });
+  it('uses the authored two-metre catch boundary only for the new segment', () => {
+    const { chase, player } = fixture({ model: 'smog_wall', speed: 6.4, catchUpSpeed: 9, catchAt: 2 });
+    chase.begin(17.8, 0); chase.update(.001); chase.update(.001);
+    expect(player.die).not.toHaveBeenCalled();
+    chase.s = 18.1; chase.update(.001); expect(player.die).toHaveBeenCalledWith('cone');
+  });
   it('starts only in its segment and restores the default camera at the end', () => {
     const {chase,player,game}=fixture({model:'giant_coconut',scale:2});
     player.body.s=19; chase.update(.1); expect(chase.state).toBe('idle');

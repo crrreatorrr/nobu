@@ -8,6 +8,7 @@ import { buildBonusCaveCandidate as buildBonusCave } from './bonusCave.js';
 import { MechaBird } from '../bosses/mechaBird.js';
 import { BigCatBoss } from '../bosses/bigCat.js';
 import { EvilCone } from '../bosses/evilCone.js';
+import { L1_SECTIONS_EXTENDED } from './data/l1-layout2.js';
 import { LEVEL_DOGS } from './metadata.js';
 import { levelSections, HIDDEN_SECTION } from './sections.js';
 import { bonusSectionsV2 } from './bonusMetadata.js';
@@ -24,6 +25,10 @@ export const LEVELS = {
     tier: 1, unlock: mainOpen(1), mapPos: { x: 24, y: 70 }, trial: true, shipped: true,
     // Stable authoring order for lossless count-to-id migration in save v3.
     dogs: LEVEL_DOGS['1'],
+    sections: [...L1_SECTIONS_EXTENDED.map(([d0,d1,key])=>({d0,d1,name:SECTION_TEXT[key]})),
+      {d0:228,d1:258,name:SECTION_TEXT.burrow,detour:true},
+      {d0:467,d1:504,name:SECTION_TEXT.waterfallHollow,detour:true}].sort((a,b)=>a.d0-b.d0),
+    hidden: {section:SECTION_TEXT.burrow,move:'dust'},
   },
   ride: {
     id: 'ride', name: 'Roomba Rush', build: buildBonusRide, theme: 'house', bonus: true,

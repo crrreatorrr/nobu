@@ -10,20 +10,23 @@ import { Assets } from '../src/art/assets.js';
 import { save, SAVE_KEY } from '../src/core/save.js';
 
 const current = Object.fromEntries(Object.entries(LEVEL_DOGS).map(([id, dogs]) => [id, { id, shipped: true, bonus: ['ride', 'cave'].includes(id), name: id, dogs, hidden: { section: 'Secret', move: null } }]));
-const legacy = Object.fromEntries(Object.entries(current).map(([id,def]) => [id,{...def,dogs:Object.fromEntries(Object.entries(def.dogs).slice(0,['ride','cave'].includes(id)?2:Infinity))}]));
-const full = { ...current, future: { id: '4', shipped: true, name: 'House', dogs: Object.fromEntries(Array.from({ length: 33 }, (_, i) => [`shiba-${String.fromCharCode(97 + i)}`, 'Room'])) } };
+const legacyCounts={1:5,2:3,3:5,ride:2,cave:2};
+const legacy=Object.fromEntries(Object.entries(current).map(([id,def])=>[id,{...def,dogs:Object.fromEntries(Object.entries(def.dogs).slice(0,legacyCounts[id]))}]));
+const currentTotal=Object.values(current).reduce((n,d)=>n+Object.keys(d.dogs).length,0);
+const full = { ...current, future: { id: '4', shipped: true, name: 'House',
+  dogs: Object.fromEntries(Array.from({ length: 54 - currentTotal }, (_, i) => [`shiba-${i}`, 'Room'])) } };
 const all = (reg) => Object.values(reg).flatMap((d) => Object.keys(d.dogs).map((id) => `${d.id}:${id}`));
 const dataAt = (n, reg = full) => ({ dogsFreed: Object.fromEntries(all(reg).slice(0, n).map((id) => [id, true])), kennel: {}, chainBadges: {}, boneBoard: {}, open: {} });
 beforeEach(() => { vi.restoreAllMocks(); resetWorld(); });
 
 describe('Kennel shipped milestone and stable dog data', () => {
-  it('hides thresholds above21, unlocks exactly8/16/all21, and never counts unshipped dogs', () => {
-    expect(kennelStatus(dataAt(0, current), current).milestones.map((m) => m.target)).toEqual([8, 16, 21]);
+  it('hides thresholds above25, unlocks exactly8/16/24/all25, and never counts unshipped dogs', () => {
+    expect(kennelStatus(dataAt(0, current), current).milestones.map((m) => m.target)).toEqual([8, 16, 24, 25]);
     expect(kennelStatus(dataAt(7, current), current).unlocks).toEqual([]);
     expect(kennelStatus(dataAt(8, current), current).unlocks).toEqual(['jukebox']);
     expect(kennelStatus(dataAt(16, current), current).unlocks).toEqual(['jukebox', 'buddy']);
-    const d = dataAt(21, current); d.dogsFreed['4:shiba-a'] = true;
-    expect(kennelStatus(d, current)).toMatchObject({ total: 21, freed: 21, unlocks: ['jukebox', 'buddy', 'golden'] });
+    const d = dataAt(25, current); d.dogsFreed['4:shiba-a'] = true;
+    expect(kennelStatus(d, current)).toMatchObject({ total: 25, freed: 25, unlocks: ['jukebox', 'buddy', 'fur', 'golden'] });
   });
   it('uses final8/16/24/32/42/54 thresholds and preserves released identity order', () => {
     expect(kennelStatus(dataAt(54), full).milestones.map((m) => m.target)).toEqual([8, 16, 24, 32, 42, 54]);
@@ -37,7 +40,7 @@ describe('Kennel shipped milestone and stable dog data', () => {
     const d = dataAt(1, current); d.open = { 1: true, 2: true }; d.boneBoard[1] = { hidden: true };
     const result = missingSecrets(d, current);
     expect(result.map((x) => x.id)).toEqual(['1', '2']);
-    expect(result[0].hidden).toBeNull(); expect(result[0].dogs).toHaveLength(4);
+    expect(result[0].hidden).toBeNull(); expect(result[0].dogs).toHaveLength(8);
     expect(result[1].hidden).toEqual({ section: 'Secret', move: null });
     expect(result[0].dogs[0]).toEqual({ id: 'pug-a', section: 'Treat Ledge' });
   });
@@ -110,9 +113,9 @@ it('retains milestone identities when shipped-total Golden precedes future Fur',
   expect(noticeKennelMilestones(d, full)).toEqual([]);
 });
 it('migrates count-only milestones only from earned current unlocks, idempotently, and unions tab flags', () => {
-  const d = dataAt(21, current); d.v = 3; d.kennel.seen = 3;
+  const d = dataAt(25, current); d.v = 3; d.kennel.seen = 4;
   localStorage.setItem(SAVE_KEY, JSON.stringify(d)); save.load();
-  expect(save.data.kennel.seenMilestones).toEqual({ jukebox: true, buddy: true, golden: true });
+  expect(save.data.kennel.seenMilestones).toEqual({ jukebox: true, buddy: true, fur: true, golden: true });
   save.write(); save.load(); expect(save.data.kennel.seenMilestones.golden).toBe(true);
   const disk = JSON.parse(localStorage.getItem(SAVE_KEY)); disk.kennel.seenMilestones.fur = true; localStorage.setItem(SAVE_KEY, JSON.stringify(disk));
   save.data.kennel.seenMilestones.gallery = true; save.write();

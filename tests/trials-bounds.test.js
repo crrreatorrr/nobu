@@ -6,10 +6,13 @@ import { TUNING } from '../src/player/player.js';
 
 // Track distance from the level spawn to the boss-gate trigger that ends the trial.
 // Read from the level source so a moved gate or spawn fails this test.
-function trackD(src, expr) {
+function trackD(src, expr, layout) {
   const e = expr.trim();
   const direct = Number(e);
   if (Number.isFinite(direct)) return direct;
+  // L1 keeps both authored layouts while the registry selects one.
+  const conditional = e.match(/^extended\s*\?\s*(\d+)\s*:\s*(\d+)$/);
+  if (conditional) return Number(conditional[layout > 1 ? 1 : 2]);
   // Level 2 writes D(302), with `const D = (d) => d + O`.
   const d = e.match(/^D\((\d+(?:\.\d+)?)\)$/);
   expect(d, `track expression ${e}`).toBeTruthy();
@@ -23,7 +26,7 @@ function gateDistance(level) {
   const spawn = src.match(/spawn:\s*k\.W\(0,\s*0,\s*([^)]+\)?)\)/);
   expect(gate, `level ${level} boss gate trigger`).toBeTruthy();
   expect(spawn, `level ${level} spawn`).toBeTruthy();
-  return trackD(src, gate[1]) - trackD(src, spawn[1]);
+  return trackD(src, gate[1], trialLayout(level)) - trackD(src, spawn[1], trialLayout(level));
 }
 
 describe('trial bounds (metaverse-hub CONTRACT C13)', () => {

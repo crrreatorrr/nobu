@@ -1,3 +1,5 @@
+// Classic regression fixtures; active layout2 migration/upload gating is checked separately.
+vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CORRUPT_KEY, SAVE_KEY, migrateSave, save } from '../src/core/save.js';
 import { LEVEL_DOGS } from '../src/levels/metadata.js';

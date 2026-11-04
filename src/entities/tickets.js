@@ -33,7 +33,12 @@ export class TicketSystem {
     this.t = 0;
   }
 
-  add(x, y, z) { this.list.push({ x, y, z, taken: false, seq: 0 }); }
+  add(x, y, z, source) {
+    const ticket = { x, y, z, taken: false, seq: 0 };
+    if (source !== undefined) ticket.source = source;
+    this.list.push(ticket);
+    return ticket;
+  }
 
   // Lines and arcs for level authoring
   line(x0, y0, z0, x1, y1, z1, n) {
@@ -84,7 +89,7 @@ export class TicketSystem {
         if (dx * dx + dy * dy + dz * dz < 0.95) {
           tk.taken = true;
           tk.seq = this.game.session.nextSeq();
-          this.game.session.addTickets(1);
+          this.game.session.addTickets(1, tk.source);
           audio.play('ticket');
           this.game.fx.sparkle(tk.x, tk.y, tk.z, { count: 4, color: 0xffe066, size: 0.4, speed: 2 });
           continue;
