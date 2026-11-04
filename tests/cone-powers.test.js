@@ -61,7 +61,7 @@ describe('Cone tiled arena fairness and rollback',()=>{
     const {coneArena:a,player,stage}=fixture();for(const p of a.pedestals){p.update(2);expect(p.top).toBe(0);expect(p.solid.enabled).toBe(false);expect(p.visible).toBe(false);}
     a.setPhase(2);a.startRug('rows',player,.4,2);a.tiles.update(.5);
     expect(stage.world.groundBelow(4.2,1,-.5)).toBe(-Infinity); // No buried podium may bridge a flipped S2 row.
-    a.setPhase(3,true);for(const p of a.pedestals){p.update(.5);expect(p.top).toBe(.6);expect(p.solid.enabled).toBe(true);p.update(.5);expect(p.top).toBe(1.2);}
+    a.setPhase(3,true);for(const p of a.pedestals){p.update(.5);expect(p.top).toBe(.6);expect(p.solid.enabled).toBe(true);p.update(.5);expect(p.top).toBe(1.2);expect(p.glow.material.depthTest).toBe(false);}
     expect(a.startRug('checker',player,.7,3)).toBe(true);expect(a.startSmog({tell:.84,aimTime:.56,eye:player.pos})).toBe(false);
     a.tiles.reset();expect(a.startSmog({tell:.84,aimTime:.56,eye:player.pos})).toBe(true);expect(a.startRug('rows',player,.7,3)).toBe(false);
     a.onRespawn();expect(a.smog).toBeNull();expect(a.fog.visible).toBe(false);

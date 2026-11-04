@@ -60,7 +60,8 @@ export class ConePedestal extends Pedestal {
     super(stage, x, z, { r: 1.6, h: 1.2 });
     this.mesh.geometry.dispose(); this.mesh.geometry = new THREE.CylinderGeometry(1.6,1.6,1.2,24);
     this.enabled = false; this.safe = true; this.top = 0; this.destination = 0;
-    this.glow = new THREE.Mesh(new THREE.RingGeometry(1.05,1.5,32).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({ color: 0xb8ffdd, transparent: true, opacity: 0, depthWrite: false }));
+    this.glow = new THREE.Mesh(new THREE.RingGeometry(1.05,1.5,32).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({ color: 0xb8ffdd, transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+    this.glow.renderOrder = 3; // The safe-floor tell must remain visible behind the central Cone.
     this.glow.position.y = .025; this.obj.add(this.glow);
   }
   setPhase(phase, reset = false) {
