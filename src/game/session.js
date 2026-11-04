@@ -824,6 +824,7 @@ export class Session {
     g.fx.clear();
     g.player.spawnAt(cp.pos, cp.facing);
     if (g.player.ride) g.player.ride.speedK = 0;
+    this.stage.raftController?.restoreAtCheckpoint(cp.pos);
     g.camera.snap(g.player);
     // Ordinary checkpoint help follows the same ladder and mode exclusions as pity spots.
     if (this.phase !== 'boss') {
