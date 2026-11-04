@@ -8,6 +8,7 @@ export const BUDGET = LEVEL_BUDGETS['3'];
 import * as THREE from 'three';
 import { makeKit, makeTrack, turtle } from './kit.js';
 import { rand, pick } from '../core/util.js';
+import { buildConeArena } from '../bosses/coneArena.js';
 
 export function buildLevel3(game, stage, tickets) {
   const track = makeTrack(stage, turtle([0, 0, 10], [
@@ -165,7 +166,7 @@ export function buildLevel3(game, stage, tickets) {
 
 export function buildBoss3Arena(game, stage, tickets) {
   const k = makeKit(game, stage, tickets);
-  stage.block(-13, -6, -13, 13, 0, 13, 'ground');
+  const pieces = buildConeArena(stage);
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     const r = 20;
@@ -177,6 +178,7 @@ export function buildBoss3Arena(game, stage, tickets) {
   for (const [x, z] of [[-14, -14], [14, -14], [-14, 14], [14, 14]]) stage.block(x - 1, -6, z - 1, x + 1, 9, z + 1, 'wall', { solid: false });
   k.tix(-6, 0, -9, 6, 0, -9, 7);
   return {
+    ...pieces,
     spawn: new THREE.Vector3(0, 0, 9),
     facing: Math.PI,
     camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 12.5, z: 16.5 }, follow: 0.45 },
