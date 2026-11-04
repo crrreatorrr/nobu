@@ -54,6 +54,24 @@ what "done" means and the PR text.
 - **Manual playtest.** There is no headless WebGL test. Each task lists what to play through with
   `npm run dev`. Say in the PR which of those you did, and what you could not do.
 
+## Cross-spec notes (read before you start)
+
+The specs were written in parallel, so these items settle where they overlap:
+
+- **Naming:** new-levels spec calls the last sections of L4 and L5 "Box Gauntlet G2". That is a
+  section label. The standalone stages are `g1`, `g2` and `g3` (box-gauntlets spec 4). Keep both names
+  separate in code.
+- **Save:** `gauntlets` and `purple` (in `colorBones`) are in the save v3 schema (rewards spec 1.3).
+- **Mastery points:** the Box Gauntlet medals (9 points) are inside the 100-point mastery track.
+  No-Hit is now 5 × 3 and Boss Rush 3 + 3 (rewards spec 9.1).
+- **Movement numbers:** the box-gauntlets spec moves `TUNING` to `src/config/movement.js` so the tests
+  can import it. Do this in H04d, and re-export it from `player.js` so nothing else changes.
+- **Detours:** a detour on a chase, ride or raft must be a loop (it exits within 2 m of its entry). On
+  foot, it may exit further down only if Nobu can walk back across the stretch it skipped.
+- **Copy bug:** the slide-jump tip in `src/story/script.js` (`BETWEEN[1]`) promises extra distance the
+  code doesn't give (about 0.1 m). Fix the text in H04d.
+- **Phase checkpoints for the Bird and Cat** are an owner decision (H20).
+
 ## Task order
 
 `→` means "must be merged first". Tasks on the same line can run in parallel.

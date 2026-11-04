@@ -110,12 +110,13 @@ Set(this.freedIds)`. Restore them in `respawn()` and in `_leaveBonusRound(false)
   rush: { clear: false, noHit: false, bestMs: null },          // (M5)
   kennel: { seen: 0, buddy: null, tint: null },                // milestones seen; Buddy breed; fur tint id
   trialsClassic: { },          // layout-1 bests moved out when L1-L3 are extended (6.3 of the plan)
+  gauntlets: { },              // { g1|g2|g3: { polaroid, clear, allBoxes, noDeath, firstPaid } } (box-gauntlets-spec 4)
   // unchanged: lives, tickets, seenIntro, finished, lastLevel, tutorials, nobuModel, pixelated,
   // godMode, loadout, bonus, trials, colorBones, musicVol, sfxVol
 }
 ```
 
-- `colorBones` gains `green` and `yellow` (plan 6.1 and 6.2). Its shape doesn't change.
+- `colorBones` gains `green`, `yellow` (plan 6.1 and 6.2) and `purple` (Level 6). Its shape doesn't change.
 - **No derived values are stored.** Kennel milestones, Good Boy % and the move list are computed every
   time (`progress.js`, `abilities`). `kennel.seen` is only the highest milestone whose "NEW!" pop-up
   has been shown.
@@ -743,12 +744,13 @@ Mastery track, **100 points**, added on top as points, so the total can reach 20
 | --- | --- | --- |
 | Gold trial tag, 6 main levels | 12 | 6 × 2 |
 | Platinum Tag, 6 main levels | 18 | 6 × 3 |
-| Boss No-Hit medal, 5 bosses (L6 has none) | 20 | 5 × 4 |
+| Boss No-Hit medal, 5 bosses (L6 has none) | 15 | 5 × 3 |
 | Boss Speed medal, 5 bosses | 10 | 5 × 2 |
 | Remix Golden Bone, 6 main levels | 18 | 6 × 3 |
 | Perfect Run relic, 6 main levels | 12 | 6 × 2 |
-| Boss Rush clear / no-hit | 10 | 5 + 5 |
-| **Total** | **100** | 12 + 18 + 20 + 10 + 18 + 12 + 10 |
+| Boss Rush clear / no-hit | 6 | 3 + 3 |
+| Box Gauntlet medals, G1–G3 (clear, all boxes, no deaths) | 9 | 3 × 3 (box-gauntlets-spec 4.2) |
+| **Total** | **100** | 12 + 18 + 15 + 10 + 18 + 12 + 6 + 9 |
 
 Mastery items for content that isn't shipped count 0 and aren't listed. The mastery cap shrinks with
 them.
