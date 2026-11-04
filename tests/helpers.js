@@ -31,6 +31,11 @@ export function resetHub(h = hub) {
   h.serverDay = null;
   h._flushing = false;
   h.status = '';
+  h.cancelScoreRetry?.();
+  h._scoreJob = null;
+  h._scoreDirty = false;
+  h._scoreFailures = 0;
+  h._topCache?.clear();
 }
 
 export function resetWorld() {
@@ -44,6 +49,9 @@ export function resetWorld() {
   save.data.godMode = false;
   save.data.trials = {};
   save.data.bonus = {};
+  save.data.bestDogs = [0, 0, 0];
+  // reset() keeps trial bests on purpose, so clear them on disk too.
+  save.write({ merge: false });
   resetHub(hub);
 }
 

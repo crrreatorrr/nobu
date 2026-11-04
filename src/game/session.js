@@ -27,6 +27,7 @@ import { input } from '../core/input.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
+import { TRIAL_TARGETS, trialMedal, fmtTime } from '../config/trials.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // Let the loading bar paint before the next synchronous build step. rAF stops in a
@@ -37,14 +38,7 @@ const nextFrame = () => new Promise((r) => {
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(done);
 });
 
-// Time trial targets per level, in seconds: [gold, silver, bronze] dog tags
-export const TRIAL_TARGETS = { 1: [55, 70, 92], 2: [52, 66, 90], 3: [45, 58, 78] };
-export function trialMedal(level, t) {
-  const g = TRIAL_TARGETS[level];
-  if (!g) return null;
-  return t <= g[0] ? 'gold' : t <= g[1] ? 'silver' : t <= g[2] ? 'bronze' : null;
-}
-export const fmtTime = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+export { TRIAL_TARGETS, trialMedal, fmtTime };
 
 const LEVELS = {
   1: { build: buildLevel1, arena: buildBoss1Arena, Boss: MechaBird, bossKey: 'bird', theme: 1, bossTheme: 'boss1', name: 'Bark Jungle' },
@@ -64,6 +58,7 @@ export class Session {
     this.trial = trial;      // time trial run: clock, freeze packs, no lives lost, ends at the boss gate
     this.trialT = 0;
     this.freezeT = 0;
+    this.freezeMs = 0;       // clock time held by Freeze Packs this trial (informational, sent as score meta)
     this.deaths = 0;
     this.seq = 0;
     this.mask = 0;
@@ -194,6 +189,9 @@ export class Session {
     });
     this.trialT = 0;
     this.freezeT = 0;
+    this.freezeMs = 0;
+    this._trialCs = 0;
+    this._trialFrozen = false;
     this.trialRunning = true;
     this.game.ui.trialTime(fmtTime(0), false);
   }
@@ -266,6 +264,7 @@ export class Session {
   freezeClock(secs) {
     if (!this.trial) return;
     this.freezeT += secs;
+    this.freezeMs += secs * 1000;
     this.game.ui.banner(`CLOCK FROZEN +${secs}s`, '', 1);
     audio.play('chime');
   }
@@ -274,14 +273,29 @@ export class Session {
     const g = this.game, t = this.trialT;
     this.trialRunning = false;
     const medal = trialMedal(this.level, t);
+    const ms = Math.round(t * 1000);
     const d = save.data;
     d.trials ||= {};
     const prev = d.trials[this.level];
-    const best = !prev || t < prev.best;
-    if (best) d.trials[this.level] = { best: t, medal: trialMedal(this.level, t) };
+    const prevMs = Number.isInteger(prev?.ms) ? prev.ms : Number.isFinite(prev?.best) ? Math.round(prev.best * 1000) : null;
+    const best = prevMs == null || ms < prevMs;
+    const deaths = this.deaths | 0;
+    const freezeMs = Math.round(this.freezeMs || 0);
+    // pid ties the record to the hub player that set it. Standalone and god-mode records have
+    // none, so they are never uploaded later.
+    const pid = d.godMode ? null : hub.playerId();
+    if (best) d.trials[this.level] = { best: t, ms, medal, at: Date.now(), deaths, freezeMs, pid };
     save.write();
     hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
-    if (best && !d.godMode) hub.submitScore(t, this.level);
+    if (!d.godMode && pid) {
+      // This run counts for this player even when another player holds the local best.
+      // The queue skips anything not faster than what it already queued or the hub holds.
+      // A local best this player set earlier is sent instead, in case its first send was lost.
+      const rec = d.trials[this.level];
+      const own = !best && rec && rec.pid === pid && Number.isInteger(rec.ms) && rec.ms <= ms;
+      if (own) hub.submitScore(rec.ms, this.level, { deaths: rec.deaths | 0, freezeMs: rec.freezeMs | 0 }).catch(() => {});
+      else hub.submitScore(ms, this.level, { deaths, freezeMs }).catch(() => {});
+    }
     g.ui.trialTime(null);
     g.player.frozen = true;
     audio.play(medal ? 'oneUp' : 'checkpoint');
@@ -681,7 +695,13 @@ export class Session {
     if (this.trialRunning && !this.busy && !g.player.frozen && !g.player.dead && !g.ui.talking) {
       if (this.freezeT > 0) this.freezeT = Math.max(0, this.freezeT - dt);
       else this.trialT += dt;
-      g.ui.trialTime(fmtTime(this.trialT), this.freezeT > 0);
+      // Rebuild the clock text only when the shown centisecond or the frozen tint changes.
+      const cs = Math.round(this.trialT * 100), frozen = this.freezeT > 0;
+      if (cs !== this._trialCs || frozen !== this._trialFrozen) {
+        this._trialCs = cs;
+        this._trialFrozen = frozen;
+        g.ui.trialTime(fmtTime(this.trialT), frozen);
+      }
     }
     const tr = this.stage.track;
     if (tr && !g.player.dead) {

@@ -1,9 +1,11 @@
 // Hub bridge for NOBU. Wraps @metaverse/hub-sdk and a localStorage key store.
 // Keys are written before any RPC. If the hub is unreachable, play continues
 // and unacked writes stay queued for the next init.
-import { createHubSdk, HubEvent, BoardId, HUB_OUTBOX_DB, TICKETS_PER_VERSE, VERSE_DAILY_CAP } from '@metaverse/hub-sdk';
+import { createHubSdk, HubEvent, HUB_OUTBOX_DB, TICKETS_PER_VERSE, VERSE_DAILY_CAP } from '@metaverse/hub-sdk';
 import { save } from '../core/save.js';
 import { CARRY_MAX, LEVEL_END_MAX_AMOUNT } from '../config/tickets.js';
+import { TRIAL_BOARD } from '../config/trials.js';
+import { enqueue as enqueueScore, flushQueue as flushScoreQueue, knownBest, retryDelay } from './scoreQueue.js';
 
 const GAME_ID = 'nobu';
 const EARN_REASON = 'level_end';
@@ -29,6 +31,11 @@ const HUB_URL = import.meta.env.VITE_HUB_URL || '/hub/';
 // default. A production build takes VITE_NAKAMA_SERVER_KEY, or every redeem is refused
 // and the game runs without a hub session (no Tickets banked, no Relic sent).
 const NAKAMA_SERVER_KEY = import.meta.env.VITE_NAKAMA_SERVER_KEY || (import.meta.env.DEV ? 'defaultkey' : '');
+
+// Sent in trial score meta so the board can tell builds apart. Optional at build time.
+const BUILD_ID = import.meta.env.VITE_BUILD_ID || import.meta.env.MODE || 'unknown';
+// The map screen asks the hub for each level's world record at most once a minute.
+const TOP_CACHE_MS = 60_000;
 
 /** Terminal earn/exchange codes are acked and dropped. `rpc_failed` and transport errors stay queued. */
 
@@ -481,6 +488,15 @@ function isCarryEarn(id) {
   return !store.attempts[base] && !!store.earns[base];
 }
 
+function sessionPlayerId() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+    return parsed && parsed.token && typeof parsed.playerId === 'string' && parsed.playerId ? parsed.playerId : null;
+  } catch {
+    return null;
+  }
+}
+
 function hasSession() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
@@ -678,6 +694,26 @@ class HubBridge {
     this._sdk = null;
     this._initing = null;
     this._carryJob = null;
+    this._scoreJob = null;
+    this._scoreDirty = false;
+    this._scoreFailures = 0;
+    this._scoreTimer = null;
+    this._topCache = new Map();
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('online', () => { this.flushScores().catch(() => {}); });
+    }
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') this.flushScores().catch(() => {});
+      });
+    }
+  }
+
+  /** Hub player id for this tab's game session, or null when playing standalone. */
+  playerId() {
+    if (!this.inSession) return null;
+    const id = this.profile?.playerId;
+    return typeof id === 'string' && id ? id : sessionPlayerId();
   }
 
   get sdk() {
@@ -754,6 +790,7 @@ class HubBridge {
     if (this.reach === 'ready' && this.inSession) {
       await this._syncTicketAccount();
       await this.flush();
+      await this.flushScores();
     }
   }
 
@@ -932,12 +969,84 @@ class HubBridge {
     await this._sendRelic(attemptId);
   }
 
-  submitScore(seconds, level) {
-    if (!Number.isFinite(seconds) || seconds < 0) return;
-    this.sdk.submitScore(BoardId.NobuTrialTime, seconds, { level }).catch((err) => {
+  /**
+   * Queue a trial time (integer ms) for the hub board, then try to send it. No-op without
+   * a hub session: standalone scores stay in the local save only. Callers skip god mode.
+   */
+  submitScore(ms, level, meta = {}) {
+    const pid = this.playerId();
+    if (!pid || !Number.isInteger(ms)) return Promise.resolve(false);
+    const queued = enqueueScore(pid, level, ms, { ...meta, level: Number(level), build: BUILD_ID, v: 1 });
+    if (queued) this._scoreDirty = true;
+    return this.flushScores().then(() => queued, () => queued);
+  }
+
+  /** Fastest time this player has queued or posted for `level`, or null. */
+  knownTrialBest(level) {
+    const pid = this.playerId();
+    return pid ? knownBest(pid, level) : null;
+  }
+
+  /** Send queued trial scores. Safe to call any time; one run at a time. */
+  flushScores() {
+    if (this._scoreJob) return this._scoreJob;
+    this._scoreJob = (async () => {
+      // While init is pending this returns; init flushes the queue itself when it finishes.
+      const pid = this.playerId();
+      if (this.reach !== 'ready' || !pid || typeof this._sdk?.submitScore !== 'function') return;
+      let res;
+      do {
+        // A row queued while a send is in flight is picked up by the next pass.
+        this._scoreDirty = false;
+        res = await flushScoreQueue(this._sdk, pid);
+      } while (this._scoreDirty && res.kept === 0);
+      if (res.kept > 0) {
+        this._scoreFailures += 1;
+        this._scheduleScoreRetry();
+      } else {
+        this._scoreFailures = 0;
+        this.cancelScoreRetry();
+      }
+    })().finally(() => { this._scoreJob = null; });
+    return this._scoreJob;
+  }
+
+  _scheduleScoreRetry() {
+    if (this._scoreTimer) return;
+    this._scoreTimer = setTimeout(() => {
+      this._scoreTimer = null;
+      this.flushScores().catch(() => {});
+    }, retryDelay(this._scoreFailures));
+    this._scoreTimer?.unref?.();
+  }
+
+  cancelScoreRetry() {
+    if (this._scoreTimer) clearTimeout(this._scoreTimer);
+    this._scoreTimer = null;
+  }
+
+  /**
+   * World record for one trial level, as { value (ms), name, me: { rank, value } | null } or null.
+   * Cached for a minute.
+   * Null when standalone, offline, or when the vendored SDK has no getLeaderboard.
+   */
+  async trialTop(level) {
+    const key = String(level);
+    const hit = this._topCache.get(key);
+    if (hit && Date.now() - hit.at < TOP_CACHE_MS) return hit.top;
+    if (this.reach !== 'ready' || !this.inSession || typeof this._sdk?.getLeaderboard !== 'function') return null;
+    let top = null;
+    try {
+      const board = await this._sdk.getLeaderboard(TRIAL_BOARD, { variant: key, limit: 1 });
+      const row = Array.isArray(board?.rows) ? board.rows[0] : null;
+      const me = board?.me && Number.isFinite(board.me.rank) && Number.isFinite(board.me.value) ? { rank: board.me.rank, value: board.me.value } : null;
+      if (row && Number.isFinite(row.value)) top = { value: row.value, name: typeof row.name === 'string' ? row.name : '', me };
+    } catch (err) {
       const info = errorInfo(err);
-      console.warn('[hub] score not submitted', info.code, info.message);
-    });
+      console.warn('[hub] board read failed', info.code, info.message);
+    }
+    this._topCache.set(key, { at: Date.now(), top });
+    return top;
   }
 
   async exchange(tickets) {

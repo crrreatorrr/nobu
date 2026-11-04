@@ -150,8 +150,13 @@ export class Player {
   get invincible() { return this.game.session?.invincibleT > 0; }
   // God mode (title-screen toggle): no damage, pits bounce you back, and 4 jumps in a row (ground + 3 in the air)
   get god() { return !!save.data.godMode; }
-  // Equipped Relic params. Empty in Ranked, and empty until init has reported ownership.
-  get gear() { return this.game.loadout?.effects || {}; }
+  // Equipped Relic params. Empty in Ranked, empty until init has reported ownership, and empty
+  // in a time trial: trial times go on the public hub board, so every run is gear-free.
+  // Boss moves (glide, zoomies, bark) stay, because every player earns them in the story.
+  get gear() {
+    if (this.game.session?.trial) return {};
+    return this.game.loadout?.effects || {};
+  }
   // Boss moves, plus Mega Bark from the hat and an air dash from the clown collar. Never writes beaten.
   // The crown's triple jump and wider bite are read straight from gear (maxAirJumps, biteMult).
   get abilities() {
