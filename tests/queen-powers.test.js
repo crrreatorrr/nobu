@@ -313,3 +313,124 @@ it('supports actual cardinal-keyboard slide/bite Dust entry and a subsequent cro
   }
   input.state.x = input.state.y = 0;
 });
+it('reaches every S1–3 crown from each inner candle at the minimum1m height through actual primed-pill stomp, jump and bite', () => {
+  const f = fixture(),
+    p = realPlayer(f),
+    { boss, arena, stage } = f;
+  save.data.beaten[3] = true;
+  save.data.beaten[1] = true;
+  let pressed = new Set(),
+    held = new Set();
+  vi.spyOn(input, 'pressed').mockImplementation((k) => pressed.has(k));
+  vi.spyOn(input, 'held').mockImplementation((k) => held.has(k));
+  const basis = { right: { x: 1, z: 0 }, forward: { x: 0, z: 1 } };
+  const hurt = vi.spyOn(p, 'hurt');
+  for (const phase of [1, 2, 3])
+    for (let index = 12; index < 16; index++) {
+      boss.resetToPhase(phase);
+      const candle = arena.pillars[index];
+      candle.place(1, 0x4aff8a);
+      const pill = stage.add(new QueenPill(stage, candle, boss, { pump: 3 }));
+      pill.mode = 'wait';
+      pill.pos.y = 1;
+      pill.size0 = 1.51;
+      pill.behave(0);
+      boss.minions.push(pill);
+      boss.pos.set(0, 3, 0);
+      boss.setPump(1);
+      boss.alignPumpedCrown();
+      boss.openWindow();
+      boss.refreshBox();
+      const start = candle.pos.clone();
+      start.y = pill.box.max.y + 0.04;
+      p.spawnAt(start, Math.atan2(-start.x, -start.z));
+      p.vel.y = -3;
+      p.body.grounded = false;
+      p.canDouble = false;
+      p.barkCool = 0;
+      p.barkT = 1;
+      hurt.mockClear();
+      held.clear();
+      pressed.clear();
+      if (phase === 3) pressed.add('bark');
+      const hp = boss.hp;
+      let bounced = false,
+        airJumped = false,
+        reached = false,
+        damaged = false;
+      for (let frame = 0; frame < 130; frame++) {
+        const distance = Math.hypot(p.pos.x, p.pos.z);
+        if (distance < 0.9) reached = true;
+        input.state.x = reached ? 0 : -Math.sign(start.x);
+        input.state.y = reached ? 0 : -Math.sign(start.z);
+        if (bounced && !airJumped && p.vel.y < 1 && p.canDouble) {
+          pressed.add('jump');
+          held.add('jump');
+          airJumped = true;
+        }
+        if (bounced && distance < 1.3 && p.pos.y + 0.75 >= boss.crownPosition().y - 1.2) pressed.add('bite');
+        stage.world.beginFrame();
+        boss.update(1 / 120);
+        pill.update(1 / 120);
+        p.update(1 / 120, stage, basis);
+        pressed.clear();
+        if (p.vel.y > 15) bounced = true;
+        if (boss.hp < hp) {
+          damaged = true;
+          break;
+        }
+        if (p.dead) break;
+      }
+      expect(bounced, `phase${phase}/inner${index}`).toBe(true);
+      expect(
+        damaged,
+        `phase${phase}/inner${index}:p${p.pos.toArray()},boss${boss.state},time${boss.stateT}`
+      ).toBe(true);
+      expect(hurt.mock.calls, `phase${phase}/inner${index}`).toHaveLength(0);
+      held.clear();
+    }
+  input.state.x = input.state.y = 0;
+});
+it('keeps every crash/liquidation/ultimate return within9m/s through real Solid deltas', () => {
+  const { arena, stage, player } = fixture();
+  for (const action of ['crash', 'liquidation', 'ultimate']) {
+    arena.setPhase(action === 'liquidation' ? 4 : 3);
+    player.pos.set(7.5, 0, 0);
+    if (action === 'crash') arena.beginCrash(player, 0.4);
+    if (action === 'liquidation') arena.beginLiquidation(player);
+    if (action === 'ultimate') arena.beginUltimate(player, 0.8, 3);
+    for (let frame = 0; frame < 1600; frame++) {
+      stage.world.beginFrame();
+      if (action === 'ultimate' && frame === 700) arena.endUltimate();
+      arena.update(1 / 120);
+      for (const p of arena.pillars)
+        expect(Math.abs(p.solid.delta.y), `${action}/candle${p.index}/frame${frame}`).toBeLessThanOrEqual(
+          9 / 120 + 1e-8
+        );
+    }
+    expect(arena.pillars.every((p) => !p.returning)).toBe(true);
+  }
+});
+it('selects four symmetric crash targets for every cardinal and intermediate player bearing', () => {
+  const { arena, player } = fixture();
+  for (let i = 0; i < 24; i++) {
+    player.pos.set(Math.cos((i * Math.PI) / 12) * 8, 1, Math.sin((i * Math.PI) / 12) * 8);
+    arena.beginCrash(player, 0.6);
+    const selected = arena.crash.pillars;
+    expect(new Set(selected).size).toBe(4);
+    expect(selected.filter((p) => p.inner)).toHaveLength(2);
+    expect(selected.reduce((n, p) => n + p.pos.x, 0)).toBeCloseTo(0);
+    expect(selected.reduce((n, p) => n + p.pos.z, 0)).toBeCloseTo(0);
+  }
+});
+it('scrolls real ticker label textures and swaps every board to dump/zero status', () => {
+  const { arena } = fixture();
+  const pump = arena.tickerTextures.pump;
+  expect(arena.tickers.every((t) => t.userData.panel.material.map === pump)).toBe(true);
+  arena.update(0.1);
+  expect(pump.offset.x).toBeGreaterThan(0);
+  arena.setPhase(4);
+  expect(arena.tickers.every((t) => t.userData.panel.material.map === arena.tickerTextures.dump)).toBe(true);
+  arena.setTicker('zero');
+  expect(arena.tickers.every((t) => t.userData.panel.material.map === arena.tickerTextures.zero)).toBe(true);
+});

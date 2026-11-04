@@ -238,7 +238,7 @@ export class Player {
     }
 
     const grounded = this.body.grounded;
-    const moonGesture = advanceMoonCharge(this, dt, mag, input);
+    const moonGesture = advanceMoonCharge(this, dt, Math.hypot(st.x, st.y), input);
 
     // ---- actions ----
     this.barkCool = Math.max(0, (this.barkCool || 0) - dt);
@@ -280,6 +280,8 @@ export class Player {
       R.whirrT = (R.whirrT ?? 0) - dt;
       if (grounded && R.whirrT <= 0) { R.whirrT = 0.55; audio.play('whirr'); }
       if (grounded && Math.random() < 0.18) this.game.fx?.dust(this.pos.x - rideF.x * 0.75, this.pos.y, this.pos.z - rideF.z * 0.75, { count: 1, size: 0.18, color: this._dustColor(), speed: 0.8, life: 0.3, dirX: -rideF.x * 2, dirZ: -rideF.z * 2 });
+    } else if (this.mode === 'normal' && this.moonHold) {
+      this._approach(0, 0, T.DECEL * dt);
     } else if (this.mode === 'normal') {
       // Zoomies: keep holding slide after a slide to stay at sprint speed
       if (this.zoomArmed && !input.held('slide')) this.zoomArmed = false;

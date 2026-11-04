@@ -192,3 +192,29 @@ it('measures real normal/Crown/Moon apexes and retains the extra jump after Moon
   expect(crown).toBeLessThan(6.3);
   expect(moon).toBeGreaterThan(6.3);
 });
+it('tests neutral charge against raw stick axes even when a side camera scales or ignores depth', () => {
+  for (const [amount, ignoreDepth] of [
+    [0.3, false],
+    [1, true]
+  ]) {
+    const f = fixture();
+    f.game.camera.sideAxis = true;
+    f.game.camera.opts = { ignoreDepth };
+    input.state.x = 0;
+    input.state.y = amount;
+    pressed.add('slide');
+    held.add('slide');
+    tick(f);
+    expect(f.p.moonHold).toBeNull();
+    expect(f.p.mode).toBe('slide');
+    held.clear();
+  }
+  const f = fixture();
+  input.state.y = 0.19;
+  pressed.add('slide');
+  held.add('slide');
+  for (let i = 0; i < 72; i++) tick(f);
+  expect(f.p.moonHold.charged).toBe(true);
+  expect(f.p.pos.x).toBe(0);
+  expect(f.p.pos.z).toBe(0);
+});

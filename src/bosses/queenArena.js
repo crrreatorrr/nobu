@@ -3,6 +3,8 @@ import { Entity } from '../entities/entity.js';
 import { CandlePillar } from './arena.js';
 import { audio } from '../audio/audio.js';
 import { toon } from '../player/nobuPrims.js';
+import { textTexture } from '../entities/fx.js';
+import { QUEEN_TICKER_TEXT } from '../story/script.js';
 
 export const QUEEN_OUTER = Object.freeze(
   Array.from({ length: 12 }, (_, i) =>
@@ -120,12 +122,31 @@ export class QueenArena extends Entity {
     this.pillars = [...QUEEN_OUTER, ...QUEEN_INNER].map(([x, z], i) =>
       stage.add(new QueenCandle(stage, x, z, i, i >= 12))
     );
+    this.tickerTextures = Object.fromEntries(
+      Object.entries(QUEEN_TICKER_TEXT).map(([kind, label]) => {
+        const texture = textTexture(label, {
+          color: kind === 'dump' ? '#ff5270' : '#4aff8a',
+          w: 1024,
+          h: 256,
+          size: 160
+        });
+        texture.wrapS = THREE.RepeatWrapping;
+        return [kind, texture];
+      })
+    );
     this.tickers = [];
     for (let i = 0; i < 8; i++) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(3, 1.2, 0.15),
-        new THREE.MeshBasicMaterial({ color: 0x4aff8a, fog: false })
+        new THREE.MeshBasicMaterial({ color: 0x160d22, fog: false })
       );
+      const panel = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.9, 1.1),
+        new THREE.MeshBasicMaterial({ map: this.tickerTextures.pump, transparent: true, fog: false })
+      );
+      panel.position.z = 0.081;
+      mesh.add(panel);
+      mesh.userData.panel = panel;
       mesh.position.set(Math.cos((i * Math.PI) / 4) * 15, 3, Math.sin((i * Math.PI) / 4) * 15);
       mesh.lookAt(0, 3, 0);
       stage.scene.add(mesh);
@@ -150,14 +171,22 @@ export class QueenArena extends Entity {
     this.phase = phase;
     this.reset();
   }
+  setTicker(kind) {
+    this.tickerKind = kind;
+    for (const ticker of this.tickers) ticker.userData.panel.material.map = this.tickerTextures[kind];
+  }
   beginCrash(player, tell) {
-    const a = Math.atan2(player.pos.z, player.pos.x),
-      dx = Math.cos(a),
-      dz = Math.sin(a);
+    const outer = this.nearest(player.pos, { outer: true });
+    const inner = this.nearest(outer.pos, { inner: true });
     this.crash = {
       elapsed: 0,
       tell,
-      pillars: this.pillars.filter((p) => Math.abs(p.pos.x * dz - p.pos.z * dx) < 2).slice(0, 4)
+      pillars: [
+        outer,
+        inner,
+        this.pillars[12 + ((inner.index - 12 + 2) % 4)],
+        this.pillars[(outer.index + 6) % 12]
+      ]
     };
     audio.play('blipLow');
   }
@@ -184,6 +213,7 @@ export class QueenArena extends Entity {
   }
   update(dt) {
     this.clock += dt;
+    for (const texture of Object.values(this.tickerTextures)) texture.offset.x += dt * 0.08;
     const player = this.player;
     if (!player.dead && player.pos.y < -4) player.die('puff');
     const period = [0, 6, 4.5, 3.8, 3.8][this.phase],
@@ -231,6 +261,7 @@ export class QueenArena extends Entity {
           color = 0xff3a4a;
           glow = Math.floor(u.elapsed * 10) % 2 ? 0.9 : 0.1;
         } else {
+          bounded = true;
           const drop = (p.index / 15) * 2;
           if (t >= drop) {
             height = -6;
@@ -243,7 +274,13 @@ export class QueenArena extends Entity {
           }
         }
       }
-      if (bounded) height = p.pos.y + THREE.MathUtils.clamp(height - p.pos.y, -9 * dt, 9 * dt);
+      if (p.wasOverridden && !bounded) p.returning = true;
+      const difference = height - p.pos.y;
+      if (bounded || p.returning) {
+        height = p.pos.y + THREE.MathUtils.clamp(difference, -9 * dt, 9 * dt);
+        if (!bounded && Math.abs(difference) <= 9 * dt) p.returning = false;
+      }
+      p.wasOverridden = bounded;
       p.place(height, color, glow);
     }
     if (this.crash?.elapsed >= this.crash?.tell + 4) this.crash = null;
@@ -259,9 +296,12 @@ export class QueenArena extends Entity {
     this.ultimate = null;
     this.safe = null;
     this.ring.reset();
+    this.setTicker(this.phase >= 4 ? 'dump' : 'pump');
     this.ring.crumble = this.phase >= 3;
     for (const p of this.pillars) {
       p.rising = undefined;
+      p.wasOverridden = false;
+      p.returning = false;
       p.place(this.phase >= 4 ? 1.5 : 1 + 2 * Math.sin(p.angle), 0x4aff8a);
     }
   }
