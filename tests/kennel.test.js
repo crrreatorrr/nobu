@@ -13,7 +13,8 @@ const current = Object.fromEntries(Object.entries(LEVEL_DOGS).map(([id, dogs]) =
 const legacyCounts={1:5,2:3,3:5,ride:2,cave:2};
 const legacy=Object.fromEntries(Object.entries(current).map(([id,def])=>[id,{...def,dogs:Object.fromEntries(Object.entries(def.dogs).slice(0,legacyCounts[id]))}]));
 const currentTotal=Object.values(current).reduce((n,d)=>n+Object.keys(d.dogs).length,0);
-const full={...current,future:{id:'4',shipped:true,name:'House',dogs:Object.fromEntries(Array.from({length:54-currentTotal},(_,i)=>[`shiba-${String.fromCharCode(97+i)}`,'Room']))}}};
+const full = { ...current, future: { id: '4', shipped: true, name: 'House',
+  dogs: Object.fromEntries(Array.from({ length: 54 - currentTotal }, (_, i) => [`shiba-${i}`, 'Room'])) } };
 const all = (reg) => Object.values(reg).flatMap((d) => Object.keys(d.dogs).map((id) => `${d.id}:${id}`));
 const dataAt = (n, reg = full) => ({ dogsFreed: Object.fromEntries(all(reg).slice(0, n).map((id) => [id, true])), kennel: {}, chainBadges: {}, boneBoard: {}, open: {} });
 beforeEach(() => { vi.restoreAllMocks(); resetWorld(); });

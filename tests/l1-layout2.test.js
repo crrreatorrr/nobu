@@ -144,7 +144,7 @@ async function realJump(stage,from,to,options={}){
  for(const sample of trace.samples.slice(1)){
   body.vel.set(speed.x,sample.vy,speed.z);moveBody(stage.world,body,1/60);
   if(head)return false;
-  if(body.grounded&&sample.vy<0)return body.pos.distanceTo(end)<1.6&&Math.abs(body.pos.y-end.y)<.16;
+  if(body.grounded&&sample.vy<0){const ok=body.pos.distanceTo(end)<1.6&&Math.abs(body.pos.y-end.y)<.16;return options.returnLanding?(ok?{pos:body.pos.clone(),t:sample.t}:null):ok;}
  }
  return false;
 }
@@ -258,4 +258,21 @@ test('actual layout2 activation archives Classic time while retaining earned Gol
  localStorage.setItem(SAVE_KEY,JSON.stringify({v:3,bones:{1:true},boneBoard:{1:{golden:true}},bestDogs:{1:5},dogsFreed:Object.fromEntries(firstFive.map(id=>['1:'+id,true])),trials:{1:{ms:52000,best:52,layout:1}}}));save.load();
  expect(save.data.trials[1]).toBeUndefined();expect(save.data.trialsClassic[1]).toMatchObject({ms:52000,layout:1});expect(save.boneOf(1)).toBe(true);expect(save.bestDogsOf(1)).toBe(5);expect(Object.keys(save.data.dogsFreed).sort()).toEqual(firstFive.map(id=>'1:'+id).sort());
  save.write();save.load();expect(save.data.trialsClassic[1].ms).toBe(52000);expect(save.data.trials[1]).toBeUndefined();
+});
+
+test('both raised L1 Mystery slots have permanent optional support and an actual first-visit Cat escape',async()=>{
+ const {rollMystery}=await import('../src/game/rng.js');
+ for(const slot of [0,1]){
+  const {g,s}=build(),tr=s.track,m=s.entities.find(e=>e.kind==='mystery'&&e.slot===slot),q=tr.project(m.pos.x,m.pos.z);
+  expect(slot===0?Math.abs(q.u)>2.2:m.detour===true).toBe(true);
+  expect(s.world.groundBelow(m.pos.x,m.pos.y+.1,m.pos.z,.01)).toBeCloseTo(m.pos.y,1);expect(m.allowTramp).toBe(false);
+  for(const hazard of s.entities.filter(e=>e.kind==='cat'||e.kind==='rug'))expect(m.pos.distanceTo(hazard.pos)).toBeGreaterThanOrEqual(4);
+  let seed=0;while(rollMystery(seed,1,slot)!=='cat')seed++;g.session.runSeed=seed;g.player.hurt=vi.fn();m.break();const cat=m.spawned[0];expect(cat.kind).toBe('cat');expect(cat.timer).toBe(0);
+  if(slot===0){const landing=await realJump(s,[-2.4,2.2,299.5],[-.6,1.8,295],{doubleAt:.25,returnLanding:true});expect(landing?.pos).toBeInstanceOf(THREE.Vector3);expect(landing.t).toBeLessThan(3);g.player.pos.copy(landing.pos);}
+  else{
+   const target=tr.toWorld(492,-.2,9),body={pos:m.pos.clone(),vel:new THREE.Vector3(),hw:.36,hd:.36,h:1.3,grounded:true};
+   for(let i=0;i<60;i++){const delta=target.clone().sub(body.pos).setY(0);if(delta.length()<.1)break;delta.setLength(Math.min(8,delta.length()*60));body.vel.set(delta.x,-1,delta.z);moveBody(s.world,body,1/60);}expect(body.pos.distanceTo(target)).toBeLessThan(.2);g.player.pos.copy(body.pos);
+  }
+  expect(g.player.pos.distanceTo(cat.pos)).toBeGreaterThan(2.7);cat.update(3.01);expect(g.player.hurt).not.toHaveBeenCalled();
+ }
 });
