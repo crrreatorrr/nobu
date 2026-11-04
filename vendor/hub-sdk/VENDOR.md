@@ -1,8 +1,8 @@
 # Vendored @metaverse/hub-sdk
 
 - repo: https://github.com/crrreatorrr/metaverse-hub
-- branch: claude/kind-bardeen-h2fhj8
-- sha: ee187cf
+- branch: main
+- sha: 93e4894
 - package: packages/hub-sdk @ 0.6.0
 - built with: `node scripts/vendor-sdk.mjs`
 
