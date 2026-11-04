@@ -143,7 +143,7 @@ async function realJump(stage,from,to,options={}){
  for(const sample of trace.samples.slice(1)){
   body.vel.set(speed.x,sample.vy,speed.z);moveBody(stage.world,body,1/60);
   if(head)return false;
-  if(body.grounded&&sample.vy<0)return body.pos.distanceTo(end)<1.6;
+  if(body.grounded&&sample.vy<0)return body.pos.distanceTo(end)<1.6&&Math.abs(body.pos.y-end.y)<.16;
  }
  return false;
 }
@@ -153,7 +153,9 @@ test('lands the actual curved Temple receivers, Canopy crumble chain and Burrow 
  for(const e of s.entities)if(e.constructor.name==='FlipPlank'&&e.solid)e.solid.enabled=true;
  const pattern=s.timedPatterns.find(p=>p.id==='l1-temple-candidate');
  for(const step of pattern.route){
-  const a=pattern.pieces[step.from],b=pattern.pieces[step.to],surface=p=>[p.x,p.y-tr.heightAt(p.d)+(['blink','lunch'].includes(p.kind)?.98:p.kind==='pack'?1:0),p.d];
+  const a=pattern.pieces[step.from],b=pattern.pieces[step.to];
+  if(a.kind==='pack')s.entities.find(e=>e.kind==='backpack'&&Math.abs(tr.project(e.pos.x,e.pos.z).s-a.d)<.05).break();
+  const surface=p=>[p.x,p.y-tr.heightAt(p.d)+(['blink','lunch'].includes(p.kind)?.98:p.kind==='pack'?1:0),p.d+(p.kind==='floorStart'?.5:0)];
   expect(await realJump(s,surface(a),surface(b),step.move==='bounceHeld'?{velocity:10.5*1.15}:{}),`Temple ${a.d}→${b.d}`).toBe(true);
  }
  for(const [a,b] of [[ [1,1.8,292],[-.6,1.8,295] ],[[-.6,1.8,295],[-.6,2.2,298.5]],[[.6,1.6,458.8],[.6,.6,461]],[[.6,.6,461],[.6,.6,464.5]],[[.6,.6,464.5],[.6,.6,468]],[[.6,.6,468],[.6,.6,471.5]],[[.6,.6,471.5],[.6,0,474.5]]]){

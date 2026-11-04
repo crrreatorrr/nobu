@@ -66,7 +66,14 @@ export function buildL1Extensions(k,game,stage,{labels,corrections=false}={}) {
   k.water(232,236,{y:-5.8,w:3.6});k.lunch(-2.5,-5,233);k.lunch(-2.5,-5,235);k.shellback(-2.5,-4.5,239,{range:1.2});
   k.dog(-2.6,-4.5,244,'dalmatian').dogId='1:dalmatian-b';k.pack(-3.4,-4.5,246);k.pack(-1.6,-4.5,246);k.tix(-2.5,-4.3,229,-2.5,-4.3,250,7);k.mushroom(-2.5,-4.5,251,{power:17});
   const dustBox=k.gatedArea(-4.3,-.7,-4.6,-1.3,254,258);const wall=k.dustWall(-2.5,-4.5,253,{w:3.6,h:3,gatedBox:dustBox});const bone=placeHiddenBone(k,game,stage,-2.5,-4.5,255.5,{move:'dust'});
-  if(bone){const collect=bone.collect.bind(bone);bone.collect=()=>{if(wall.broken)return collect();game.ui.tutorial('dustwall');};}
+  if(bone){
+    const cage=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.25,1.9,1.25)),new THREE.LineBasicMaterial({color:0xb0b0c0,transparent:true,opacity:.8}));
+    cage.position.y=.95;bone.obj.add(cage);
+    const collect=bone.collect.bind(bone),update=bone.update.bind(bone);
+    const sync=()=>{cage.visible=!wall.broken;bone.bone.material.color.setHex(wall.broken?0x74ffff:0x8a8a90);bone.bone.material.opacity=bone.owned?.22:wall.broken?1:.35;};
+    bone.collect=()=>{if(wall.broken)return collect();game.ui.tutorial('dustwall');};
+    bone.update=dt=>{update(dt);sync();};bone.dustWall=wall;sync();
+  }
   for(const e of stage.entities.slice(before))e.detour=true;
   buildWaterfallHollow(k,game,stage,labels);
   stage.l1Extension={layout:2,corrections,gauntletProblems:validatePattern(worldPattern),chaseItems};
