@@ -16,7 +16,7 @@ import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT } from '../story/script.js';
+import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
@@ -24,7 +24,7 @@ import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
 import { bankChain } from './rewards.js';
 import { nextGoal, savedGoalStats } from './hints.js';
 import { openCompleteTally, advanceCompleteTally } from './completeTally.js';
-import { noticeKennelMilestones, goodBoyPercent, kennelUnlocks, totalDogs } from './progress.js';
+import { noticeKennelMilestones, goodBoyPercent, secretEndingUnlocked, kennelUnlocks, totalDogs } from './progress.js';
 
 import { Kennel } from './kennel.js';
 import { kennelStatus, missingSecrets, selectedTint } from './kennelData.js';
@@ -375,6 +375,16 @@ export class Game {
   }
 
   // ---------------- level select map ----------------
+  _trySecretEnding(next) {
+    if (!levelDef(5)?.shipped || save.data.secretSeen || !secretEndingUnlocked(save.data, LEVELS)) return false;
+    this.playCutscene(SECRET_ENDING, () => {
+      save.data.secretSeen = true;
+      save.write();
+      next();
+    }, 'victory');
+    return true;
+  }
+
   _unlockMainChapters() {
     const fresh = unlockFollowingMain(save.data, LEVELS);
     this._pendingMainUnlocks = [...new Set([...(this._pendingMainUnlocks || []), ...fresh])];
@@ -387,6 +397,7 @@ export class Game {
       this.playCutscene(CHAPTER2, () => { save.data.seenCh2 = true; save.write(); this.toMap(4); });
       return;
     }
+    if (this._trySecretEnding(() => this.toMap(sel))) return;
     this.exchangeOpen = false;
     this.ui.trialTime(null);
     this.state = 'map';
@@ -435,8 +446,10 @@ export class Game {
     const total = save.totalTrialMs();
     const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
+    const secretHint = levelDef(5)?.shipped && d.beaten?.[5] && !d.secretSeen
+      ? `<div class="hint">${esc(SECRET_ENDING_HINT(goodBoyPercent(d, LEVELS).total))}</div>` : '';
     const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel })}
-      <div class="hint">${status}</div>${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${world}${totalNote}
+      <div class="hint">${status}</div>${secretHint}${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${world}${totalNote}
       <div class="hint" style="margin-top:6px">${metaSel ? esc(KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
@@ -897,6 +910,10 @@ export class Game {
       this.ui.screen.style.background = '';
       this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}');filter:brightness(0.5)"></div>`);
       await this.ui.say(BETWEEN[n] || []);
+      if (n === 5 && levelDef(5)?.shipped) {
+        if (!this._trySecretEnding(() => this.toCredits())) this.playCutscene(QUEEN_ENDING, () => this.toCredits(), 'victory');
+        return;
+      }
       // Keep the original chapter's credits, followed by CHAPTER2 on the next map visit.
       if (n === 3 || isFinalStoryLevel(n, LEVELS)) this.playCutscene(ENDING, () => this.toCredits(), 'victory');
       else this.toMap(nextMainLevel(n, LEVELS) ?? n);
