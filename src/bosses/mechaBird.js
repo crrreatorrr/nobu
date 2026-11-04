@@ -14,6 +14,9 @@ import { damp, rand, clamp } from '../core/util.js';
 const ARENA = 11;
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
+const ORIGIN = new THREE.Vector3(0, 0, 0);
+const _from = new THREE.Vector3();
+const _spot = new THREE.Vector3();
 
 // rig layout (model units: 4 tall, facing +z)
 const JOINTS = {
@@ -382,7 +385,7 @@ export class MechaBird extends Boss {
         this.pos.x = damp(this.pos.x, Math.sin(edgeA) * 10.5, 3, dt);
         this.pos.z = damp(this.pos.z, Math.cos(edgeA) * 10.5, 3, dt);
         this.pos.y = damp(this.pos.y, 3.2, 3, dt);
-        this.faceTo(new THREE.Vector3(0, 0, 0), dt, 5);
+        this.faceTo(ORIGIN, dt, 5);
         const wind = 0.8, dur = 2.8;
         if (this.stateT < wind) {
           // rear up, wings raised to the sky
@@ -429,7 +432,7 @@ export class MechaBird extends Boss {
         this.pos.x = damp(this.pos.x, this.perch.x, 3, dt); this.pos.z = damp(this.pos.z, this.perch.z, 3, dt);
         this.pos.y = damp(this.pos.y, this.perch.y + Math.sin(this.stateT * 3) * 0.15, 3, dt);
         this.setFlap(11, 0.35, 0.3);
-        const from = this.headPos(new THREE.Vector3());
+        const from = this.headPos(_from);
         const tt = this.stateT;
         const cyc = aimT + sweepT;
         const n = Math.floor(tt / cyc), local = tt - n * cyc;
@@ -442,7 +445,7 @@ export class MechaBird extends Boss {
         if (n !== this.sweepIdx) { this.sweepIdx = n; if (n > 0) { this._aimLaser(true); audio.play('charge'); } }
         const firing = local >= aimT;
         const k = firing ? (local - aimT) / sweepT : 0;
-        const spot = new THREE.Vector3().lerpVectors(this.laserA, this.laserB, k);
+        const spot = _spot.lerpVectors(this.laserA, this.laserB, k);
         this.faceTo(spot, dt, 10);
         this.animate(dt, { head: [0.5, 0, 0], pitch: 0.1 });
         this.beam.set(from, spot, firing, tt);

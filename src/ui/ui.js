@@ -43,6 +43,9 @@ export class UI {
     // boss bar
     this.boss = h('div', '', '<img><div class="bb-body"><div class="bb-name"></div><div class="bb-track"><div class="bb-fill"></div></div><div class="bb-row"><div class="bb-phase"></div><div class="bb-sp"><span>SPECIAL</span><div class="bb-sptrack"><div class="bb-spfill"></div></div></div></div></div>');
     this.boss.id = 'bossbar';
+    this.bbFill = this.boss.querySelector('.bb-fill');
+    this.bbPhase = this.boss.querySelector('.bb-phase');
+    this.bbSpFill = this.boss.querySelector('.bb-spfill');
     root.appendChild(this.boss);
 
     // text box
@@ -115,11 +118,14 @@ export class UI {
   }
   godBadge(on) { this.god.classList.toggle('on', !!on); }
   // time trial clock: text, or null to hide; `frozen` tints it icy while a Freeze Pack holds it
+  // Called every frame during a trial, so the DOM is touched only when the shown text changes.
   trialTime(text, frozen = false) {
-    this.trialEl.classList.toggle('on', text != null);
-    if (text == null) return;
-    this.trialEl.textContent = (frozen ? '❄ ' : '⏱ ') + text;
-    this.trialEl.classList.toggle('frozen', !!frozen);
+    const on = text != null;
+    if (on !== this._trialOn) { this._trialOn = on; this.trialEl.classList.toggle('on', on); }
+    if (!on) { this._trialText = null; return; }
+    const shown = (frozen ? '❄ ' : '⏱ ') + text;
+    if (shown !== this._trialText) { this._trialText = shown; this.trialEl.textContent = shown; }
+    if (!!frozen !== this._trialFrozen) { this._trialFrozen = !!frozen; this.trialEl.classList.toggle('frozen', !!frozen); }
   }
   showHud(t = 3) { for (const s of Object.values(this.slots)) { s.timer = t; s.el.classList.add('show'); } }
   pinHud(on) { this.hudPinned = on; if (on) this.showHud(999); else for (const s of Object.values(this.slots)) s.timer = 1.5; }
@@ -133,13 +139,12 @@ export class UI {
     this.boss.classList.add('show');
   }
   bossHp(frac, phase) {
-    this.boss.querySelector('.bb-fill').style.width = `${Math.max(0, frac) * 100}%`;
-    this.boss.querySelector('.bb-phase').textContent = phase ? `PHASE ${phase}` : '';
+    this.bbFill.style.width = `${Math.max(0, frac) * 100}%`;
+    this.bbPhase.textContent = phase ? `PHASE ${phase}` : '';
   }
   // special-attack gauge: fills up, flashes when the ultimate is ready
   bossCharge(frac, ready = false) {
-    const f = this.boss.querySelector('.bb-spfill');
-    f.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+    this.bbSpFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
     this.boss.classList.toggle('sp-ready', ready);
   }
   bossHide() { this.boss.classList.remove('show'); }
