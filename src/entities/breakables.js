@@ -103,7 +103,7 @@ export class Backpack extends Breakable {
     this.fx.burst(this.pos.x, y, this.pos.z, { count: 16, colors: [0x2b2b33, 0x3d3d48, 0x1c1c22, 0xff8a12], speed: 5, size: 0.2, floor: this.pos.y });
     this.fx.puff(this.pos.x, y, this.pos.z, { count: 4, size: 0.4, color: 0x9a9aaa, speed: 2 });
     audio.play('break', this.countable ? (this.session.chainSoundPitch ?? 1) : 1);
-    this.game.tickets.spawnFlying(this.pos.x, y + 0.3, this.pos.z, this.tickets);
+    this.game.tickets.spawnFlying(this.pos.x, y + 0.3, this.pos.z, this.tickets, this.countable ? undefined : 'jackpot');
   }
   onBite(p) { this.break(p, 'bite'); }
   onSlide(p) { this.break(p, 'slide'); }
