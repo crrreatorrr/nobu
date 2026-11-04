@@ -42,7 +42,7 @@ test('adds the measured225m track without self intersections and keeps the exact
  expect(b.length-a.length).toBeCloseTo(225.28,1);expect(shiftL1(314)).toBe(539);expect(shiftL1(322)).toBe(547);
  for(const [at,x] of L1_SPLICES)expect(shiftL1(at)-shiftL1(at-.001)).toBeCloseTo(x+.001,6);
  for(let s=0;s<b.length;s+=4)for(let d=s+60;d<b.length;d+=4)expect(b.toWorld(s).distanceTo(b.toWorld(d))).toBeGreaterThan(40);
- expect(b.triggers.some(t=>t.d===539)).toBe(true);
+ expect(b.triggers.some(t=>t.d===540)).toBe(true);expect(540-b.project(candidate.info.spawn.x,candidate.info.spawn.z).s).toBeCloseTo(539,2);
 });
 test('authors all9 stable dogs without move-gated countables or post338 Rugs',()=>{
  const dogs=candidate.s.entities.filter(e=>e instanceof ConedDog);expect(dogs).toHaveLength(9);
@@ -112,7 +112,7 @@ test('actual Coconut controller warns, uses absolute6.4/9/2 speeds, and restores
  g.player.body.s=414;chase.update(0);expect(chase.state).toBe('done');expect(g.camera.mode).toBe('trackFront');
  g.player.body.s=416;chase.update(0);expect(g.camera.mode).toBe('track');expect(g.camera.chaseOwner).toBeNull();
  // Respawn uses the checkpoint, never the stale death position at the gate.
- g.player.body.s=539;g.session.cp.pos.copy(tr.toWorld(393));chase.onRespawn();expect(chase.state).toBe('wait');expect(chase.s).toBeCloseTo(380,1);expect(chase.waitT).toBe(1.6);
+ g.player.body.s=540;g.session.cp.pos.copy(tr.toWorld(393));chase.onRespawn();expect(chase.state).toBe('wait');expect(chase.s).toBeCloseTo(380,1);expect(chase.waitT).toBe(1.6);
  g.session.cp.pos.copy(tr.toWorld(360));chase.onRespawn();expect(chase.state).toBe('idle');expect(g.camera.mode).toBe('track');expect(chase.visible).toBe(false);
 });
 
@@ -200,3 +200,12 @@ test('Hollow return can walk laterally to every skipped payer, activate altar st
  const dog=s.entities.find(e=>e.dogId==='1:corgi-b'),zip=s.entities.find(e=>e.kind==='zipped'&&tr.project(e.pos.x,e.pos.z).s>500);
  for(const target of [dog,zip])expect(s.world.groundBelow(target.pos.x,target.pos.y+.1,target.pos.z,.15)).toBeCloseTo(target.pos.y,1);
 });
+
+ test('Hollow success then death before the next checkpoint restores rewards and permits reentry',async()=>{
+ const {Session}=await import('../src/game/session.js');const{g,s,t}=build(),session=new Session(g,1);g.session=session;session.stage=s;session.tickets=t;
+ Object.assign(g.ui,{fade:async()=>{},chain(){},setHud(){}});g.camera={snap(){},shake(){},setMode(){}};g.mask={snapTo(){}};g.player.spawnAt=pos=>g.player.pos.copy(pos);session._pushHud=()=>{};session.setMask=()=>{};session.projectiles={clear(){}};
+ session.checkpoint(s.track.toWorld(457));const H=s.l1Hollow,dog=s.entities.find(e=>e.dogId==='1:shiba-c');
+ await session.enterBonusRound(H.detour);dog.free();session.freedIds.add(dog.dogId);await session._leaveBonusRound(true);expect(H.detour.used).toBe(true);
+ session.respawn();expect(dog.freed).toBe(false);expect(H.detour.used).toBe(false);expect(session.freedIds.has(dog.dogId)).toBe(false);
+ await H.detour.travel();expect(session.bonusRound?.tray).toBe(H.detour);expect(g.player.pos.equals(H.detour.round.start)).toBe(true);
+ });

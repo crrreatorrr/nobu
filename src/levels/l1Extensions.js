@@ -92,6 +92,8 @@ function buildWaterfallHollow(k,game,stage,labels) {
   const lost=k.W(-3,.05,ST+28.5),kept=k.W(-1,.05,ST+66);
   detour.round={start,back:lost.clone(),floorY,facing:k.yawAt(ST+30)};
   detour.onRoundLeave=(keep,B)=>{B.R.back.copy(keep?kept:lost);};
+  const respawn=detour.onRespawn.bind(detour);
+  detour.onRespawn=()=>{respawn();detour.used=false;};
   detour.travel=async()=>{if(!detour.used && !game.session.busy)await game.session.enterBonusRound(detour);};
   const exit=new Entity(stage,...k.W(-1,9,ST+65).toArray());exit.interactive=false;exit.alwaysActive=true;
   exit.update=()=>{const s=game.session,p=game.player;if(s.bonusRound?.tray===detour && !s.busy && !p.dead && p.pos.distanceTo(exit.pos)<1.4)s.finishBonusRound();};

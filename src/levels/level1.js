@@ -199,7 +199,7 @@ export function buildLevel1(game, stage, tickets, { layout = 1, labels = SECTION
   k.sphere(2.7, 1.6, S(299));
   k.pack(2.7, 1.6, S(302.5), 5);
   k.gate(S(313),'MECHA BIRD');
-  k.trigger(extended ? 539 : 315,()=>game.session.reachBossGate());
+  k.trigger(extended ? 540 : 315,()=>game.session.reachBossGate());
   if (extended) buildL1Extensions(k,game,stage,{labels,corrections});
 
   // --- decor ---
