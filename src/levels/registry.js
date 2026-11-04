@@ -20,6 +20,8 @@ import { LEVEL_DOGS } from './metadata.js';
 import { levelSections, HIDDEN_SECTION } from './sections.js';
 import { bonusSectionsV2 } from './bonusMetadata.js';
 import { SECTION_TEXT, BONUS_EXTENSION_TEXT, L4_TEXT } from '../story/script.js';
+import { buildGauntlet1, buildGauntlet2, buildGauntlet3 } from './gauntlets.js';
+import { GAUNTLET_INFO } from './data/gauntlets.js';
 
 const mainOpen = (id) => (data) => data.v >= 3 ? !!data.open?.[id] : id <= data.unlocked;
 const bonusOpen = (id, after) => (data) => data.v >= 3 ? !!data.open?.[id]
@@ -78,6 +80,12 @@ export const LEVELS = {
   },
   kennel: { id: 'kennel', name: 'The Kennel', meta: true, bonus: false, shipped: true, trial: false,
     mapPos: { x: 88, y: 72 }, unlock: (data) => !!data.open?.kennel },
+  ...Object.fromEntries([buildGauntlet1, buildGauntlet2, buildGauntlet3].map((build, i) => {
+    const id = `g${i + 1}`;
+    return [id, { ...GAUNTLET_INFO[id], build, gauntlet: true, bonus: true, bones: false,
+      trial: false, shipped: true, dogs: {},
+      unlock: (data) => !!(data.gauntlets?.[id]?.found || data.gauntlets?.[id]?.polaroid) }];
+  })),
 };
 
 for (const [id, def] of Object.entries(LEVELS)) {

@@ -11,6 +11,7 @@ const KEYMAP = {
   KeyK: 'slide', ControlLeft: 'slide', ControlRight: 'slide',
   KeyL: 'bark', KeyE: 'bark',
   KeyT: 'trial',
+  KeyG: 'gauntlet',
   KeyI: 'wardrobe',
   KeyU: 'dash',
   KeyX: 'exchange',
@@ -73,6 +74,7 @@ class Input {
       const b = (i) => gp.buttons[i] && gp.buttons[i].pressed;
       if (b(0)) this.pad.held.add('jump');
       if (b(2) || b(5)) this.pad.held.add('bite');
+      if (b(5)) this.pad.held.add('gauntlet'); // RB: map entry takes priority; bite still works in play.
       if (b(3)) { this.pad.held.add('bark'); this.pad.held.add('trial'); }
       if (b(1) || b(4) || b(6) || b(7)) this.pad.held.add('slide');
       if (b(4)) this.pad.held.add('wardrobe'); // LB. The map opens the wardrobe; slide still fires in play.

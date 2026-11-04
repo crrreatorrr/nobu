@@ -24,7 +24,7 @@ const { TicketSystem } = await import('../src/entities/tickets.js');
 const { Backpack, ZippedBackpack, Trampoline, Cat, Rug } = await import('../src/entities/breakables.js');
 const { MysteryBackpack } = await import('../src/entities/mysteryBackpack.js');
 const { LEVELS } = await import('../src/levels/registry.js');
-const PLAYABLE_IDS = Object.values(LEVELS).filter((def) => def.shipped && !def.meta && typeof def.build === 'function').map((def) => String(def.id));
+const PLAYABLE_IDS = Object.values(LEVELS).filter((def) => def.shipped && !def.meta && !def.gauntlet && typeof def.build === 'function').map((def) => String(def.id));
 const { LEVEL_BUDGETS } = await import('../src/levels/data/budgets.js');
 const { LEVEL_TICKET_CAP } = await import('../src/config/tickets.js');
 const { measureTicketBudget } = await import('../src/game/measureTicketBudget.js');

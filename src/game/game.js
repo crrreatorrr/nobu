@@ -16,7 +16,7 @@ import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT } from '../story/script.js';
+import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT, GAUNTLET_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
@@ -36,6 +36,10 @@ const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' }
 function esc(text) {
   return String(text).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
 }
+
+const hostGauntlet = (host) => Object.values(LEVELS).find((def) => def.gauntlet && def.host === host);
+const gauntletMedals = (row = {}) => ['clear', 'allBoxes', 'flawless'].map((key) =>
+  `<span data-gauntlet-medal="${key}" title="${esc(GAUNTLET_TEXT[key])}">${row[key] ? '●' : '○'}</span>`).join(' ');
 
 function goalHint(game, id, stats = null) {
   const def = levelDef(id), data = save.data;
@@ -242,6 +246,7 @@ export class Game {
   }
 
   toTitle() {
+    if (this.session?.def?.gauntlet) this.session.dispose();
     this.ui.trialTime(null);
     this.state = 'title';
     this.session = null;
@@ -392,6 +397,8 @@ export class Game {
   }
 
   toMap(sel = 1) {
+    if (this.session?.def?.gauntlet) this.session.dispose();
+    sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
     this._unlockMainChapters();
     if (levelDef(4)?.shipped && save.data.finished && !save.data.seenCh2) {
       this.playCutscene(CHAPTER2, () => { save.data.seenCh2 = true; save.write(); this.toMap(4); });
@@ -421,10 +428,12 @@ export class Game {
       const bonus = levelDef(n).bonus, meta = !!levelDef(n).meta;
       const locked = !isOpen(n, d);
       const beaten = bonus ? !!d.bonus?.[n]?.beaten : save.beatenOf(n);
+      const gauntlet = hostGauntlet(n);
       nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
         ${!beaten && !bonus && !meta ? '<div class="cone-cloud"></div>' : ''}
         ${!bonus && save.boneOf(n) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
         ${!meta && !bonus ? perfectPaw(!!d.perfect?.[n], MASTERY_TEXT) : ''}
+        ${gauntlet && isOpen(gauntlet.id, d) ? `<span data-gauntlet-pin="${gauntlet.id}" title="${esc(gauntlet.name)}">📷</span>` : ''}
         ${!bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
         ${n === this.mapSel ? `<img class="nobu-marker" src="${Assets.url('nobu_head')}">` : ''}
         <div class="dot">${locked ? '🔒' : meta ? '🐾' : bonus ? '★' : n}</div>
@@ -442,6 +451,9 @@ export class Game {
     const targets = !metaSel && levelDef(lv).trial && save.beatenOf(lv) ? `<div class="hint">${trialTargetLine(trialVariant(lv), d.trials?.[lv])}</div>` : '';
     const eligible = !metaSel && levelDef(lv).trial && d.trials?.[lv] ? eligibleTrialLine(d.trials[lv], MASTERY_TEXT) : '';
     const bossList = metaSel ? '' : bossMedalPanel(d, LEVELS, lv, MASTERY_TEXT);
+    const gauntlet = hostGauntlet(lv), gauntletRow = gauntlet && d.gauntlets?.[gauntlet.id];
+    const gauntletLine = gauntlet && isOpen(gauntlet.id, d)
+      ? `<div class="hint" data-gauntlet-entry="${gauntlet.id}">📷 ${esc(gauntlet.name.toUpperCase())} · ${esc(GAUNTLET_TEXT.enter)}<br>${gauntletMedals(gauntletRow)}${gauntletRow?.bestMs ? ` · ${esc(GAUNTLET_TEXT.localBest)} ${fmtTime(gauntletRow.bestMs / 1000)}` : ''}</div>` : '';
     const world = !!levelDef(lv).trial && save.beatenOf(lv) ? this._worldLine(lv) : '';
     const total = save.totalTrialMs();
     const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
@@ -449,7 +461,7 @@ export class Game {
     const secretHint = levelDef(5)?.shipped && d.beaten?.[5] && !d.secretSeen
       ? `<div class="hint">${esc(SECRET_ENDING_HINT(goodBoyPercent(d, LEVELS).total))}</div>` : '';
     const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel })}
-      <div class="hint">${status}</div>${secretHint}${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${world}${totalNote}
+      <div class="hint">${status}</div>${secretHint}${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${gauntletLine}${world}${totalNote}
       <div class="hint" style="margin-top:6px">${metaSel ? esc(KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
@@ -593,6 +605,11 @@ export class Game {
     if (input.pressed('exchange')) { audio.play('select'); this.openExchange(); return; }
     if (input.pressed('hub')) { audio.play('select'); this.exitToHub(); return; }
     if (input.pressed('bark') && kennelStatus(d, LEVELS).unlocks.includes('sniffer')) { this.openKennel('sniffer'); return; }
+    if (input.pressed('gauntlet')) {
+      const def = hostGauntlet(this.mapSel);
+      if (def && isOpen(def.id, d)) { audio.play('select'); this.startLevel(def.id); }
+      return; // RB also maps to bite: consume it before ordinary-level confirmation.
+    }
     if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta) this.openKennel(); else this.startLevel(this.mapSel); }
     else if (input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
@@ -601,10 +618,13 @@ export class Game {
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
     if (levelDef(n)?.meta) return this.openKennel();
+    if (levelDef(n)?.gauntlet && !isOpen(n, save.data)) return;
+    if (levelDef(n)?.gauntlet) opts = { ...opts, trial: false };
     await this.ui.fade(1);
     this.ui.clearScreen();
     this.ui.trialTime(null);
-    save.data.lastLevel = n;
+    if (this.session?.def?.gauntlet) this.session.dispose();
+    if (!levelDef(n)?.gauntlet) save.data.lastLevel = n;
     if (save.data.lives < 0) save.data.lives = START_LIVES;
     save.write();
     this.state = 'play';
@@ -679,7 +699,9 @@ export class Game {
     const s = this.session;
     const live = s?.stage && s.phase === 'level' ? s.liveStats() : s?.stats;
     const pct = live?.snackPotential ? Math.floor(live.snackRaw / live.snackPotential * 100) : 0;
-    const stats = live ? `${this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) })}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(goalHint(this, s.level, live))}</div>` : '';
+    const stats = s?.def?.gauntlet
+      ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
+      : live ? `${this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) })}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(goalHint(this, s.level, live))}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
       <div class="hint" style="margin-top:20px">◀ ▶ adjust · ESC resume</div>`, 'dim');
   }
@@ -876,6 +898,26 @@ export class Game {
   }
 
   // Bonus stage finished (no boss, no cutscene): record it and show the results.
+  gauntletCleared(session, result) {
+    this.state = 'complete';
+    this.completeMode = 'gauntlet';
+    this.tally = null; this.tallyStats = null;
+    this.completeT = 0; this.completeMinT = 2.3;
+    this.completeNext = { n: session.def.host, bonus: true };
+    const row = result.record || save.data.gauntlets?.[session.level] || {}, st = session.stats;
+    audio.setRate(1); audio.playMusic('complete');
+    this.ui.hideHud(); this.ui.bossHide();
+    this.ui.setScreen(`<div class="big-title">${GAUNTLET_TEXT.title}</div>
+      <div class="sub-title">${esc(session.def.name.toUpperCase())}</div>
+      <div class="big-title" style="font-size:52px;margin:2vh 0">${gauntletMedals(row)}</div>
+      <div class="hint">${GAUNTLET_TEXT.clear} · ${GAUNTLET_TEXT.allBoxes} · ${GAUNTLET_TEXT.flawless}</div>
+      <div class="hint">${st.broken} / ${st.breakables} · ${GAUNTLET_TEXT.deaths(st.deaths)} · ${fmtTime(st.ms / 1000)}</div>
+      ${row.bestMs ? `<div class="hint">${GAUNTLET_TEXT.localBest} ${fmtTime(row.bestMs / 1000)}</div>` : ''}
+      ${result.tickets ? `<div class="hint">${GAUNTLET_TEXT.firstClear}</div>` : ''}
+      <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
+    this.ui.fade(0);
+  }
+
   bonusCleared(session) {
     const n = session.level;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
@@ -922,6 +964,7 @@ export class Game {
 
   // ---------------- game over ----------------
   gameOver(session) {
+    if (session.def?.gauntlet) audio.setRate(1);
     this.state = 'gameover';
     this.goSel = 0;
     this.goT = 0;

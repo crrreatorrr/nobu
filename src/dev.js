@@ -144,7 +144,11 @@ export function installDevTools(game) {
     },
     async gauntletCheck() {
       const { validatePattern } = await import('./levels/gauntletMath.js');
-      const problems = (game.stage?.timedPatterns || []).flatMap(p => validatePattern(p).map(issue => ({ id: p.id, ...issue })));
+      const { gauntletProblems } = await import('./levels/gauntlets.js');
+      const stage = game.stage;
+      const problems = stage?.gauntletInfo
+        ? gauntletProblems(stage.gauntletInfo.patterns, stage.track)
+        : (stage?.timedPatterns || []).flatMap(p => validatePattern(p).map(issue => ({ id: p.id, ...issue })));
       for (const problem of problems) console.warn('[gauntlet]', problem);
       return problems;
     },

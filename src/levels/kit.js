@@ -19,6 +19,7 @@ import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
 import { addGatedHelpers } from './gatedKit.js';
 import { installEnvironmentKit } from './environmentKit.js';
+import { installPolaroidHelper } from '../entities/polaroid.js';
 
 export { turtle };
 
@@ -270,6 +271,7 @@ export function makeKit(game, stage, tickets, track = null) {
   };
   addGatedHelpers(k, game, stage, track);
   installBoxHelpers(k, game, stage);
+  installPolaroidHelper(k, stage);
   return installEnvironmentKit(k, game, stage, tickets, track, waterMaterial);
 }
 

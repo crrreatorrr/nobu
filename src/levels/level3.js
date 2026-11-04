@@ -1,4 +1,5 @@
 import { trialLayout } from '../config/trials.js';
+import { POLAROID_SPOTS } from './data/gauntlets.js';
 import { L3_MOVES, L3_MOVES_V2, L3_LAYOUT2_INFO, L3_SECTIONS } from './data/l3-layout.js';
 import { shiftedFactoryKit, addFactoryExtension } from './level3Extension.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
@@ -65,6 +66,7 @@ function buildFactory(game, stage, tickets, extended = false) {
   k.tix(0, 0, 49.5, 0, 0, 63, 7);
   k.dog(-3.2, 0, 68, 'pug').dogId = '3:pug-a';
   k.lunch(-2.8, 0, 65.5);
+  k.polaroid(...POLAROID_SPOTS.g2, 'g2');
   k.snacks(1.5, 0, 69.5);
 
   // --- troopers, drones and the rug/cat puzzle ---

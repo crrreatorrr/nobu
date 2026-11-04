@@ -355,6 +355,7 @@ export const QUEEN_TICKER_TEXT = { pump: '▲ PUMP ▲', dump: '▼ DUMP ▼', z
 export const GAUNTLET_TEXT = {
   title: 'BOX GAUNTLET', clear: 'CLEAR', allBoxes: 'ALL BOXES', flawless: 'FLAWLESS',
   firstClear: 'First clear: 5 Tickets', localBest: 'LOCAL BEST',
+  deaths: (n) => `Deaths: ${n}`,
   enter: 'G / RB · Enter gauntlet', grey: 'Reach it without a scratch.',
   tutorial: "A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip.",
 };

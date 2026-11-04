@@ -1,5 +1,6 @@
 // H40 builder remains unshipped until the H41 Titan and real arena are integrated.
 import * as THREE from 'three';
+import { POLAROID_SPOTS } from './data/gauntlets.js';
 import { makeKit, makeTrack, turtle } from './kit.js';
 import { buildCerealLane } from './cerealLane.js';
 import { laundryBoilerPattern, laundryCerealPattern } from './data/laundryRoutes.js';
@@ -102,6 +103,7 @@ export function buildLevel4(game,stage,tickets,{corrections=true,sealedCereal=tr
   k.pack(-1.6, 4.2, 193.4);
   k.toaster(2.4, 0, 200, { power: 15, period: 2.0, phase: 1.0 });
   k.platform(2.4, 4.2, 205, 3, 3.4);                               // spice shelf B
+  k.polaroid(...POLAROID_SPOTS.g3, 'g3');
   k.dog(2.4, 4.2, 205.6, 'dalmatian').dogId = '4:dalmatian-a';                             // dog 3
   // oranges roll down the counter (it climbs 1.4 m over d 180–204)
   k.coconuts(244, { until: 208, every: 2.0, speed: 6.8, lanes: [-2.4, 0, 2.4], color: 0xff8a1a });
