@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { World } from '../src/world/physics.js';
-vi.mock('../src/art/assets.js', () => ({ Assets: { tiled: () => null } }));
+import { World, moveBody } from '../src/world/physics.js';
+vi.mock('../src/art/assets.js', () => ({ Assets: { tiled: () => null, has: () => false, tex: () => null } }));
 vi.mock('../src/audio/audio.js', () => ({ audio: { play: vi.fn() } }));
+import { Backpack } from '../src/entities/breakables.js';
+import { Player } from '../src/player/player.js';
+import { input } from '../src/core/input.js';
 import { Stage } from '../src/world/stage.js';
 import { Session } from '../src/game/session.js';
 import { BlinkBox, FallBox, SlideBox, advanceBeatClocks } from '../src/entities/boxes.js';
@@ -42,6 +45,24 @@ describe('canonical box integration',()=>{
     expect(slider.clock.t).toBe(0);expect(slider.solid.delta).toEqual({x:0,y:0,z:0});expect(session.deathsAtCp).toBe(1);
     const phase=()=>{advanceBeatClocks(s,.4);a.update(0);b.update(0);return[a.solid.enabled,b.solid.enabled,a.clock.t];};
     const first=phase();Session.prototype.respawn.call(session);expect(phase()).toEqual(first);
+  });
+  it('breaks every approved bridge backpack in one forward crossing with real collision and bounce handlers',()=>{
+    const {s,g,player}=fixture(),broken=[];let seq=0;
+    g.fx={burst:vi.fn(),puff:vi.fn()};g.tickets={spawnFlying:vi.fn()};
+    g.session={nextSeq:()=>++seq,onBreak:e=>broken.push(e)};
+    const points=PATTERNS.find(p=>p.id==='P2').pieces.filter(p=>p.kind==='pack');
+    const packs=points.map(p=>new Backpack(s,p.x,p.y,-p.dd,{tickets:0}));
+    Object.assign(player,{mode:'normal',vel:new THREE.Vector3(0,-.6,0),bounce:Player.prototype.bounce});
+    Object.assign(player.body,{pos:player.pos,vel:player.vel,onLand(solid,impact){solid.ref.onLand(player,impact);player.vel.z=-6;}});
+    player.pos.set(0,1.01,-points[0].dd);
+    const held=vi.spyOn(input,'held').mockReturnValue(false);
+    for(let f=0;f<240 && broken.length<4;f++){
+      player.vel.y=Math.max(-28,player.vel.y-36*(player.vel.y<0?1.4:1)/60);
+      moveBody(s.world,player.body,1/60);
+    }
+    held.mockRestore();
+    expect(broken).toEqual(packs);expect(packs.every(p=>p.broken && !p.solid.enabled)).toBe(true);
+    expect(player.canDouble).toBe(true);expect(g.tickets.spawnFlying.mock.calls.every(args=>args[3]===0)).toBe(true);
   });
   it('a blink or fallen box waits through as many occupied return frames as necessary',()=>{
     const {s,player}=fixture(),blink=new BlinkBox(s,0,0,0,{on:1,off:1}),fall=new FallBox(s,3,0,0,{delay:.45});

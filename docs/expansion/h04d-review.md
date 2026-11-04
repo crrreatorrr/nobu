@@ -3,7 +3,7 @@
 The owner approved the tested corrections on **2026-11-04** with “Use the tested corrections.”
 `PATTERNS` and `TEACH_PATTERNS` are now the canonical shipping exports. `AUTHORED_PATTERNS` preserves
 unsafe source literals only as regression fixtures. The PROPOSED aliases remain for review history.
-Shared wiring and dev-strip verification are being completed below.
+The shared clock, kit installer, tutorials and dedicated dev strip are integrated.
 
 ## Concrete design decisions
 
@@ -49,28 +49,36 @@ use `k.pack(..., rawTickets)` so the old k.stack default cannot leak random Tick
 - Half tiers preserve exact maxPct.775 for G1.5; frame/action rounding and hundredth margins/tells
   round toward the easier requirement.
 
-## Pending wiring (owned by other active agents)
+## Integration
 
-1. player.js: replace the literal TUNING block with `import { TUNING } from '../config/movement.js';`
-   and `export { TUNING } from '../config/movement.js';`. The new object is byte-for-byte the old values.
-2. kit.js: import `installBoxHelpers` from './boxKit.js'; after constructing k, before returning it,
-   call `installBoxHelpers(k, game, stage)`.
-3. stage.js: import `advanceBeatClocks` from '../entities/boxes.js'; call
-   `advanceBeatClocks(this, dt)` once immediately after `this.world.beginFrame()` and before any entity
-   update. This also advances culled/offscreen clocks. Each box's onRespawn resets its clock.
-4. script.js: correct BETWEEN[1] slide-jump tip (only about.1m extra), and add the spec's four tutorial
-   entries. Near-player hooks are present in the new entities and bounce-chain packs; their copy awaits the shared script edit.
-5. dev.js: install a dedicated strip using approved pattern data and `placePattern`, with entry/exit
-   pads and per-pattern clocks. `T.gauntletCheck()` should validate `stage.timedPatterns`; do not pretend
-   isolated `stage.timedBoxes` can reconstruct routes, rests or timing windows.
-6. G1–G3 stages, registry, Polaroids and medals remain H46. No raw gauntlet stage sequencing is included
-   in H04d and no new media was generated.
+- Player imports and re-exports the unchanged TUNING object from config/movement.js.
+- The kit installs all five helpers and visual guide arcs through installBoxHelpers.
+- Stage.update advances shared clocks once, immediately after world.beginFrame and before any entity
+  updates. Offscreen boxes stay synchronized; respawn resets clocks through entity hooks.
+- Script contains all four box tutorials and the corrected slide-jump tip.
+- `await T.boxes()` builds all16 approved patterns from the canonical data with the same placePattern
+  builder; `await T.boxes({teach:true})` builds the teaching versions. `T.boxAt('P6')` selects an entry
+  and sets the normal session checkpoint. `T.die()` exercises normal death/rollback.
+- `await T.gauntletCheck()` validates stage.timedPatterns, with no offset placement copy.
+- G1–G3 stages, registry, Polaroids and medals remain H46. No new media was generated.
 
 ## Verification state
 
-Focused tests cover numeric movement, lifetime/reset, no crushing, countability, DDA context exclusions,
-all16 candidate patterns and their16 teach variants, source failures and strict negative cases.
-No manual dev-strip, camera/readability or first-time-player verification has been performed yet.
-The current audio API has no per-call volume setting for clang; reversal uses the existing clang at its normal level.
-A moving-target window samples actual takeoff/landing positions; its conservative numeric sampling is
-an authoring check and does not replace playtesting or guarantee a specific controller strategy.
+Tests cover numeric movement, real Stage.update ordering and culling, normal Session.respawn phase
+reset, no crushing (including a box sleeping through an entire off phase), countability, DDA context
+exclusions, all16 approved patterns and16 teach variants, source failures and strict negative cases.
+The separate spawn metadata regression proves controllers see the checkpoint's track position on their
+first frame, and arenas clear stale track metadata; no movement constants changed.
+
+Chromium/SwiftShader built the full normal strip (134entities,40timed boxes,10clocks), visited all16
+entry pads, returned no gauntlet validation problems, and passed programmatic runtime checks for one
+clock advance per stage frame, checkpoint phase/slider reset, and blink/fall occupied returns.
+No JavaScript exceptions occurred. Two resource404s were observed alongside otherwise working assets.
+The browser initially missed short key taps while skipping L1 dialogue; the dev strip now advances
+its startup dialogue directly so it does not depend on render speed.
+
+No human controller clear of all16 patterns, first-time-player difficulty study, or full camera/readability
+review was performed. A moving-target window samples actual takeoff/landing positions; this authoring
+check does not replace playtesting or guarantee a particular controller strategy.
+The current audio API has no per-call clang volume setting; reversal uses the existing normal-level clang.
+Blink/fall use the existing implemented blip/roll placeholder cues, as explicitly permitted by the spec.

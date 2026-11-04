@@ -86,7 +86,11 @@ export class BlinkBox extends Entity {
     const cue = warning ? 'warning' : returning ? 'returning' : on ? 'on' : 'off';
     if (!silent && cue !== this._cue && (warning || returning || cue === 'off')) audio.play('blip');
     this._cue = cue;
-    this.solid.enabled = on && (this.solid.enabled || !overlapsPlayer(this));
+    // A culled box may have skipped an entire off phase; stale enabled state is not a safe return.
+    const cycle=Math.floor((this.clock.t + this.phase)/(this.on + this.off));
+    const stillSolid=this.solid.enabled && cycle===this._cycle;
+    this.solid.enabled = on && (stillSolid || !overlapsPlayer(this));
+    this._cycle=cycle;
     this.mesh.visible = this.solid.enabled;
     this.outline.visible = !this.solid.enabled;
     this.outline.material.opacity = returning ? .8 : .35;

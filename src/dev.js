@@ -115,15 +115,23 @@ export function installDevTools(game) {
       // The strip is for mechanics, with no Ticket/1UP awards or results submission.
       session.addTickets = () => {}; session.addLife = () => {};
       game.session = session; game.state = 'play'; game.flyingMasks.length = 0;
-      const done = session.startLevel();
-      for (let i = 0; i < 40 && !game.ui.talking; i++) await T.sleep(100);
-      await T.skipTalk(); await done;
+      // Direct dialogue advancement is deterministic even when software rendering misses key taps.
+      let pending = true, failure;
+      const done = session.startLevel().catch(error => { failure = error; }).finally(() => { pending = false; });
+      while (pending) {
+        if (game.ui.dialog) game.ui._nextLine();
+        await T.sleep(100);
+      }
+      await done;
+      if (failure) throw failure;
       return game.stage.boxStrip.map(({ id, d0 }) => ({ id, d0 }));
     },
     boxAt(id) {
       const section = game.stage?.boxStrip?.find(p => p.id === id || p.id === id + '-teach');
       if (!section) throw new Error('Start T.boxes() and select a pattern id');
       T.at(section.d0 - 3);
+      game.player.spawnAt(game.player.pos.clone(), game.player.facing);
+      game.session.checkpoint(game.player.pos);
       for (const entity of game.stage.entities) entity.onRespawn?.();
       return T.info();
     },

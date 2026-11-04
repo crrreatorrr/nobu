@@ -27,6 +27,11 @@ describe('timed box lifetime and exact clocks', () => {
     s.game.player.pos.x=2;b.update(0);expect(b.solid.enabled).toBe(true);
     s.game.player.pos.set(0,.98,0);b.update(0);expect(b.solid.enabled).toBe(true);
   });
+  it('does not materialize after sleeping through a complete off phase',()=>{
+    const s=stage(),b=new BlinkBox(s,0,0,0,{on:1,off:1});
+    expect(b.solid.enabled).toBe(true);s.game.player.pos.set(0,0,0);
+    b.clock.t=2.2;b.update(0);expect(b.solid.enabled).toBe(false);
+  });
   it('disables falling collision exactly at delay and defers an occupied return', () => {
     const s=stage(), b=new FallBox(s,0,0,0,{delay:.3});
     s.game.player.body.grounded=true;s.game.player.body.ground=b.solid;
