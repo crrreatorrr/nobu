@@ -192,6 +192,25 @@ it('measures real normal/Crown/Moon apexes and retains the extra jump after Moon
   expect(crown).toBeLessThan(6.3);
   expect(moon).toBeGreaterThan(6.3);
 });
+it('lands on a6.2m Moon ledge with real collision while an ordinary Crown triple cannot reach it', () => {
+  const attempt = (moon, crown) => {
+    const f=fixture(moon), ledge=f.stage.world.addBox(0,5.7,5,4,.5,4);
+    if(crown)f.game.loadout.effects.extra_air_jumps={count:1};
+    if(moon)charge(f);
+    pressed.add('jump');held.add('jump');tick(f);
+    let landed=false;
+    for(let i=0;i<360;i++){
+      if(f.p.vel.y<.4&&f.p.vel.y>-.8&&f.p.canDouble)pressed.add('jump');
+      input.state.y=f.p.pos.z<4.5?1:0;
+      tick(f);
+      if(f.p.body.grounded&&f.p.body.ground===ledge){landed=true;break;}
+    }
+    input.state.y=0;held.clear();pressed.clear();
+    return landed;
+  };
+  expect(attempt(false,true)).toBe(false);
+  expect(attempt(true,false)).toBe(true);
+});
 it('tests neutral charge against raw stick axes even when a side camera scales or ignores depth', () => {
   for (const [amount, ignoreDepth] of [
     [0.3, false],

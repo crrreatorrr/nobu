@@ -1,6 +1,6 @@
 # H51 candidate review
 
-Active candidate, not final acceptance. Queen arena and Moon Jump components are ready for independent review; crown-route physics, complete boss powers and browser verification remain in progress.
+Active candidate, not final acceptance. Independent component/resource and earned-Bark reviews passed; actual Player crown routes and the ordinary four-stage planners pass. Browser verification and final full checks remain in progress.
 
 The dedicated arena uses12outer/4inner candles at authored positions and36 moving ring tiles covering the exact26×26 square ring, with no centre floor. Moon Jump uses earned neutral-slide charging (.18s tap decision, .6s total charge,18.7m/s launch), preserving unearned/directional slide and paid air dash. Real gravity measurements: normal+double3.95246m, Crown triple5.70088m, Moon+double6.58246m.
 
@@ -10,7 +10,7 @@ Actual Player/World S4 tests pass from all12outer candles: preposition on the ou
 
 Queen-only ladder pills follow their moving candle and hold the third pump while allocated to the ladder. Ordinary pills retain their existing lifecycle; all PumpPills receive the specified11+2*pump bounce with existing Player held-jump boost semantics. Queen summons and airdrop payloads retire on checkpoint, including historical objects. Airdrops fall at3m/s and display blue+ or red! symbols; TNT explodes3s after landing with radius2.3 at its actual candle height.
 
-Shared root integrations: exact Queen dialogue/ticker copy, theme, Moon tutorial and crashSiren are committed. Boss5 score, ending/unlock/registry integration remain root-owned. H32's separate ignoreDepth camera opt-in is isolated inbf04ac5 and will be dropped naturally on final rebase after H32 integration.
+Shared root integrations: exact Queen dialogue/ticker copy, theme, Moon tutorial, crashSiren, synthesized Boss5 score and ending/map revisit integration are committed. Registry activation awaits H50. H32's separate ignoreDepth camera opt-in is isolated inbf04ac5 and will be dropped naturally on final rebase after H32 integration.
 
 The minimum-height crown proof now passes for phases1–3 from all four inner candles at top1m: real descending Player contact stomps a primed pill, its specified bounce and optional earned double jump reach the corrected crown, and a real bite damages it withinW. Stage3 uses actual earned Mega Bark first. No God Mode, paid gear, Moon Jump or hurt calls. The assisted starting foot height is2.3m above the candle, reachable by the existing3.95m double jump; it does not claim a natural full fight clear.
 

@@ -49,6 +49,7 @@ function fixture() {
   const game = {
     player,
     fx,
+    maskPickup: vi.fn(),
     camera: { shake: vi.fn() },
     ui: { bossHp: vi.fn(), banner: vi.fn() },
     session: {
@@ -84,6 +85,56 @@ function fixture() {
 function step(b, seconds) {
   for (let t = 0; t < seconds - 1e-7; t += 1 / 120) b.update(Math.min(1 / 120, seconds - t));
 }
+it('keeps live ladders on distinct candles through repeated mint and Ultimate, then returns hover to centre', () => {
+  const { boss, arena, stage } = fixture();
+  boss.endAttack = vi.fn();
+  const candle = arena.pillars[12];
+  boss.minions.push(stage.add(new QueenPill(stage, candle, boss, { pump: 3 })));
+  for (let i = 0; i < 3; i++) {
+    boss.beginAttack('mint');
+    step(boss, boss.tell + .02);
+    expect(new Set(boss.minions.map(m => m.candle)).size).toBe(boss.minions.length);
+    expect(boss.minions.length).toBeLessThanOrEqual(4);
+  }
+  boss.beginAttack('ultimate');
+  const green = boss.trueGreen;
+  for (const m of boss.minions) m.reset();
+  boss.minions = [stage.add(new QueenPill(stage, green, boss, { pump: 3 }))];
+  step(boss, boss.tell + .02);
+  expect(boss.minions.filter(m => m.candle === green)).toHaveLength(1);
+  step(boss, 5.02);
+  expect(boss.state).toBe('pumped');
+  expect(Math.hypot(boss.pos.x,boss.pos.z)).toBeGreaterThan(0);
+  boss.dump();
+  step(boss, .82);
+  expect(boss.state).toBe('returnCenter');
+  const before = boss.pos.clone();
+  step(boss, 1/120);
+  expect(boss.pos.distanceTo(before)).toBeLessThanOrEqual(4*boss.sp/120+1e-8);
+  step(boss, 3);
+  expect(boss.pos.x).toBe(0);
+  expect(boss.pos.z).toBe(0);
+  expect(boss.pos.y).toBe(3);
+});
+it('runs the ordinary four-stage planners through their real summon and hazard lifecycles', () => {
+  for(const phase of [1,2,3,4]){
+    const {boss,arena,stage}=fixture();
+    boss.resetToPhase(phase);
+    const seen=new Set();
+    for(let frame=0;frame<120*90;frame++){
+      boss.charge=0;
+      stage.world.beginFrame();
+      arena.update(1/120);
+      for(const entity of stage.entities.slice())if(entity!==arena&&entity!==boss&&!entity.dead)entity.update?.(1/120);
+      boss.update(1/120);
+      seen.add(boss.state);
+    }
+    for(const expected of QUEEN_PLANS[phase].filter(s=>s!=='chain'&&s!=='pump'))expect(seen.has(expected),`phase${phase} missing${expected}: ${[...seen]}`).toBe(true);
+    expect(seen.has(phase===4?'wake':'pumped')).toBe(true);
+    expect(boss.minions.length).toBeLessThanOrEqual(4);
+    expect(new Set(boss.minions.map(m=>m.candle)).size).toBe(boss.minions.length);
+  }
+});
 it('builds exact16 moving candles and36ring tiles with no centre floor', () => {
   const { arena: a, stage } = fixture();
   expect(a.pillars.map((p) => [p.pos.x, p.pos.z])).toEqual([...QUEEN_OUTER, ...QUEEN_INNER]);

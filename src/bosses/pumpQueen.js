@@ -199,6 +199,7 @@ export class PumpQueen extends Boss {
       fitQueenModel(this.crown, 1.1);
     }
     this.crown.rotation.z = 0.15;
+    this.crown.rotation.y = -Math.PI / 2;
     this.crownAnchor.add(this.crown);
     this.crownGlow = glowPart(0xffed8a, 1.7);
     this.crownAnchor.add(this.crownGlow);
@@ -343,9 +344,10 @@ export class PumpQueen extends Boss {
                   : 0;
     if (s === 'mint') {
       this.minions = this.minions.filter((m) => !m.dead && m.alive);
-      const inner = this.arena.pillars.filter((p) => p.inner).sort((a, b) => b.pos.y - a.pos.y),
-        outer = this.arena.pillars.filter((p) => !p.inner).sort(() => Math.random() - 0.5);
-      this.mintTargets = [inner[0], ...outer.slice(0, 2)];
+      const occupied = new Set(this.minions.map((m) => m.candle));
+      const inner = this.arena.pillars.filter((p) => p.inner && !occupied.has(p)).sort((a, b) => b.pos.y - a.pos.y),
+        outer = this.arena.pillars.filter((p) => !p.inner && !occupied.has(p)).sort(() => Math.random() - 0.5);
+      this.mintTargets = [inner[0], ...outer.slice(0, 2)].filter(Boolean);
       for (const c of this.mintTargets)
         this.fx.sparkle(c.pos.x, c.pos.y + 0.5, c.pos.z, { count: 3, color: 0xb478ff, size: 0.6 });
       audio.play('laugh');
@@ -477,7 +479,19 @@ export class PumpQueen extends Boss {
         this.didSecond = false;
         this.crumpled = false;
         this.rig.scale.y = this.stageScale[this.phase];
+        if (this.phase < 4 && Math.hypot(this.pos.x, this.pos.z) > 0.05) this.setState('returnCenter');
+        else this.endAttack();
+      }
+    } else if (s === 'returnCenter') {
+      const distance = Math.hypot(this.pos.x, this.pos.z),
+        step = 4 * this.sp * dt;
+      if (distance <= step) {
+        this.pos.x = 0;
+        this.pos.z = 0;
         this.endAttack();
+      } else {
+        this.pos.x -= (this.pos.x / distance) * step;
+        this.pos.z -= (this.pos.z / distance) * step;
       }
     } else if (s === 'fomo') {
       this.beamFrom.copy(this.pos);
@@ -517,9 +531,11 @@ export class PumpQueen extends Boss {
           this.did = true;
           if (this.phase <= 2) this.arena.ring.hotT = 4;
           const candle = this.trueGreen;
-          if (this.minions.length >= 4) this.minions[0].reset();
-          this.minions = this.minions.filter((m) => !m.dead);
-          this.minions.push(this.stage.add(new QueenPill(this.stage, candle, this, { pump: 3 })));
+          if (!this.minions.some((m) => m.candle === candle)) {
+            if (this.minions.length >= 4) this.minions[0].reset();
+            this.minions = this.minions.filter((m) => !m.dead);
+            this.minions.push(this.stage.add(new QueenPill(this.stage, candle, this, { pump: 3 })));
+          }
         }
       }
       if (t >= this.tell + 5) {
@@ -686,7 +702,7 @@ export class PumpQueen extends Boss {
       audio.play('explosion');
       this.player.root.add(this.crown);
       this.crown.position.set(0, 1.35, 0);
-      this.crown.rotation.set(0, 0, 0);
+      this.crown.rotation.set(0, -Math.PI / 2, 0);
     }
     if (this.popped && t < 2.65) this.crown.rotation.z = Math.sin(t * 40) * 0.18;
     if (t >= 2.65 && !this.crownFlying) {
