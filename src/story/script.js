@@ -167,3 +167,6 @@ export const DEATH_CAPTIONS = {
 };
 
 export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'death_angel', flat: 'death_flat', cone: 'death_cone', rug: 'death_rug' };
+// Shared copy for the expansion's authored gameplay props.
+export const PROP_TEXT = { rugPull: 'RUG PULL!', arrows: ['▼', '■', '▲'] };
+
