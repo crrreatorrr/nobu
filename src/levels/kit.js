@@ -12,7 +12,7 @@ import {
   UpdraftFan, SwingHammer, Crusher, CoconutRoller, conveyorStrip, sign, bossGate, logMesh,
 } from '../entities/props.js';
 import { palm, bush, fern, flowers, tuft, rock, fencePost, scratchPost, yarnPile, pipe, vat, vent, coneStack } from '../world/decor.js';
-import { SpinDrum, Toaster } from '../entities/props2.js';
+import { SpinDrum, Toaster, RugPull } from '../entities/props2.js';
 import { MarketClock, MarketPlatform, MarketTicker } from '../entities/market.js';
 import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
@@ -50,6 +50,7 @@ export function makeKit(game, stage, tickets, track = null) {
     platform(x, y, d, w = 2.4, dd = 2.4, h = 0.5) { return add(new StaticPlatform(stage, ...W(x, y, d).toArray(), { w, d: dd, h, yaw: yawAt(d) })); },
     spinDrum(d, o = {}) { return add(new SpinDrum(stage, track, d, o)); },
     toaster(x, y, d, o = {}) { return at(Toaster, x, y, d, { ...o, yaw: yawAt(d) }); },
+    rugPull(d0, d1, o = {}) { return add(new RugPull(stage, track, d0, d1, o)); },
     market(x, y, d, o = {}) {
       if (!stage.marketClock) stage.marketClock = add(new MarketClock(stage));
       return at(MarketPlatform, x, y, d, { ...o, yaw: yawAt(d), clock: stage.marketClock });

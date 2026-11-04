@@ -5,6 +5,8 @@ import { Solid } from '../world/physics.js';
 import { platformMesh } from './props.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
+import { Assets } from '../art/assets.js';
+import { PROP_TEXT } from '../story/script.js';
 import { drumPos, drumSpeed, toasterCycle } from './propsTiming.js';
 
 const _point = new THREE.Vector3();
@@ -136,4 +138,78 @@ export class Toaster extends Entity {
     for (const slice of this.toast) slice.position.y = 0.85 + hop;
   }
   onRespawn() { /* The authored rhythm deliberately continues through a death. */ }
+}
+
+export class RugPull extends Entity {
+  constructor(stage, track, d0, d1, { x = 0, w = 3, tile = 2.4, speed = 7 } = {}) {
+    const p = propWorld(track, x, 0, d0, _point);
+    super(stage, p.x, p.y, p.z);
+    if (!(speed >= 6.5 && speed < 8)) throw new Error('Rug pull speed must be at least RUN - 1.5 and below RUN');
+    if (!(tile > 0 && d1 - d0 >= tile)) throw new Error('Rug pull needs at least one tile');
+    this.track = track; this.d0 = d0; this.d1 = d1; this.speed = speed;
+    this.state = 'idle'; this.t = 0; this.front = d0; this.shown = false; this.tiles = [];
+    this.interactive = false; this._projection = {};
+    const count = Math.floor((d1 - d0) / tile);
+    const geometry = new THREE.BoxGeometry(w, 0.4, tile - 0.1);
+    const material = new THREE.MeshLambertMaterial({ map: Assets.tiled('rug') });
+    for (let i = 0; i < count; i++) {
+      const d = d0 + (i + 0.5) * tile;
+      propWorld(track, x, 0, d, _point);
+      const home = _point.clone(), body = new THREE.Group(), mesh = new THREE.Mesh(geometry, material);
+      mesh.position.y = -0.2; body.add(mesh); body.position.copy(home).sub(this.home);
+      const yaw = track ? track.yaw(d) : 0;
+      body.rotation.y = yaw; this.obj.add(body);
+      const dim = {}; dimensions(w * 0.95, tile - 0.1, yaw, dim);
+      const solid = stage.world.addBox(home.x, home.y - 0.4, home.z, dim.w, 0.4, dim.d, { kind: 'moving', ref: this });
+      this.tiles.push({ body, mesh, solid, home, dim, end: d0 + (i + 1) * tile, state: 'idle', t: 0, vy: 0, fall: 0 });
+    }
+  }
+  update(dt) {
+    if (this.state === 'idle') {
+      const p = this.player;
+      if (!p.dead && p.body.grounded && p.body.ground === this.tiles[0].solid) {
+        this.state = 'pulling'; this.alwaysActive = true;
+        if (!this.shown) { this.game.camera?.shake(0.15, 0.2); this.game.ui?.banner(PROP_TEXT.rugPull, '', 1.4); this.shown = true; }
+      }
+    }
+    if (this.state === 'idle') return;
+    this.t += dt; this.front = this.d0 + this.speed * this.t;
+    let falling = false;
+    for (const part of this.tiles) {
+      if (part.state === 'idle' && this.front + this.speed * 0.25 >= part.end) { part.state = 'tell'; audio.play('roll'); }
+      if (part.state === 'tell') {
+        const warning = Math.max(0, Math.min(1, (this.front + this.speed * 0.25 - part.end) / (this.speed * 0.25)));
+        part.mesh.rotation.x = warning * Math.PI / 12;
+        if (this.front >= part.end) {
+          part.state = 'fall'; part.t = 0;
+          this.fx?.puff?.(part.home.x, part.home.y, part.home.z, { count: 4, color: 0xd8c0a0, speed: 2 });
+          audio.play('whoosh');
+        }
+      }
+      if (part.state === 'fall') {
+        part.t += dt; part.vy -= 25 * dt; part.fall += part.vy * dt;
+        part.body.position.y = part.home.y - this.home.y + part.fall;
+        part.body.rotation.x = part.t * 1.5;
+        part.solid.setCenter(part.home.x, part.home.y - 0.4 + part.fall, part.home.z, part.dim.w, 0.4, part.dim.d);
+        if (part.t >= 0.2) part.solid.enabled = false;
+        if (part.t >= 2.8) { part.state = 'gone'; part.body.visible = false; }
+        else falling = true;
+      }
+    }
+    for (const e of this.stage.entities) {
+      if (e.kind !== 'cat' || e.dead || !e.light) continue;
+      const d = this.track ? this.track.project(e.pos.x, e.pos.z, -1, this._projection).s : -e.pos.z;
+      if (d >= this.d0 && d <= Math.min(this.front, this.d1) && Math.abs(e.pos.y - (this.track ? this.track.heightAt(d) : 0)) < 1.2) e.light();
+    }
+    if (this.front >= this.tiles.at(-1).end) this.state = 'gone';
+    this.alwaysActive = this.state === 'pulling' || falling;
+  }
+  onRespawn() {
+    this.state = 'idle'; this.t = 0; this.front = this.d0; this.alwaysActive = false;
+    for (const part of this.tiles) {
+      part.state = 'idle'; part.t = 0; part.vy = 0; part.fall = 0;
+      part.body.position.copy(part.home).sub(this.home); part.body.rotation.x = 0; part.body.visible = true; part.mesh.rotation.x = 0;
+      part.solid.setCenter(part.home.x, part.home.y - 0.4, part.home.z, part.dim.w, 0.4, part.dim.d); part.solid.enabled = true;
+    }
+  }
 }
