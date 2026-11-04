@@ -11,6 +11,11 @@ export const THEMES = {
     sky: 'bg_boss4', fog: 0xd8b890, fogNear: 45, fogFar: 125, hemiSky: 0xfff0d8, hemiGround: 0x8a5a32, sun: 0xffe0b0, sunI: 1.3, hemiI: 1.1,
     dust: 0xf2e6d0, music: 'boss4',
   },
+  4: {
+    name: 'Laundry Day', ground: 'tex_house_ground', wall: 'tex_house_wall', platform: 'tex_house_platform',
+    sky: 'bg_level4', fog: 0xf0d6ae, fogNear: 45, fogFar: 125, hemiSky: 0xfff0d8, hemiGround: 0x8a5a32, sun: 0xffe0b0, sunI: 1.45, hemiI: 1.25,
+    dust: 0xf2e6d0, music: 'level4', bpm: 112,
+  },
   1: {
     name: 'Bark Jungle', ground: 'tex_l1_ground', wall: 'tex_l1_wall', platform: 'tex_l1_platform',
     sky: 'bg_level1', fog: 0xa8dcff, fogNear: 45, fogFar: 120, hemiSky: 0xd8f0ff, hemiGround: 0x5a7a3a, sun: 0xfff1d0, sunI: 1.5, hemiI: 1.25,

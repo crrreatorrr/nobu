@@ -135,6 +135,10 @@ export const TUTORIALS = {
 
   crystals: { img: 'nobu_head', title: 'CRYSTAL ECHO', text: 'Bite crystals to light the path. The platforms stay solid when their light fades.' },
   chase: { img: 'nobu_head', title: 'RUN!', text: 'The camera turns around. Hold DOWN.' },
+  dustbunny: { img: 'mouse', title: 'DUST BUNNY', text: 'Bite it and it splits in two! Stomp or belly flop it to get rid of it for good.' },
+  iron: { img: 'nobu_head', title: 'HOT IRON', text: 'It sweeps the whole board. Ride the steam vents up and let it pass underneath.' },
+  stampede: { img: 'vacuum', title: 'STAMPEDE!', text: 'RUN toward the camera! Hold <span class="key">↓</span> / <span class="key">S</span> and jump the cables!' },
+  boiler: { img: 'nobu_head', title: 'BOILER FLOOD', text: 'Hot water is rising! Keep climbing. Don\'t stop!' },
   spindrum: { img: 'nobu_head', title: 'SPIN CYCLE', text: 'Ride the platforms around the drum. Hop off when you reach the top!' },
   zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
   toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
