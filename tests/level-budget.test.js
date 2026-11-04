@@ -29,7 +29,64 @@ const { LEVEL_TICKET_CAP } = await import('../src/config/tickets.js');
 const { measureTicketBudget } = await import('../src/game/measureTicketBudget.js');
 const { checkTicketBudget, ticketBudget, budgetDifferences } = await import('../src/game/ticketBudget.js');
 const { save } = await import('../src/core/save.js');
+const { Session } = await import('../src/game/session.js');
 vi.spyOn(Stage.prototype, 'decor').mockImplementation(() => {});
+
+function partialSession(Cls) {
+  save.load(); save.data.tickets = 0;
+  const noop = () => {};
+  const game = {
+    player: { pos: new THREE.Vector3(), facing: Math.PI, abilities: {}, spawnAt: noop },
+    ui: { tutorial: noop, banner: noop, setHud: noop },
+    fx: { clear: noop, burst: noop, puff: noop },
+    camera: { snap: noop, shake: noop }, mask: { snapTo: noop, setLevel: noop },
+  };
+  const session = new Session(game, '1'); game.session = session;
+  const stage = new Stage(game, LEVELS['1'].theme); session.stage = stage;
+  const tickets = { restoreAfter: noop, clearFlying: noop,
+    spawnFlying(_x, _y, _z, n, source) { session.addTickets(n, source); } };
+  session.tickets = game.tickets = tickets;
+  session.projectiles = { clear: noop };
+  // The initial actor snapshot precedes partial interactions. There is no
+  // entity checkpoint snapshot until a real later checkpoint is reached.
+  session.checkpoint(new THREE.Vector3());
+  const payer = new Cls(stage, 0, 0, 0); stage.add(payer);
+  const partial = () => payer instanceof Trampoline ? payer.onLand({ bounce: noop }) : payer.onBite();
+  return { session, payer, partial, max: payer.authoredTickets ?? payer.ticketsMax };
+}
+
+for (const Cls of [ZippedBackpack, Trampoline]) {
+  test(`real Session checkpoints conserve ${Cls.name} payload across repeated death restores`, () => {
+    const { session, payer, partial, max } = partialSession(Cls);
+    partial(); session.checkpoint(new THREE.Vector3());
+    partial(); session.checkpoint(new THREE.Vector3());
+    expect(session.cp.fieldRaw).toBe(2);
+    for (let i = 0; i < 5; i++) {
+      payer.onExplosion();
+      expect(session.fieldRaw).toBe(max);
+      expect(session.snack.raw).toBe(max);
+      session.respawn();
+      expect(session.fieldRaw).toBe(2);
+      expect(session.snack.raw).toBe(2);
+      expect(payer instanceof Trampoline ? payer.ticketsLeft : payer.tickets).toBe(max - 2);
+      expect(payer.broken).toBe(false);
+    }
+    payer.onExplosion();
+    expect(session.fieldRaw).toBe(max);
+    expect(session.levelTickets).toBe(Math.floor(max / 3));
+  });
+
+  test(`real Session respawn rewinds unbroken ${Cls.name} partial payouts before any later checkpoint`, () => {
+    const { session, payer, partial, max } = partialSession(Cls);
+    partial(); partial(); expect(session.fieldRaw).toBe(2);
+    expect(payer.broken).toBe(false);
+    session.respawn();
+    expect(session.fieldRaw).toBe(0);
+    expect(session.snack.raw).toBe(0);
+    expect(payer instanceof Trampoline ? payer.ticketsLeft : payer.tickets).toBe(max);
+    payer.onExplosion(); expect(session.fieldRaw).toBe(max);
+  });
+}
 
 function build(id, arena = false, roll = .001) {
   const random = vi.spyOn(Math, 'random').mockReturnValue(roll);

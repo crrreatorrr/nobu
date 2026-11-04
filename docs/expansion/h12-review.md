@@ -82,15 +82,14 @@ Trampoline105 had the analogous repeated-bounce exploit. Both entities now captu
 payload at `onCheckpoint`, restore that snapshot on a full break rollback, and rewind unbroken
 partial changes on respawn. Without a checkpoint they restore authored initial state. Zipped tags
 reflect the restored remaining hits. Mystery has no partial payout and keeps its deterministic
-restore behavior. H10's Session checkpoint calls this optional entity hook; H12 must integrate
-after H10, and an actual Session checkpoint/respawn integration test is required before merge.
+restore behavior. H10's merged Session checkpoint calls this optional entity hook. Four integration regressions now construct real Sessions and real Zipped/Trampoline entities, collect payouts through Session.addTickets, and exercise actual checkpoint/respawn methods: successive checkpoints and five full-break/death cycles retain the authored eight/ten-raw maxima; unbroken partial sources rewind before any later checkpoint.
 
 Custom Zipped payloads below three still pay at least three if opened with three individual hits,
 so their budget uses `max(3, authoredTickets)` rather than undercounting the first two drops.
 
 ## Verification
 
-npm ci passed; 29 test files / 280 tests passed; production build passed (existing large-chunk warning). Independent review remains conditional on the H10 Session hook integration. Existing gates tests exercise all five
+npm ci passed; 29 test files / 280 tests passed; production build passed (existing large-chunk warning). Rebased onto H10 main 8c503b8; all 23 budget tests pass, including the actual Session payout regressions. Final full checks and independent integration re-review are recorded below when complete. Existing gates tests exercise all five
 Mystery outcomes, restore/rebreak stability, lit Cat and trampoline fallback/zero-payout rules.
 New Mystery tests add stable seed/slot vectors and 100000-seed distribution tolerance1.5 percentage
 points. New budget tests build actual stages/arenas and reject an injected over-cap source.
