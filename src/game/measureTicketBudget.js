@@ -2,6 +2,7 @@ import { Backpack, ZippedBackpack, Trampoline } from '../entities/breakables.js'
 import { MysteryBackpack } from '../entities/mysteryBackpack.js';
 import { GoodBoyRoute, BarkRock } from '../entities/secrets.js';
 import { CoconutRoller } from '../entities/props.js';
+import { GAUNTLET_FIRST_CLEAR_TICKETS } from '../config/tickets.js';
 
 /** Call on a fresh built stage. Count every authored payer, including bonus-round
  * and non-countable packs. Runtime-spawned Mystery prizes are covered by its slot. */
@@ -20,5 +21,6 @@ export function measureTicketBudget(stage, tickets, arena = 0) {
     else if (e instanceof BarkRock) result.bark += e.tickets;
     else if (e instanceof CoconutRoller) result.coconut = true;
   }
+  if (stage.gauntlet) result.firstClearWhole = GAUNTLET_FIRST_CLEAR_TICKETS;
   return result;
 }

@@ -1,4 +1,5 @@
 import { trialLayout } from '../config/trials.js';
+import { POLAROID_SPOTS } from './data/gauntlets.js';
 import { L1_START,L1_MOVES_CLASSIC,L1_MOVES_EXTENDED,L1_SECTIONS_EXTENDED,shiftL1 } from './data/l1-layout2.js';
 import { buildL1Extensions } from './l1Extensions.js';
 import { buildBirdArena } from '../bosses/birdArena.js';
@@ -133,6 +134,7 @@ export function buildLevel1(game, stage, tickets, { layout = trialLayout(1), lab
   k.floor(163, 181, { x: -6, w: 3.4 });
   k.boneSwitch(-6.1, 0, 170.5, [[-3.4, 1.5, 172.5, 2.2, 2.2], [-0.9, 3.0, 174.5, 2.2, 2.2], [1.8, 4.5, 176.5, 2.6, 3.2]]);
   k.sphere(1.8, 4.5, 177.2);
+  k.polaroid(...POLAROID_SPOTS.g1, 'g1');
   if (!extended) k.mystery(-6, 0, 166);
   k.pack(2.9, 4.5, 175.8, 5); k.pack(0.9, 4.5, 177.6, 5);
   k.dog(-6.3, 0, 175.5, 'dalmatian').dogId = '1:dalmatian-a';

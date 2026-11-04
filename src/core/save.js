@@ -3,6 +3,7 @@ import { TRIAL_FLOOR_MS, TRIAL_LEVELS, LOCAL_TRIAL_LEVELS, trialMedal, trialLayo
 import { LEVEL_IDS, LEVEL_DOGS } from '../levels/metadata.js';
 import { trialMastery, mergeTrialMastery } from '../game/mastery.js';
 import { KENNEL_MILESTONES, kennelUnlocks } from '../game/progress.js';
+import {withOriginLock} from './originLock.js';
 
 const KEY = 'nobu-saviour-dog-save-v1';
 // A save that does not parse is copied here before the game starts fresh, so it is never lost outright.
@@ -309,6 +310,26 @@ export const save = {
       }
       localStorage.setItem(KEY, JSON.stringify(data));
     } catch (e) { /* storage unavailable */ }
+  },
+  // Gauntlets have no run pickups: reconcile the latest durable wallet before
+  // claiming the once-only reward, without replacing lives, checkpoints or run state.
+  withGauntletEnd(mutator, { shouldCommit = () => true } = {}) {
+    if (typeof mutator !== 'function' || mutator.constructor.name === 'AsyncFunction') throw new TypeError('Gauntlet transaction must be synchronous');
+    return withOriginLock('nobu-gauntlet-end-v1', () => {
+      if (!shouldCommit()) return { cancelled: true, tickets: 0, medals: [], claimDurable: false };
+      const raw = readDisk();
+      if (raw) {
+        const latest = sanitize({ ...fresh(), ...migrateSave(raw) });
+        mergeScores(data, latest);
+        data.tickets = latest.tickets; // Current wallet read, before the canonical credit path.
+      }
+      const result = mutator(data);
+      if (result && typeof result.then === 'function') throw new TypeError('Gauntlet transaction must be synchronous');
+      this.write();
+      const persisted = readDisk();
+      const claimDurable = ['g1', 'g2', 'g3'].includes(result?.id) && persisted?.gauntlets?.[result.id]?.firstPaid === true;
+      return { ...result, claimDurable };
+    });
   },
   // New game clears story progress; trial and mastery records stay permanent.
   reset() {

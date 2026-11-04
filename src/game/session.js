@@ -2,6 +2,8 @@
 // Owns checkpoints (with Crash-style rollback on death), lives, tickets, masks, invincibility and stats.
 import * as THREE from 'three';
 import { ddaFor, armCheckpointPity } from './dda.js';
+import { awardGauntlet, GAUNTLET_FIRST_CLEAR_TICKETS } from './gauntletRewards.js';
+import {updateGauntletLook,clearGauntletLook} from '../player/gauntletLook.js';
 import { masteryTrialMedal, trialMastery, mergeTrialMastery, perfectRun } from './mastery.js';
 import { addBuddy } from '../entities/buddy.js';
 import { Stage } from '../world/stage.js';
@@ -50,6 +52,7 @@ export class Session {
     this.def = levelDef(level);
     this.trial = trial;      // time trial run: clock, freeze packs, no lives lost, ends at the boss gate
     this.trialT = 0;
+    this.gauntletT = 0;
     this.freezeT = 0;
     this.freezeMs = 0;       // clock time held by Freeze Packs this trial (informational, sent as score meta)
     this.deaths = 0;
@@ -124,6 +127,7 @@ export class Session {
     g.mask.attach(stage.scene);
     g.player.spawnAt(info.spawn, info.facing);
     g.applyKennelTint?.(g.player.model, this);
+    updateGauntletLook(g.player,save.data,this);
     g.mask.setLevel(this.mask, this.mask);
     g.mask.snapTo(g.player);
     stage.defaultCamera = info.camera;
@@ -167,14 +171,14 @@ export class Session {
     this.dogsTotal = stage.entities.filter((e) => e instanceof ConedDog).length;
     ui.loadingProgress(0.8, 'Warming up...');
     await this._warmUp();
-    audio.setRate(1);
-    audio.playMusic(stage.theme.music);
+    audio.setRate(this.def.gauntlet ? 1.08 : 1);
+    audio.playMusic(stage.gauntletInfo?.music || stage.theme.music);
     ui.fade(0, 0);
     await ui.hideLoading();
     ui.showHud(4);
     this._pushHud();
     g.player.setRide(info.ride || null);
-    this.buddy = addBuddy(this, save.data, LEVELS);
+    this.buddy = this.def.gauntlet ? null : addBuddy(this, save.data, LEVELS);
     if (this.trial) this._setupTrial();
     g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
     if (LEVEL_INTRO[this.level] && !this.trial) {
@@ -348,6 +352,7 @@ export class Session {
   // End of a bonus stage (no boss): the missed-backpack rain, then the results screen.
   async reachGoal() {
     if (this.phase !== 'level' || this.busy) return;
+    if (this.def.gauntlet) return this._finishGauntlet();
     if (import.meta.env.DEV) this.game.devTuning?.gate(this);
     finishSessionChain(this);
     const g = this.game;
@@ -364,6 +369,39 @@ export class Session {
     g.player.setRide(null);
     if (this.def.bonus) g.bonusCleared(this);
     else g.goalLevelCleared(this);
+  }
+
+  async _finishGauntlet() {
+    if (this.disposed || this.game.session !== this) return { cancelled: true, tickets: 0, medals: [] };
+    this.busy = true;
+    this.game.player.frozen = true;
+    const result = await save.withGauntletEnd(() => {
+      this.godUsed ||= !!save.data.godMode;
+      const broken = this.stage.entities.filter(e => e instanceof Breakable && e.countable && e.broken).length;
+      const result = awardGauntlet(save.data, String(this.level), { broken, total: this.breakablesTotal,
+        deaths: this.deaths, ms: Math.round(this.gauntletT * 1000), godUsed: this.godUsed,
+        trial: this.trial, remix: this.remix, rush: this.rush || this.bossRush,
+        ranked: this.ranked, medal: this.medalMode || this.medalRun, board: this.boardRun });
+      this.stats = { broken, breakables: this.breakablesTotal, deaths: this.deaths,
+        ms: Math.round(this.gauntletT * 1000), tickets: result.tickets };
+      if (result.tickets) {
+        this._gauntletClearRaw = rawTicketsForWhole(result.tickets);
+        // A different tab may have crossed or spent below a life threshold meanwhile.
+        this._setLifeLine(Math.floor(save.data.tickets / 100));
+        this.addTickets(this._gauntletClearRaw, 'gauntlet-first-clear');
+      }
+      return result;
+    }, { shouldCommit: () => !this.disposed && this.game.session === this });
+    if (result.cancelled) return result;
+    // The same level_end bank used by other stages; this amount is already whole Tickets.
+    if (this.attemptDurable && result.claimDurable) hub.bank(this.attemptId, this.levelTickets, true).catch(err => console.warn('[hub] bank failed', err));
+    // A committed claim still settles after leaving, but must never change the new screen.
+    if (this.disposed || this.game.session !== this) return result;
+    this.game.player.frozen = true;
+    audio.setRate(1);
+    audio.play('checkpoint');
+    this.game.gauntletCleared(this, result);
+    return result;
   }
 
   // Every breakable Nobu skipped drops on his head, one by one, before the level ends.
@@ -624,13 +662,17 @@ export class Session {
       earned.noHit && earned.speed ? BOSS_MEDAL_TEXT.speed : '', 3);
   }
 
-  onBreak(entity) { hitSessionChain(this, entity); this._pushHud(); }
-  onEnemyDefeated(entity) { hitSessionChain(this, entity); }
+  onBreak(entity) { if (!this.def?.gauntlet) hitSessionChain(this, entity); this._pushHud(); }
+  onEnemyDefeated(entity) { if (!this.def?.gauntlet) hitSessionChain(this, entity); }
 
   addTickets(n, source) {
     n = Math.floor(Number(n));
+    if (this.def?.gauntlet) {
+      if (source !== 'gauntlet-first-clear' || n !== this._gauntletClearRaw || n !== rawTicketsForWhole(GAUNTLET_FIRST_CLEAR_TICKETS)) return;
+      this._gauntletClearRaw = 0; // Consume the goal's one-use credit before any feedback.
+    }
     if (!(n > 0)) return;
-    if (this.phase === 'level' && !SNACK_EXCLUDED.has(source)) this.snack.raw += n;
+    if (this.phase === 'level' && !this.def?.gauntlet && !SNACK_EXCLUDED.has(source)) this.snack.raw += n;
     if (source === 'coconut') {
       const capRaw = rawTicketsForWhole(COCONUT_CAP_PER_CLEAR);
       const room = capRaw - this.coconutRaw;
@@ -796,6 +838,7 @@ export class Session {
     g.fx.clear();
     g.player.spawnAt(cp.pos, cp.facing);
     if (g.player.ride) g.player.ride.speedK = 0;
+    this.stage.raftController?.restoreAtCheckpoint(cp.pos);
     g.camera.snap(g.player);
     // Ordinary checkpoint help follows the same ladder and mode exclusions as pity spots.
     if (this.phase !== 'boss') {
@@ -804,6 +847,7 @@ export class Session {
     }
     g.mask.snapTo(g.player);
     this._pushHud();
+    if (this.def?.gauntlet) audio.setRate(1.08);
     if (this.chase && this.stage.track) {
       const pr = this.stage.track.project(cp.pos.x, cp.pos.z);
       this.chase.begin(pr.s - 13, 1.6);
@@ -823,6 +867,7 @@ export class Session {
     const g = this.game;
     if (!this.stage) return;
     this.godUsed ||= !!save.data.godMode;
+    if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
     if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
       this.bossRun.t += dt;
       this.bossClock = this.bossRun.t;
@@ -833,10 +878,11 @@ export class Session {
       this.invincibleT -= dt;
       if (this.invincibleT <= 0) {
         this.invincibleT = 0;
-        audio.setRate(1);
+        audio.setRate(this.def?.gauntlet ? 1.08 : 1);
         this.setMask(2);
       }
     }
+    updateGauntletLook(g.player,save.data,this,dt);
     this.stage.update(dt, g.player);
     g.player.update(dt, this.stage, g.camera.basis);
     if (import.meta.env.DEV) g.devTuning?.update(this, dt);
@@ -881,6 +927,9 @@ export class Session {
   }
 
   dispose() {
+    this.disposed = true;
+    clearGauntletLook(this.game.player);
+    if (this.def?.gauntlet) audio.setRate(1);
     if (this.stage) this.stage.dispose();
   }
 }

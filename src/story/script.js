@@ -181,6 +181,7 @@ export const BETWEEN = {
 
 export const TUTORIALS = {
   moonJump: { img: 'nobu_head', title: 'NEW MOVE: MOON JUMP!', text: 'Hold SLIDE without moving, then JUMP. To the moon!' },
+  polaroid: {img:'nobu_head',title:'POLAROID',text:"A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip."},
   dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
 
   crystals: { img: 'nobu_head', title: 'CRYSTAL ECHO', text: 'Bite crystals to light the path. The platforms stay solid when their light fades.' },
@@ -350,3 +351,15 @@ export const MAIN_UNLOCK_TEXT = {
 
 export const QUEEN_STAGE_POWERS = { 2: 'FOMO beam · parachute airdrops · faster candles', 3: 'Bubble shield · candle crash · crumbling ring', 4: 'Liquidation · Dust Dash wake · chains of four' };
 export const QUEEN_TICKER_TEXT = { pump: '▲ PUMP ▲', dump: '▼ DUMP ▼', zero: '$0.00' };
+// H46: gauntlet-only presentation; medals never use a Bone Board.
+export const GAUNTLET_TEXT = {
+  names: { g1: 'Jungle Crates', g2: 'Assembly Rush', g3: 'Hamper Hop' },
+  startSign: ['BOX', 'GAUNTLET'],
+  polaroid: 'POLAROID!', polaroidGrey: 'POLAROID', polaroidFound: 'A Box Gauntlet is on the map.',
+  continue: 'Press any key',
+  title: 'BOX GAUNTLET', clear: 'CLEAR', allBoxes: 'ALL BOXES', flawless: 'FLAWLESS',
+  firstClear: 'First clear: 5 Tickets', localBest: 'LOCAL BEST',
+  deaths: (n) => `Deaths: ${n}`,
+  enter: 'G / RB · Enter gauntlet', grey: 'Reach it without a scratch.',
+  tutorial: "A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip.",
+};

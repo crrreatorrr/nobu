@@ -76,7 +76,7 @@ describe('level registry', () => {
     expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => levelDef(id).tier)).toEqual([1, 1.5, 2, 2.5, 3, 4]);
     expect(Object.values(LEVELS).every((def) => def.shipped)).toBe(true);
     expect(MAP_ORDER.filter((id) => levelDef(id).trial)).toEqual([1, 2, 3, 4]);
-    for (const id of [5, 6, 'g1', 'toString']) {
+    for (const id of [5, 6, 'toString']) {
       expect(levelDef(id)).toBeUndefined();
       expect(isOpen(id, { unlocked: 9 })).toBe(false);
     }
@@ -90,7 +90,7 @@ describe('level registry', () => {
     expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 7, 4, 9, 7]);
     expect(Object.keys(LEVEL_DOGS[1])).toEqual(['shiba-a','pug-a','dalmatian-a','shiba-b','corgi-a','pug-b','dalmatian-b','corgi-b','shiba-c']);
     const ids = [];
-    for (const def of Object.values(LEVELS).filter((d) => !d.meta)) {
+    for (const def of Object.values(LEVELS).filter((d) => !d.meta && !d.gauntlet)) {
       expect(def.dogs).toBe(LEVEL_DOGS[def.id]);
       for (const [dog, section] of Object.entries(def.dogs)) {
         const id = `${def.id}:${dog}`;
