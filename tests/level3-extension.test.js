@@ -44,7 +44,7 @@ function build(candidate=true, roll=.001, trial=false, purple=false) {
     const session=new Session(game,'3',{trial}); game.session=session;
     const stage=new Stage(game,LEVELS['3'].theme); session.stage=stage;
     const tickets=new TicketSystem(game,stage); game.tickets=session.tickets=tickets;
-    const info=(candidate?buildLevel3Layout2:buildLevel3)(game,stage,tickets); tickets.finalize();
+    const info=(candidate?buildLevel3Layout2:buildLevel3)(game,stage,tickets,{layout:candidate?2:1}); tickets.finalize();
     session.cp={pos:info.spawn.clone(),lifeLine:session.lifeLine};
     session.dogsTotal=stage.entities.filter(e=>e.dogId).length;
     session.breakablesTotal=stage.entities.filter(e=>e.countable).length;
@@ -73,10 +73,11 @@ test('candidate measures real fresh payers, including optional gates, both Myste
   expect(ticketBudget(measured)).toEqual({raw:302,coconut:0,wholeMax:100});
   expect(checkTicketBudget('3',measured,101).wholeMax).toBe(100);
   expect(()=>checkTicketBudget('3',measured,99)).toThrow(/exceeds fixed cap/);
-  expect(()=>checkTicketBudget('3',measured)).toThrow(/exceeds fixed cap/);
-  expect(original.measured).toEqual({...LEVEL_BUDGETS['3'],arena:0});
+  expect(checkTicketBudget('3',measured).wholeMax).toBe(100);
+  expect(measured).toEqual(LEVEL_BUDGETS['3']);
+  expect(original.measured).toEqual({field:52,packs:60,zipped:8,jackpots:12,bark:10,trampoline:0,mystery:2,arena:0,coconut:false});
   expect(LEVELS['3'].build).toBe(buildLevel3);
-  expect(L3_LAYOUT2_INFO).toMatchObject({active:false,path:419,gate:418,trigger:420,end:427});
+  expect(L3_LAYOUT2_INFO).toMatchObject({active:true,path:419,gate:418,trigger:420,end:427});
 });
 
 test('nine stable dogs, all original countables, blue bone, and final gate retain reachable authored placements',()=>{
@@ -297,4 +298,17 @@ test('Packaging opt-in ignores Up in actual Player movement and keeps Right adva
   expect(p.body.s).toBeGreaterThan(209.5);expect(p.body.u).toBeCloseTo(0,5);
   zone.apply(262);expect(camera.opts.ignoreDepth).not.toBe(true);
  }finally{pressed.mockRestore();held.mockRestore();input.state.x=input.state.y=0;}
+});
+
+
+test('activated registry builds layout2 and exposes the same main sections and detour context as the actual stage',()=>{
+ const {stage}=build(), main=stage.sections.filter(s=>!s.detour);
+ expect(main).toEqual(LEVELS[3].sections.filter(s=>!s.detour));
+ expect(main.filter(s=>s.d0<=340&&s.d1>340).map(s=>s.name)).toEqual(['Vat Overflow']);
+ expect(LEVELS[3].hidden).toEqual({section:'Maintenance Ducts',move:'bark'});
+ const {game}=build(); const fresh=new Stage(game,3),tix=new TicketSystem(game,fresh);
+ LEVELS[3].build(game,fresh,tix);tix.finalize();
+ expect(fresh.track.length).toBeCloseTo(stage.track.length,5);
+ expect(fresh.track.triggers.some(t=>Math.abs((t.s??t.d)-420)<.01)).toBe(true);
+ expect(fresh.entities.filter(e=>e.dogId)).toHaveLength(9);
 });

@@ -1,4 +1,5 @@
-import { L3_MOVES, L3_MOVES_V2, L3_LAYOUT2_INFO } from './data/l3-layout.js';
+import { trialLayout } from '../config/trials.js';
+import { L3_MOVES, L3_MOVES_V2, L3_LAYOUT2_INFO, L3_SECTIONS } from './data/l3-layout.js';
 import { shiftedFactoryKit, addFactoryExtension } from './level3Extension.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
@@ -12,11 +13,11 @@ import { makeKit, makeTrack, turtle } from './kit.js';
 import { rand, pick } from '../core/util.js';
 import { buildConeArena } from '../bosses/coneArena.js';
 
-export function buildLevel3(game, stage, tickets) {
-  return buildFactory(game, stage, tickets);
+export function buildLevel3(game, stage, tickets, { layout = trialLayout(3) } = {}) {
+  return buildFactory(game, stage, tickets, layout === 2);
 }
 
-// Explicit review candidate. The registry and trial layout keep using layout 1.
+// Explicit layout-2 entry point for geometry and feasibility checks.
 export function buildLevel3Layout2(game, stage, tickets) {
   return buildFactory(game, stage, tickets, true);
 }
@@ -26,7 +27,8 @@ function buildFactory(game, stage, tickets, extended = false) {
   const track = makeTrack(stage, turtle([0, 0, 10], extended ? L3_MOVES_V2 : L3_MOVES));
   const rawKit = makeKit(game, stage, tickets, track);
   const k = extended ? shiftedFactoryKit(rawKit) : rawKit;
-  installSections(k, '3', SECTION_TEXT);
+  if (extended) for (const [d0,d1,key] of L3_SECTIONS) rawKit.section(d0,d1,SECTION_TEXT[key]);
+  else installSections(k, '3', SECTION_TEXT);
   const END = 252;
   const H = 3.4;
   k.walls([[-8, 4.3, 4.3, H], [47, 4.3, 4.3, H], [48.5, 2.1, 2.1, H], [65.5, 2.1, 2.1, H], [67, 4.3, 4.3, H],

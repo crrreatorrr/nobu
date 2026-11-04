@@ -32,7 +32,7 @@ export function shiftedFactoryKit(k) {
 
 export function addFactoryExtension(k, game, stage, tickets, track) {
   // Sorting Belts: permanent floors separate the three conveyor lessons.
-  k.section(98,168,LABELS.sorting); k.floor(98,102); k.tut(99,'sorting');
+  k.floor(98,102); k.tut(99,'sorting');
   k.belt(102,120,{x:0,z:3},{x:-2.15,w:4.3}); k.belt(102,120,{x:0,z:-3.5},{x:2.15,w:4.3});
   k.packs([[-2.2,108],[2.2,112],[-2.2,116]]); k.dog(-3.4,0,118,'shiba').dogId='3:shiba-b';
   k.floor(120,124); k.snacks(0,0,122);
@@ -48,7 +48,7 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
   k.tix(-2.2,0,103,-2.2,0,118,4); k.tix(0,0,125,0,0,143,5); k.tix(0,0,161,0,0,167,4);
 
   // Packaging Line uses the merged helper's side-control/camera contract.
-  k.section(206,261,LABELS.packaging); k.camZone(206,261,'side',{side:-1,dist:11,height:2.2,ahead:0,ignoreDepth:true});
+  k.camZone(206,261,'side',{side:-1,dist:11,height:2.2,ahead:0,ignoreDepth:true});
   // Cutaway banks keep the low side camera above foreground scenery. Track
   // collision uses the same authored left/right widths, independent of h.
   k.walls([[205,4.3,4.3,3.4],[206,4.3,4.3,.4],[207,1.6,1.6,.4],[260,1.6,1.6,.4],[261,4.3,4.3,.4],[262,4.3,4.3,3.4]]);
@@ -66,7 +66,7 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
   // Corrected candidate placements; owner review is required before activation.
   // Source 1.7 requires <=90m ordinary checkpoint spacing; 228→334 was106m.
   k.snacks(0,0,312);
-  k.section(331,381,LABELS.vatOverflow); k.camZone(331,381,'rise',{height:5.5,dist:11});
+  k.camZone(331,381,'rise',{height:5.5,dist:11});
   k.floor(331,337); k.snacks(-2.4,0,334);
   const valve=k.boneSwitch(1.8,0,336,[[0,9,378,3.2,3.2]]);
   const vat=k.rising(337,381,{y0:-1.2,y1:7.2,rate:.42,trigger:'switch'}).armWith(valve);
