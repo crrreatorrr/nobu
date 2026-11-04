@@ -1,6 +1,6 @@
 # H46 gauntlets: implementation and review evidence
 
-Source: full H46 ticket, handoff index, box-gauntlets §4/5/8, rewards §1.3/9.1. Based on a561d2f (H30). H40/H32 activation and serial parent Game/registry/host integration remain merge gates. No new media, vendor edits, deployment or permissions.
+Source: full H46 ticket, handoff index, box-gauntlets §4/5/8, rewards §1.3/9.1. Initially based on a561d2f (H30), then rebased through the released extensions and H51 main c4d6c547. Shared Game/registry/host integration is complete; pre-budget full-suite snapshot is 357d678; final budget completion is 7d7d368. No new media, vendor edits, deployment or permissions.
 
 ## Exact placement corrections
 
@@ -25,7 +25,7 @@ All17 patterns pass strict validation with actual curved-world heights. Distance
 
 No added sidewall platforms are retained: existing Track collision clamps lateral position at every height, and the actual attempted outside+Glide route is contained. The high roof alone was insufficient; its failing late-Double fixture is preserved by the source build. Normal arrowTap→near Slider, Slider→raised pack and pack→goal have physical headroom. The bounded moving-Slider audit covers18 Double press times×4 initial phases, also pressing Glide two frames later; no corrected route in that72-case sweep reaches the receiver without real Slider contact. MovingPlatform solids have no ref, so contact tests compare actual solid identity. This is bounded evidence, not a continuous-state proof.
 
-G3 Polaroid exact location was promised but absent from new-levels spec. Parent approved shelfB(2.4,4.2,205), actual existing shelf3×3.4; host overlap proof pending H40 activation. G1(1.4,4.5,175.4) and G2(-2.8,1,65.5) remain source literals before layout splices.
+G3 Polaroid exact location was promised but absent from new-levels spec. Parent approved shelfB(2.4,4.2,205), actual existing shelf3×3.4; all three host support/touch-volume checks pass on the shipped builders. G1(1.4,4.5,175.4) and G2(-2.8,1,65.5) remain source literals before layout splices.
 
 Actual Player bounce bridges passed with normal Backpack.onLand, actual Player.update, input hold/tap and collision; all packs break in one forward crossing without economic payout. Existing TUNING unchanged. Double ladder source29frames is known stale; measured27frames retained, no retune.
 
@@ -35,7 +35,7 @@ Polaroid is separate entity module to avoid shared secrets ownership. It saves i
 
 Session handles gauntlet goal before normal stat/BoneBoard/rain path. A shouldCommit guard runs inside the claim lock before Save mutation; quitting while queued cancels entitlement. A claim already committed before disposal still banks once, but post-await screen/player updates require the original current Session. Quota failures retain existing best-effort local feedback yet never bank without claimDurable and attemptDurable receipts. It banks5whole firstPaid once, records clear/allBoxes/flawless(local best>=1000integer), no chain drops or raw pickups, normal lives/checkpoint rollback/clock reset. Cosmetic renderer is called by Session, leaving Player movement untouched. Look cleans owned geometry/materials and restores borrowed model materials when disabled. Kennel wall shows clear photos, gold for Flawless. Existing Save sanitization/OR/min merge/NewGame preservation is reused. Base progress explicitly excludes gauntlets; mastery adds9.
 
-Shared Game/registry/host/kit/map wiring is reserved to parent; contract `/tmp/h46-integration.md`. No main activation until complete integration tests and independent review.
+Shared Game/registry/host/kit/map wiring is integrated: gauntlets stay outside MAP_ORDER, G / RB takes priority over ordinary RB bite-confirm, normal story bookmarks are preserved, and results show only gauntlet medals/best/first-clear reward. The Game result handler never credits or banks a second time.
 
 ## Verification so far
 
@@ -43,4 +43,24 @@ Shared Game/registry/host/kit/map wiring is reserved to parent; contract `/tmp/h
 
 Two independent Save-module instances exercise stale/simultaneous same-stage claims, parallelg1/g2 wallet10, latest spent wallet3→8, medals/reset, IDB/WebLocks fallback and no mutator retry. Actual Session tests verify abandoned versus already-committed disposal and repeat quota failure→reload with zero external bank. Fully unavailable origin locking/storage only retains existing best-effort local behavior; cross-tab/external persistence is not claimed in that environment.
 
-Pending: shared Game/registry/host integration and host overlap tests, independent review, full npm test/build and bounded browser. No natural full-stage clears or first-player death calibration claimed. Source §8 human targets3–6/6–10/10–16 deaths, tutorial comprehension,3-try fall learning,2-try TNT retreat, audible rhythm and expert Flawless remain manual until actually performed.
+Completed integration evidence follows below; full npm test/build and exact final CI remain the release gates. No natural full-stage clears or first-player death calibration claimed. Source §8 human targets3–6/6–10/10–16 deaths, tutorial comprehension,3-try fall learning,2-try TNT retreat, audible rhythm and expert Flawless remain manual until actually performed.
+
+
+## Final integration and browser verification
+
+Clean source 177ba608 integrated the pinned host map entries, G / RB input, actual host Polaroids, ordinary-budget exclusions, dedicated result/pause screens and tempo restoration. The actual Session death/respawn and invincibility-expiry regression proves that gauntlet music returns to1.08 while ordinary levels retain1.0.
+
+A fresh Chromium/SwiftShader browser on frozen177ba608 passed actual keyboard G and pad RB map entry for all three stages; counts12/20/12 and no static Ticket pickups; preserved story bookmark4; supported Laundry Polaroid grey opacity.35 after a death, rejection on touch and actual touch collection after restarting; ordinary death life cost and rate1→respawn1.08; first-clear5whole and repeat0; local record reload; and no ordinary Bone Board or bonus record. Hub calls were intercepted locally: exactly one positive5whole bank was captured and no external write requests occurred. Browser exceptions and console errors were empty. The finale screenshot confirms Nobu, timing boxes and the transparent wireframe ceiling are readable from the unchanged ahead6.5 camera. Artifacts: `/tmp/nobu-h46-browser-results.json`, `/tmp/nobu-h46-roof.png`, `/tmp/nobu-h46-photo.png`, `/tmp/nobu-h46-result.png`. Owned Chrome/Vite processes were closed. An initial harness attempt used a port already occupied by an old H60 server; the successful run used a fresh profile and a verified H46 module endpoint on5276.
+
+The browser used assisted placement and marks boxes broken to test completion transactions. Its local All Boxes/Flawless records are fixture results, not evidence of an unaided full-stage clear. Existing actual Player/World route probes, including72 moving-Slider cases, remain separately attributed above. No first-time human death calibration, audio listening or expert Flawless clear was performed.
+
+Independent final review found and closed a trail double-rotation bug: trails are children of the already-rotated Player root, so357d678 places particles behind its local forward axis. A four-cardinal actual Three.js world-space regression verifies every particle stays behind Nobu. The same commit centralizes all new visible gauntlet names, Polaroid banners, signs and continuation copy in Story; 62 focused tests across3files passed. Independent final review approved this snapshot, the actual Session→Game→map completion/repeat path, and retained the earlier route/resource/transaction approvals. Review: `/workspace/nobu-spec/h46-final-review.md`.
+
+
+## Final checks and first-clear budget accounting
+
+`npm ci` passed (75 packages), followed by one clean full suite on frozen357d678: **99 files / 990 tests passed**, maxWorkers1,290.85s. Two existing jsdom navigation notices were non-failing. No second full local run was made solely for the later budget correction; exact final-head CI must verify the combined final suite (expected994 cases).
+
+Source review then identified that static pickup measurement omitted the one-time goal reward. Commit7d7d368 adds an optional `firstClearWhole` reserve: only gauntlet builders measure5whole; ordinary measured object shapes remain unchanged and missing reserves mean0. The pure total adds this whole-unit reserve without raw conversion, validates its type/range, and compares missing/zero consistently. All three gauntlets now have declared zero-pickup budgets plus5whole, so the actual developer budget report works and the fixed cap5 is meaningful. Actual builders pass cap5 and fail cap4; malformed reserves fail validation. Runtime credit/banking behavior is unchanged.
+
+The affected four-file run covered83 cases:82 passed and one old declaration-list assertion needed to include gauntlets now that they have declared budgets. The corrected budget suite then passed24/24; the other59 affected cases had already passed. Production build passed on the final budget source (175 modules), and `git diff --check` passed. Independent review approved the narrow budget delta7d7d368 after nine selected actual-builder/type/report checks plus mixed raw/whole/Coconut arithmetic, mismatch and malformed-input probes. Exact final-head CI remains required before merge.
