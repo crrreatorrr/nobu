@@ -47,6 +47,7 @@ export class SofaLoop extends Entity {
   onRoundLeave(kept,B) { B.R.back=this.k.W(kept?0:-2.6,0,kept?176:170); }
   update() {
     const p=this.player,s=p.body.s;
+    if(this.session.busy||p.dead)return;
     if(this.session.bonusRound?.tray===this) {
       if(p.pos.y<this.k.track.heightAt(s)+1.4) this.session._leaveBonusRound(false);
       else if(s>=203 && p.pos.y>=this.k.track.heightAt(s)+2.2) this.session.finishBonusRound();

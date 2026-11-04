@@ -360,3 +360,13 @@ test('River dynamic receivers offer real World landings across endpoint phases w
   }
  }
 });
+
+test('Sofa loss starts one async transition while its fade is pending',async()=>{
+ const f=build('ride'),p=rider(f,170,-2.6),{game,stage,tickets}=f;
+ game.ui={fade:async()=>{},banner(){},setHud(){},setConed(){}};game.camera.snap=()=>{};game.mask={snapTo(){}};
+ const session=new Session(game,'ride');game.session=session;session.stage=stage;session.tickets=tickets;
+ const loop=stage.entities.find(e=>e instanceof SofaLoop);await session.enterBonusRound(loop);
+ game.ui.fade=()=>new Promise(()=>{});const leave=vi.spyOn(session,'_leaveBonusRound');
+ p.pos.copy(stage.track.toWorld(190,-.8,.6));p.body.s=190;
+ for(let i=0;i<5;i++)loop.update();expect(session.busy).toBe(true);expect(leave).toHaveBeenCalledOnce();
+});
