@@ -33,12 +33,16 @@ export function validateDetours(stage) {
       let y = ground?.y ?? null;
       if (y === null) {
         const p = tr.toWorld(s);
-        for (const entity of stage.entities) {
-          const solid = entity.solid; if (!solid) continue;
-          if (!solid.enabled || solid.kind === 'moving' || solid.ref) continue;
+        for (const solid of stage.world.all) {
+          if (detour.solids.has(solid) || !solid.enabled || solid.kind !== 'static' || (solid.ref && solid.ref.constructor.name !== 'Lunchbox')) continue;
           if (p.x >= solid.min.x && p.x <= solid.max.x && p.z >= solid.min.z && p.z <= solid.max.z) y = Math.max(y ?? -Infinity, solid.max.y);
         }
       }
+      if (y === null && stage.entities.some(e => {
+        if (!['CrumblePlatform','FallBox'].includes(e.constructor.name) || !e.solid) return false;
+        const a = tr.project(e.solid.min.x,e.solid.min.z).s, b = tr.project(e.solid.max.x,e.solid.max.z).s;
+        return s >= Math.min(a,b)-.5 && s <= Math.max(a,b)+.5;
+      })) throw new Error('Detour skips a crumble/fall-box-only crossing');
       if (y === null) { gap += .5; if (gap > 6.5) throw new Error('Detour skipped stretch cannot be walked back'); continue; }
       if (lastY !== null && y - lastY > 3.9) throw new Error('Detour skipped stretch cannot be walked back');
       gap = 0; lastY = y;
@@ -129,7 +133,8 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
         return result;
       }
       if (base < 0 && track.spans.some(sp => overlap(a, b, sp.d0, sp.d1) && Math.abs(x - sp.u) < (w + sp.w) / 2 && track.spanDy(sp, Math.max(a, sp.d0)) > dy)) throw new Error('Burrow span would be covered by main-path ground');
-      if (base === 0 && Math.abs(x) - w / 2 < 6.1) throw new Error('Side detour needs a 1.8m pit beyond the main floor');
+      const entryBridge = Math.abs(b-a) <= 4 && [entryD,exitD].some(d => Math.min(a,b) >= d-2 && Math.max(a,b) <= d+2);
+      if (base === 0 && !entryBridge && Math.abs(x) - w / 2 < 6.1) throw new Error('Side detour needs a 1.8m pit beyond the main floor');
       return k.floor(a, b, { ...o, y: dy });
     };
     if (k.zipline) kd.zipline = (x0,y0,d0,x1,y1,d1,o) => k.zipline(x0,y0+base,d0,x1,y1+base,d1,o);

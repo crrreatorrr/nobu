@@ -47,6 +47,7 @@ describe('Chaser runtime', () => {
     game.session.cp.pos.copy(track.toWorld(50));chase.onRespawn();later.onRespawn();expect(game.camera.mode).toBe('trackFront');expect(game.camera.chaseOwner).toBe(chase);
     game.session.cp.pos.copy(track.toWorld(130));chase.onRespawn();later.onRespawn();expect(game.camera.chaseOwner).toBe(later);
     game.session.cp.pos.copy(track.toWorld(5));chase.onRespawn();later.onRespawn();expect(game.camera.mode).toBe('track');
+    later.activate(130,1.6);game.camera.setMode('side',{track});later.onRespawn();expect(game.camera.mode).toBe('side');
   });
   it('shares a track position across model lanes and applies model/scale', () => {
     const {chase}=fixture({model:'model_mini_roomba',scale:2,count:3,lanes:[-2.2,0,2.2]});

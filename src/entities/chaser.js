@@ -67,6 +67,7 @@ export class Chaser extends Entity {
     this.state = this.legacy ? 'wait' : 'idle';
     this.waitT = 99;
     this.speed = 0;
+    this.cameraOpts = { track, height: 6.6, dist: 12.5, behind: 0.5 };
     this._g = {};
     this._v = new THREE.Vector3();
     this._reset();
@@ -76,13 +77,14 @@ export class Chaser extends Entity {
   activate(s, delay) {
     this.begin(s - 13, delay); this.alwaysActive = true; this.obj.visible = true; this.visible = true;
     this.game.camera.chaseOwner = this;
-    this.game.camera.setMode('trackFront', { track: this.track, height: 6.6, dist: 12.5, behind: 0.5 });
+    this.game.camera.setMode('trackFront', this.cameraOpts);
     if (!this.bannerShown) { this.bannerShown = true; this.game.ui.banner('RUN!', 'Hold ↓ / S toward the camera', 2.6); }
     audio.play(this.model === 'smog_wall' ? 'suck' : 'whirr');
   }
   restoreCamera() {
     if (this.game.camera.chaseOwner !== this) return;
     this.game.camera.chaseOwner = null;
+    if (this.game.camera.opts !== this.cameraOpts) return;
     const c = this.stage.defaultCamera;
     if (c) this.game.camera.setMode(c.mode, c, 0.8);
   }
@@ -95,7 +97,7 @@ export class Chaser extends Entity {
     else {
       this.state = s < this.d0 ? 'idle' : 'done'; this.alwaysActive = false; this.visible = this.state === 'done';
       this.s = this.state === 'done' ? this.d1 : this.d0; this.y = this.track.heightAt(this.s); this._place();
-      if (this.state === 'done') this.rig.finish?.(); this.restoreCamera();
+      if (this.state === 'done') this.rig.finish?.(); this.obj.visible = this.visible; this.restoreCamera();
     }
   }
   _reset() {
@@ -160,7 +162,7 @@ export class Chaser extends Entity {
       if (this.state === 'idle' || this.state === 'done') return;
       if (this.model === 'giant_coconut' && this.pitT > 0) {
         this.pitT -= dt;
-        if (this.pitT <= 0) { this.s = Math.min(ps - 2.4, Math.max(this.pitEnd, ps - 13)); this.y = this.track.heightAt(this.s); this.obj.visible = true; this.visible = true; }
+        if (this.pitT <= 0) { this.s = Math.min(ps - 2.4, Math.max(this.pitEnd, ps - 13)); this.y = this.track.heightAt(this.s); this.obj.visible = true; this.visible = true; this._place(); }
         return;
       }
     }
