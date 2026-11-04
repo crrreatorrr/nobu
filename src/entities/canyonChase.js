@@ -17,6 +17,8 @@ export class CanyonChase extends ChaseCat {
   canCatch(gap, p) { return !p.frozen && !this.session?.busy && gap > -1 && gap < 2.4 && Math.abs(p.pos.y - this.y) < 2.5; }
   afterAdvance(ps, dt = 0) {
     if (this.leap?.corner) {
+      // Clip this frame's ordinary advance as well as the shortcut boost.
+      this.s=Math.min(this.s,this.leap.s1);
       this.s += Math.max(0, Math.min(8 * dt, this.leap.s1 - this.s, ps - 3.5 - this.s));
       return;
     }

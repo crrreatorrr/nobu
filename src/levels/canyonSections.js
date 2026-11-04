@@ -49,7 +49,7 @@ export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=t
   const arrows=k.arrowChain([[0,YA+48.5],[0,YA+51]],{power:16});
   for(const arrow of arrows){const land=arrow.onLand.bind(arrow);arrow.onLand=p=>{const result=land(p);const f=k.fwdAt(k.track.project(arrow.pos.x,arrow.pos.z).s);f.y=0;f.normalize();const forward=p.vel.dot(f);if(forward<8)p.vel.addScaledVector(f,8-forward);return result;};}
   k.bounceChain([corrections?[CANYON_BOUNCE_ITEM.x,CANYON_BOUNCE_ITEM.d]:[1.2,YA+53]],{y:0});k.floor(YA+54,YA+55,{w:9.2});
-  buildFlap(k,game,stage,labels);buildRiver(k,game,stage,labels);
+  buildFlap(k,game,stage,labels,{corrections});buildRiver(k,game,stage,labels);
   for(const spot of stage.entities.filter(e=>e.kind==='pitysnacks')){
     const onRespawn=spot.onRespawn.bind(spot);
     spot.onRespawn=()=>{
@@ -63,14 +63,14 @@ export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=t
   }
   stage.canyonExtension={layout:2,chase,arrows};
 }
-function buildFlap(k,game,stage,labels){
+function buildFlap(k,game,stage,labels,{corrections=true}={}){
   let start,floorY=Infinity;
   const detour=k.detour(D(118),D(117),{y:8,x:4.4,entry:'flap',build(kd){
     if(labels.flap)kd.section(labels.flap);
     const floors=kd.floor(D(118),D(134),{x:0,w:3,y:0,style:'platform',depth:.8});floorY=Math.min(...floors.map(e=>e.solid.max.y));start=kd.start(0,.05,D(118)).clone();
     for(const item of EXTENDED_DETOUR_ITEMS.filter(o=>o.detour==='flap'))kd[item.kind](item.x,item.y-8,item.d);
     kd.floor(D(136),D(141),{x:1.4,w:1.6,y:0,style:'platform',depth:.8});
-    kd.floor(D(144),D(158),{x:0,w:3,y:0,style:'platform',depth:.8});kd.tixArc(0,0,D(134),0,D(144),2,6);
+    kd.floor(D(corrections?154:144),D(158),{x:0,w:3,y:0,style:'platform',depth:.8});kd.tixArc(0,0,D(134),0,D(corrections?154:144),2,6);
     placeHiddenBone(k,game,stage,0,8,D(155),{move:'glide'});
     kd.post(1.5,0,D(157),8);
   }});

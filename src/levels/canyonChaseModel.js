@@ -15,6 +15,7 @@ export function simulateCanyon({start,catStart=start-13,delay=1.6,until,stops=[]
     const fort=hold.find(([a,b])=>ps>=a&&ps<b);if(fort){held=true;continue;}if(held){const h=hold.find(([,b])=>ps>=b);if(h){cs=h[2];speed=2.5;wait=1;held=false;}}
     if(wait>0){wait-=dt;continue;}
     const gap=ps-cs,target=chaseSpeed(gap,6.7,1,mul);if(cs>=leapEnd)speed+=(target-speed)*(1-Math.exp(-2*dt));cs+=speed*dt;
+    if(corner)cs=Math.min(cs,leapEnd);
     if(corner&&cs<leapEnd)cs+=Math.max(0,Math.min(8*dt,leapEnd-cs,ps-3.5-cs));
     if(cs>=leapEnd)corner=false;
     for(let i=0;i<cuts.length;i++){const[a,b]=cuts[i];if(!used.has(i)&&cs>=a){used.add(i);if(cs<=b&&ps-b>=3.5){leapEnd=b;corner=true;speed=Math.max(speed,7.5);}}}

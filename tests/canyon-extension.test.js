@@ -176,3 +176,29 @@ test('actual river Shellback patrol remains on its own sunken lane outside the p
  for(let i=0;i<600;i++)enemy.update(1/60);
  const pr=stage.track.project(enemy.pos.x,enemy.pos.z);expect(pr.u).toBeLessThan(-6.4);expect(pr.u).toBeGreaterThan(-8.6);expect(enemy.pos.y-stage.track.heightAt(pr.s)).toBeCloseTo(-5,1);
 });
+
+test('fixed-player corner landing keeps the full 3.5m boundary at30/60/120Hz without moving backwards',()=>{
+ for(const hz of [30,60,120]){
+ const{stage,game,built}=fixture(),cat=built.chase;game.player.body.s=216;game.player.pos.copy(stage.track.toWorld(216));cat.begin(207.5,0);cat.state='run';let cut=false,landed=false,previous=cat.s;
+ for(let i=0;i<hz*3;i++){const before=!!cat.leap?.corner;cat.update(1/hz);expect(cat.s).toBeGreaterThanOrEqual(previous);previous=cat.s;cut||=!!cat.leap?.corner;if(before&&!cat.leap){landed=true;expect(game.player.body.s-cat.s).toBeGreaterThanOrEqual(3.5);break;}}
+ expect(cut).toBe(true);expect(landed).toBe(true);
+ }
+});
+
+test('corrected optional gap requires Glide in the actual Player timing sweep while the literal ledge bypasses it',async()=>{
+ const{Player}=await import('../src/player/player.js'),{input}=await import('../src/core/input.js');const outcomes=[];
+ const cases=[...[.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9].map(doubleTime=>({glide:false,doubleTime,corrections:true})),{glide:true,doubleTime:.7,corrections:true},{glide:false,doubleTime:.7,corrections:false}];
+ for(const{glide,doubleTime,corrections}of cases){
+ const{stage,game}=fixture({corrections});save.data.godMode=false;save.data.beaten[1]=glide;game.fx=new Proxy(game.fx,{get:(o,k)=>o[k]??(()=>{})});game.onPlayerDeath=()=>{};game.session.onPlayerDeath=()=>{};game.session.onBreak=()=>{};game.session.checkpoint=()=>{};
+ for(const e of stage.entities)if(e.constructor.name==='HiddenBone')e.interactive=false;
+ const p=new Player(game);game.player=p;p._animate=()=>{};p._updateShadow=()=>{};p.spawnAt(stage.track.toWorld(170.6,1.4,8.01),stage.track.yaw(170.6));
+ const old={x:input.state.x,y:input.state.y};input.state.x=0;input.state.y=1;let tick=0;
+ const pressed=vi.spyOn(input,'pressed').mockImplementation(action=>action==='jump'&&(tick===1||tick===Math.round(doubleTime*120)||glide&&tick===Math.round((doubleTime+.15)*120))),held=vi.spyOn(input,'held').mockImplementation(action=>action==='jump');
+ for(const e of stage.entities)if(e.solid&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-170)<.1&&e.pos.y-stage.track.heightAt(170)>7){e.solid.enabled=false;e.broken=true;e.interactive=false;}
+ input.state.y=0;for(let settle=0;settle<20;settle++)p.update(1/120,stage,{forward:stage.track.tangent(p.body.s),right:stage.track.right(p.body.s)});expect(p.body.grounded).toBe(true);input.state.y=1;
+ let reached=false,maxS=p.body.s;
+ for(tick=0;tick<360;tick++){p.update(1/120,stage,{forward:stage.track.tangent(p.body.s),right:stage.track.right(p.body.s)});maxS=Math.max(maxS,p.body.s);if(p.body.s>(corrections?184:174)&&p.body.grounded&&p.pos.y-stage.track.heightAt(p.body.s)>7){reached=true;break;}if(p.pos.y-stage.track.heightAt(p.body.s)<4)break;}
+ outcomes.push({glide,doubleTime,corrections,reached,maxS});pressed.mockRestore();held.mockRestore();Object.assign(input.state,old);
+ }
+ expect(outcomes.filter(o=>o.corrections&&!o.glide).some(o=>o.reached)).toBe(false);expect(outcomes.some(o=>o.glide&&o.reached)).toBe(true);expect(outcomes.find(o=>!o.corrections).reached).toBe(true);
+});
