@@ -13,7 +13,7 @@ afterEach(() => vi.restoreAllMocks());
 const rescued = (n) => { const keys = Object.values(LEVELS).flatMap((d) => Object.keys(d.dogs || {}).map((id) => `${d.id}:${id}`)); save.data.dogsFreed = Object.fromEntries(keys.slice(0, n).map((id) => [id, true])); save.data.open.kennel = true; };
 it('adds an unlockable meta map node without adding a playable level or board', async () => {
   expect(isOpen('kennel', save.data)).toBe(false); rescued(1); expect(isOpen('kennel', save.data)).toBe(true);
-  expect(playOrder()).toEqual([1, 2, 3]); expect(LEVELS.kennel.build).toBeUndefined(); expect(LEVELS.kennel.trial).toBe(false);
+  expect(playOrder()).toEqual([1, 2, 3, 4]); expect(LEVELS.kennel.build).toBeUndefined(); expect(LEVELS.kennel.trial).toBe(false);
   const ui = { setScreen: vi.fn(), boneBoard: vi.fn(() => { throw Error('Kennel cannot have a board'); }) };
   const game = { mapSel: 'kennel', ui, exchangeOpen: false, _worldLine: vi.fn(() => { throw Error('No Kennel leaderboard'); }) };
   Game.prototype._drawMap.call(game);

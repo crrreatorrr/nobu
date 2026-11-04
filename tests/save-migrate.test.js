@@ -187,7 +187,7 @@ describe('keyed runtime readers', () => {
     if (Number(id) < 3) expect(isOpen(Number(id) + 1, save.data)).toBe(true);
     if (Number(id) === 1) expect(isOpen('ride', save.data)).toBe(true);
     if (Number(id) === 2) expect(isOpen('cave', save.data)).toBe(true);
-    expect(save.data.open[4]).toBeUndefined();
+    expect(save.data.open[4]).toBe(Number(id) === 3 ? true : undefined);
     for (let opened = 1; opened <= Math.min(3, Number(id) + 1); opened++) expect(isOpen(opened, save.data)).toBe(true);
     bank.mockRestore();
   });

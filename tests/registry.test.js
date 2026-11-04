@@ -9,6 +9,9 @@ import { buildBonusRideCandidate as buildBonusRide } from '../src/levels/bonusRi
 import { buildBonusCaveCandidate as buildBonusCave } from '../src/levels/bonusCave.js';
 import { MechaBird } from '../src/bosses/mechaBird.js';
 import { BigCatBoss } from '../src/bosses/bigCat.js';
+import { buildLevel4 } from '../src/levels/level4.js';
+import { buildBoss4Arena } from '../src/levels/boss4Arena.js';
+import { RoombaTitan } from '../src/bosses/roombaTitan.js';
 import { EvilCone } from '../src/bosses/evilCone.js';
 
 const oldMapOpen = (id, data) => {
@@ -19,12 +22,12 @@ const oldMapOpen = (id, data) => {
 
 describe('level registry', () => {
   it('keeps the current map order, node positions and main-level ids', () => {
-    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 'kennel']);
-    expect(playOrder()).toEqual([1, 2, 3]);
+    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 4, 'kennel']);
+    expect(playOrder()).toEqual([1, 2, 3, 4]);
     expect(MAP_ORDER.map((id) => levelDef(id).mapPos)).toEqual([
-      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 72 },
+      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 40 }, { x: 88, y: 72 },
     ]);
-    for (const id of [1, 2, 3]) {
+    for (const id of [1, 2, 3, 4]) {
       expect(levelDef(id).id).toBe(id);
       expect(levelDef(String(id))).toBe(levelDef(id));
     }
@@ -56,6 +59,7 @@ describe('level registry', () => {
       [1, buildLevel1, buildBoss1Arena, MechaBird, 'bird', 1, 'boss1', 'Bark Jungle'],
       [2, buildLevel2, buildBoss2Arena, BigCatBoss, 'cat', 2, 'boss2', 'Scratchpost Canyon'],
       [3, buildLevel3, buildBoss3Arena, EvilCone, 'cone', 3, 'boss3', 'The Cone Factory'],
+      [4, buildLevel4, buildBoss4Arena, RoombaTitan, 'titan', 4, 'boss4', 'Laundry Day'],
       ['ride', buildBonusRide, undefined, undefined, undefined, 'house', undefined, 'Roomba Rush'],
       ['cave', buildBonusCave, undefined, undefined, undefined, 'cave', undefined, 'Glowworm Grotto'],
     ];
@@ -68,32 +72,32 @@ describe('level registry', () => {
   });
 
   it('marks only current content shipped and only main levels trial-enabled', () => {
-    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => levelDef(id).tier)).toEqual([1, 1.5, 2, 2.5, 3]);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => levelDef(id).tier)).toEqual([1, 1.5, 2, 2.5, 3, 4]);
     expect(Object.values(LEVELS).every((def) => def.shipped)).toBe(true);
-    expect(MAP_ORDER.filter((id) => levelDef(id).trial)).toEqual([1, 2, 3]);
-    for (const id of [4, 5, 6, 'g1', 'toString']) {
+    expect(MAP_ORDER.filter((id) => levelDef(id).trial)).toEqual([1, 2, 3, 4]);
+    for (const id of [5, 6, 'g1', 'toString']) {
       expect(levelDef(id)).toBeUndefined();
       expect(isOpen(id, { unlocked: 9 })).toBe(false);
     }
     // A caller cannot accidentally change the order by sorting its result.
     playOrder().reverse();
-    expect(playOrder()).toEqual([1, 2, 3]);
+    expect(playOrder()).toEqual([1, 2, 3, 4]);
   });
 
   it('exposes migration dog ids in stable authoring order with current counts', () => {
     expect(LEVEL_IDS).toEqual(['1', '2', '3', '4', '5', '6', 'ride', 'cave']);
-    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 3, 4, 5]);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 3, 4, 5, 7]);
     expect(Object.keys(LEVEL_DOGS[1])).toEqual(['shiba-a','pug-a','dalmatian-a','shiba-b','corgi-a','pug-b','dalmatian-b','corgi-b','shiba-c']);
     const ids = [];
     for (const def of Object.values(LEVELS).filter((d) => !d.meta)) {
       expect(def.dogs).toBe(LEVEL_DOGS[def.id]);
       for (const [dog, section] of Object.entries(def.dogs)) {
         const id = `${def.id}:${dog}`;
-        expect(id).toMatch(/^(1|2|3|ride|cave):[a-z]+-[a-z0-9]+$/);
+        expect(id).toMatch(/^(1|2|3|4|ride|cave):[a-z]+-[a-z0-9]+$/);
         expect(section.length).toBeGreaterThan(0);
         ids.push(id);
       }
     }
-    expect(new Set(ids).size).toBe(25);
+    expect(new Set(ids).size).toBe(32);
   });
 });
