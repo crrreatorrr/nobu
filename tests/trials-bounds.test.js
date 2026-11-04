@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { TRIAL_BOARD, TRIAL_CEIL_MS, TRIAL_FLOOR_MS, trialMsInBounds } from '../src/config/trials.js';
+import { TRIAL_BOARD, TRIAL_CEIL_MS, TRIAL_FLOOR_MS, trialMsInBounds, trialLayout, trialVariant } from '../src/config/trials.js';
 import { TUNING } from '../src/player/player.js';
 
 // Track distance from the level spawn to the boss-gate trigger that ends the trial.
@@ -27,9 +27,9 @@ function gateDistance(level) {
 }
 
 describe('trial bounds (metaverse-hub CONTRACT C13)', () => {
-  it('matches the hub numbers', () => {
+  it('preserves Classic hub bounds and declares gated v2 bounds', () => {
     expect(TRIAL_BOARD).toBe('nobu_trial_time');
-    expect(TRIAL_FLOOR_MS).toEqual({ 1: 15000, 2: 15000, 3: 12000 });
+    expect(TRIAL_FLOOR_MS).toEqual({ 1: 15000, 2: 15000, 3: 12000, '1v2': 25700, '2v2': 26000, '3v2': 20600 });
     expect(TRIAL_CEIL_MS).toBe(1_800_000);
   });
 
@@ -37,9 +37,9 @@ describe('trial bounds (metaverse-hub CONTRACT C13)', () => {
     expect(TUNING.SLIDE_SPEED).toBe(12.5);
     for (const level of [1, 2, 3]) {
       const dist = gateDistance(level);
-      expect(dist).toBeGreaterThan(200);
+      expect(dist).toBeGreaterThan(trialLayout(level) > 1 ? 400 : 200);
       const fastestMs = (dist / TUNING.SLIDE_SPEED) * 1000;
-      expect(fastestMs, `level ${level}: ${dist} m`).toBeGreaterThan(TRIAL_FLOOR_MS[level]);
+      expect(fastestMs, `level ${level}: ${dist} m`).toBeGreaterThan(TRIAL_FLOOR_MS[trialVariant(level)]);
     }
   });
 

@@ -20,7 +20,7 @@ import { input } from '../core/input.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
-import { TRIAL_TARGETS, trialMedal, fmtTime } from '../config/trials.js';
+import { TRIAL_TARGETS, trialMedal, fmtTime, trialLayout, trialVariant } from '../config/trials.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // Let the loading bar paint before the next synchronous build step. rAF stops in a
@@ -258,11 +258,13 @@ export class Session {
   _finishTrial() {
     const g = this.game, t = this.trialT;
     this.trialRunning = false;
-    const medal = trialMedal(this.level, t);
+    const layout = trialLayout(this.level), variant = trialVariant(this.level, layout);
+    const medal = trialMedal(variant, t);
     const ms = Math.round(t * 1000);
     const d = save.data;
     d.trials ||= {};
-    const prev = d.trials[this.level];
+    const candidate = d.trials[this.level];
+    const prev = (candidate?.layout ?? 1) === layout ? candidate : null;
     const prevMs = Number.isInteger(prev?.ms) ? prev.ms : Number.isFinite(prev?.best) ? Math.round(prev.best * 1000) : null;
     const best = prevMs == null || ms < prevMs;
     const deaths = this.deaths | 0;
@@ -270,7 +272,7 @@ export class Session {
     // pid ties the record to the hub player that set it. Standalone and god-mode records have
     // none, so they are never uploaded later.
     const pid = d.godMode ? null : hub.playerId();
-    if (best) d.trials[this.level] = { best: t, ms, medal, at: Date.now(), deaths, freezeMs, pid };
+    if (best) d.trials[this.level] = { best: t, ms, medal, at: Date.now(), deaths, freezeMs, pid, layout };
     save.write();
     hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     if (!d.godMode && pid) {
@@ -278,7 +280,7 @@ export class Session {
       // The queue skips anything not faster than what it already queued or the hub holds.
       // A local best this player set earlier is sent instead, in case its first send was lost.
       const rec = d.trials[this.level];
-      const own = !best && rec && rec.pid === pid && Number.isInteger(rec.ms) && rec.ms <= ms;
+      const own = !best && rec && (rec.layout ?? 1) === layout && rec.pid === pid && Number.isInteger(rec.ms) && rec.ms <= ms;
       if (own) hub.submitScore(rec.ms, this.level, { deaths: rec.deaths | 0, freezeMs: rec.freezeMs | 0 }).catch(() => {});
       else hub.submitScore(ms, this.level, { deaths, freezeMs }).catch(() => {});
     }

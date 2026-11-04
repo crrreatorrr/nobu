@@ -1,5 +1,5 @@
 // Progress persistence in localStorage (every access wrapped; the game runs fine without it).
-import { TRIAL_FLOOR_MS, TRIAL_LEVELS, trialMedal } from '../config/trials.js';
+import { TRIAL_FLOOR_MS, TRIAL_LEVELS, trialMedal, trialLayout, trialVariant } from '../config/trials.js';
 import { LEVEL_IDS, LEVEL_DOGS } from '../levels/metadata.js';
 
 const KEY = 'nobu-saviour-dog-save-v1';
@@ -56,13 +56,14 @@ const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const finite = (v, dflt) => (Number.isFinite(v) ? v : dflt);
 const count = (v) => (Number.isFinite(v) && v > 0 ? v : 0);
 
-function sanitizeTrial(level, e) {
-  if (!isObj(e)) return null;
+function sanitizeTrial(level, e, layout = trialLayout(level)) {
+  if (!isObj(e) || (e.layout ?? 1) !== layout) return null;
+  const variant = trialVariant(level, layout);
   const ms = Number.isInteger(e.ms) ? e.ms : Number.isFinite(e.best) ? Math.round(e.best * 1000) : NaN;
   // Below the hub floor is not a time anyone can play, so it is a bad value, not a record.
-  if (!(ms >= TRIAL_FLOOR_MS[level])) return null;
+  if (!(ms >= TRIAL_FLOOR_MS[variant])) return null;
   const best = Number.isFinite(e.best) && Math.round(e.best * 1000) === ms ? e.best : ms / 1000;
-  const out = { best, ms, medal: trialMedal(level, best) };
+  const out = { best, ms, medal: trialMedal(variant, best), layout };
   if (Number.isFinite(e.at)) out.at = e.at;
   if (Number.isInteger(e.deaths) && e.deaths >= 0) out.deaths = e.deaths;
   if (Number.isFinite(e.freezeMs) && e.freezeMs >= 0) out.freezeMs = Math.round(e.freezeMs);
@@ -70,14 +71,27 @@ function sanitizeTrial(level, e) {
   return out;
 }
 
-export function sanitizeTrials(raw) {
+export function sanitizeTrials(raw, layout) {
   const out = {};
   if (!isObj(raw)) return out;
   for (const level of TRIAL_LEVELS) {
-    const e = sanitizeTrial(level, raw[level]);
+    const e = sanitizeTrial(level, raw[level], layout ?? trialLayout(level));
     if (e) out[level] = e;
   }
   return out;
+}
+
+// Layout changes can happen after v3 has already shipped, so this migration is
+// independent of the save-version migration. Unextended levels keep their records.
+export function migrateTrialLayouts(trials, classic) {
+  const current = sanitizeTrials(trials);
+  const archive = sanitizeTrials(classic, 1);
+  for (const level of TRIAL_LEVELS) {
+    if (trialLayout(level) === 1) continue;
+    const old = sanitizeTrial(level, trials?.[level], 1);
+    if (old && (!archive[level] || old.ms < archive[level].ms)) archive[level] = old;
+  }
+  return { trials: current, trialsClassic: archive };
 }
 
 function sanitizeBonus(raw) {
@@ -155,8 +169,7 @@ export function migrateSave(old) {
 
 function sanitize(d) {
   const f = fresh();
-  d.trials = sanitizeTrials(d.trials);
-  d.trialsClassic = sanitizeTrials(d.trialsClassic);
+  Object.assign(d, migrateTrialLayouts(d.trials, d.trialsClassic));
   d.bestDogs = countMap(d.bestDogs);
   d.bestChain = countMap(d.bestChain);
   d.bonus = sanitizeBonus(d.bonus);
@@ -194,6 +207,7 @@ function mergeTrials(mine, disk) {
 // Keep permanent progress from another tab, including writers still using v2.
 // Tickets/lives and cosmetic choices stay local: they are not high scores.
 function mergeScores(mine, raw) {
+  Object.assign(mine, migrateTrialLayouts(mine.trials, mine.trialsClassic));
   const disk = sanitize({ ...fresh(), ...migrateSave(raw) });
   mine.trials = mergeTrials(mine.trials, disk.trials);
   mine.trialsClassic = mergeTrials(mine.trialsClassic, disk.trialsClassic);
