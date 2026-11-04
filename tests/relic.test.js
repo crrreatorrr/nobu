@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Session } from '../src/game/session.js';
 import { hub } from '../src/hub/hubBridge.js';
@@ -18,6 +19,7 @@ afterEach(() => {
 
 function bossSession(attempt, bossKey) {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   session.attemptId = attempt.id;
   session.attemptDurable = true;
   session.def = { bossKey };

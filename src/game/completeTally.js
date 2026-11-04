@@ -8,7 +8,7 @@ const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;'
 
 // Board HTML comes from the normal UI board renderer; fresh remains its ordered key array.
 export function openCompleteTally(game, n, stats, fresh, bonus, { board, hint, milestones = [] }) {
-  game.state = 'complete'; game.completeT = 0;
+  game.state = 'complete'; game.completeMode = 'tally'; game.completeT = 0;
   game.completeNext = { n, bonus };
   game.tallyCanSkip = !!save.data.tutorials.tallySeen;
   game.tallyFinished = false;

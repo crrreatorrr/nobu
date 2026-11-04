@@ -38,3 +38,13 @@ it('uses real section goal copy on the map and pause screen without inventing sa
  expect(u.screen.querySelector('.map-panel').textContent).not.toContain('? deaths');
  Game.prototype._drawPause.call(g);expect(u.screen.textContent).toContain('2 backpacks missed near Lily Pond');
 });
+it.each([false,true])('keeps trialDone continuation separate from tally state (prior normal tally: %s)',async(prior)=>{
+ const u=ui(),g={ui:u,player:{abilities:{}},toMap:vi.fn()};
+ if(prior)Game.prototype._showComplete.call(g,1,{broken:1,breakables:2,dogs:0,dogsTotal:5,tickets:1,bestChain:5},[]);
+ Game.prototype.trialDone.call(g,{level:1},60,'silver',true);
+ expect(g.completeMode).toBe('trial');expect(g.tally).toBeNull();
+ const pressed=vi.spyOn(input,'anyPressed').mockReturnValue(true);
+ await Game.prototype.updateComplete.call(g,1);expect(g.toMap).not.toHaveBeenCalled();
+ await Game.prototype.updateComplete.call(g,1.31);expect(g.toMap).toHaveBeenCalledWith(1);
+ expect(save.data.tutorials.tallySeen).not.toBe(true);expect(save.data.chainBadges).toEqual({});
+});

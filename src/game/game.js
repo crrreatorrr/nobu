@@ -793,6 +793,8 @@ export class Game {
     const n = session.level;
     const [g, s, b, p] = TRIAL_TARGETS[trialVariant(n)];
     this.state = 'complete';
+    this.completeMode = 'trial';
+    this.tally = null; this.tallyStats = null;
     this.completeT = 0;
     this.completeNext = { n, bonus: true };
     this.completeMinT = 2.3;
@@ -832,7 +834,11 @@ export class Game {
   }
 
   async updateComplete(dt) {
-    if (advanceCompleteTally(this, dt, input.anyPressed()) && this.completeNext) {
+    const pressed = input.anyPressed();
+    let ready;
+    if (this.completeMode === 'tally') ready = advanceCompleteTally(this, dt, pressed);
+    else { this.completeT += dt; ready = this.completeT > (this.completeMinT || 2.3) && pressed; }
+    if (ready && this.completeNext) {
       const { n, bonus } = this.completeNext;
       this.completeNext = null;
       audio.play('select');
