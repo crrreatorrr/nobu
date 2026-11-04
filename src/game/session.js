@@ -1,6 +1,7 @@
 // A play session for one level: the path stage, then its boss arena (bonus stages end at a goal instead).
 // Owns checkpoints (with Crash-style rollback on death), lives, tickets, masks, invincibility and stats.
 import * as THREE from 'three';
+import { ddaFor, armCheckpointPity } from './dda.js';
 import { masteryTrialMedal, trialMastery, mergeTrialMastery, perfectRun } from './mastery.js';
 import { addBuddy } from '../entities/buddy.js';
 import { Stage } from '../world/stage.js';
@@ -795,8 +796,11 @@ export class Session {
     g.player.spawnAt(cp.pos, cp.facing);
     if (g.player.ride) g.player.ride.speedK = 0;
     g.camera.snap(g.player);
-    // pity mask after a few deaths at the same checkpoint (classic!)
-    if (this.phase !== 'boss') this.setMask(this.deathsAtCp >= 3 ? 1 : 0);
+    // Ordinary checkpoint help follows the same ladder and mode exclusions as pity spots.
+    if (this.phase !== 'boss') {
+      this.setMask(ddaFor(this.deathsAtCp, this).masks);
+      armCheckpointPity(this);
+    }
     g.mask.snapTo(g.player);
     this._pushHud();
     if (this.chase && this.stage.track) {

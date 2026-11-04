@@ -7,6 +7,7 @@ import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
 import { updraft } from './updraft.js';
 import { canvasTex } from '../core/util.js';
+import { checkpointHelpAllowed } from '../game/dda.js';
 
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 const dotGeo = new THREE.SphereGeometry(0.09, 6, 4);
@@ -174,7 +175,8 @@ export class PitySnacks extends Snacks {
   constructor(...args) { super(...args); this.kind = 'pitysnacks'; this.countable = false; this.armed = false; this.interactive = false; this.visible = false; this.obj.visible = false; this.drop = 0; }
   arm() {
     const s = this.session;
-    if (this.armed || s.trial || s.remix || s.medal || s.bossMedal || s.rush) return false;
+    // Manual/dev arming shares the same competitive exclusions as respawn help.
+    if (this.armed || !checkpointHelpAllowed(s)) return false;
     this.armed = true; this.visible = true; this.obj.visible = true; this.interactive = true; this.drop = 2; this.obj.position.y = this.pos.y + 2;
     this.fx.burst(this.pos.x, this.pos.y, this.pos.z, { count: 18, colors: [0xffffff, 0xffd23f], speed: 3 }); audio.play('chime'); return true;
   }
