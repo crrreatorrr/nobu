@@ -13,6 +13,9 @@ const {validatePattern}=await import('../src/levels/gauntletMath.js');
 const {Breakable}=await import('../src/entities/entity.js');
 const {Snacks,Backpack}=await import('../src/entities/breakables.js');
 const {measureTicketBudget}=await import('../src/game/measureTicketBudget.js');
+const {checkTicketBudget,budgetDifferences,ticketBudget}=await import('../src/game/ticketBudget.js');
+const {LEVEL_BUDGETS}=await import('../src/levels/data/budgets.js');
+const {inspectTicketBudget}=await import('../src/game/devTicketBudget.js');
 export function fixture(id='g1',corrections=true,options={}){
  const g={player:{pos:new THREE.Vector3(1000,0,0),body:{s:0,u:0},abilities:{}},ui:{tutorial:vi.fn(),banner:vi.fn()},fx:new Proxy({},{get:()=>()=>{}}),camera:{shake(){}}};
  let seq=0;g.session={level:id,deaths:0,deathsAtCp:0,nextSeq:()=>++seq,onBreak:vi.fn(),reachGoal:vi.fn(),setCheckpoint:vi.fn()};
@@ -32,7 +35,22 @@ for(const[id,def]of Object.entries(GAUNTLET_INFO)){
   for(const cp of s.entities.filter(e=>e.kind==='snacks'))expect(s.world.groundBelow(cp.pos.x,cp.pos.y+.1,cp.pos.z,.01)).toBeCloseTo(cp.pos.y,2);
   expect(tr.triggers.find(t=>t.d===def.goal)).toBeTruthy();tr.triggers.find(t=>t.d===def.goal).fn();expect(g.session.reachGoal).toHaveBeenCalledOnce();
  });
+ test(`${id} reserves its first five whole Tickets in the actual measured cap and developer report`,()=>{
+  const{s,t}=fixture(id),measured=measureTicketBudget(s,t,0);
+  expect(measured.firstClearWhole).toBe(5);expect(budgetDifferences(LEVEL_BUDGETS[id],measured)).toEqual([]);
+  expect(checkTicketBudget(id,measured)).toMatchObject({raw:0,coconut:0,wholeMax:5,cap:5});
+  expect(()=>checkTicketBudget(id,measured,4)).toThrow('5 exceeds fixed cap 4');
+  const table=vi.spyOn(console,'table').mockImplementation(()=>{});
+  try{expect(inspectTicketBudget({session:{level:id,phase:'level',stage:s,tickets:t}})).toMatchObject({wholeMax:5,cap:5,differences:[]});}
+  finally{table.mockRestore();s.dispose();}
+ });
 }
+test('ordinary budget shape and zero-default semantics stay unchanged; malformed first-clear reserves are rejected',()=>{
+ const ordinary=measureTicketBudget({entities:[]},{list:[]});
+ expect(ordinary).not.toHaveProperty('firstClearWhole');expect(ticketBudget(ordinary)).toEqual({raw:0,coconut:0,wholeMax:0});
+ expect(budgetDifferences(ordinary,{...ordinary,firstClearWhole:0})).toEqual([]);
+ for(const value of[-1,1.5,'5',null])expect(()=>checkTicketBudget('g1',{...LEVEL_BUDGETS.g1,firstClearWhole:value})).toThrow('Invalid Ticket budget g1.firstClearWhole');
+});
 test('retains negative source fixtures for all stage tells/rest/physics corrections',()=>{
  for(const id of ['g1-P2','g1-P7','g1-P10','g1-P5','g2-P7','g2-P16','g3-P3','g3-P7','g3-P16'])expect(validatePattern(Object.values(GAUNTLET_SOURCE_PATTERNS).flat().find(p=>p.id===id)).length,id).toBeGreaterThan(0);
 });
