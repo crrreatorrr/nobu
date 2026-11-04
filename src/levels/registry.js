@@ -49,8 +49,8 @@ export const LEVELS = {
 };
 
 for (const [id, def] of Object.entries(LEVELS)) {
-  def.sections = levelSections(id, SECTION_TEXT);
-  def.hidden = { section: SECTION_TEXT[HIDDEN_SECTION[id]], move: null };
+  def.sections ??= levelSections(id, SECTION_TEXT);
+  if (HIDDEN_SECTION[id]) def.hidden ??= { section: SECTION_TEXT[HIDDEN_SECTION[id]], move: null };
 }
 
 export const MAP_ORDER = [1, 'ride', 2, 'cave', 3];

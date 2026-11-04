@@ -74,3 +74,17 @@ describe('one next goal', () => {
     expect(sectionName(sections, 25)).toBe('Main'); expect(sectionName(sections, 25, { detour: true })).toBe('Sky');
   });
 });
+it('map hints use only durable misses and dog IDs, with generic goals when the last performance is unknown', async () => {
+  const { savedGoalStats } = await import('../src/game/hints.js');
+  const stats = savedGoalStats({ lastMiss: { 1: { Pond: 2 } }, dogsFreed: { '1:pug-a':true } },1,{ dogs:{'pug-a':'Pond','shiba-a':'Canopy'} });
+  expect(stats).toEqual({ sectionMiss:{Pond:2},missedDogs:{Canopy:1} });
+  expect(stats).not.toHaveProperty('deathsAtGate'); expect(stats).not.toHaveProperty('snackRaw');
+  expect(nextGoal({golden:true},stats).key).toBe('hintGoodBoyGoal');
+  expect(nextGoal({golden:true,goodBoy:true,hidden:true,snack:2},stats).key).toBe('hintSnackGoal');
+});
+it('maps each real position to a section without counting overlapping sky sections twice', async () => {
+  const { missesBySection } = await import('../src/game/hints.js');
+  const sections = [{d0:0,d1:50,name:'Main'},{d0:10,d1:20,name:'Sky',detour:true}];
+  const items = [{pos:{x:0,z:15}},{pos:{x:0,z:15},detour:true},{pos:{x:0,z:80}}];
+  expect(missesBySection(items,sections,(_x,z)=>({s:z}),'the path')).toEqual({Main:1,Sky:1,'the path':1});
+});

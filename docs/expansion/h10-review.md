@@ -1,0 +1,15 @@
+# H10: Chomp Chain, tally and one next goal
+
+Work in progress; runtime wiring waits for merged H11 and the H05 Session ownership release.
+
+The combo uses a 1.1-second grounded clock (Roomba riding also advances it). Airborne time and transitions pause the clock. Countable breaks and defeated enemies increment independently, including same-frame explosions; partial Zipped Backpack bites only refresh. The reward is one noncountable Blue Sphere per checkpoint/life, without any Ticket multiplier. Death/respawn and round/gate transitions end the combo. Drop sequence IDs allow lost-tray rollback to remove only its spawned spheres, while respawn removes all chain drops. Best chains and chain-15 badges bank only on eligible clears.
+
+The tally is one deterministic game-time timeline, with no delayed reveal callbacks: backpacks, dogs, Tickets, Best Chain, saved board silhouettes, new stamps, typed hint, Kennel notices, continue prompt. Its rendering and sounds can be advanced silently to the final frame after the first complete viewing. H11's fresh stamp array and banking contract are retained.
+
+All current level builders share numeric section rows with registry metadata; labels live in story/script.js. Stable dog labels are verified against their real current distances. Hidden metadata describes H11's temporary current placements, all ungated; extensions must update both the placement and metadata. Main and overlapping detour sections are distinguished by entity context.
+
+Map hints only use durable data: last recorded breakable misses plus permanently known missing dog IDs. The save does not retain deaths or raw Snack ratios, so map fallback copy states a missing goal without claiming an invented last-run performance. Names are bounded to 40 characters and 12 section keys. Normal run/pause/results hints can use actual live or frozen stats.
+
+Tests cover grounded/airborne/ride clocks, same-frame hits, refresh and reset, drop limits and suppressed contexts, real BlueSphere placement and scene removal, max records/badges without Ticket mutation, original/default sound pitch and explicit combo pitch, section coverage and dog/hidden alignment, one-hint priority and conservative saved-only hints, and DOM count/stamp/skip rendering.
+
+Manual checks still to run: L1 chain-eight through natural play, die and retry, first full unskippable tally then repeat skip, and trial counter without a sphere. No human movement/controller playthrough or first-time playtest is claimed. No new media, vendor changes, deployment or permission changes.

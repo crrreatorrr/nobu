@@ -41,3 +41,19 @@ export function nextGoal(board = {}, stats = {}, ctx = {}, abilities = {}, copy 
   if (!ctx.bonus && (board.snack || 0) < 3) return result('hintSnackGoal', [[40, 60, 80][board.snack || 0]]);
   return result(ctx.trialAvailable ? 'hintCompleteTrial' : 'hintComplete');
 }
+
+export function savedGoalStats(data, id, def) {
+  const missedDogs = {};
+  for (const [dog, section] of Object.entries(def.dogs || {})) if (!data.dogsFreed?.[`${id}:${dog}`]) missedDogs[section] = (missedDogs[section] || 0) + 1;
+  return { sectionMiss: boundedMiss(data.lastMiss?.[id]), missedDogs };
+}
+
+export function missesBySection(entities, sections, project, fallback) {
+  const misses = {};
+  for (const entity of entities) {
+    const distance = entity.pos ? project(entity.pos.x, entity.pos.z).s : NaN;
+    const name = sectionName(sections, distance, entity) || fallback;
+    misses[name] = (misses[name] || 0) + 1;
+  }
+  return boundedMiss(misses);
+}
