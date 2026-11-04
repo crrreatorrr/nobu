@@ -66,3 +66,8 @@ The reviewer also reproduced Stage.update overwriting the escort's root visibili
 The blink now uses the Entity.visible flag as well as the root mesh, restoring both at tell end.
 An actual Stage-order regression covers dark/light frames and completion without stopping drone
 updates or altering collision/rewards. All17 Bird-focused tests pass. The final full suite passed56files/559tests and the build passed120modules after this correction.
+
+After H12 merged at **e517a55**, the Bird branch rebased without conflicts or implementation edits.
+H12 main-path Mystery placements, budget work, Hidden Bones and sections are preserved. Final
+integration checks passed **58 files / 584 tests** and the production build passed **121 modules**;
+`git diff --check` passed. Prior independent review fixes are unchanged. No new GPU session was used.
