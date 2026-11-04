@@ -356,6 +356,11 @@ export class PumpQueen extends Boss {
       this.setState('awaitLadder');
       this.pendingPump = true;
     } else if (s === 'pump') this.pendingPump = false;
+    if (s === 'pump' && this.state === 'pump') {
+      this.pumpPulseT = 0;
+      audio.play('charge');
+    }
+    if (s === 'fomo') audio.play('charge', 1.5);
     if (s === 'airdrop') {
       const targets = this.arena.pillars
         .slice()
@@ -367,9 +372,13 @@ export class PumpQueen extends Boss {
         )
       );
     }
-    if (s === 'crash') this.arena.beginCrash(this.player, this.tell);
+    if (s === 'crash') {
+      this.arena.beginCrash(this.player, this.tell);
+      this.crashNotes = 1; // The arena starts the first of three warning blips.
+    }
     if (s === 'liquidation') {
       this.lastGreen = this.arena.beginLiquidation(this.player);
+      this.safeChimeT = 0.65;
       audio.play('chime');
     }
     if (s === 'wake') {
@@ -389,6 +398,7 @@ export class PumpQueen extends Boss {
     if (s === 'ultimate') {
       this.beginUlt();
       this.trueGreen = this.arena.beginUltimate(this.player, this.tell, this.phase);
+      this.safeChimeT = 0;
       audio.play('crashSiren');
     }
   }
@@ -436,6 +446,14 @@ export class PumpQueen extends Boss {
       s = this.state;
     this.minions = this.minions.filter((m) => !m.dead && m.alive);
     this.crown.rotation.z = this.phase === 4 ? 0.5 : 0.15;
+    for (const [name, sign] of [['armL', -1], ['armR', 1]]) {
+      const arm = this.bones?.[name];
+      if (!arm) continue;
+      const angle = s === 'mint'
+        ? sign * 0.9 * Math.sin(Math.min(1, t / this.tell) * Math.PI / 2)
+        : 0;
+      arm.rotation.z += (angle - arm.rotation.z) * Math.min(1, dt * 12);
+    }
     if (this.tickerTexture) this.tickerTexture.offset.x += dt * 0.15;
     if (s === 'mint') {
       if (t >= this.tell) {
@@ -458,6 +476,15 @@ export class PumpQueen extends Boss {
     } else if (s === 'pump') {
       this.setPump(Math.min(1, t / this.tell));
       this.alignPumpedCrown();
+      this.pumpPulseT -= dt;
+      if (this.pumpPulseT <= 0) {
+        this.pumpPulseT = 0.22;
+        this.fx.shock(this.pos.x, this.pos.y + 0.15, this.pos.z, {
+          radius: 2.2 + this.pumpAmount,
+          life: 0.3,
+          color: 0x4aff8a
+        });
+      }
       if (t >= this.tell) this.openWindow();
     } else if (s === 'pumped') {
       this.vulnerable = !this.shielded;
@@ -504,8 +531,13 @@ export class PumpQueen extends Boss {
     } else if (s === 'airdrop') {
       if (t >= 4.5) this.endAttack();
     } else if (s === 'crash') {
+      while (this.crashNotes < 3 && t >= (this.crashNotes * this.tell) / 3) {
+        audio.play('blipLow');
+        this.crashNotes++;
+      }
       if (t >= this.tell + 1) this.endAttack();
     } else if (s === 'liquidation') {
+      this.chimeSafePillar(dt);
       if (t >= (11 * 0.45) / this.sp + 1) this.endAttack();
     } else if (s === 'wake') {
       this.pos.y = this.wakeCandle.pos.y;
@@ -525,6 +557,7 @@ export class PumpQueen extends Boss {
         this.dump();
       }
     } else if (s === 'ultimate') {
+      if (this.arena.ultimate?.settledAt != null) this.chimeSafePillar(dt);
       if (t < this.tell) this.powerUp(dt, t / this.tell, 0xff3a4a, 2, 0);
       else {
         if (!this.did) {
@@ -553,6 +586,13 @@ export class PumpQueen extends Boss {
       this.crownAnchor.position.y = this.bones ? 5.2 - (3.5 * 5.5) / 4 : 5.2;
     }
     this.refreshBox();
+  }
+  chimeSafePillar(dt) {
+    this.safeChimeT -= dt;
+    if (this.safeChimeT <= 0) {
+      this.safeChimeT = 0.65;
+      audio.play('chime');
+    }
   }
   refreshBox() {
     this.setBox(3.6, Math.max(1, this.crownPosition().y - this.pos.y + 1), 3.6);

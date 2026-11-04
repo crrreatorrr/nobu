@@ -19,6 +19,7 @@ import { World } from '../src/world/physics.js';
 import { Player } from '../src/player/player.js';
 import { BOSS } from '../src/config/difficulty.js';
 import { input } from '../src/core/input.js';
+import { audio } from '../src/audio/audio.js';
 import { save } from '../src/core/save.js';
 const noop = () => {};
 beforeEach(() => {
@@ -134,6 +135,33 @@ it('runs the ordinary four-stage planners through their real summon and hazard l
     expect(boss.minions.length).toBeLessThanOrEqual(4);
     expect(new Set(boss.minions.map(m=>m.candle)).size).toBe(boss.minions.length);
   }
+});
+it('signals mint/pump/FOMO and all three Crash blips before the unchanged active boundary', () => {
+  const {boss,arena,stage,game}=fixture();
+  boss.endAttack=vi.fn();
+  boss.beginAttack('mint');
+  step(boss,boss.tell/2);
+  expect(boss.bones.armL.rotation.z).toBeLessThan(0);
+  expect(boss.bones.armR.rotation.z).toBeGreaterThan(0);
+  const c=arena.pillars[12];c.place(1,0x4aff8a);
+  boss.minions.push(stage.add(new QueenPill(stage,c,boss,{pump:3})));
+  audio.play.mockClear();
+  boss.beginAttack('pump');
+  expect(audio.play).toHaveBeenCalledWith('charge');
+  step(boss,.1);
+  expect(game.fx.shock).toHaveBeenCalled();
+  expect(boss.vulnerable).toBe(false);
+  boss.beginAttack('fomo');
+  expect(audio.play).toHaveBeenCalledWith('charge',1.5);
+  audio.play.mockClear();
+  boss.beginAttack('crash');
+  step(boss,boss.tell-.01);
+  expect(audio.play.mock.calls.filter(([cue])=>cue==='blipLow')).toHaveLength(3);
+  expect(boss.stateT).toBeLessThan(boss.tell);
+  boss.beginAttack('liquidation');
+  audio.play.mockClear();
+  step(boss,.7);
+  expect(audio.play).toHaveBeenCalledWith('chime');
 });
 it('builds exact16 moving candles and36ring tiles with no centre floor', () => {
   const { arena: a, stage } = fixture();
