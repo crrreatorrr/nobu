@@ -41,7 +41,7 @@ export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=t
   // Later-move alcove: authored reward is non-countable and uses the shared jackpot source.
   const dustWall=k.dustWall(-4,0,SF+46,{w:1.8,h:2.6,gatedBox:k.gatedArea(-4.5,-3.5,0,2,SF+47,SF+50)});
   const before=game.tickets.list.length;k.tix(-4,0,SF+48,-4,0,SF+49,10);
-  const prizes=game.tickets.list.slice(before).map(t=>({t,y:t.y}));for(const {t}of prizes)t.y+=100;
+  const prizes=game.tickets.list.slice(before).map(t=>({t,y:t.y}));for(const {t}of prizes){t.source='jackpot';t.y+=100;}
   const unlock=new Entity(stage,...dustWall.pos.toArray());unlock.interactive=false;unlock.update=()=>{if(dustWall.broken)for(const {t,y}of prizes)t.y=y;};stage.add(unlock);
   k.floor(YA,YA+48,{w:9.2});
   for(const [a,b,every,speed,lanes,skip]of[[24,2,2.4,6,[-2.4]],[40,22,2,6.6,[-2.4,2.4]],[54,38,1.7,7.2,[-2.8,0,2.8],'shadow']])stage.add(new YarnAvalanche(stage,k.track,YA+a,{until:YA+b,every,speed,lanes,skip,scale:2}));

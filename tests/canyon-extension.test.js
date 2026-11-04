@@ -202,3 +202,7 @@ test('corrected optional gap requires Glide in the actual Player timing sweep wh
  }
  expect(outcomes.filter(o=>o.corrections&&!o.glide).some(o=>o.reached)).toBe(false);expect(outcomes.some(o=>o.glide&&o.reached)).toBe(true);expect(outcomes.find(o=>!o.corrections).reached).toBe(true);
 });
+
+test('later-move Dust Wall pickups retain the jackpot source for shared Snack-potential accounting',()=>{
+ const{game}=fixture(),extras=game.tickets.list.filter(t=>t.source==='jackpot');expect(extras).toHaveLength(10);expect(extras.every(t=>t.y>90)).toBe(true);
+});

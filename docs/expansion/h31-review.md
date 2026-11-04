@@ -16,7 +16,7 @@ Both detours are actual Session bonus rounds, using kept/lost haul snapshots and
 
 The three authored pity spots arm through local respawn hooks at seven ordinary checkpoint deaths; Switchbacks adds its generic-spec-required spot at SB+35 before the second wall. A spot beyond another ordinary Snacks does not arm from the preceding segment, and competitive contexts exclude this help.
 
-The Dust Wall's ten-pickup later-move reward remains hidden until the actual wall breaks, preventing main-path pickup through the optional alcove.
+The Dust Wall's ten-pickup later-move reward remains hidden until the actual wall breaks, preventing main-path pickup through the optional alcove. Each pickup keeps `source: 'jackpot'` for H30's shared static Snack-potential/accounting path; a focused declaration regression covers this integration contract.
 
 ## Tested corrections
 
