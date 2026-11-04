@@ -36,9 +36,20 @@ export function trialMastery(variant, record, table = TRIAL_TARGETS) {
   return { ...record, godUsed, bestEligibleMs, medal };
 }
 export function mergeTrialMastery(variant, mine, incoming, table = TRIAL_TARGETS) {
-  const a = trialMastery(variant, mine, table), b = trialMastery(variant, incoming, table);
+  let a = trialMastery(variant, mine, table), b = trialMastery(variant, incoming, table);
   if (!a) return b;
   if (!b) return a;
+  // An older tab may strip the new eligibility fields from the very same run.
+  // Positive timestamp + matching payload identifies that copy; it is not a
+  // new clean equal-time run. Stronger recorded god evidence wins this case.
+  const sameRun = a.ms === b.ms && (a.layout ?? 1) === (b.layout ?? 1) &&
+    Number.isFinite(a.at) && a.at > 0 && a.at === b.at && (a.pid ?? null) === (b.pid ?? null) &&
+    (a.deaths ?? 0) === (b.deaths ?? 0) && (a.freezeMs ?? 0) === (b.freezeMs ?? 0);
+  if (sameRun && (a.godUsed || b.godUsed)) {
+    const preserve = (record) => trialMastery(variant, { ...record, godUsed: true,
+      bestEligibleMs: record.bestEligibleMs === record.ms ? null : record.bestEligibleMs }, table);
+    a = preserve(a); b = preserve(b);
+  }
   // A clean equal-time record wins the tie, preserving its matching pid/metadata.
   const winner = b.ms < a.ms || (b.ms === a.ms && a.godUsed && !b.godUsed) ? b : a;
   return trialMastery(variant, { ...winner, bestEligibleMs: minMs(a.bestEligibleMs, b.bestEligibleMs) }, table);

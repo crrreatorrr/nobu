@@ -32,3 +32,22 @@ it('retains an older slow local record above the hub ceiling without inventing a
   load(rec(1801000, false)); expect(save.data.trials[1]).toMatchObject({ ms: 1801000, medal: null, godUsed: false });
   save.write(); save.load(); expect(save.data.trials[1].ms).toBe(1801000);
 });
+
+it('preserves known god evidence when an older tab strips fields from the identical run, in both merge orders', () => {
+  const known = rec(45000, true, { at: 123456, deaths: 2, freezeMs: 1000 });
+  const stripped = { ...known }; delete stripped.godUsed; delete stripped.bestEligibleMs;
+  for (const reverse of [false, true]) {
+    resetWorld(); save.data.trials[1] = reverse ? { ...stripped } : { ...known }; save.write({ merge: false });
+    const disk = JSON.parse(localStorage.getItem(SAVE_KEY)); disk.trials[1] = reverse ? { ...known } : { ...stripped };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(disk)); save.write(); save.load();
+    expect(save.data.trials[1]).toMatchObject({ ms: 45000, godUsed: true, bestEligibleMs: null, medal: 'gold', pid: null });
+  }
+});
+it('keeps a separate slower clean tag while rejecting an inferred same-practice-time tag, and accepts a distinct clean equal-time run', () => {
+  save.data.trials[1] = rec(45000, true, { at: 123456, deaths: 0, freezeMs: 1000, bestEligibleMs: 49000 }); save.write({ merge: false });
+  const disk = JSON.parse(localStorage.getItem(SAVE_KEY)); disk.trials[1] = { ms: 45000, best: 45, layout: 1, at: 123456, deaths: 0, freezeMs: 1000, pid: null };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(disk)); save.write(); expect(save.data.trials[1]).toMatchObject({ godUsed: true, bestEligibleMs: 49000, medal: 'platinum' });
+  const next = JSON.parse(localStorage.getItem(SAVE_KEY)); next.trials[1] = rec(45000, false, { at: 223456, pid: null, deaths: 0, freezeMs: 1000 });
+  localStorage.setItem(SAVE_KEY, JSON.stringify(next)); save.write();
+  expect(save.data.trials[1]).toMatchObject({ ms: 45000, godUsed: false, bestEligibleMs: 45000, at: 223456, medal: 'platinum' });
+});
