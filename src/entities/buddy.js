@@ -27,7 +27,7 @@ export class Buddy extends Entity {
   onRespawn() { this.respawnPending = true; }
   update(dt) {
     const session = this.session;
-    const active = session?.phase === 'level' && !session.trial && !session.remix && !session.rush && !this.player.ride && !session.bonusRound;
+    const active = session?.phase === 'level' && !session.trial && !session.remix && !session.rush && !session.board && !this.player.ride && !session.bonusRound;
     this.visible = active; this.obj.visible = active;
     if (!active) return;
     if (this.respawnPending || this.pos.distanceToSquared(this.player.pos) > 64) { this.snap(); this.respawnPending = false; }
@@ -38,7 +38,7 @@ export class Buddy extends Entity {
   }
 }
 export function addBuddy(session, data, registry) {
-  const breed = selectedBuddy(data, registry, { phase: session.phase, trial: session.trial, remix: session.remix, rush: session.rush, ride: session.game.player.ride });
+  const breed = selectedBuddy(data, registry, { phase: session.phase, trial: session.trial, remix: session.remix, rush: session.rush, board: session.board, ride: session.game.player.ride });
   if (breed) return session.stage.add(new Buddy(session.stage, breed));
   return null;
 }

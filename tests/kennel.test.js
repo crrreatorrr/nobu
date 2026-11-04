@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { LEVEL_DOGS } from '../src/levels/metadata.js';
 import { kennelStatus, freedDogs, missingSecrets, allowedTints, selectedBuddy, selectedTint, crowdLayout } from '../src/game/kennelData.js';
 import { applyFurTint } from '../src/player/furTint.js';
-import { Buddy } from '../src/entities/buddy.js';
+import { Buddy, addBuddy } from '../src/entities/buddy.js';
 import { noticeKennelMilestones } from '../src/game/progress.js';
 import { resetWorld } from './helpers.js';
 import { Assets } from '../src/art/assets.js';
@@ -60,6 +60,7 @@ describe('Kennel shipped milestone and stable dog data', () => {
     d.chainBadges = Object.fromEntries(['1', '2', '3', 'ride', 'cave'].map((id) => [id, true]));
     expect(allowedTints(d, full)).toContain('chompGold'); expect(selectedTint(d, full)).toBe(0xf2c14e);
     expect(selectedTint(d, full, { trial: true })).toBeNull();
+    expect(selectedTint(d, full, { remix: true, rush: true })).toBe(0xf2c14e);
   });
 });
 
@@ -75,7 +76,8 @@ describe('cosmetic transforms and persistence', () => {
     const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
     const mats = [new THREE.MeshStandardMaterial({ color: 0xffffff }), new THREE.MeshStandardMaterial({ color: 0xaaaaaa })];
     body.add(new THREE.Mesh(new THREE.BoxGeometry(), mats));
-    const hat = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color: 0xff0000 })); root.add(hat);
+    const headSocket = new THREE.Bone(); body.add(headSocket);
+    const hat = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color: 0xff0000 })); hat.userData.nobuGear = true; headSocket.add(hat);
     const original = mats.map((m) => m.color.clone()); const model = { root, model: body };
     applyFurTint(model, 0xf3e3c3); expect(mats[0].color.getHex()).toBe(0xf3e3c3); expect(hat.material.color.getHex()).toBe(0xff0000);
     applyFurTint(model, null); expect(mats.every((m, i) => m.color.equals(original[i]))).toBe(true);
@@ -87,6 +89,8 @@ describe('cosmetic transforms and persistence', () => {
     player.pos.x = 2; buddy.update(.1); expect(buddy.pos.x).toBeGreaterThan(.8); expect(buddy.pos.x).toBeLessThan(2.8);
     player.pos.x = 20; buddy.update(.1); expect(buddy.pos.x).toBeCloseTo(20.8);
     buddy.onRespawn(); player.pos.x = 3; buddy.update(.1); expect(buddy.pos.x).toBeCloseTo(3.8);
+    game.session.board = true; buddy.update(.1); expect(buddy.obj.visible).toBe(false);
+    game.session.board = false; buddy.update(.1); expect(buddy.obj.visible).toBe(true);
     game.session.trial = true; buddy.update(.1); expect(buddy.obj.visible).toBe(false);
   });
   it('persists one-time Golden scene across reload and merges another tabsseen without replacing choices', () => {
@@ -114,4 +118,10 @@ it('migrates count-only milestones only from earned current unlocks, idempotentl
   expect(save.data.kennel.seenMilestones).toMatchObject({ jukebox: true, buddy: true, golden: true, fur: true, gallery: true });
   localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 3, dogsFreed: {}, kennel: { seen: 6 } })); save.load();
   expect(save.data.kennel.seenMilestones).toEqual({});
+});
+
+it('does not instantiate Buddy in actual Session board contexts', () => {
+  const d = dataAt(16, current); d.kennel.buddy = 'pug';
+  const session = { phase: 'level', board: true, stage: { add: vi.fn() }, game: { player: { ride: null } } };
+  expect(addBuddy(session, d, current)).toBeNull(); expect(session.stage.add).not.toHaveBeenCalled();
 });

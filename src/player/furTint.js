@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// Body materials only: accessories are intentionally outside model.model/allMeshes.
+// Body materials only: dressed gear can be nested inside the GLB head/neck bones.
 // Restore the original color before multiplying, so switching tint never compounds.
 const states = new WeakMap();
 export function applyFurTint(model, tint) {
@@ -10,7 +10,7 @@ export function applyFurTint(model, tint) {
     if (model.mats?.fur) materials = [{ material: model.mats.fur, original: model.mats.fur.color.clone() }];
     else {
       const unique = new Set();
-      model.model?.traverse((obj) => { if (obj.isMesh) for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) if (mat?.color) unique.add(mat); });
+      model.model?.traverse((obj) => { if (obj.isMesh && !obj.userData.nobuGear) for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) if (mat?.color) unique.add(mat); });
       materials = [...unique].map((material) => ({ material, original: material.color.clone() }));
     }
     states.set(model, materials);

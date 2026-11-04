@@ -25,7 +25,7 @@ export function selectedBuddy(data, registry, context = {}) {
   return status.unlocks.includes('buddy') && status.breeds.includes(breed) ? breed : null;
 }
 export function selectedTint(data, registry, context = {}) {
-  if (context.trial || context.remix || context.rush || context.board) return null;
+  if (context.trial || context.board) return null;
   const tint = data.kennel?.tint || 'none';
   return allowedTints(data, registry).includes(tint) ? FUR_TINTS[tint] : null;
 }

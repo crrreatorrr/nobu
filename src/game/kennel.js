@@ -44,7 +44,7 @@ export class Kennel {
       if (this.mode !== 'main') this.closeMode(); else { this.dispose(); this.game.toMap('kennel'); }
       return;
     }
-    if (input.pressed('bark') && this.status.unlocks.includes('sniffer')) { this.mode = 'sniffer'; audio.play('sniff'); this.draw(); return; }
+    if (this.mode !== 'golden' && input.pressed('bark') && this.status.unlocks.includes('sniffer')) { this.mode = 'sniffer'; audio.play('sniff'); this.draw(); return; }
     const delta = (input.pressed('right') || input.pressed('down') ? 1 : 0) - (input.pressed('left') || input.pressed('up') ? 1 : 0);
     if (delta) {
       const n = this.mode === 'main' ? this.options.length : this.choices().length;
@@ -73,5 +73,5 @@ export class Kennel {
     this.game.ui.setScreen(`<div class="kennel-panel" style="position:absolute;left:3%;top:3%;max-width:45%;max-height:90vh;overflow:auto;background:#12051fcc;padding:18px;border-radius:12px"><div class="big-title">${esc(c.title)}</div><div class="hint">${esc(c.count(this.status.freed, this.status.total))}${this.yard.hidden ? ` · ${esc(c.more(this.yard.hidden))}` : ''}</div>${content}<div class="hint">${esc(c.controls)}</div></div>`);
     for (const button of this.game.ui.screen.querySelectorAll('[data-kennel]')) button.addEventListener('click', () => { this.mode = button.dataset.kennel; this.choice = 0; if (this.mode === 'sniffer') audio.play('sniff'); this.draw(); });
   }
-  dispose() { audio.stopMusic(); this.yard.dispose(); }
+  dispose() { if (this.disposed) return; this.disposed = true; audio.stopMusic(); this.yard.dispose(); }
 }

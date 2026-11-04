@@ -51,6 +51,7 @@ export class KennelYard {
     for (const dog of this.dogs) if (!dog.animated) { dog.model.position.y = Math.abs(Math.sin(this.t * 5 + dog.offset)) * .12; dog.model.rotation.y = Math.sin(this.t * 3 + dog.offset) * .2; }
   }
   dispose() {
+    if (this.disposed) return; this.disposed = true;
     for (const mixer of this.mixers) mixer.stopAllAction();
     for (const resource of this.resources) resource.dispose();
     this.scene.clear();
