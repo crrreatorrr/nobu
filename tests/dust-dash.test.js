@@ -62,3 +62,9 @@ it('uses the real LidKnight shield knock and Shellback flop/flip handlers for Du
  const {p,stage}=fixture();const knight=Object.create(LidKnight.prototype);Object.assign(knight,{stage,game:stage.game,pos:new THREE.Vector3(),dead:false,state:'alive',shield:new THREE.Group(),shieldKick:0,knock:vi.fn()});p._dustContact(knight);expect(knight.knock).toHaveBeenCalledWith(p.pos);
  const shell=Object.create(Shellback.prototype);Object.assign(shell,{stage,game:stage.game,pos:new THREE.Vector3(),dead:false,state:'alive',mode:'walk',flipT:0,squash:vi.fn()});p._dustContact(shell);expect(shell.mode).toBe('flipped');p._dustContact(shell);expect(shell.squash).toHaveBeenCalled();
 });
+
+it('preserves the paid Spell Bark boss exclusion even for an opted-in Titan',()=>{
+ const {p,stage,game}=fixture();const titan={pos:new THREE.Vector3(0,0,3.5),maxHp:9,acceptsBark:true,onBark:vi.fn()};stage.entities.push(titan);
+ game.loadout.effects.spell_bark={range_m:9,cone_dot:.4,cooldown_s:.7,y_tol_m:2.5,rings:4,ring_step_m:2.2,color:0xa66bff,skip_bosses:true};
+ p.facing=0;p._bark();expect(titan.onBark).not.toHaveBeenCalled();
+});

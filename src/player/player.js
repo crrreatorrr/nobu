@@ -576,7 +576,7 @@ export class Player {
     fx?.puff(p.x + f.x * 0.9, p.y + 1.0, p.z + f.z * 0.9, { count: 4, size: 0.35, color: spell ? B.color : 0xffffff, speed: 3, up: 0 });
     this.game.camera.shake(0.25, 0.2);
     for (const e of this.game.stage.entities) {
-      if (e.dead || e === this || (e.maxHp !== undefined && e.acceptsBark !== true)) continue;
+      if (e.dead || e === this || (e.maxHp !== undefined && (e.acceptsBark !== true || spell?.skip_bosses === true))) continue;
       const dx = e.pos.x - p.x, dz = e.pos.z - p.z, d = Math.hypot(dx, dz);
       if (d > B.range_m || d < 0.05 || Math.abs(e.pos.y - p.y) > B.y_tol_m) continue;
       if ((dx * f.x + dz * f.z) / d < B.cone_dot) continue;
