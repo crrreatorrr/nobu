@@ -209,6 +209,10 @@ class AudioEngine {
       case 'oneUp':
         ['E6', 'G6', 'E7', 'C7', 'D7', 'G7'].forEach((n, i) => this._osc('square', noteFreq(n), noteFreq(n), 0.1, 0.09, i * 0.08));
         break;
+      case 'stamp':
+        this._osc('sine', 90, 40, 0.22, 0.6);
+        this._noise(0.12, 0.35, 0, 'lowpass', 1200, 200);
+        break;
       case 'checkpoint':
         ['G5', 'C6', 'E6', 'G6'].forEach((n, i) => this._osc('triangle', noteFreq(n), noteFreq(n), 0.2, 0.2, i * 0.07));
         this._noise(0.2, 0.15, 0, 'lowpass', 2000, 400);

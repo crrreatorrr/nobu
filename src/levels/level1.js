@@ -1,3 +1,4 @@
+import { placeHiddenBone } from '../entities/hiddenBone.js';
 // Level 1: Bark Jungle — a winding, rolling jungle path. Teaches everything, then mixes it up:
 // high-road ledge, lily pads, rope drawbridge, Bone Switch stairs, flipping planks, coconut hill,
 // a belly-flop secret, and a fork before the boss gate.
@@ -27,7 +28,7 @@ export function buildLevel1(game, stage, tickets) {
   k.pack(0, 0, 8); k.pack(-1.6, 0, 10); k.pack(1.6, 0, 10);
   k.tix(0, 0, 3.5, 0, 0, 6.5, 3);
   k.tut(13, 'dog');
-  k.dog(3, 0, 17, 'shiba');
+  k.dog(3, 0, 17, 'shiba').dogId = '1:shiba-a';
   k.barkRock(-3.3, 0, 15.5);
   k.tut(19, 'broccoli');
   k.broc(0, 0, 22.5, { range: 2.5 });
@@ -86,7 +87,7 @@ export function buildLevel1(game, stage, tickets) {
   k.lunch(-2.5, 0, 106.8);
   k.platform(-2.5, 4.4, 110.5, 3, 5.5);
   k.oneUp(-2.5, 4.4, 112.3);
-  k.dog(-2.0, 4.4, 109.0, 'pug');
+  k.dog(-2.0, 4.4, 109.0, 'pug').dogId = '1:pug-a';
   k.pack(-3.4, 4.4, 110.6, 5);
 
   // --- lily pad pond ---
@@ -122,7 +123,7 @@ export function buildLevel1(game, stage, tickets) {
   k.boneSwitch(-6.1, 0, 170.5, [[-3.4, 1.5, 172.5, 2.2, 2.2], [-0.9, 3.0, 174.5, 2.2, 2.2], [1.8, 4.5, 176.5, 2.6, 3.2]]);
   k.sphere(1.8, 4.5, 177.2);
   k.pack(2.9, 4.5, 175.8, 5); k.pack(0.9, 4.5, 177.6, 5);
-  k.dog(-6.3, 0, 175.5, 'dalmatian');
+  k.dog(-6.3, 0, 175.5, 'dalmatian').dogId = '1:dalmatian-a';
   k.drone(0, 0, 179, { range: 2.5, speed: 1.4 });
   k.tut(180.5, 'pill');
   k.pill(1.5, 0, 182, { range: 1.6 });
@@ -142,7 +143,7 @@ export function buildLevel1(game, stage, tickets) {
   k.floor(228, 240);
   k.cracked(-2.5, 0, 226, { w: 3.6, d: 4 });
   k.floor(224, 228, { x: -2.5, w: 3.6, y: -4.5, depth: 2 });
-  k.dog(-2.5, -4.5, 225.2, 'shiba');
+  k.dog(-2.5, -4.5, 225.2, 'shiba').dogId = '1:shiba-b';
   k.oneUp(-3.3, -4.5, 227.2);
   k.mushroom(-1.6, -4.5, 227.2, { power: 17 });
   k.tut(222, 'flop');
@@ -165,7 +166,7 @@ export function buildLevel1(game, stage, tickets) {
   k.tixRing(-3, 4.6, 249.8, 1.0, 8);
   k.lunch(-1.2, 0, 256.5); k.lunch(-2.4, 0, 257.5); k.lunch(-2.4, 1, 257.5);
   k.zipped(-2.4, 2, 257.5);
-  k.dog(3.3, 0, 257.5, 'corgi');
+  k.dog(3.3, 0, 257.5, 'corgi').dogId = '1:corgi-a';
   k.tut(259.5, 'lint');
   k.lint(0, 0, 263);
   k.pill(-2, 0, 268, { range: 1.5 });
@@ -199,6 +200,9 @@ export function buildLevel1(game, stage, tickets) {
   k.edges(-4, END, (x, y, d) => (Math.random() < 0.6 ? k.fern(x, y, d, rand(0.8, 1.2)) : k.flowers(x, y, d)), { every: 3 });
   k.grass(-4, END, { every: 1.1 });
   for (let d = 12; d < END; d += 26) k.bgDog(pick([-1, 1]) * rand(5.4, 6.4), 2.6, d + rand(-4, 4), { height: 1.1 });
+
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  placeHiddenBone(k, game, stage, -2.8, 4.4, 109);
 
   return {
     spawn: k.W(0, 0, 1),

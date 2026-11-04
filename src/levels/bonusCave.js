@@ -1,3 +1,4 @@
+import { placeHiddenBone } from '../entities/hiddenBone.js';
 // Bonus stage: Glowworm Grotto. Pitch dark; Lumi the glowworm lights a circle around Nobu and fades over
 // time. When the glow runs out Lumi waits at the next glow nest, a faint beacon in the dark.
 // Shellbacks, Lid Knights, steel lunchbox stepping stones, arrow launches and crumbling ledges.
@@ -31,7 +32,7 @@ export function buildBonusCave(game, stage, tickets) {
   k.knight(0, 0, 50, { range: 2.2 });
   k.barkRock(3, 0, 88, { prize: 'tickets', tickets: 15 });
   k.pack(-2.8, 0, 54);
-  k.dog(-3, 0, 58, 'pug');
+  k.dog(-3, 0, 58, 'pug').dogId = 'cave:pug-a';
   // crumbling ledges and a steel step over the first pit
   k.crumble(-1.2, 0, 65, { w: 2.6, d: 2.6 });
   k.crumble(1.2, 0, 68.5, { w: 2.6, d: 2.6 });
@@ -56,7 +57,7 @@ export function buildBonusCave(game, stage, tickets) {
   k.arrowBox(-2.6, 0, 158, 16);
   k.tixRing(-2.6, 4.2, 158, 1.1, 8);
   k.colorBone(-2.6, 3.2, 158, 'red');
-  k.dog(3, 0, 164, 'shiba');
+  k.dog(3, 0, 164, 'shiba').dogId = 'cave:shiba-a';
   k.drone(0, 1.2, 172, { range: 2.8 });
   // lunchbox stepping stones over a pit
   F(195, END + 1);
@@ -96,6 +97,9 @@ export function buildBonusCave(game, stage, tickets) {
 
   const worm = new Glowworm(stage, track, [2, 60, 118, 176, 226]);
   stage.add(worm);
+
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  placeHiddenBone(k, game, stage, -2.2, 0, 58);
 
   return {
     spawn: k.W(0, 0, 3),

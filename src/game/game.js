@@ -14,14 +14,33 @@ import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
-import { MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
+import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
+import { BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
+
+import { applyRunResults, runBones, boneContext } from './bones.js';
+import { goodBoyPercent, kennelUnlocks, totalDogs } from './progress.js';
 
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
 function esc(text) {
   return String(text).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+}
+
+function bankBoneResults(session, st) {
+  const ctx = boneContext(session, st.godUsed || session.godUsed || save.data.godMode);
+  if (ctx.trial || ctx.remix || ctx.rush) return [];
+  const d = save.data;
+  const fresh = applyRunResults(d, session.level, runBones(st, ctx), { bonus: (session.def || levelDef(session.level)).bonus });
+  for (const id of st.freedIds || []) {
+    const localId = id.startsWith(`${session.level}:`) ? id.slice(String(session.level).length + 1) : id;
+    if (Object.hasOwn((session.def || levelDef(session.level)).dogs || {}, localId)) d.dogsFreed[`${session.level}:${localId}`] = true;
+  }
+  if (Object.keys(d.dogsFreed).length) d.open.kennel = true;
+  const unlocks = kennelUnlocks(d, totalDogs(LEVELS));
+  st.kennelFresh = unlocks.slice(d.kennel.seen || 0);
+  d.kennel.seen = Math.max(d.kennel.seen || 0, unlocks.length);
+  return fresh;
 }
 
 export class Game {
@@ -217,7 +236,7 @@ export class Game {
     const items = this._titleItems();
     this.titleSel = Math.min(this.titleSel, items.length - 1);
     const html = items.map((it, i) => `<div class="menu-item ${i === this.titleSel ? 'sel' : ''}">${it.label}</div>`).join('');
-    this.ui.setScreen(`<img class="title-logo" src="${Assets.url('logo')}"><div class="title-menu"><div class="menu">${html}</div></div>`);
+    this.ui.setScreen(`<img class="title-logo" src="${Assets.url('logo')}"><div class="title-menu"><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(save.data, LEVELS).total)}</div><div class="menu">${html}</div></div>`);
   }
 
   updateTitle(dt) {
@@ -359,7 +378,7 @@ export class Game {
     const total = save.totalTrialMs();
     const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
-    const info = `<div class="map-panel"><div class="sub-title">${head}</div>
+    const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${this.ui.boneBoard(lv, { bonus: bonusSel })}
       <div class="hint">${status}</div>${tr}${world}${totalNote}
       <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
@@ -586,8 +605,9 @@ export class Game {
   _drawPause() {
     const items = this._pauseItems();
     const s = this.session;
-    const stats = s?.phase === 'level' && s.stage
-      ? `<div class="hint">Dogs freed ${s.stage.entities.filter((e) => e.freed).length}/${s.dogsTotal} · Breakables ${s.stage.entities.filter((e) => e.countable && e.broken).length}/${s.breakablesTotal}</div>` : '';
+    const live = s?.stage && s.phase === 'level' ? s.liveStats() : s?.stats;
+    const pct = live?.snackPotential ? Math.floor(live.snackRaw / live.snackPotential * 100) : 0;
+    const stats = live ? `${this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) })}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
       <div class="hint" style="margin-top:20px">◀ ▶ adjust · ESC resume</div>`, 'dim');
   }
@@ -723,19 +743,28 @@ export class Game {
     const n = levelDef(session.level).id;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
     const d = save.data;
-    const bone = st.breakables > 0 && st.broken >= st.breakables && st.dogs >= st.dogsTotal;
+    const fresh = bankBoneResults(session, st);
     save.setBeaten(n);
     d.unlocked = Math.max(d.unlocked, Math.min(3, n + 1));
     for (let id = 1; id <= d.unlocked; id++) d.open[id] = true;
     if (n === 1) d.open.ride = true;
     if (n === 2) d.open.cave = true;
     save.setBestDogs(n, st.dogs);
-    if (bone) save.setBone(n);
     st.goldenEarned = save.boneOf(n);
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     // rescue scene first, then the results screen
-    this.playCutscene(RESCUE[n], () => this._showComplete(n, st, bone), 'victory');
+    this.playCutscene(RESCUE[n], () => this._showComplete(n, st, fresh), 'victory');
+  }
+
+  goalLevelCleared(session) {
+    const n = session.level, st = session.stats;
+    save.setBeaten(n); save.setBestDogs(n, st.dogs);
+    if (String(n) === '6') save.data.open['5'] = true;
+    const fresh = bankBoneResults(session, st);
+    save.write();
+    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    this._showComplete(n, st, fresh);
   }
 
   // Colored bone found: it opens a path in an earlier level.
@@ -756,6 +785,7 @@ export class Game {
     this.state = 'complete';
     this.completeT = 0;
     this.completeNext = { n, bonus: true };
+    this.completeMinT = 2.3;
     audio.playMusic('complete');
     const names = { gold: 'GOLD TAG!', silver: 'SILVER TAG!', bronze: 'BRONZE TAG!', platinum: TRIAL_TEXT.platinumTag };
     this.ui.setScreen(`
@@ -774,20 +804,22 @@ export class Game {
     const n = session.level;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
     const d = save.data;
+    const fresh = bankBoneResults(session, st);
+    save.setBestDogs(n, st.dogs);
     d.bonus ||= {};
     d.bonus[n] = { beaten: true, best: Math.max(d.bonus[n]?.best || 0, st.tickets) };
     d.open[n] = true;
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
-    this._showComplete(n, st, false, true);
+    this._showComplete(n, st, fresh, true);
   }
 
-  _showComplete(n, st, bone, bonus = false) {
+  _showComplete(n, st, fresh = [], bonus = false) {
     this.state = 'complete';
     this.completeT = 0;
     this.completeNext = { n, bonus };
+    this.completeMinT = Math.max(2.3, 2.4 + fresh.length * 0.4);
     audio.playMusic('complete');
-    const golden = bone || (trialLayout(n) > 1 && st.goldenEarned);
     const row = (img, label, val, cls = '') => `<div class="stat-row ${cls}"><img src="${Assets.url(img)}"><span>${label}</span><span class="val">${val}</span></div>`;
     this.ui.setScreen(`
       <div class="big-title" style="margin-bottom:2vh">${bonus ? 'BONUS STAGE CLEAR!' : `LEVEL ${n} COMPLETE!`}</div>
@@ -797,19 +829,21 @@ export class Game {
           ${row('ticket', 'TICKETS', st.tickets)}
           ${row(Assets.has('backpack_icon') ? 'backpack_icon' : 'backpack', 'BREAKABLES', `${st.broken}/${st.breakables}`, st.broken >= st.breakables ? '' : 'miss')}
           ${row('dog_corgi_free', 'DOGS FREED', `${st.dogs}/${st.dogsTotal}`, st.dogs >= st.dogsTotal ? '' : 'miss')}
-          ${bonus ? '' : row('golden_bone', 'GOLDEN BONE', golden ? 'EARNED!' : 'not yet', golden ? 'reward' : 'miss')}
+          ${!bonus && trialLayout(n) > 1 && st.goldenEarned ? row('golden_bone', 'GOLDEN BONE', 'EARNED!', 'reward') : ''}
+          ${this.ui.boneBoard(n, { bonus, fresh })}${(st.kennelFresh || []).map((id) => `<div class="hint">${BONE_TEXT.kennel(id)}</div>`).join('')}
         </div>
       </div>
       <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
     this.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #5a2399, #1a0530)';
     const rows = [...this.ui.screen.querySelectorAll('.stat-row')];
-    rows.forEach((r, i) => setTimeout(() => { r.classList.add('show'); audio.play(i === 3 && bone ? 'oneUp' : 'ticket'); }, 500 + i * 450));
+    rows.forEach((r, i) => setTimeout(() => { r.classList.add('show'); audio.play('ticket'); }, 500 + i * 450));
+    fresh.forEach((key, i) => setTimeout(() => { if (this.state === 'complete') { audio.play('stamp'); if (i === fresh.length - 1) audio.play('oneUp'); } }, (2 + i * 0.4) * 1000));
     this.ui.fade(0);
   }
 
   async updateComplete(dt) {
     this.completeT += dt;
-    if (this.completeT > 2.3 && input.anyPressed() && this.completeNext) {
+    if (this.completeT > (this.completeMinT || 2.3) && input.anyPressed() && this.completeNext) {
       const { n, bonus } = this.completeNext;
       this.completeNext = null;
       audio.play('select');
@@ -864,7 +898,7 @@ export class Game {
     this.ui.setScreen(`<div style="position:absolute;top:6vh;width:100%;text-align:center"><div class="big-title">THE END</div>
       <div class="credits" style="margin:2vh auto 0">Nobu saved every dog on the island.<br>
       Art generated with Higgsfield · Code in Three.js · All sound synthesized live<br>
-      Thanks for playing! Golden Bones: ${playOrder().filter((id) => save.boneOf(id)).length}/${playOrder().length}</div></div>
+      Thanks for playing! ${BONE_TEXT.goodBoyPercent(goodBoyPercent(save.data, LEVELS).total)}</div></div>
       <div class="press-start" style="bottom:6vh">PRESS ANY KEY</div>`);
     this.ui.fade(0);
   }

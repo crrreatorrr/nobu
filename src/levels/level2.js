@@ -1,3 +1,4 @@
+import { placeHiddenBone } from '../entities/hiddenBone.js';
 // Level 2: Scratchpost Canyon — the Big Cat chase along a winding canyon. Camera faces Nobu.
 // Pits, logs, backpack walls, rugs, yarn, a crumbling bridge, a curving plank bridge and a mushroom launch.
 import * as THREE from 'three';
@@ -32,7 +33,7 @@ export function buildLevel2(game, stage, tickets) {
   k.tut(D(44), 'mouse');
   k.mouse(0, 0, D(48), { range: 3.4, speed: 4 });
   k.tix(0, 0, D(51), 0, 0, D(60), 5);
-  k.dog(-3.6, 0, D(60.5), 'corgi');
+  k.dog(-3.6, 0, D(60.5), 'corgi').dogId = '2:corgi-a';
   k.tixArc(0, 0, D(62.5), 0, D(70.5), 2.6, 6);
   F(69, 120);
   k.tut(D(76), 'yarn');
@@ -47,7 +48,7 @@ export function buildLevel2(game, stage, tickets) {
   // blue bone path (the blue bone is up on the fan catwalk in the Cone Factory)
   k.colorPath('blue', [[3.4, 1.4, D(132), 1.6, 1.8], [3.4, 2.8, D(135), 1.6, 1.8], [3.2, 4.2, D(138.5), 2.2, 3]], { jackpot: 15 });
   k.mouse(0, 0, D(138), { range: 3.4, speed: 5 });
-  k.dog(3.6, 0, D(146), 'pug');
+  k.dog(3.6, 0, D(146), 'pug').dogId = '2:pug-a';
   k.tix(2.8, 0, D(148), 2.8, 0, D(156), 5);
 
   // crumbling bridge: don't stop running!
@@ -68,7 +69,7 @@ export function buildLevel2(game, stage, tickets) {
   k.warp(D(222.5), D(227.5), -4.6, -2.3, 'cave');
   k.tixArc(0, 2, D(221), 0, D(229), 3.5, 7);
   F(228, 262);
-  k.dog(-3.6, 0, D(236), 'shiba');
+  k.dog(-3.6, 0, D(236), 'shiba').dogId = '2:shiba-a';
   k.pill(0, 0, D(242), { range: 3 });
   log(256);
   k.tixArc(0, 0, D(261), 0, D(268), 2.6, 6);
@@ -95,6 +96,9 @@ export function buildLevel2(game, stage, tickets) {
   const cat = new ChaseCat(stage, track, D(L2_CHASE.catStart));
   stage.add(cat);
   stage.chaseCat = cat;
+
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  placeHiddenBone(k, game, stage, -2.8, 0, D(60.5));
 
   return {
     spawn: k.W(0, 0, D(2)),

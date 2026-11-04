@@ -1,3 +1,4 @@
+import { placeHiddenBone } from '../entities/hiddenBone.js';
 // Bonus stage: Roomba Rush. Nobu rides a runaway robot vacuum through the Owner's House.
 // It drives itself; left/right steers, jump hops the whole vacuum. Bash backpacks and mice, jump cables
 // and gaps, dodge toy piles, table legs, cats and rugs. A Vacuum Dock near the end pops every rug.
@@ -34,7 +35,7 @@ export function buildBonusRide(game, stage, tickets) {
   k.tixArc(0, 0, 92, 0, 101, 2.2, 6);
   F(99, 196);
   k.mouse(0, 0, 106, { range: 3.4, speed: 5.5 });
-  k.dog(-3.2, 0, 112, 'shiba');
+  k.dog(-3.2, 0, 112, 'shiba').dogId = 'ride:shiba-a';
   k.tix(0, 0, 115, 0, 0, 121, 4);
   k.cable(138);
   k.toys(0, 0, 150, 2.8); k.tix(-2.8, 0, 147, -2.8, 0, 153, 3); k.tix(2.8, 0, 147, 2.8, 0, 153, 3);
@@ -48,7 +49,7 @@ export function buildBonusRide(game, stage, tickets) {
   F(201, END + 1);
   k.cable(234);
   k.toys(2.2, 0, 246, 2.6);
-  k.dog(-3.2, 0, 250, 'corgi');
+  k.dog(-3.2, 0, 250, 'corgi').dogId = 'ride:corgi-a';
   k.tix(2.8, 0, 255, 2.8, 0, 261, 3);
   k.leg(2.7, 0, 270, { h: 3.4 });
   k.mouse(0, 0, 278, { range: 3.4, speed: 6 });
@@ -93,6 +94,9 @@ export function buildBonusRide(game, stage, tickets) {
     else if (r < 0.85) pot(p);
     else bush(stage, p.x, p.y, p.z, 1.2, 0x4aa040);
   }, { every: 9, out: [2, 3.5] });
+
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  placeHiddenBone(k, game, stage, -2.4, 0, 112);
 
   return {
     spawn: k.W(0, 0, 3),
