@@ -47,7 +47,7 @@ describe('RugPull rollback', () => {
   it('starts from the first occupied tile, warns before collapse, lights cats and fully re-arms', () => {
     const stage = stageStub(); stage.game.ui.banner = vi.fn();
     const strip = new RugPull(stage, null, 10, 20);
-    const cat = { kind: 'cat', pos: new THREE.Vector3(0, 0, -13), light: vi.fn() }; stage.entities.push(cat);
+    const cat = { kind: 'cat', pos: new THREE.Vector3(0, 0, -13), light: vi.fn(), onRestore: vi.fn() }; stage.entities.push(cat);
     strip.update(0.1); expect(strip.state).toBe('idle');
     stage.game.player.body = { grounded: true, ground: strip.tiles[0].solid };
     strip.update(0.1); expect(strip.tiles[0].state).toBe('tell');
@@ -55,7 +55,7 @@ describe('RugPull rollback', () => {
     strip.update(0.5);
     expect(strip.tiles[0].solid.enabled).toBe(false); expect(cat.light).toHaveBeenCalledTimes(1);
     strip.onRespawn();
-    expect(strip.state).toBe('idle'); expect(strip.front).toBe(10);
+    expect(strip.state).toBe('idle'); expect(strip.front).toBe(10); expect(cat.onRestore).toHaveBeenCalledTimes(1);
     expect(strip.tiles.every(({ state, solid }) => state === 'idle' && solid.enabled)).toBe(true);
     strip.update(0.1);
     expect(stage.game.ui.banner).toHaveBeenCalledTimes(1);

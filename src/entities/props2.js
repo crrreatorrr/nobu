@@ -146,8 +146,8 @@ export class RugPull extends Entity {
     super(stage, p.x, p.y, p.z);
     if (!(speed >= 6.5 && speed < 8)) throw new Error('Rug pull speed must be at least RUN - 1.5 and below RUN');
     if (!(tile > 0 && d1 - d0 >= tile)) throw new Error('Rug pull needs at least one tile');
-    this.track = track; this.d0 = d0; this.d1 = d1; this.speed = speed;
-    this.state = 'idle'; this.t = 0; this.front = d0; this.shown = false; this.tiles = [];
+    this.track = track; this.x = x; this.w = w; this.d0 = d0; this.d1 = d1; this.speed = speed;
+    this.state = 'idle'; this.t = 0; this.front = d0; this.shown = false; this.tiles = []; this.litCats = new Set();
     this.interactive = false; this._projection = {};
     const count = Math.floor((d1 - d0) / tile);
     const geometry = new THREE.BoxGeometry(w, 0.4, tile - 0.1);
@@ -199,12 +199,17 @@ export class RugPull extends Entity {
     for (const e of this.stage.entities) {
       if (e.kind !== 'cat' || e.dead || !e.light) continue;
       const d = this.track ? this.track.project(e.pos.x, e.pos.z, -1, this._projection).s : -e.pos.z;
-      if (d >= this.d0 && d <= Math.min(this.front, this.d1) && Math.abs(e.pos.y - (this.track ? this.track.heightAt(d) : 0)) < 1.2) e.light();
+      const u = this.track ? this._projection.u : e.pos.x;
+      if (Math.abs(u - this.x) <= this.w / 2 && d >= this.d0 && d <= Math.min(this.front, this.d1) && Math.abs(e.pos.y - (this.track ? this.track.heightAt(d) : 0)) < 1.2 && !this.litCats.has(e)) {
+        if (e.timer < 0 || e.timer === undefined) { e.light(); this.litCats.add(e); }
+      }
     }
     if (this.front >= this.tiles.at(-1).end) this.state = 'gone';
     this.alwaysActive = this.state === 'pulling' || falling;
   }
   onRespawn() {
+    for (const cat of this.litCats) if (!cat.broken && !cat.dead) cat.onRestore?.();
+    this.litCats.clear();
     this.state = 'idle'; this.t = 0; this.front = this.d0; this.alwaysActive = false;
     for (const part of this.tiles) {
       part.state = 'idle'; part.t = 0; part.vy = 0; part.fall = 0;
