@@ -17,6 +17,14 @@ arrows, but it needs its own actual-stage validation and any required owner deci
 apply this suggestion. The normal P5 rest maps to d138.25,y1.5 in the written G1 Blink Stairs segment;
 again validate the actual G1 sequence rather than assuming offsets alone establish acceptance.
 
+Also validate each stage's authored fall delay against its own tier tell. The written stage delays
+(.45 for G1, .38 for G2, .30 for G3) are shorter than the corresponding half-tier tells (.55/.43/.38).
+G2's tier4 Last Beat uses .32 against a .40 tell, and G3's tier5 Last Beat uses .30 against .35.
+H04d preserves the default/configured physics and fixes its own canonical pattern options; it does
+not authorize silently retuning these future stage variants. Reconcile them in actual H46 data and
+obtain any required decisions. Do not satisfy the validator by labeling a short contact sound as an
+earlier warning or lowering the universal tell requirement.
+
 Keep exact half-tier reach .775 for G1.5. The fixed60Hz double-jump +3m/4m window is27frames; the
 source's29 is stale. The source blink negative fixture(.5,1,.5,.72) has .28s, not zero; it still fails
 tier1's30frame limit. Both facts are tested without movement retuning.
