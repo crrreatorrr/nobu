@@ -139,7 +139,7 @@ describe('session boss retries and awards', () => {
     save.data.godMode = false; s.update(0.1);
     expect(s.bossRun.void).toBe(true);
   });
-  it('retains the baseline Bird/Cat policy pending the owner decision', () => {
+  it('uses the owner-selected Bird/Cat stage-1 restart policy', () => {
     expect(BOSS_PHASE_CHECKPOINTS).toMatchObject({ bird: false, cat: false, cone: true });
   });
   it('counts deaths once per stage, then helps on the third retry and permanently voids medals', () => {
@@ -151,6 +151,27 @@ describe('session boss retries and awards', () => {
     expect(s.mask).toBe(1); expect(s.bossRun.void).toBe(true); expect(s.bossDdaUsed).toBe(true);
     s.bossDeaths[2] = 0; s.respawn(); expect(s.boss.dda).toEqual({ tele: 1, window: 0 });
     expect(s.bossRun.void).toBe(true);
+  });
+  it.each(['bird', 'cat'])('restores later-stage DDA after %s restarts at stage 1', async (key) => {
+    vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
+    const { session: s, game, p } = f;
+    s.def = { ...s.def, bossKey: key };
+    s.boss.phaseCheckpoints = false; s.boss.phase = 2;
+    for (let i = 0; i < 3; i++) { s.dying = false; s.onPlayerDeath('fall'); }
+    vi.clearAllTimers(); s.dying = false;
+    expect(s.bossDeaths[2]).toBe(3);
+    s.respawn();
+    expect(s.boss.phase).toBe(1); expect(s.boss.dda).toEqual({ tele: 1, window: 0 });
+    expect(s.mask).toBe(0); expect(s.bossDdaUsed).toBe(false);
+    // Real phase-entry orchestration, with only the cinematic/visual work stubbed.
+    game.camera.cinematic = vi.fn(); game.camera.endCinematic = vi.fn(); game.ui.say = vi.fn(async () => {});
+    s.info = { spheres: [] }; s.boss.evolve = vi.fn(async () => {});
+    s.boss.phase = 2; p.mode = 'normal'; s.mask = 0;
+    const entry = s.onBossPhase(s.boss, 2); await vi.runAllTimersAsync(); await entry;
+    expect(s.boss.dda).toEqual({ tele: 1.15, window: 0.3 });
+    expect(s.mask).toBe(1); expect(s.bossRun.void).toBe(true); expect(s.bossDdaUsed).toBe(true);
+    s.mask = 2; s._applyBossDda(2); expect(s.mask).toBe(2);
+    expect(s.bossDeaths[2]).toBe(3); expect(s.bossStageDeaths).toBe(3);
   });
   it.each(['rush', 'remix', 'trial'])('does not grant even a generic pity mask in %s boss fights', (mode) => {
     const f = fixture(); prepareRespawn(f);

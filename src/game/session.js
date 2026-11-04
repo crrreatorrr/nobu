@@ -509,6 +509,9 @@ export class Session {
     // a little help: a fresh Blue Sphere each phase
     const sp = this.info.spheres?.[phase - 1];
     if (sp) { const s = new BlueSphere(this.stage, sp.x, sp.y, sp.z); s.countable = false; this.stage.add(s); }
+    // Bird/Cat retry from stage 1, so later stages must restore their own help
+    // when reached again rather than losing it at the earlier restart.
+    this._applyBossDda(phase);
     boss.stateT = 0; // the phase-change reaction (rage/roar) starts now, after the dialogue
     boss.active = true;
     boss.beginPhase?.();
@@ -543,6 +546,17 @@ export class Session {
     return { god: !!(save.data.godMode || this.game.player?.god), trial: this.trial,
       remix: !!this.remix, rush: !!this.rush, ranked: !!this.ranked, medal: !!this.medalMode,
       skipped: !!this.bossSkipped };
+  }
+
+  _applyBossDda(phase, resetMask = false) {
+    this.bossStageDeaths = this.bossDeaths[phase] || 0;
+    const help = bossDda(this.bossStageDeaths, this._bossContext());
+    this.boss.dda = { tele: help.tele, window: help.window };
+    if (resetMask || help.masks) this.setMask(resetMask ? help.masks : Math.max(this.mask, help.masks));
+    if (help.masks) {
+      this.bossDdaUsed = true;
+      if (this.bossRun) this.bossRun.void = true;
+    }
   }
 
   onPlayerHurt() {
@@ -749,13 +763,7 @@ export class Session {
       this.boss.killMinions?.();
       const phase = this.boss.phaseCheckpoints === false ? 1 : this.bossPhaseCp;
       this.boss.resetToPhase(phase);
-      const help = bossDda(this.bossDeaths[phase] || 0, this._bossContext());
-      this.boss.dda = { tele: help.tele, window: help.window };
-      this.setMask(help.masks);
-      if (help.masks) {
-        this.bossDdaUsed = true;
-        if (this.bossRun) this.bossRun.void = true;
-      }
+      this._applyBossDda(phase, true);
       g.ui.bossHp(this.boss.hp / this.boss.maxHp, phase);
       this.boss.active = true;
     }
