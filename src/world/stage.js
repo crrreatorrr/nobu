@@ -63,6 +63,7 @@ export class Stage {
     this.killY = -14;
     this.spawn = new THREE.Vector3(0, 0, 0);
     this.cameraMode = 'behind';
+    this.defaultCamera = null;
     this.time = 0;
     this.activeRange = 75;
     this.track = null;
@@ -89,6 +90,7 @@ export class Stage {
     this.scene.background = new THREE.Color(t.fog);
     this.scene.fog = new THREE.Fog(t.fog, t.fogNear, t.fogFar);
     const hemi = new THREE.HemisphereLight(t.hemiSky, t.hemiGround, t.hemiI);
+    this.hemi = hemi;
     this.scene.add(hemi);
     const sun = new THREE.DirectionalLight(t.sun, t.sunI);
     sun.position.set(-0.5, 1, 0.6);
@@ -104,6 +106,7 @@ export class Stage {
     // soft rim light from behind so characters pop off the background
     const rim = new THREE.DirectionalLight(0xbfd8ff, t.rimI ?? 0.45);
     rim.position.set(0.4, 0.6, -1);
+    this.rim = rim;
     this.scene.add(rim);
 
     // Panoramic sky: cylinder with the generated backdrop mirrored twice around.
@@ -323,7 +326,7 @@ export class Stage {
       } else if (e.kind === 'bubble') {
         const a = Math.random() * Math.PI * 2, r = Math.random() * (o.r ?? 0.8);
         fx.smokeCard(e.x + Math.cos(a) * r, e.y, e.z + Math.sin(a) * r, {
-          vy: 0.5 + Math.random() * 0.6, size: 0.1 + Math.random() * 0.1, life: 0.55, colors: [0xc8ff9a, 0x9aff7a], grow: 0.6, g: 0, drag: 0.98, alpha: 0.95, fadeAt: 0.7, spin: 0,
+          vy: 0.5 + Math.random() * 0.6, size: 0.1 + Math.random() * 0.1, life: 0.55, colors: o.color ? [o.color] : [0xc8ff9a, 0x9aff7a], grow: 0.6, g: 0, drag: 0.98, alpha: 0.95, fadeAt: 0.7, spin: 0,
         });
       }
     }

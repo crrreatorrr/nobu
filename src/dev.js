@@ -60,6 +60,20 @@ export function installDevTools(game) {
       await T.skipTalk(); await done;
       return T.info();
     },
+    // H04c: T.at(18/80/120/155/184) visits chase, detour, dark, side and rise.
+    async environment() {
+      const [{ Session }, { buildEnvironmentStrip }] = await Promise.all([
+        import('./game/session.js'), import('./levels/environmentStrip.js'),
+      ]);
+      await game.ui.fade(1); game.ui.clearScreen(); game.session?.dispose();
+      const session = new Session(game, 1);
+      session.def = { ...session.def, name: 'Environment strip', build: buildEnvironmentStrip };
+      game.session = session; game.state = 'play'; game.flyingMasks.length = 0;
+      const done = session.startLevel();
+      for (let i = 0; i < 40 && !game.ui.talking; i++) await T.sleep(100);
+      await T.skipTalk(); await done;
+      return T.info();
+    },
     die() { game.player.die('fall'); return T.info(); },
     // await T.gates(): optional helper strip; T.armPity() activates its dormant checkpoint.
     async gates() {

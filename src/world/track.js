@@ -48,6 +48,13 @@ export class Track {
     this.triggers = [];
     this.waters = [];
     this.secrets = [];
+    this.sections = [];
+  }
+
+  sectionAt(s) {
+    let found = null;
+    for (const section of this.sections) if (s >= section.d0 && s < section.d1 && (!found || section.d0 >= found.d0)) found = section;
+    return found;
   }
 
   // Secret warp: falling into the pit between d0..d1 with lateral u in [u0, u1] warps to `target` instead of dying.
@@ -62,13 +69,14 @@ export class Track {
   _idx(s) {
     const f = Math.max(0, Math.min(this.n, s / this.step));
     const i = Math.min(this.n - 1, Math.floor(f));
-    return [i, f - i];
+    this._sampleI = i; this._sampleT = f - i;
   }
   // Point on the centerline (+ lateral u, + height y), world space. Extends linearly past the ends.
   toWorld(s, u = 0, y = 0, out = new THREE.Vector3()) {
     let extra = 0;
     if (s < 0) { extra = s; s = 0; } else if (s > this.length) { extra = s - this.length; s = this.length; }
-    const [i, t] = this._idx(s);
+    this._idx(s);
+    const i = this._sampleI, t = this._sampleT;
     const x = this.px[i] + (this.px[i + 1] - this.px[i]) * t;
     const yy = this.py[i] + (this.py[i + 1] - this.py[i]) * t;
     const z = this.pz[i] + (this.pz[i + 1] - this.pz[i]) * t;
@@ -81,12 +89,14 @@ export class Track {
   }
   heightAt(s) {
     s = Math.max(0, Math.min(this.length, s));
-    const [i, t] = this._idx(s);
+    this._idx(s);
+    const i = this._sampleI, t = this._sampleT;
     return this.py[i] + (this.py[i + 1] - this.py[i]) * t;
   }
   tangent(s, out = new THREE.Vector3()) {
     s = Math.max(0, Math.min(this.length, s));
-    const [i, t] = this._idx(s);
+    this._idx(s);
+    const i = this._sampleI, t = this._sampleT;
     const tx = this.tx[i] + (this.tx[i + 1] - this.tx[i]) * t, tz = this.tz[i] + (this.tz[i + 1] - this.tz[i]) * t;
     const l = Math.hypot(tx, tz) || 1;
     return out.set(tx / l, 0, tz / l);
@@ -96,7 +106,7 @@ export class Track {
     return out.set(-t.z, 0, t.x);
   }
   // Yaw (rotation.y) that faces forward along the track.
-  yaw(s) { const t = this.tangent(s); return Math.atan2(t.x, t.z); }
+  yaw(s) { const t = this.tangent(s, this._yawVector ||= new THREE.Vector3()); return Math.atan2(t.x, t.z); }
 
   // Nearest (s, u) for a world point. `hint` = sample index to search around.
   project(x, z, hint = -1, out = {}) {

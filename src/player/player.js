@@ -141,6 +141,14 @@ export class Player {
   spawnAt(p, facing = Math.PI) {
     this.reset();
     this.pos.copy(p);
+    // Stage controllers run before Player.update, so refresh path metadata at the spawn itself.
+    const track = this.game.stage?.track;
+    if (track) {
+      const pr = track.project(p.x, p.z, -1, this._spawnProjection ||= {});
+      this.body.s = pr.s; this.body.u = pr.u; this.body.trackHint = pr.i;
+    } else {
+      delete this.body.s; delete this.body.u; delete this.body.trackHint;
+    }
     this.prevY = p.y;
     this.lastSafe = p.clone();
     this.facing = this.targetFacing = facing;
@@ -192,8 +200,9 @@ export class Player {
     const T = TUNING;
     const st = input.state;
     // camera-relative intent
-    let dx = camBasis.right.x * st.x + camBasis.forward.x * st.y;
-    let dz = camBasis.right.z * st.x + camBasis.forward.z * st.y;
+    const forwardInput = st.y * (this.game.camera?.sideAxis ? 0.5 : 1);
+    let dx = camBasis.right.x * st.x + camBasis.forward.x * forwardInput;
+    let dz = camBasis.right.z * st.x + camBasis.forward.z * forwardInput;
     const len = Math.hypot(dx, dz);
     const mag = Math.min(1, len);
     if (len > 0.001) { dx /= len; dz /= len; }

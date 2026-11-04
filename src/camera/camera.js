@@ -19,9 +19,13 @@ export class GameCamera {
     this.shakeAmp = 0;
     this.basis = { forward: new THREE.Vector3(0, 0, -1), right: new THREE.Vector3(1, 0, 0), toCamera: 0 };
     this.cine = null;
+    this.sideAxis = false;
+    this.switchT = 0;
   }
 
-  setMode(mode, opts = {}) {
+  setMode(mode, opts = {}, blend = 0.6) {
+    if (this.mode !== mode || this.opts !== opts) this.switchT = blend;
+    this.sideAxis = mode === 'side';
     this.mode = mode;
     this.opts = opts;
   }
@@ -41,19 +45,25 @@ export class GameCamera {
   _targets(player, out) {
     const p = player.pos;
     const o = this.opts;
-    if (player.body.grounded || p.y < this.trackY) this.trackY = p.y;
+    if (this.mode === 'rise') this.trackY = p.y - 0.5;
+    else if (player.body.grounded || p.y < this.trackY) this.trackY = p.y;
     else if (p.y > this.trackY + 2.4) this.trackY = p.y - 2.4;
     const ty = this.trackY;
-    if ((this.mode === 'track' || this.mode === 'trackFront') && o.track) {
+    if ((this.mode === 'track' || this.mode === 'trackFront' || this.mode === 'side' || this.mode === 'rise') && o.track) {
       const tr = o.track;
       const sp = player.body.s ?? 0, u = player.body.u ?? 0;
       // keep the camera above the path itself (hills behind / ahead)
-      if (this.mode === 'track') {
-        const cs = sp - (o.dist ?? 8.6);
+      if (this.mode === 'side') {
+        tr.toWorld(sp + (o.ahead ?? 2.5), (o.side ?? 1) * (o.dist ?? 13), 0, out.pos);
+        out.pos.y = ty + (o.height ?? 4.5);
+        tr.toWorld(sp + (o.ahead ?? 2.5), 0, 0, out.look); out.look.y = ty + 1;
+      } else if (this.mode === 'track' || this.mode === 'rise') {
+        const cs = sp - (o.dist ?? (this.mode === 'rise' ? 9.5 : 8.6));
         tr.toWorld(cs, u * 0.55, 0, out.pos);
         out.pos.y = Math.max(ty + (o.height ?? 4.3), tr.heightAt(cs) + 2.2);
         tr.toWorld(sp + (o.ahead ?? 5.5), u * 0.8, 0, out.look);
         out.look.y = ty + 1.15;
+        if (this.mode === 'rise') { out.pos.y = ty + (o.height ?? 2.2); out.look.y += o.lookUp ?? 3; }
       } else {
         const cs = sp + (o.dist ?? 12.5);
         tr.toWorld(cs, u * 0.5, 0, out.pos);
@@ -102,7 +112,8 @@ export class GameCamera {
       this.look.x = damp(this.look.x, t.look.x, k, dt); this.look.y = damp(this.look.y, t.look.y, k, dt); this.look.z = damp(this.look.z, t.look.z, k, dt);
     } else if (player) {
       this._targets(player, t);
-      const k = this.mode === 'arena' ? 4 : 7;
+      const k = this.mode === 'arena' || this.switchT > 0 ? 4 : 7;
+      this.switchT = Math.max(0, this.switchT - dt);
       this.pos.x = damp(this.pos.x, t.pos.x, k, dt);
       this.pos.y = damp(this.pos.y, t.pos.y, 4.5, dt);
       this.pos.z = damp(this.pos.z, t.pos.z, k, dt);
@@ -114,6 +125,10 @@ export class GameCamera {
     if (player) {
       const f = this.basis.forward.set(this.look.x - this.pos.x, 0, this.look.z - this.pos.z).normalize();
       this.basis.right.set(-f.z, 0, f.x);
+      if (this.sideAxis && this.opts.track) {
+        this.opts.track.tangent(player.body.s ?? 0, this.basis.right);
+        this.opts.track.right(player.body.s ?? 0, this.basis.forward).multiplyScalar(-(this.opts.side ?? 1));
+      }
       this.basis.toCamera = Math.atan2(this.cam.position.x - player.pos.x, this.cam.position.z - player.pos.z);
     }
   }

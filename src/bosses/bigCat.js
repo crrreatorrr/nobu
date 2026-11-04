@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { Boss, makeMarker, dirTo, rotY, attachGlb, flamePart, spikePart } from './common.js';
 import { autoRig, sstep, chain, segDist, blendPose } from './autorig.js';
 import { Entity } from '../entities/entity.js';
+import { Chaser } from '../entities/chaser.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
 import { textTexture } from '../entities/fx.js';
@@ -237,159 +238,8 @@ export class CatRig {
 // Runs along the track behind Nobu (in track distance). Rubber-banded: always looming, never hopeless.
 // Steers with a spring (so it turns into its moves instead of sliding sideways), leans into curves and
 // bounds over pits and logs instead of floating through them.
-const FRONT_PAWS = [[-0.8, 1.9], [0.75, 1.75]], HIND_PAWS = [[-1.05, -0.85], [1.0, -0.95]]; // root-local (x, z)
-const REACH = 2.8, REAR = 1.4; // front paws ahead of / hind paws behind the cat's centre (m)
-export class ChaseCat extends Entity {
-  constructor(stage, track, s) {
-    super(stage, 0, 0, 0);
-    this.track = track;
-    this.s = s;
-    this.u = 0;
-    this.rig = new CatRig(1.3);
-    this.obj.add(this.rig.root);
-    this.alwaysActive = true;
-    this.interactive = false;
-    this.state = 'wait';
-    this.waitT = 99;
-    this.speed = 0;
-    this._g = {};
-    this._v = new THREE.Vector3();
-    this._reset();
-    this._place();
-  }
-  _reset() {
-    this.uv = 0; this.heading = 0; this.lean = 0;
-    this.leap = null; this.landT = 0;
-    this.y = this.track.heightAt(this.s);
-    this.lastStep = this._step();
-  }
-  // paws hit the ground twice a stride: the front pair just after "stretched", the hind pair just after "gathered"
-  _step() { return Math.floor((this.rig.gait - Math.PI / 2) / Math.PI); }
-  _place() {
-    this.track.toWorld(this.s, this.u, 0, this.pos);
-    this.pos.y = this.y;
-    this.obj.position.copy(this.pos);
-    this.rig.root.rotation.y = this.track.yaw(this.s) + this.heading;
-    this.rig.root.rotation.z = this.lean;
-  }
-  begin(s, delay = 1.6) {
-    // never start hovering over a pit
-    while (this._blocked(s) && s > 0) s -= 1;
-    this.s = s;
-    this.u = 0;
-    this.state = 'wait';
-    this.waitT = delay;
-    this.roared = false;
-    this.speed = 2.5;
-    this._reset();
-    this._place();
-  }
-  // no floor under the centre line here, or a raised lip (a log) to hop over
-  _blocked(s) {
-    const g = this.track.groundAt(s, 0, this._g);
-    return !g || g.y > this.track.heightAt(s) + 0.4;
-  }
-  // how far the cat may drift sideways at s and still have all four paws on the floor
-  _lane(s) {
-    let w = 0;
-    for (const sp of this.track.spans) if (!sp.disabled && s >= sp.d0 && s <= sp.d1 && sp.dy === 0) w = Math.max(w, sp.w / 2 - Math.abs(sp.u));
-    return Math.max(0, Math.min(1.8, w - 1.3));
-  }
-  _footfall(paws, loud) {
-    const v = this._v, c = this.player ? Math.max(0, 1 - Math.abs(this.player.body.s - this.s) / 18) : 0;
-    for (const [x, z] of paws) {
-      this.rig.root.localToWorld(v.set(x, 0.05, z));
-      this.fx.dust(v.x, this.y, v.z, { count: 2, size: 0.55, color: 0xf0c890, speed: 1.4, life: 0.5 });
-    }
-    if (loud) {
-      audio.play('paw', 0.4 + c * 0.6);
-      if (c > 0.3) this.game.camera.shake(0.05 + c * 0.07, 0.12);
-    }
-  }
-  update(dt) {
-    const p = this.player;
-    const ps = p.body.s ?? 0;
-    if (this.state === 'wait') {
-      this.waitT -= dt;
-      this.rig.pose(this.waitT < 0.8 ? 'yowl' : 'crouch', dt, 1);
-      if (this.waitT < 0.8 && !this.roared) { this.roared = true; audio.play('yowl'); this.game.camera.shake(0.4, 0.5); }
-      if (this.waitT <= 0) this.state = 'run';
-    } else if (this.state === 'run' || this.state === 'gloat') {
-      const gap = ps - this.s;
-      if (this.state === 'run') {
-        // smooth rubber band: eases toward a speed that rises with the gap (no stepped jumps)
-        const target = gap < 5 ? 6.7 : gap < 9 ? 6.7 + (gap - 5) * 0.375 : Math.min(10.5, 8.2 + (gap - 9) * 0.575);
-        if (!this.leap) this.speed = damp(this.speed, target, 2, dt);
-      } else {
-        this.speed = damp(this.speed, 0, 3.5, dt);
-      }
-      this.s += this.speed * dt;
-      // lateral steering: a critically damped spring toward Nobu's lane, kept on the floor
-      const lane = Math.min(this._lane(this.s + REACH), this._lane(this.s));
-      const tu = this.state === 'run' ? clamp(p.body.u ?? 0, -lane, lane) : this.u;
-      const acc = (tu - this.u) * 5 - this.uv * 4.5;
-      this.uv = clamp(this.uv + acc * dt, -3.5, 3.5);
-      this.u = clamp(this.u + this.uv * dt, -1.8, 1.8);
-      // face the way it is actually moving, and bank into curves and swerves
-      const dy = this.track.yaw(this.s + 1) - this.track.yaw(this.s - 1);
-      const curve = Math.atan2(Math.sin(dy), Math.cos(dy)) / 2; // track turn rate, rad per metre (+ = left)
-      this.heading = damp(this.heading, -Math.atan2(this.uv, Math.max(2, this.speed)), 7, dt);
-      this.lean = damp(this.lean, clamp(-curve * this.speed * this.speed * 0.16 + acc * 0.015, -0.2, 0.2), 5, dt);
-      this.rig.lookYaw = clamp((p.body.u ?? 0) - this.u, -1, 1) * -0.3 - this.heading * 0.5;
-      // pits and logs: bound clean over them, front paws taking off at the lip, hind paws landing past it
-      const ground = this.track.heightAt(this.s);
-      if (!this.leap && this.state === 'run' && this._blocked(this.s + REACH)) {
-        let e = this.s + REACH;
-        while (e < this.s + 40 && this._blocked(e)) e += 0.5;
-        const len = e + REAR - this.s;
-        this.leap = { s0: this.s, s1: e + REAR, y0: this.y, h: clamp(0.6 + len * 0.17, 1.4, 3.6) };
-        this.speed = Math.max(this.speed, 7.5); // a committed pounce, never a slow float
-        this._footfall(HIND_PAWS, true);
-      }
-      if (this.leap) {
-        const L = this.leap, q = clamp((this.s - L.s0) / (L.s1 - L.s0), 0, 1);
-        this.y = L.y0 + (this.track.heightAt(L.s1) - L.y0) * q + 4 * L.h * q * (1 - q);
-        this.rig.pose('leap', dt, q);
-        if (q >= 1) {
-          this.leap = null; this.landT = 0.32; this.y = ground;
-          this._footfall([...FRONT_PAWS, ...HIND_PAWS], true);
-          audio.play('stomp');
-          this.game.camera.shake(0.2, 0.25);
-        }
-      } else {
-        this.y = damp(this.y, ground, 20, dt);
-        if (this.landT > 0) {
-          this.landT -= dt;
-          this.rig.pose('land', dt, Math.max(0, this.landT / 0.32));
-          this.rig.gait += dt * (7.5 + 5.5 * Math.min(this.speed / 8, 1.5)); // keep the stride clock going
-        } else if (this.state === 'gloat' && this.speed < 2.2) {
-          this.rig.pose('sit', dt);
-        } else {
-          this.rig.pose('run', dt, this.speed / 8);
-        }
-        const step = this._step();
-        if (step !== this.lastStep && this.landT <= 0 && this.speed > 2.2) {
-          const front = ((step % 2) + 2) % 2 === 0;
-          this._footfall(front ? FRONT_PAWS : HIND_PAWS, front);
-        }
-        this.lastStep = step;
-      }
-      if (this.state === 'run') {
-        if (gap < 2.4 && !p.dead) {
-          if (p.god) this.s = ps - 2.4; // god mode: it can only breathe down your neck
-          else {
-            p.die('flat');
-            this.state = 'gloat';
-            audio.play('meow');
-          }
-        }
-        if (p.dead && this.state === 'run') this.state = 'gloat';
-      }
-    } else if (this.state === 'stop') {
-      this.rig.pose('idle', dt);
-    }
-    this._place();
-  }
+export class ChaseCat extends Chaser {
+  constructor(stage, track, s) { super(stage, track, s, Infinity, { legacy: true, rig: new CatRig(1.3), speed: 6.7 }); }
 }
 
 // ---------------- Boss ----------------
