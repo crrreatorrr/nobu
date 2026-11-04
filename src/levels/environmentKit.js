@@ -1,6 +1,7 @@
 // Kept separate from the large kit so parallel helper work has one integration point.
 import * as THREE from 'three';
-import { Entity } from '../entities/entity.js';
+import { Entity, Breakable } from '../entities/entity.js';
+import { ConedDog } from '../entities/dogs.js';
 import { Chaser } from '../entities/chaser.js';
 import { CamZone, DarkZone, RisingHazard, checkpointS } from '../entities/environment.js';
 import { audio } from '../audio/audio.js';
@@ -26,9 +27,19 @@ export function validateDetours(stage) {
       if (!overlap(a, b, d0, d1)) continue;
       if (e instanceof RisingHazard || ['RugPull', 'BoxGauntlet'].includes(e.constructor.name)) throw new Error('Detour skips a one-way hazard');
     }
+    // Foot detours must permit returning to every skipped main-path countable.
+    // Terrain before the earliest countable need not be crossed again (e.g. a zipline).
+    // With no countables available, conservatively validate the entire skipped span.
+    const targets = stage.entities.filter(e => !e.detour &&
+      ((e instanceof Breakable && e.countable) || e instanceof ConedDog))
+      .map(e => tr.project(e.pos.x, e.pos.z).s).filter(s => s >= a && s <= b);
+    const direction = detour.exitD >= detour.entryD ? -1 : 1;
+    const end = targets.length ? (direction < 0 ? Math.min(...targets) : Math.max(...targets)) : detour.entryD;
     // A return needs a permanent route: crumble/fall boxes alone never count as ground.
     let lastY = null, gap = 0;
-    for (let s = b; s >= a; s -= .5) {
+    const distance = Math.abs(detour.exitD - end), steps = Math.ceil(distance / .5);
+    for (let i = 0; i <= steps; i++) {
+      const s = detour.exitD + direction * Math.min(i * .5, distance);
       const ground = tr.groundAt(s, 0);
       let y = ground?.y ?? null;
       if (y === null) {

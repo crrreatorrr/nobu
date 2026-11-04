@@ -10,6 +10,7 @@ import { CamZone,DarkZone,RisingHazard } from '../src/entities/environment.js';
 import { installEnvironmentKit,validateDetours } from '../src/levels/environmentKit.js';
 import { buildEnvironmentStrip } from '../src/levels/environmentStrip.js';
 import { Chaser } from '../src/entities/chaser.js';
+import { Breakable } from '../src/entities/entity.js';
 import { StaticPlatform } from '../src/entities/props.js';
 function fixture() {
   const track=new Track(turtle([0,0,0],[[150,0,0]])); track.ground(-5,150);
@@ -66,6 +67,22 @@ describe('detour runtime and geometry',()=>{
   it('rejects an unwalkable skipped span and accepts a permanent route',()=>{
     const {k,stage,track}=fixture();k.detour(20,30,{y:10,build(){}});expect(validateDetours(stage)).toBe(true);
     track.spans=[];expect(()=>validateDetours(stage)).toThrow(/walked back/);
+  });
+  it('checks the permanent return to every skipped countable rather than earlier terrain',()=>{
+    const {k,stage,track}=fixture();track.spans=[];track.ground(26,35);
+    k.detour(20,30,{y:10,build(){}});
+    const target=new Breakable(stage,...track.toWorld(27).toArray());stage.add(target);
+    expect(validateDetours(stage)).toBe(true);
+    stage.add(new Breakable(stage,...track.toWorld(21).toArray()));
+    expect(()=>validateDetours(stage)).toThrow(/walked back/);
+  });
+  it('validates returns in the forward direction for upstream exits',()=>{
+    const {k,stage,track}=fixture();track.spans=[];track.ground(18,24);
+    k.detour(30,20,{y:10,build(){}});
+    stage.add(new Breakable(stage,...track.toWorld(23).toArray()));
+    expect(validateDetours(stage)).toBe(true);
+    stage.add(new Breakable(stage,...track.toWorld(29).toArray()));
+    expect(()=>validateDetours(stage)).toThrow(/walked back/);
   });
   it('rejects a covered burrow and a side lane without the required pit gap',()=>{
     const {k}=fixture();expect(()=>k.detour(20,22,{y:-5,build(kd){kd.floor(20,25,{x:0,w:3});}})).toThrow(/covered/);

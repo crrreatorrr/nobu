@@ -20,7 +20,7 @@ import { MASTERY_TEXT, LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT, SECTION_TEXT } f
 import { createChain, refreshChain, chainPitch } from './rewards.js';
 import { hitSessionChain, finishSessionChain, updateSessionChain, removeChainDrops } from './chain.js';
 import { missesBySection, boundedMiss } from './hints.js';
-import { SNACK_EXCLUDED, applyRunResults, boneContext, snackTier } from './bones.js';
+import { SNACK_EXCLUDED, staticSnackPotential, applyRunResults, boneContext, snackTier } from './bones.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
@@ -154,7 +154,7 @@ export class Session {
     const info = this.def.build(g, stage, this.tickets);
     stage.finalize();
     this.tickets.finalize();
-    this.snack.potential = this.tickets.list.length + stage.entities.filter((e) => e instanceof Backpack && e.countable && e.kind !== 'mystery').reduce((n, e) => n + e.tickets, 0);
+    this.snack.potential = staticSnackPotential(this.tickets.list) + stage.entities.filter((e) => e instanceof Backpack && e.countable && e.kind !== 'mystery').reduce((n, e) => n + e.tickets, 0);
     const dogIds = Object.keys(this.def.dogs || {});
     stage.entities.filter((e) => e instanceof ConedDog).forEach((e, i) => { if (!e.dogId && dogIds[i]) e.dogId = `${this.level}:${dogIds[i]}`; });
     ui.loadingProgress(0.65, 'Placing Nobu...');
