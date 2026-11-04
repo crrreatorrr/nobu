@@ -23,8 +23,10 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 //   af71e57e79fd86f577d6cb47b53af4ccde4471bac2a79e1bbc52fcc3afb939a4
 // 0.5.0 / hub 441b7c4 (realtime, ScoreResult, getLeaderboard):
 //   7d994bb3744c3d2f59e3bfa6e235b728554b7644a4f4b521b9fb7fd1033b7b76
-// 0.5.0 / hub 1c8b72e (early match data kept for the new match handle).
-const CONTENT_MANIFEST_SHA256 = '1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b';
+// 0.5.0 / hub 1c8b72e (early match data kept for the new match handle):
+//   1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b
+// 0.6.0 / hub ee187cf (sproto-arcade, breakwater_coin, optional loadSave/writeSave).
+const CONTENT_MANIFEST_SHA256 = 'a55988ee2d19824314f6941b577a0324db914b5af028e9fa53c73990b475453a';
 
 function listFiles(dir) {
   const out = [];
@@ -71,9 +73,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.5.0', () => {
+  it('package.json is SDK 0.6.0', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.5.0');
+    expect(pkg.version).toBe('0.6.0');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -107,23 +109,27 @@ describe('vendored hub SDK', () => {
   });
 
   // live.js asRelics() keeps only ids isRelicId() accepts. Without the Belt here,
-  // profile.get would drop it and the Champion's Crown would never unlock. Hub main
-  // ships it (b065668), so the vendor tree carries no local patch.
-  it('accepts tidebreaker_belt as a relic id from upstream', async () => {
+  // profile.get would drop it and the Champion's Crown would never unlock; the same
+  // goes for breakwater_coin (0.6.0) and Wizard Hat II. Hub ships both, so the vendor
+  // tree carries no local patch.
+  it('accepts tidebreaker_belt and breakwater_coin as relic ids from upstream', async () => {
     const types = await import('../vendor/hub-sdk/dist/types.js');
-    expect(types.RELIC_IDS).toEqual(['hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt']);
+    expect(types.RELIC_IDS).toEqual([
+      'hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt', 'breakwater_coin',
+    ]);
     expect(types.isRelicId('tidebreaker_belt')).toBe(true);
+    expect(types.isRelicId('breakwater_coin')).toBe(true);
     expect(types.isRelicId('not_a_relic')).toBe(false);
-    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter']);
+    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter', 'sproto-arcade']);
     const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
     expect(live).toContain("value.filter((item) => typeof item === 'string' && isRelicId(item))");
     const dts = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
-    expect(dts).toContain('"tinubu_crown", "tidebreaker_belt"]');
+    expect(dts).toContain('"tinubu_crown", "tidebreaker_belt", "breakwater_coin"]');
     const vendorNote = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
     expect(vendorNote).not.toContain('## Local patch');
   });
 
-  it('content manifest matches SDK 0.5.0 after maps and sourceMappingURL are removed', () => {
+  it('content manifest matches SDK 0.6.0 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);

@@ -109,11 +109,12 @@ and four jumps in a row (ground jump + three in the air). The setting is saved; 
   | Item | Slot | Unlocked by | While equipped |
   | --- | --- | --- | --- |
   | Wizard Hat | Head | Tinubu's Crown (Sproto) | Spell Bark: Mega Bark unlocked, longer (9 m vs 6.5 m), wider and faster. Bosses are skipped. |
+  | Wizard Hat II | Head | Breakwater Coin (Sproto Arcade) | Same as the Wizard Hat: Spell Bark, and the same hat mesh. |
   | Champion's Crown | Head | Tidebreaker Belt (Sproto Fighter) | Triple jump (one more air jump) and a 1.4x bite radius (0.95 m to 1.33 m). |
   | Golden Collar | Neck | Genesis Block Shard (People's Bitcoin) | Absorbs one hit per spawn or checkpoint. Pits still kill. |
   | Clown-Nose Collar | Neck | HPOS10I Core (HPOS10I) | One horizontal air dash (3 m) per jump. |
 
-  The Wizard Hat and the Champion's Crown share the head slot, so Nobu wears one or the other. Cone's Tip is
+  Both Wizard Hats and the Champion's Crown share the head slot, so Nobu wears one of them. Cone's Tip is
   NOBU's own Relic, so it unlocks nothing here. Items live in `src/gear/catalog.js`. The Champion's Crown is a
   Tripo model (`public/assets/models/nobu_champions_crown.glb`, asset id `model_nobu_champions_crown`). The other
   meshes are procedural (`src/player/accessories.js`) until a GLB is added as `public/assets/models/<item id>.glb`
