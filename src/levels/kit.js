@@ -134,7 +134,7 @@ export function makeKit(game, stage, tickets, track = null) {
     fan: (x, y, d, o) => at(UpdraftFan, x, y, d, o),
     hammer(x, y, d, o = {}) { const p = W(x, y, d); return add(new SwingHammer(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) + offsetYaw(Math.PI / 2) })); },
     crusher(x, y, d, o = {}) { const p = W(x, y, d); return add(new Crusher(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) })); },
-    coconuts(d, o) { return add(new CoconutRoller(stage, track, d, o)); },
+    coconuts(d, o = {}) { return add(new CoconutRoller(stage, track, d, track?.mirror ? { ...o, lanes: (o.lanes ?? [-2,0,2]).map(authorU) } : o)); },
     belt(d0, d1, push, { w = 8.6, x = 0 } = {}) {
       const sp = track.ground(d0, d1, { u: authorU(x), w, conveyor: authorConveyor(push), style: 'platform' });
       conveyorStrip(stage, track, sp);

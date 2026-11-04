@@ -65,11 +65,11 @@ export function validateDetours(stage) {
 
 export class Detour extends Entity {
   constructor(stage, track, entryD, exitD, { y, entry = 'pipe', x = 0 }) {
-    super(stage, ...track.toWorld(entryD, x).toArray());
+    super(stage, ...(track.authorToWorld || track.toWorld).call(track, entryD, x).toArray());
     this.track = track; this.entryD = entryD; this.exitD = exitD; this.y = y; this.entry = entry;
     this.loop = Math.abs(exitD - entryD) <= 2; this.skipSpan = this.loop ? null : [Math.min(entryD, exitD), Math.max(entryD, exitD)];
     this.interactive = false; this.alwaysActive = true; this.solids = new Set(); this.returnLegs = []; this.busy = false; this.cameraActive = false; this.epoch = 0;
-    this.startPos = track.toWorld(entryD, x, y); this.exitPos = null;
+    this.startPos = (track.authorToWorld || track.toWorld).call(track, entryD, x, y); this.exitPos = null;
     const mat = new THREE.MeshLambertMaterial({ color: entry === 'flap' ? 0x866044 : 0x7f9297 });
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(.7, .7, 1.4, 16, 1, true), mat); mesh.position.y = .7; this.obj.add(mesh);
     const hole = new THREE.Mesh(new THREE.CircleGeometry(.65, 16), new THREE.MeshBasicMaterial({ color: 0x10141b, side: THREE.DoubleSide })); hole.rotation.x = -Math.PI / 2; hole.position.y = 1.4; this.obj.add(hole);
@@ -147,7 +147,7 @@ export function installEnvironmentKit(k, game, stage, tickets, track, waterMater
         for (let i = 0; i < n; i++) result.push(k.platform(x, dy, a + (b - a) * (i + .5) / n, w, Math.abs(b - a) / n + .08, o.depth ?? .6));
         return result;
       }
-      if (base < 0 && track.spans.some(sp => overlap(a, b, sp.d0, sp.d1) && Math.abs(x - sp.u) < (w + sp.w) / 2 && track.spanDy(sp, Math.max(a, sp.d0)) > dy)) throw new Error('Burrow span would be covered by main-path ground');
+      if (base < 0 && track.spans.some(sp => overlap(a, b, sp.d0, sp.d1) && Math.abs((track.authorU ? track.authorU(x) : x) - sp.u) < (w + sp.w) / 2 && track.spanDy(sp, Math.max(a, sp.d0)) > dy)) throw new Error('Burrow span would be covered by main-path ground');
       const entryBridge = Math.abs(b-a) <= 4 && [entryD,exitD].some(d => Math.min(a,b) >= d-2 && Math.max(a,b) <= d+2);
       if (base === 0 && !entryBridge && Math.abs(x) - w / 2 < 6.1) throw new Error('Side detour needs a 1.8m pit beyond the main floor');
       return k.floor(a, b, { ...o, y: dy });

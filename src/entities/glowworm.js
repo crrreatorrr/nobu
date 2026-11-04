@@ -28,8 +28,8 @@ export class Glowworm extends Entity {
     this.alwaysActive = true;
     this.interactive = false;
     // nests: track distances where Lumi rests and refuels
-    this.nests = nests.slice().sort((a, b) => a - b).map((d) => ({ d, pos: track.toWorld(d, nestU, 0, new THREE.Vector3()), used: -99 }));
-    this.nests.forEach((n) => { n.pos.y = baseY === undefined ? (track.groundAt(n.d, nestU)?.y ?? track.heightAt(n.d)) : track.heightAt(n.d) + baseY; });
+    this.nests = nests.slice().sort((a, b) => a - b).map((d) => ({ d, pos: (track.authorToWorld || track.toWorld).call(track, d, nestU, 0, new THREE.Vector3()), used: -99 }));
+    this.nests.forEach((n) => { n.pos.y = baseY === undefined ? (track.groundAt(n.d, track.authorU ? track.authorU(nestU) : nestU)?.y ?? track.heightAt(n.d)) : track.heightAt(n.d) + baseY; });
     // body: three glowing segments and a head with eyes
     // beacon visuals ignore the black fog so Lumi can be spotted from far down the cave
     const mat = new THREE.MeshBasicMaterial({ color: GREEN, fog: false });
@@ -109,7 +109,8 @@ export class Glowworm extends Entity {
       if (!p.dead) this.energy = Math.max(0, this.energy - dt / LIFE);
       // hover over Nobu's shoulder, lagging a little
       const f = this.track.tangent(ps, this._forward);
-      const tx = p.pos.x - f.z * 0.7 - f.x * 0.4, tz = p.pos.z + f.x * 0.7 - f.z * 0.4, ty = p.pos.y + 2.0 + Math.sin(this.t * 3) * 0.15;
+      const side = this.track.mirror ? -1 : 1;
+      const tx = p.pos.x - f.z * 0.7 * side - f.x * 0.4, tz = p.pos.z + f.x * 0.7 * side - f.z * 0.4, ty = p.pos.y + 2.0 + Math.sin(this.t * 3) * 0.15;
       this.pos.set(damp(this.pos.x, tx, 6, dt), damp(this.pos.y, ty, 6, dt), damp(this.pos.z, tz, 6, dt));
       // refuel at nests
       for (const n of this.nests) {

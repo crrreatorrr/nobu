@@ -63,7 +63,7 @@ export class Chaser extends Entity {
     this.speed0 = opts.speed ?? 7; this.catchUp = opts.catchUp ?? 1;
     this.catchUpSpeed = this.legacy ? Infinity : (opts.catchUpSpeed ?? Infinity);
     this.catchAt = this.legacy ? 2.4 : (opts.catchAt ?? 2.4);
-    this.rig = opts.rig || new PursuerRig(opts);
+    this.rig = opts.rig || new PursuerRig(track.mirror && opts.lanes ? { ...opts, lanes: opts.lanes.map(u => track.authorU(u)) } : opts);
     this.obj.add(this.rig.root);
     this.alwaysActive = true;
     this.interactive = false;

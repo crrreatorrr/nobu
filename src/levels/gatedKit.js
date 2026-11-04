@@ -39,7 +39,7 @@ export function addGatedHelpers(k, game, stage, track = k.track) {
     smogVent: (x, y, d, opts) => at(SmogVent, x, y, d, opts),
     zoomieGate(x, y, d, opts = {}) {
       const plateD = opts.plateD ?? d - 22;
-      return at(ZoomieGate, x, y, d, { ...opts, plateD, u: x, platePos: k.W(x, y, plateD) });
+      return at(ZoomieGate, x, y, d, { ...opts, plateD, u: track?.authorU ? track.authorU(x) : x, platePos: k.W(x, y, plateD) });
     },
     // Convert an authored rectangular secret area through W, including curved/mirrored tracks.
     gatedArea(x0, x1, y0, y1, d0, d1) {

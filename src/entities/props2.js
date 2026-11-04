@@ -15,7 +15,7 @@ const _direction = new THREE.Vector3();
 const DRUM_SOUND = Object.freeze({ volume: 0.4 });
 const ZIP_SOUND = Object.freeze({ volume: 0.3 });
 export function propWorld(track, x, y, d, out) {
-  return track ? track.toWorld(d, x, y, out) : out.set(x, y, -d);
+  return (track ? (track.authorToWorld || track.toWorld).call(track, d, x, y, out) : out.set(x, y, -d));
 }
 function dimensions(w, dd, yaw, out) {
   const c = Math.abs(Math.cos(yaw)), s = Math.abs(Math.sin(yaw));
@@ -210,7 +210,7 @@ export class RugPull extends Entity {
       if (e.kind !== 'cat' || e.dead || !e.light) continue;
       const d = this.track ? this.track.project(e.pos.x, e.pos.z, -1, this._projection).s : -e.pos.z;
       const u = this.track ? this._projection.u : e.pos.x;
-      if (Math.abs(u - this.x) <= this.w / 2 && d >= this.d0 && d <= Math.min(this.front, this.d1) && Math.abs(e.pos.y - (this.track ? this.track.heightAt(d) : 0)) < 1.2 && !this.litCats.has(e)) {
+      if (Math.abs(u - (this.track?.authorU ? this.track.authorU(this.x) : this.x)) <= this.w / 2 && d >= this.d0 && d <= Math.min(this.front, this.d1) && Math.abs(e.pos.y - (this.track ? this.track.heightAt(d) : 0)) < 1.2 && !this.litCats.has(e)) {
         if (e.timer < 0 || e.timer === undefined) { e.light(); this.litCats.add(e); }
       }
     }

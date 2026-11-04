@@ -82,7 +82,7 @@ function buildRiver(k,game,stage,labels){
   const wallAt=k.track.wallAt.bind(k.track);
   k.track.wallAt=s=>{
     const wall=wallAt(s);
-    if(game.session.bonusRound?.tray===detour&&s>=SF+50&&s<=SF+72&&wall)return{...wall,left:9.4};
+    if(game.session.bonusRound?.tray===detour&&s>=SF+50&&s<=SF+72&&wall)return{...wall,[k.track.mirror?'right':'left']:9.4};
     return wall;
   };
   stage.canyonRiver={detour,exit,plate};

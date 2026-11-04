@@ -15,7 +15,7 @@ export function buildCerealLane(stage,track){
   const shell=new THREE.MeshLambertMaterial({color:0xbda575,transparent:true,opacity:.10,depthWrite:false,side:THREE.FrontSide});
   const trim=new THREE.LineBasicMaterial({color:0xb3833d,transparent:true,opacity:.7});
   function panel(x,d,w,depth,bottom,height,{widthStep=.55,outline=true}={}){
-    const point=track.toWorld(d,x,0),yaw=track.yaw(d),obj=new Entity(stage,point.x,bottom,point.z);
+    const point=(track.authorToWorld||track.toWorld).call(track,d,x,0),yaw=track.yaw(d),obj=new Entity(stage,point.x,bottom,point.z);
     obj.interactive=false;obj.obj.rotation.y=yaw;
     const geo=new THREE.BoxGeometry(w,height,depth),mesh=new THREE.Mesh(geo,shell);mesh.position.y=height/2;
     obj.obj.add(mesh);
@@ -23,7 +23,7 @@ export function buildCerealLane(stage,track){
     stage.add(obj);panels.push(obj);
     const n=Math.ceil(w/widthStep),tile=w/n,c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));
     for(let i=0;i<n;i++){
-      const p=track.toWorld(d,x-w/2+tile*(i+.5),0),hx=(tile*c+depth*s)/2,hz=(tile*s+depth*c)/2;
+      const p=(track.authorToWorld||track.toWorld).call(track,d,x-w/2+tile*(i+.5),0),hx=(tile*c+depth*s)/2,hz=(tile*s+depth*c)/2;
       solids.push(stage.world.add(new Solid({x:p.x-hx,y:bottom,z:p.z-hz},{x:p.x+hx,y:bottom+height,z:p.z+hz},{ref:obj})));
     }
     return obj;

@@ -28,22 +28,30 @@ export class Track {
   constructor(points, { mirror = false, axisX = points[0].x } = {}) {
     this.mirror = !!mirror;
     this.mirrorAxisX = axisX;
+    const originalCurve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
     if (this.mirror) points = points.map(p => new THREE.Vector3(2 * axisX - p.x, p.y, p.z));
-    this.curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
-    this.length = this.curve.getLength();
+    this.curve = this.mirror ? new THREE.CatmullRomCurve3(points, false, 'centripetal') : originalCurve;
+    this.length = originalCurve.getLength();
     const n = Math.ceil(this.length / STEP);
     this.n = n;
-    const pts = this.curve.getSpacedPoints(n);
-    this.px = new Float32Array(n + 1); this.py = new Float32Array(n + 1); this.pz = new Float32Array(n + 1);
+    const pts = originalCurve.getSpacedPoints(n);
+    // Reflect the same quantized source samples rather than quantizing a second
+    // curve. This avoids accumulating different normals during moving-solid
+    // updates or extrapolation beyond a nonzero-origin track's end.
+    this.px = this.mirror ? new Float64Array(n + 1) : new Float32Array(n + 1);
+    const sourceX = this.mirror ? new Float32Array(n + 1) : this.px;
+    this.py = new Float32Array(n + 1); this.pz = new Float32Array(n + 1);
     this.tx = new Float32Array(n + 1); this.tz = new Float32Array(n + 1);
     for (let i = 0; i <= n; i++) {
-      this.px[i] = pts[i].x; this.py[i] = pts[i].y; this.pz[i] = pts[i].z;
+      sourceX[i] = pts[i].x;
+      this.px[i] = this.mirror ? 2 * axisX - sourceX[i] : sourceX[i];
+      this.py[i] = pts[i].y; this.pz[i] = pts[i].z;
     }
     for (let i = 0; i <= n; i++) {
       const a = Math.max(0, i - 1), b = Math.min(n, i + 1);
-      let dx = this.px[b] - this.px[a], dz = this.pz[b] - this.pz[a];
+      let dx = sourceX[b] - sourceX[a], dz = this.pz[b] - this.pz[a];
       const l = Math.hypot(dx, dz) || 1;
-      this.tx[i] = dx / l; this.tz[i] = dz / l;
+      this.tx[i] = (this.mirror ? -dx : dx) / l; this.tz[i] = dz / l;
     }
     this.step = this.length / n;
     this.spans = [];

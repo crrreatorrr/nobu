@@ -13,7 +13,8 @@ export class TopplingPost extends Entity {
   constructor(stage, x, y, z, { w, d = 1.6, period, phase = 0, yaw = 0 }) {
     super(stage,x,y,z); Object.assign(this,{w,d,period,phase,t:phase});
     this.obj.rotation.y = yaw;
-    this.pivot = new THREE.Group(); this.pivot.position.x = -w/2; this.obj.add(this.pivot);
+    this.mirrorSide = stage.track?.mirror ? -1 : 1;
+    this.pivot = new THREE.Group(); this.pivot.position.x = -w/2*this.mirrorSide; this.obj.add(this.pivot);
     // Existing scratch-post placeholder, rotated around its bottom edge.
     const proxy = { decor: (geometry,color,pos,rotation,scale) => { const m=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({color}));m.position.copy(pos);if(rotation)m.rotation.set(rotation.x??0,rotation.y??0,rotation.z??0);if(typeof scale==='number')m.scale.setScalar(scale);else if(scale)m.scale.copy(scale);this.pivot.add(m); } };
     scratchPost(proxy,0,0,0,w);
@@ -26,7 +27,7 @@ export class TopplingPost extends Entity {
     this.t+=dt;
     const t=((this.t%this.period)+this.period)%this.period, warnStart=this.period*.5, fallStart=Math.max(warnStart+.8,this.period*.72), fallEnd=Math.min(this.period-.1,fallStart+.24);
     const q=t<warnStart?1-Math.min(1,t/(this.period*.35)):t<fallStart?0:t<fallEnd?(t-fallStart)/(fallEnd-fallStart):1;
-    this.pivot.rotation.z=-Math.PI/2*q;
+    this.pivot.rotation.z=-Math.PI/2*q*this.mirrorSide;
     this.dangerous=t>=fallStart&&t<=fallEnd;
     this.interactive=this.dangerous;
     this.shadow.material.opacity=t>=warnStart&&t<fallStart?.65:.15;
@@ -42,7 +43,7 @@ export class TopplingPost extends Entity {
 // Shares CoconutRoller's capped ticket category, but uses authored giant yarn volleys.
 export class YarnAvalanche extends CoconutRoller {
   constructor(stage,track,d,opts) {
-    super(stage,track,d,opts);this.skip=opts.skip;this.scale=opts.scale??2;this.radius=.6*this.scale;this.volley=0;
+    super(stage,track,d,opts);if(track.mirror)this.lanes=this.lanes.map(u=>track.authorU(u));this.skip=opts.skip;this.scale=opts.scale??2;this.radius=.6*this.scale;this.volley=0;
     // Borrow the existing YarnBall mesh/material, without adding an extra enemy.
     const template=new YarnBall(stage,0,0,0,{r:this.radius});this.geo=template.ball.geometry;this.mat=template.ball.material;
     this.shadows=[];
