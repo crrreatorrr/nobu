@@ -14,7 +14,7 @@ export class CanyonChase extends ChaseCat {
     } else if(this.inFort){this.inFort=false;this.begin(CF-1,1);}
     super.update(dt);
   }
-  canCatch(gap, p) { return gap > -1 && gap < 2.4 && Math.abs(p.pos.y - this.y) < 2.5; }
+  canCatch(gap, p) { return !p.frozen && !this.session?.busy && gap > -1 && gap < 2.4 && Math.abs(p.pos.y - this.y) < 2.5; }
   afterAdvance(ps, dt = 0) {
     if (this.leap?.corner) {
       this.s += Math.max(0, Math.min(8 * dt, this.leap.s1 - this.s, ps - 3.5 - this.s));

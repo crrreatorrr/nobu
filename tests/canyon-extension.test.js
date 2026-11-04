@@ -160,3 +160,19 @@ test('real Session respawn restores every toppling post phase, shadow and danger
  const posts=stage.entities.filter(e=>e instanceof TopplingPost);for(const post of posts){post.t=post.period*.8;post.update(0);post.dangerous=true;post.shadow.material.opacity=.9;}
  s.respawn();for(const post of posts){expect(post.t).toBe(post.phase);expect(post.dangerous).toBe(false);expect(post.interactive).toBe(false);expect(post.shadow.material.opacity).toBeLessThan(.9);}
 });
+
+test('real pending detour fades keep the cat moving but suppress uncontrollable transition catches',async()=>{
+ const{Session}=await import('../src/game/session.js'),{stage,game,built}=fixture(),s=new Session(game,'2');game.session=s;s.stage=stage;s.tickets=game.tickets;s.chase=built.chase;game.mask={snapTo(){}};const fades=[];game.ui.fade=()=>new Promise(resolve=>fades.push(resolve));
+ game.player.spawnAt=pos=>{game.player.pos.copy(pos);const pr=stage.track.project(pos.x,pos.z);game.player.body.s=pr.s;game.player.body.u=pr.u;game.player.frozen=false;};
+ const route=stage.canyonFlap.detour;game.player.spawnAt(route.pos);s.checkpoint(route.pos);s.chase.begin(game.player.body.s-2.7,0);s.chase.state='run';const initial=s.chase.s;
+ const transition=route.travel();expect(s.busy).toBe(true);expect(game.player.frozen).toBe(true);
+ for(let i=0;i<30;i++)s.chase.update(1/120);expect(s.chase.s).toBeGreaterThan(initial);expect(game.player.die).not.toHaveBeenCalled();
+ fades.shift()();await Promise.resolve();expect(fades).toHaveLength(1);expect(s.busy).toBe(true);
+ for(let i=0;i<30;i++)s.chase.update(1/120);expect(game.player.die).not.toHaveBeenCalled();fades.shift()();await transition;expect(s.busy).toBe(false);
+ game.player.spawnAt(route.pos);s.chase.y=game.player.pos.y;expect(s.chase.canCatch(1,game.player)).toBe(true);
+});
+test('actual river Shellback patrol remains on its own sunken lane outside the player round',async()=>{
+ const{Shellback}=await import('../src/entities/enemies.js'),{stage,game}=fixture(),enemy=stage.entities.find(e=>e instanceof Shellback);game.session.bonusRound=null;
+ for(let i=0;i<600;i++)enemy.update(1/60);
+ const pr=stage.track.project(enemy.pos.x,enemy.pos.z);expect(pr.u).toBeLessThan(-6.4);expect(pr.u).toBeGreaterThan(-8.6);expect(enemy.pos.y-stage.track.heightAt(pr.s)).toBeCloseTo(-5,1);
+});
