@@ -45,9 +45,9 @@ it('freezes chain/miss stats at the gate and persists bounded section misses wit
 });
 it('banks records/badges through real clear without changing Tickets, excluding trial clears',()=>{
  const s=session();s.stats={...s.liveStats(),bestChain:15,tickets:0,freedIds:[]};
- Game.prototype.levelCleared.call({playCutscene(){}},s);expect(save.data.bestChain[1]).toBe(15);expect(save.data.chainBadges[1]).toBe(true);expect(s.stats.chainRecord).toBe(false);expect(save.data.tickets).toBe(0);
- s.stats.bestChain=16;Game.prototype.levelCleared.call({playCutscene(){}},s);expect(s.stats.chainRecord).toBe(true);
- const t=session();t.trial=true;t.stats={...t.liveStats(),bestChain:30,tickets:0,freedIds:[]};Game.prototype.levelCleared.call({playCutscene(){}},t);expect(save.data.bestChain[1]).toBe(16);
+ Game.prototype.levelCleared.call({playCutscene(){},_unlockMainChapters:Game.prototype._unlockMainChapters},s);expect(save.data.bestChain[1]).toBe(15);expect(save.data.chainBadges[1]).toBe(true);expect(s.stats.chainRecord).toBe(false);expect(save.data.tickets).toBe(0);
+ s.stats.bestChain=16;Game.prototype.levelCleared.call({playCutscene(){},_unlockMainChapters:Game.prototype._unlockMainChapters},s);expect(s.stats.chainRecord).toBe(true);
+ const t=session();t.trial=true;t.stats={...t.liveStats(),bestChain:30,tickets:0,freedIds:[]};Game.prototype.levelCleared.call({playCutscene(){},_unlockMainChapters:Game.prototype._unlockMainChapters},t);expect(save.data.bestChain[1]).toBe(16);
 });
 it('snapshots partial-state hooks after a real checkpoint and leaves newly spawned flop targets for the next action',()=>{
  const s=session(),hook=vi.fn(),mystery=vi.fn();s.stage.entities=[{onCheckpoint:hook},{kind:'mystery',onCheckpoint:mystery}];

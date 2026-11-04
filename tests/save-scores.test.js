@@ -21,7 +21,7 @@ describe('save: trial scores', () => {
   it('sanitizes bad nested values on load', () => {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       v: 2,
-      trials: { 1: { best: 'fast' }, 2: { ms: 900 }, 3: null, 4: { best: 50 }, ride: { best: 40 } },
+      trials: { 1: { best: 'fast' }, 2: { ms: 900 }, 3: null, 5: { best: 50 }, ride: { best: 40 } },
       bestDogs: 'lots',
       bonus: [1, 2],
       beaten: [true],

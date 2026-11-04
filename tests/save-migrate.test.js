@@ -160,7 +160,7 @@ describe('keyed runtime readers', () => {
 
   it('keeps the complete current story and bonus unlock sequence', () => {
     const bank = vi.spyOn(hub, 'bank').mockResolvedValue(undefined);
-    const game = { playCutscene: vi.fn() };
+    const game = Object.assign(Object.create(Game.prototype), { playCutscene: vi.fn() });
     const open = () => MAP_ORDER.filter((id) => isOpen(id, save.data));
     expect(save.hasProgress()).toBe(false);
     expect(open()).toEqual([1]);
@@ -177,7 +177,7 @@ describe('keyed runtime readers', () => {
 
   it.each([1, '1', 2, '2', 3, '3'])('records an existing level %s clear and opens only current successors', (id) => {
     const bank = vi.spyOn(hub, 'bank').mockResolvedValue(undefined);
-    const game = { playCutscene: vi.fn() };
+    const game = Object.assign(Object.create(Game.prototype), { playCutscene: vi.fn() });
     Game.prototype.levelCleared.call(game, { level: id, levelTickets: 0,
       stats: { tickets: 0, broken: 2, breakables: 2, dogs: 2, dogsTotal: 2 } });
     expect(save.beatenOf(id)).toBe(true);
@@ -187,7 +187,7 @@ describe('keyed runtime readers', () => {
     if (Number(id) < 3) expect(isOpen(Number(id) + 1, save.data)).toBe(true);
     if (Number(id) === 1) expect(isOpen('ride', save.data)).toBe(true);
     if (Number(id) === 2) expect(isOpen('cave', save.data)).toBe(true);
-    expect(save.data.open[4]).toBeUndefined();
+    expect(save.data.open[4]).toBe(Number(id) === 3 ? true : undefined);
     for (let opened = 1; opened <= Math.min(3, Number(id) + 1); opened++) expect(isOpen(opened, save.data)).toBe(true);
     bank.mockRestore();
   });

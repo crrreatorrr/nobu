@@ -38,13 +38,13 @@ it('captures a clean level gate before boss retries/DDA and banks Perfect only o
   const s = session(); perfectStage(s); await s.reachBossGate();
   expect(s.stats).toMatchObject({ perfectCandidate: true, deathsAtGate: 0, hiddenFound: false, snackTier: 0 }); expect(save.data.perfect[1]).not.toBe(true);
   s.deaths = 3; s.bossDdaUsed = true;
-  Game.prototype.levelCleared.call({ playCutscene() {} }, s);
+  Game.prototype.levelCleared.call({ playCutscene() {}, _unlockMainChapters: Game.prototype._unlockMainChapters }, s);
   expect(save.data.perfect[1]).toBe(true); expect(s.stats.perfectFresh).toBe(true); expect(save.data.tickets).toBe(0);
 });
 it('does not bank a quit gate or god-used run and never awards a Perfect candidate from a bonus', async () => {
   const quit = session(); perfectStage(quit); await quit.reachBossGate(); save.write(); save.load(); expect(save.data.perfect[1]).not.toBe(true);
   const god = session(); perfectStage(god); god.godUsed = true; await god.reachBossGate(); expect(god.stats.perfectCandidate).toBe(false);
-  Game.prototype.levelCleared.call({ playCutscene() {} }, god); expect(save.data.perfect[1]).not.toBe(true);
+  Game.prototype.levelCleared.call({ playCutscene() {}, _unlockMainChapters: Game.prototype._unlockMainChapters }, god); expect(save.data.perfect[1]).not.toBe(true);
   const bonus = session(); perfectStage(bonus); bonus.def = { ...bonus.def, bonus: true }; bonus._recordLevelStats(); expect(bonus.stats.perfectCandidate).toBe(false);
 });
 it('banks a captured Perfect at the goal of a goal-only main L6 fixture without a boss', async () => {

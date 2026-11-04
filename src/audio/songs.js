@@ -29,6 +29,36 @@ export const SONGS = {
     ],
     drums: { kick: 'X..xX..xX..xX.x.', snare: '....x.......x.xx', hat: 'x.xxx.xxx.xxx.xx', clank: '..x.......x.....' },
   },
+  level4: {
+    bpm: 112,
+    tracks: [
+      { wave: 'square', vol: 0.08, gate: 0.45, notes: bars(
+        'Bb5 . D6 . F6 . D6 . C6 . Bb5 . A5 . F5 .',
+        '. . F5 . G5 . A5 . Bb5 - . . F5 . . .',
+        'G5 . Bb5 . D6 . F6 . Eb6 . D6 . C6 . Bb5 .',
+        '. . A5 . C6 . Eb6 . D6 . C6 . Bb5 - . .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . . . . . . . . . . .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . . . . . . . . . . .') },
+      { wave: 'triangle', vol: 0.2, gate: 0.7, notes: bars(
+        'Bb1 . F2 . Bb2 . A2 . G2 . F2 . D2 . A1 .',
+        'Bb1 . D2 . F2 . G2 . Bb2 . G2 . F2 . D2 .',
+        'Eb2 . Bb1 . Eb2 . G2 . C2 . G2 . Bb2 . B1 .',
+        'C2 . G2 . Bb2 . A2 . F2 . C2 . Eb2 . E2 .',
+        'Bb1 . . . F2 . . . Bb1 . . . A1 . . .',
+        'Eb2 . . . Bb1 . . . Gb2 . . . F2 . . .',
+        'C2 . . . G2 . . . Bb1 . . . B1 . . .',
+        'F2 . . . Eb2 . . . D2 . C2 . Bb1 . . .') },
+      { wave: 'triangle', vol: 0.055, pluck: 0.1, notes: bars(
+        '. . . . . . Bb3+D4+F4+G4 . . . . . . . Bb3+D4+F4+G4 .',
+        '. . . . . . Eb3+G3+Bb3+D4 . . . . . . . Eb3+G3+Bb3+D4 .',
+        '. . . . . . C3+Eb3+G3+Bb3 . . . . . . . C3+Eb3+G3+Bb3 .',
+        '. . . . . . F3+A3+C4+Eb4 . . . . . . . F3+A3+C4+Eb4 .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . . . . . . . . . . .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . Eb3+Gb3+Bb3 . . . . . . . . .') },
+    ],
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.',
+      shaker: bars(...Array(4).fill('................'), ...Array(4).fill('xxxxxxxxxxxxxxxx')).replaceAll(' ', '') },
+  },
   // Bouncy, island-y title theme (F major)
   title: {
     bpm: 118,

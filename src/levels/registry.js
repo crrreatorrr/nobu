@@ -1,3 +1,7 @@
+import { buildLevel4 } from './level4.js';
+import { buildBoss4Arena } from './boss4Arena.js';
+import { RoombaTitan } from '../bosses/roombaTitan.js';
+import { L4_SECTIONS } from './data/laundry.js';
 // The shipped levels, their map presentation and their entry rules live together.
 // Keep map order explicit: integer object keys alone would put both bonuses last.
 import { buildLevel1, buildBoss1Arena } from './level1.js';
@@ -12,7 +16,7 @@ import { L1_SECTIONS_EXTENDED } from './data/l1-layout2.js';
 import { LEVEL_DOGS } from './metadata.js';
 import { levelSections, HIDDEN_SECTION } from './sections.js';
 import { bonusSectionsV2 } from './bonusMetadata.js';
-import { SECTION_TEXT, BONUS_EXTENSION_TEXT } from '../story/script.js';
+import { SECTION_TEXT, BONUS_EXTENSION_TEXT, L4_TEXT } from '../story/script.js';
 
 const mainOpen = (id) => (data) => data.v >= 3 ? !!data.open?.[id] : id <= data.unlocked;
 const bonusOpen = (id, after) => (data) => data.v >= 3 ? !!data.open?.[id]
@@ -54,6 +58,16 @@ export const LEVELS = {
     tier: 3, unlock: mainOpen(3), mapPos: { x: 77, y: 27 }, trial: true, shipped: true,
     dogs: LEVEL_DOGS['3'],
   },
+  4: {
+    id: 4, name: L4_TEXT.name, build: buildLevel4, arena: buildBoss4Arena,
+    Boss: RoombaTitan, bossKey: 'titan', theme: 4, bossTheme: 'boss4', bonus: false,
+    tier: 4, unlock: mainOpen(4), mapPos: { x: 88, y: 40 }, trial: true, shipped: true,
+    dogs: LEVEL_DOGS[4],
+    sections: [...L4_SECTIONS.map(([d0,d1,key])=>({d0,d1,name:L4_TEXT.sections[key]})),
+      {d0:118.5,d1:160.001,name:L4_TEXT.sections.topShelf,detour:true},
+      {d0:186,d1:246.001,name:L4_TEXT.sections.pantry,detour:true}].sort((a,b)=>a.d0-b.d0),
+    hidden: { section: L4_TEXT.sections.basement, move: 'dust' },
+  },
   kennel: { id: 'kennel', name: 'The Kennel', meta: true, bonus: false, shipped: true, trial: false,
     mapPos: { x: 88, y: 72 }, unlock: (data) => !!data.open?.kennel },
 };
@@ -63,7 +77,7 @@ for (const [id, def] of Object.entries(LEVELS)) {
   if (HIDDEN_SECTION[id]) def.hidden ??= { section: SECTION_TEXT[HIDDEN_SECTION[id]], move: null };
 }
 
-export const MAP_ORDER = [1, 'ride', 2, 'cave', 3, 'kennel'];
+export const MAP_ORDER = [1, 'ride', 2, 'cave', 3, 4, 'kennel'];
 export const LEVEL_NAMES = Object.fromEntries(Object.entries(LEVELS).map(([id, def]) => [id, def.name]));
 
 // Numeric ids and their save-key strings resolve to the same definition.

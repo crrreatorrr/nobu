@@ -150,7 +150,7 @@ test('non-countable authored packs, every Bark Rock and trampoline are included;
 test('every shipped registry id has a declaration and fixed cap, and planned level 6 has a cap', () => {
   expect(Object.keys(LEVEL_BUDGETS).sort()).toEqual([...PLAYABLE_IDS].sort());
   for (const id of [...PLAYABLE_IDS, '4', '6', '5']) expect(LEVEL_TICKET_CAP[id]).toBeGreaterThan(0);
-  expect(Object.entries(LEVEL_BUDGETS).filter(([, b]) => b.coconut).map(([id]) => id)).toEqual(['1']);
+  expect(Object.entries(LEVEL_BUDGETS).filter(([, b]) => b.coconut).map(([id]) => id)).toEqual(['1', '4']);
   expect(() => checkTicketBudget('missing', LEVEL_BUDGETS[1])).toThrow(/Missing Ticket cap/);
 });
 
