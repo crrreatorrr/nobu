@@ -24,6 +24,8 @@ import {makeKit,makeTrack,turtle} from '../src/levels/kit.js';
 import {hub} from '../src/hub/hubBridge.js';
 import {save} from '../src/core/save.js';
 import {audio} from '../src/audio/audio.js';
+import {UI} from '../src/ui/ui.js';
+import {checkDogMetadata} from '../src/game/kennelChecks.js';
 import {resetWorld} from './helpers.js';
 const noop=()=>{};const sessions=[];
 beforeEach(()=>{resetWorld();vi.useFakeTimers();const ctx=new Proxy({measureText:()=>({width:50}),createRadialGradient:()=>({addColorStop:noop}),createLinearGradient:()=>({addColorStop:noop}),getImageData:(x,y,w,h)=>({data:new Uint8ClampedArray(w*h*4)})},{get:(o,k)=>o[k]??noop});vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(ctx);vi.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('');vi.spyOn(hub,'bank').mockResolvedValue();});
@@ -79,4 +81,60 @@ it('resolves and removes active main-goal rain when the real map transition reti
  await vi.runAllTimersAsync();await done;
  expect(game.ui.banner).not.toHaveBeenCalled();expect(audio.play).not.toHaveBeenCalled();
  expect(hub.bank).not.toHaveBeenCalled();expect(save.data.beaten[6]).not.toBe(true);expect(game.state).toBe('map');
+});
+
+it('rejects deferred main-goal startup after actual pause-quit while Hub begin is pending',async()=>{
+ const {game,s}=goalFixture();game.mask={attach:vi.fn(),setLevel:vi.fn(),snapTo:vi.fn(),update:vi.fn()};s._warmUp=async()=>{};
+ let release;vi.spyOn(hub,'beginAttempt').mockImplementation(()=>new Promise(r=>release=r));vi.spyOn(hub,'startCarry').mockImplementation(()=>{});
+ const launch=s.startLevel().catch(error=>error);expect(s.loading).toBe(true);expect(release).toBeTypeOf('function');
+ const pressed=vi.spyOn(input,'pressed').mockImplementation(k=>k==='pause');game.updatePlay(.016);expect(game.state).toBe('pause');
+ pressed.mockReturnValue(false);vi.spyOn(input,'confirmPressed').mockReturnValue(true);game.pauseSel=game._pauseItems().findIndex(i=>i.id==='quit');game.updatePause();await Promise.resolve();await Promise.resolve();
+ expect(game.state).toBe('map');expect(game.session).toBeNull();expect(s.disposed).toBe(true);game.ui.showHud.mockClear();game.ui.banner.mockClear();game.player.pos.set(100,10,100);
+ release({id:'retired-loading',ok:false});await vi.runAllTimersAsync();const error=await launch;
+ expect(error).toBe(false);expect(game.ui.showHud).not.toHaveBeenCalled();expect(game.ui.banner).not.toHaveBeenCalled();expect(hub.startCarry).not.toHaveBeenCalled();expect(game.player.pos.toArray()).toEqual([100,10,100]);
+});
+
+it('rejects retired loading presentation after actual pause-quit during warm-up',async()=>{
+ const {game,s}=goalFixture();game.mask={attach:vi.fn(),setLevel:vi.fn(),snapTo:vi.fn(),update:vi.fn()};let release;
+ s._warmUp=()=>new Promise(r=>release=r);vi.spyOn(hub,'beginAttempt').mockResolvedValue({id:'loading-warm-up',ok:false});vi.spyOn(hub,'startCarry').mockImplementation(()=>{});
+ const launch=s.startLevel();await vi.advanceTimersByTimeAsync(100);expect(release).toBeTypeOf('function');expect(s.loading).toBe(true);
+ const pressed=vi.spyOn(input,'pressed').mockImplementation(k=>k==='pause');game.updatePlay(.016);expect(game.state).toBe('pause');
+ pressed.mockReturnValue(false);vi.spyOn(input,'confirmPressed').mockReturnValue(true);game.pauseSel=game._pauseItems().findIndex(i=>i.id==='quit');game.updatePause();await Promise.resolve();await Promise.resolve();
+ expect(game.state).toBe('map');expect(game.session).toBeNull();expect(s.disposed).toBe(true);game.ui.showHud.mockClear();game.ui.banner.mockClear();
+ release();await vi.runAllTimersAsync();await launch;
+ expect(game.ui.showHud).not.toHaveBeenCalled();expect(game.ui.banner).not.toHaveBeenCalled();expect(game.state).toBe('map');
+});
+
+it('retires its actual intro dialogue without cancelling a newer one or unfreezing the shared Player',async()=>{
+ const {game,s}=goalFixture();game.mask={attach:vi.fn(),setLevel:vi.fn(),snapTo:vi.fn(),update:vi.fn()};
+ game.ui=new UI(document.createElement('div'));game.ui.fade=async()=>{};s._warmUp=async()=>{};
+ vi.spyOn(hub,'beginAttempt').mockResolvedValue({id:'intro-cancel',ok:false});vi.spyOn(hub,'startCarry').mockImplementation(()=>{});
+ const launch=s.startLevel();await vi.advanceTimersByTimeAsync(1200);
+ expect(game.ui.dialog).toBeTruthy();const owned=game.ui.dialog;
+ game.toMap(6);expect(game.ui.dialog).toBeNull();
+ const newer=game.ui.say([['mask','New dialogue']]),current=game.ui.dialog;
+ game.player.frozen=true;expect(await launch).toBe(false);
+ expect(game.ui.dialog).toBe(current);expect(game.player.frozen).toBe(true);
+ expect(game.ui.cancelSay(owned)).toBe(false);game.ui.cancelSay(current);await newer;
+});
+
+it('keeps actual map nodes in the scroll surface, details separate and auto-centers the canonical selected node',()=>{
+ const {game}=fixture();save.data.open[6]=true;game.mapSel=6;
+ const centered=[];vi.stubGlobal('HTMLElement',HTMLElement);Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:function(opts){centered.push({node:this,opts});}});
+ try{game._drawMap();const screen=game.ui.screen,selected=screen.querySelector('.map-node.sel');
+ expect(selected.closest('.map-scroll')).toBeTruthy();expect(selected.closest('.map-island')).toBeTruthy();expect(selected.style.left).toBe('93%');expect(selected.style.top).toBe('33%');
+ expect(screen.querySelector('.map-details .map-panel')).toBeTruthy();expect(screen.querySelector('.map-scroll .map-panel')).toBeNull();
+ expect(centered.at(-1)).toEqual({node:selected,opts:{block:'center',inline:'center',behavior:'auto'}});
+ game.mapSel='kennel';save.data.open.kennel=true;game._drawMap();expect(screen.querySelector('.map-node.sel').style.left).toBe('12%');
+ }finally{delete HTMLElement.prototype.scrollIntoView;vi.unstubAllGlobals();}
+});
+it('trial census omissions stay limited to declared detour section names and retain main/mismatch/duplicate errors',()=>{
+ const {game,s}=goalFixture();const tr=s.stage.track,k=makeKit(game,s.stage,s.tickets,tr);s.stage.entities=[];
+ const dog=k.dog(0,0,5,'shiba',{id:'shiba-a'});tr.sections=[{d0:0,d1:10,name:'Drain'}];
+ s.def={...s.def,dogs:{'shiba-a':'Drain','pug-b':'Rain'},sections:[{name:'Rain',detour:true}]};s.trial=true;
+ expect(checkDogMetadata(s)).toEqual([]);
+ dog.pos.copy(tr.toWorld(20));expect(checkDogMetadata(s).some(e=>e.problem==='dog section mismatch')).toBe(true);
+ dog.pos.copy(tr.toWorld(5));s.stage.entities.push(dog);expect(checkDogMetadata(s).some(e=>e.problem==='dog id mismatch')).toBe(true);
+ s.stage.entities=[];expect(checkDogMetadata(s)).toEqual([{level:6,id:'shiba-a',problem:'missing authored dog'}]);
+ s.stage.entities=[dog];s.trial=false;expect(checkDogMetadata(s)).toEqual([{level:6,id:'pug-b',problem:'missing authored dog'}]);
 });

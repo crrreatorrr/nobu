@@ -144,12 +144,19 @@ export class Session {
   async startLevel() {
     const g = this.game;
     const ui = g.ui;
+    const mainGoal = this.def.goal && !this.def.bonus;
+    let stage = this.stage;
+    const abandoned = () => mainGoal && (this.disposed || g.session !== this ||
+      (stage && (this.stage !== stage || g.stage !== stage)));
+    if (abandoned()) return false;
     this.busy = true;
     this.loading = true;
     this.phase = 'level';
-    ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
+    const loadToken = ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
+    if (mainGoal) this._goalLoadingToken = loadToken;
     ui.loadingProgress(0.05, 'Saving progress...');
     const attempt = await hub.beginAttempt(this.level);
+    if (abandoned()) return false;
     this.attemptId = attempt.id;
     this.attemptDurable = attempt.ok;
     // Never wait on the hub here: a slow or unreachable hub used to leave this
@@ -157,7 +164,8 @@ export class Session {
     hub.startCarry();
     ui.loadingProgress(0.15, `Building ${this.def.name}...`);
     await nextFrame();
-    const stage = this._newStage(this.def.theme);
+    if (abandoned()) return false;
+    stage = this._newStage(this.def.theme);
     const info = this.def.build(g, stage, this.tickets);
     // The new stage may update during loading; configure its ride before the
     // first frame so foot detours never observe the previous stage's vacuum.
@@ -169,6 +177,7 @@ export class Session {
     stage.entities.filter((e) => e instanceof ConedDog).forEach((e, i) => { if (!e.dogId && dogIds[i]) e.dogId = `${this.level}:${dogIds[i]}`; });
     ui.loadingProgress(0.65, 'Placing Nobu...');
     await nextFrame();
+    if (abandoned()) return false;
     this.info = info;
     this.chase = info.chase || null;
     this._attachActors(info);
@@ -176,10 +185,13 @@ export class Session {
     this.dogsTotal = stage.entities.filter((e) => e instanceof ConedDog).length;
     ui.loadingProgress(0.8, 'Warming up...');
     await this._warmUp();
+    if (abandoned()) return false;
     audio.setRate(this.def.gauntlet ? 1.08 : 1);
     audio.playMusic(stage.gauntletInfo?.music || stage.theme.music);
     ui.fade(0, 0);
-    await ui.hideLoading();
+    await (mainGoal ? ui.hideLoading(700, this._goalLoadingToken) : ui.hideLoading());
+    if (abandoned()) return false;
+    this._goalLoadingToken = null;
     ui.showHud(4);
     this._pushHud();
     this.buddy = this.def.gauntlet ? null : addBuddy(this, save.data, LEVELS);
@@ -187,7 +199,11 @@ export class Session {
     g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
     if (LEVEL_INTRO[this.level] && !this.trial) {
       g.player.frozen = true;
-      await g.ui.say(LEVEL_INTRO[this.level]);
+      const intro = g.ui.say(LEVEL_INTRO[this.level]);
+      if (mainGoal) this._goalIntroDialog = g.ui.dialog;
+      await intro;
+      if (abandoned()) return false;
+      this._goalIntroDialog = null;
       g.player.frozen = false;
     }
     if (this.chase) this._startChase(this.chase.s, 1.8, true);
@@ -962,6 +978,10 @@ export class Session {
 
   dispose() {
     this.disposed = true;
+    if (this.def?.goal && !this.def.bonus) {
+      this.game.ui.cancelLoading?.(this._goalLoadingToken);
+      this.game.ui.cancelSay?.(this._goalIntroDialog);
+    }
     this._cancelGoalRain();
     clearGauntletLook(this.game.player);
     if (this.def?.gauntlet) audio.setRate(1);
