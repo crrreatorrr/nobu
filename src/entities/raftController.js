@@ -9,7 +9,7 @@ import { raftSpanAt,raftFallAt,raftMountAllowed,raftHelp,RAFT_CAMERA,FOOT_CAMERA
 export class RaftController extends Entity {
  constructor(stage,track){super(stage,0,0,0);this.track=track;this.interactive=false;this.alwaysActive=true;this.current=null;this.boats=[];this.blend=null;this.disposed=false;onCatStageDispose(stage,()=>this.dispose());}
  addSpan(span){
-  const make=(d,u)=>{const root=raftBasketMesh();root.position.copy(this.track.toWorld(d,u,span.cfg.y));root.rotation.y=this.track.yaw(d);this.stage.scene.add(root);return root;};
+  const make=(d,u)=>{const root=raftBasketMesh();root.position.copy((this.track.authorToWorld||this.track.toWorld).call(this.track,d,u,span.cfg.y));root.rotation.y=this.track.yaw(d);this.stage.scene.add(root);return root;};
   const boats={span,moored:make(span.d0+1.2,0),beached:make(span.d1-1.2,(span.cfg.w/2)-1)};boats.beached.visible=false;this.boats.push(boats);
  }
  cameraTo(riding){

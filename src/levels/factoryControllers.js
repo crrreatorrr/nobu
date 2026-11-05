@@ -42,7 +42,7 @@ export function scopeFactoryRoller(roller, rugs) {
 export class FactoryDetourRecovery extends Entity {
   constructor(stage, detour, { entryX = 0, launch = false, exitD = detour.exitD, backD = detour.entryD } = {}) {
     super(stage, ...detour.pos.toArray());
-    Object.assign(this, { detour, entryX, launch, exitD, backD });
+    Object.assign(this, { detour, entryX: detour.track.authorU ? detour.track.authorU(entryX) : entryX, launch, exitD, backD });
     this.interactive = false; this.alwaysActive = true; this.snapshot = null;
   }
   capture() {
@@ -86,7 +86,7 @@ export class FactoryDetourRecovery extends Entity {
       const near=Math.abs(s-this.detour.entryD)<1.8 && Math.abs((p.body.u ?? 0)-this.entryX)<.85;
       if (!this.launch && near && y<1 && p.mode==='slide') {
         this.capture(); this.detour.travel(this.detour.startPos,this.detour.entryD);
-      } else if (this.launch && s>=275 && s<279 && y>=5 && Math.abs((p.body.u ?? 0)+2.8)<1.7) this.capture();
+      } else if (this.launch && s>=275 && s<279 && y>=5 && Math.abs((p.body.u ?? 0)-(tr.authorU ? tr.authorU(-2.8) : -2.8))<1.7) this.capture();
       return;
     }
     if (s>=this.exitD && y < this.detour.y-1) { this.snapshot=null; this.restoreCamera(); return; }

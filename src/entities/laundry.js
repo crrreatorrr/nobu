@@ -20,7 +20,7 @@ export function ironMotion(t,d0,d1,period=5.6,out={}) {
 }
 export class Iron extends Entity {
   constructor(stage,track,d0,d1,{x=0,y=0,period=5.6}={}) {
-    super(stage,...track.toWorld(d0,x,y).toArray());
+    super(stage,...(track.authorToWorld||track.toWorld).call(track,d0,x,y).toArray());
     Object.assign(this,{track,d0,d1,x,y,period,t:0,puffT:0,hazard:true,motion:{}});
     const body=new THREE.Mesh(ironBody,toon(0xd8dde6));body.position.y=.475;
     const sole=new THREE.Mesh(ironSole,new THREE.MeshStandardMaterial({color:0xff6a3a,emissive:0xff4a18,emissiveIntensity:.8}));sole.position.y=.075;
@@ -29,7 +29,7 @@ export class Iron extends Entity {
   }
   place() {
     ironMotion(this.t,this.d0,this.d1,this.period,this.motion);
-    this.track.toWorld(this.motion.d,this.x,this.y,this.pos);
+    (this.track.authorToWorld||this.track.toWorld).call(this.track,this.motion.d,this.x,this.y,this.pos);
     const yaw=this.track.yaw(this.motion.d),c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));
     this.size.w=1.4*c+2.4*s;this.size.d=1.4*s+2.4*c;this.updateBox();
     this.obj.position.copy(this.pos);this.obj.rotation.y=yaw+(this.motion.dir<0?Math.PI:0);
@@ -39,7 +39,7 @@ export class Iron extends Entity {
     if((leg===1&&this.motion.leg===2)||(leg===3&&this.motion.leg===0))audio.play('whoosh');
     this.puffT-=dt;
     if(dt>0&&this.puffT<=0&&this.distToPlayer()<22){
-      this.puffT=.2;this.track.toWorld(this.motion.d+this.motion.dir*1.6,this.x,this.y+.2,_point);
+      this.puffT=.2;(this.track.authorToWorld||this.track.toWorld).call(this.track,this.motion.d+this.motion.dir*1.6,this.x,this.y+.2,_point);
       this.fx?.smokeCard?.(_point.x,_point.y,_point.z,{size:.24,life:.5,colors:[0xffffff],vy:1.8,g:0,alpha:.6});
     }
   }
@@ -65,8 +65,8 @@ export class DustBunny extends Mouse {
   behave(dt){
     if(this.fleeT>0){
       this.fleeT=Math.max(0,this.fleeT-dt);
-      _direction.copy(this.pos).sub(this.player.pos).setY(0);if(_direction.lengthSq()<.01)_direction.set(this.opts.side||1,0,0);_direction.normalize();
-      this.pos.addScaledVector(_direction,4*dt);this.facing=Math.atan2(_direction.x,_direction.z);
+      _direction.copy(this.pos).sub(this.player.pos).setY(0);if(_direction.lengthSq()<.01)_direction.set((this.opts.side||1)*(this.stage.track?.mirror?-1:1),0,0);_direction.normalize();
+      this.pos.addScaledVector(_direction,4*this.movementMultiplier*dt);this.facing=Math.atan2(_direction.x,_direction.z);
       const tr=this.stage.track;if(tr){const q=tr.project(this.pos.x,this.pos.z,-1,this._projection||={}),wall=tr.wallAt(q.s);if(wall)tr.toWorld(q.s,Math.max(-wall.left+.5,Math.min(wall.right-.5,q.u)),this.pos.y-tr.heightAt(q.s),this.pos);}
       this.followGround();this.glbMotion(dt,true,2.2);
       if(!this.fleeT){this.home.copy(this.pos);this.off=0;}
@@ -77,7 +77,7 @@ export class DustBunny extends Mouse {
     if(!this.alive)return;
     if(this.half){this.knock(p.pos);return;}
     this.knock(p.pos);this.dead=true;this.visible=false;this.obj.visible=false;
-    for(const side of [-1,1])this.spawned.push(this.stage.add(new DustBunny(this.stage,this.pos.x+side*.35,this.pos.y,this.pos.z,{...this.opts,half:true,side})));
+    for(const side of [-1,1])this.spawned.push(this.stage.add(new DustBunny(this.stage,this.pos.x+side*.35*(this.stage.track?.mirror?-1:1),this.pos.y,this.pos.z,{...this.opts,half:true,side})));
   }
   onRespawn(){
     const old=this.spawned;

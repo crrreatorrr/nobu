@@ -79,6 +79,13 @@ export class Stage {
   constructor(game, themeKey) {
     this.game = game;
     this.theme = THEMES[themeKey];
+    this.remix = !!game.session?.remix && game.session.phase !== 'boss';
+    if (this.remix) {
+      const original = this.theme;
+      this.theme = { ...original, tint: original.tint && { ...original.tint },
+        fog: new THREE.Color(original.fog).lerp(new THREE.Color(0x62516c), .6).getHex(),
+        fogNear: original.fogNear * .85, fogFar: original.fogFar * .9 };
+    }
     this.themeKey = themeKey;
     this.scene = new THREE.Scene();
     this.world = new World();

@@ -15,7 +15,9 @@ export class CamZone extends Entity {
   constructor(stage, track, d0, d1, mode, opts = {}) {
     super(stage, ...track.toWorld((d0 + d1) / 2).toArray());
     this.track = track; this.d0 = d0; this.d1 = d1; this.mode = mode;
-    this.opts = { track, ...opts }; this.active = false; this.alwaysActive = true; this.interactive = false;
+    this.opts = { track, ...opts };
+    if (mode === 'side' && track.mirror) this.opts.side = -(opts.side ?? 1);
+    this.active = false; this.alwaysActive = true; this.interactive = false;
   }
   contains(s, y = this.player.pos.y) { return s >= this.d0 && s <= this.d1 && (this.opts.minY === undefined || y >= this.track.heightAt(s) + this.opts.minY); }
   apply(s, y) {

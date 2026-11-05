@@ -15,6 +15,14 @@ export const TIER = {
   snacksGap: [70, 80, 90, 95, 100],
 };
 
+export function tierValue(key, tier) {
+  const row = TIER[key];
+  if (!row || !Number.isFinite(tier)) throw new RangeError('Invalid difficulty tier');
+  const i = Math.max(0, Math.min(row.length - 1, tier - 1)), a = Math.floor(i);
+  return row[a] + (row[Math.min(row.length - 1, a + 1)] - row[a]) * (i - a);
+}
+export const remixEnemySpeed = (tier) => tierValue('enemySpeed', Math.min(5, tier + 1));
+
 export const BOSS = {
   bird: { hp: 6, perStage: 2, stages: 3, speed: [1, 1.2, 1.4], window: [2.7, 2.4, 2.2],
     tele: [1, 0.88, 0.78], chain: [1, 1, 2] },
