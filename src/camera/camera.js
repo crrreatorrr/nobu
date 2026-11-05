@@ -45,7 +45,8 @@ export class GameCamera {
   _targets(player, out) {
     const p = player.pos;
     const o = this.opts;
-    if (this.mode === 'rise') this.trackY = p.y - 0.5;
+    if (Number.isFinite(o.holdY)) this.trackY = o.holdY;
+    else if (this.mode === 'rise') this.trackY = p.y - 0.5;
     else if (player.body.grounded || p.y < this.trackY) this.trackY = p.y;
     else if (p.y > this.trackY + 2.4) this.trackY = p.y - 2.4;
     const ty = this.trackY;

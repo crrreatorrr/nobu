@@ -164,14 +164,14 @@ describe('keyed runtime readers', () => {
     const open = () => MAP_ORDER.filter((id) => isOpen(id, save.data));
     expect(save.hasProgress()).toBe(false);
     expect(open()).toEqual([1]);
-    for (const [level, expected] of [[1, [1, 'ride', 2]], [2, [1, 'ride', 2, 'cave', 3]], [3, MAP_ORDER.filter((id) => !levelDef(id).meta)]]) {
+    for (const [level, expected] of [[1, [1, 'ride', 2]], [2, [1, 'ride', 2, 'cave', 3]], [3, [1, 'ride', 2, 'cave', 3, 4]], [4, [1, 'ride', 2, 'cave', 3, 4, 6]]]) {
       Game.prototype.levelCleared.call(game, { level, levelTickets: 0 });
       expect(open()).toEqual(expected);
       expect(save.hasProgress()).toBe(true);
     }
     save.write();
     save.load();
-    expect(open()).toEqual(MAP_ORDER.filter((id) => !levelDef(id).meta));
+    expect(open()).toEqual([1, 'ride', 2, 'cave', 3, 4, 6]);
     bank.mockRestore();
   });
 

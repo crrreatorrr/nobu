@@ -17,6 +17,7 @@ import { rushAvailable } from './rushArenas.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
+import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
 import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT, GAUNTLET_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
@@ -40,6 +41,8 @@ function esc(text) {
 }
 
 const hostGauntlet = (host) => Object.values(LEVELS).find((def) => def.gauntlet && def.host === host);
+const retiresOnLeave = (session) => !!(session?.rush || session?.def?.gauntlet ||
+  (session?.def?.goal && !session.def.bonus));
 const gauntletMedals = (row = {}) => ['clear', 'allBoxes', 'flawless'].map((key) =>
   `<span data-gauntlet-medal="${key}" title="${esc(GAUNTLET_TEXT[key])}">${row[key] ? '●' : '○'}</span>`).join(' ');
 
@@ -252,7 +255,7 @@ export class Game {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
-    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     this.session = null;
     this._refreshTitleNobu();
     this.applyKennelTint(this.titleNobu, {});
@@ -402,7 +405,7 @@ export class Game {
 
   toMap(sel = 1) {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
-    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     this.session = null;
     sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
     this._unlockMainChapters();
@@ -419,14 +422,14 @@ export class Game {
     this.ui.hideHud();
     this.ui.bossHide();
     audio.playMusic('map');
-    this._drawMap();
+    this._drawMap(this._pendingMainUnlocks || []);
     const unlocked = this._pendingMainUnlocks?.pop();
     this._pendingMainUnlocks = [];
-    if (MAIN_UNLOCK_TEXT[unlocked]) this.ui.banner?.(...MAIN_UNLOCK_TEXT[unlocked], 2.5);
+    if (MAIN_UNLOCK_TEXT[unlocked]) { audio.play('chime'); this.ui.banner?.(...MAIN_UNLOCK_TEXT[unlocked], 2.5); }
     this.ui.fade(0);
   }
 
-  _drawMap() {
+  _drawMap(fresh = []) {
     const d = save.data;
     let nodes = '';
     for (const n of MAP_ORDER) {
@@ -475,7 +478,16 @@ export class Game {
       <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
-    this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
+    this.ui.setScreen(`<div class="map-layout"><div class="map-scroll"><div class="map-surface"><div class="map-island"><div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${chapterMapMarkup(chapterMapPaths(d,LEVELS,fresh))}${nodes}</div></div></div><div class="map-details">${this.exchangeOpen ? '' : info}</div></div>${exchange}`);
+    // Scroll only the map viewport: scrollIntoView also moves overflow-hidden
+    // UI ancestors and can pull the controls (and hidden popups) into view.
+    const viewport = this.ui.screen?.querySelector?.('.map-scroll');
+    const selected = this.ui.screen?.querySelector?.('.map-node.sel');
+    if (viewport && selected) {
+      const bounds = viewport.getBoundingClientRect(), node = selected.getBoundingClientRect();
+      viewport.scrollLeft += node.left + node.width / 2 - bounds.left - viewport.clientWidth / 2;
+      viewport.scrollTop += node.top + node.height / 2 - 30 - bounds.top - viewport.clientHeight / 2;
+    }
   }
 
   // Hub board line for the selected level, fetched at most once a minute per level. Empty when
@@ -601,7 +613,7 @@ export class Game {
 
   exitToHub() {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
-    if (this.session?.rush || this.session?.def?.gauntlet) {
+    if (retiresOnLeave(this.session)) {
       if (!this.session.disposed) this.session.dispose();
       this.session = null;
     }
@@ -637,7 +649,7 @@ export class Game {
     if (levelDef(n)?.gauntlet && !isOpen(n, save.data)) return;
     if (levelDef(n)?.gauntlet) opts = { ...opts, trial: false };
     const epoch = this._launchEpoch = (this._launchEpoch || 0) + 1;
-    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     await this.ui.fade(1);
     if (epoch !== this._launchEpoch) return false;
     this.ui.clearScreen();
@@ -755,7 +767,7 @@ export class Game {
         this.ui.pinHud(false);
         const level = this.session.level;
         if (!this.session.rush) save.write();
-        if ((this.session.rush || this.session.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+        if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
         this.ui.fade(1).then(() => this.toMap(level));
       }
     }
@@ -875,9 +887,11 @@ export class Game {
   }
 
   goalLevelCleared(session) {
+    if (session.def?.goal && !session.def.bonus &&
+      (session.disposed || this.session !== session || this.stage !== session.stage)) return false;
     const n = session.level, st = session.stats;
     save.setBeaten(n); save.setBestDogs(n, st.dogs);
-    if (String(n) === '6') save.data.open['5'] = true;
+    this._unlockMainChapters();
     const fresh = bankBoneResults(session, st);
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
@@ -886,7 +900,7 @@ export class Game {
 
   // Colored bone found: it opens a path in an earlier level.
   collectBone(color) {
-    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon', green: 'Pump & Dump Pipeline', purple: 'The Cone Factory', yellow: 'Scratchpost Canyon' };
+    const where = BONE_TEXT.destinations;
     save.data.colorBones ||= {};
     const fresh = !save.data.colorBones[color];
     save.data.colorBones[color] = true;

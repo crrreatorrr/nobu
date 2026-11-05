@@ -5,6 +5,8 @@ import { buildBoss4Arena } from './boss4Arena.js';
 import { RoombaTitan } from '../bosses/roombaTitan.js';
 import { L3_SECTIONS } from './data/l3-layout.js';
 import { L4_SECTIONS } from './data/laundry.js';
+import { buildLevel6 } from './level6.js';
+import { riverSections } from './riverMetadata.js';
 // The shipped levels, their map presentation and their entry rules live together.
 // Keep map order explicit: integer object keys alone would put both bonuses last.
 import { buildLevel1, buildBoss1Arena } from './level1.js';
@@ -21,7 +23,7 @@ import { L1_SECTIONS_EXTENDED } from './data/l1-layout2.js';
 import { LEVEL_DOGS } from './metadata.js';
 import { levelSections, HIDDEN_SECTION } from './sections.js';
 import { bonusSectionsV2 } from './bonusMetadata.js';
-import { SECTION_TEXT, BONUS_EXTENSION_TEXT, L4_TEXT } from '../story/script.js';
+import { SECTION_TEXT, BONUS_EXTENSION_TEXT, L4_TEXT, L6_TEXT } from '../story/script.js';
 import { buildGauntlet1, buildGauntlet2, buildGauntlet3 } from './gauntlets.js';
 import { GAUNTLET_INFO } from './data/gauntlets.js';
 
@@ -73,17 +75,24 @@ export const LEVELS = {
   4: {
     id: 4, name: L4_TEXT.name, build: buildLevel4, arena: buildBoss4Arena,
     Boss: RoombaTitan, bossKey: 'titan', theme: 4, bossTheme: 'boss4', bonus: false,
-    tier: 4, unlock: mainOpen(4), mapPos: { x: 88, y: 40 }, trial: true, shipped: true,
+    tier: 4, unlock: mainOpen(4), mapPos: { x: 88, y: 52 }, trial: true, shipped: true,
     dogs: LEVEL_DOGS[4],
     sections: [...L4_SECTIONS.map(([d0,d1,key])=>({d0,d1,name:L4_TEXT.sections[key]})),
       {d0:118.5,d1:160.001,name:L4_TEXT.sections.topShelf,detour:true},
       {d0:186,d1:246.001,name:L4_TEXT.sections.pantry,detour:true}].sort((a,b)=>a.d0-b.d0),
     hidden: { section: L4_TEXT.sections.basement, move: 'dust' },
   },
+  6: {
+    id: 6, name: L6_TEXT.name, build: buildLevel6, theme: 'river', tier: 4.5,
+    goal: true, bonus: false, unlock: mainOpen(6), mapPos: { x: 93, y: 33 },
+    trial: true, shipped: true, music: 'level6', dogs: LEVEL_DOGS[6],
+    sections: riverSections(L6_TEXT.sections),
+    hidden: { section: L6_TEXT.sections.pumpHouse, move: 'dust' },
+  },
   rush: { id: 'rush', name: RUSH_TEXT.title, meta: true, rush: true, bonus: false, shipped: true, trial: false,
     mapPos: { x: 12, y: 75 }, unlock: rushAvailable },
   kennel: { id: 'kennel', name: 'The Kennel', meta: true, bonus: false, shipped: true, trial: false,
-    mapPos: { x: 88, y: 72 }, unlock: (data) => !!data.open?.kennel },
+    mapPos: { x: 12, y: 40 }, unlock: (data) => !!data.open?.kennel },
   ...Object.fromEntries([buildGauntlet1, buildGauntlet2, buildGauntlet3].map((build, i) => {
     const id = `g${i + 1}`;
     return [id, { ...GAUNTLET_INFO[id], build, gauntlet: true, bonus: true, bones: false,
@@ -97,7 +106,7 @@ for (const [id, def] of Object.entries(LEVELS)) {
   if (HIDDEN_SECTION[id]) def.hidden ??= { section: SECTION_TEXT[HIDDEN_SECTION[id]], move: null };
 }
 
-export const MAP_ORDER = [1, 'ride', 2, 'cave', 3, 4, 'rush', 'kennel'];
+export const MAP_ORDER = [1, 'ride', 2, 'cave', 3, 4, 6, 'rush', 'kennel'];
 export const LEVEL_NAMES = Object.fromEntries(Object.entries(LEVELS).map(([id, def]) => [id, def.name]));
 
 // Numeric ids and their save-key strings resolve to the same definition.

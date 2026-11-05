@@ -12,7 +12,7 @@ afterEach(() => vi.useRealTimers());
 function session() {
  const game = { ui: { setHud() {}, banner() {}, fade: async () => {} }, player: { facing: 0, spawnAt() {}, pos: new THREE.Vector3(), setRide() {} }, camera: { snap() {} }, mask: { snapTo() {} }, fx: { clear() {} } };
  const s = new Session(game, 1); game.session = s;
- s.stage = { entities: [] }; s.tickets = { restoreAfter() {}, clearFlying() {} }; s.projectiles = { clear() {} }; s.setMask = () => {}; s._pushHud = () => {};
+ game.stage = s.stage = { entities: [] }; s.tickets = { restoreAfter() {}, clearFlying() {} }; s.projectiles = { clear() {} }; s.setMask = () => {}; s._pushHud = () => {};
  s.breakablesTotal = 2; s.dogsTotal = 1; s.snack.potential = 10;
  s.checkpoint(new THREE.Vector3());
  return s;

@@ -96,12 +96,14 @@ export class UI {
 
   // ---------- level loading ----------
   showLoading(kicker, title) {
+    this._loadEpoch = (this._loadEpoch || 0) + 1;
     this.loadEl.querySelector('.ll-kicker').textContent = kicker;
     this.loadEl.querySelector('.ll-title').textContent = title;
     this.loadEl.setAttribute('aria-label', `Loading ${title}`);
     this.loadingProgress(0, '');
     this.loadEl.classList.add('show');
     this.loadShownAt = performance.now();
+    return this._loadEpoch;
   }
   loadingProgress(frac, step) {
     const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
@@ -110,12 +112,21 @@ export class UI {
     if (step != null) this.loadEl.querySelector('.ll-step').textContent = step;
   }
   // Fill the bar, keep the screen up for at least `minMs` so it never just flashes, then fade it out.
-  async hideLoading(minMs = 700) {
+  async hideLoading(minMs = 700, token = this._loadEpoch) {
+    if (token !== this._loadEpoch) return false;
     this.loadingProgress(1, 'Ready!');
     const left = minMs - (performance.now() - this.loadShownAt);
     await new Promise((r) => setTimeout(r, Math.max(250, left)));
+    if (token !== this._loadEpoch) return false;
     this.loadEl.classList.remove('show');
     await new Promise((r) => setTimeout(r, 300));
+    return token === this._loadEpoch;
+  }
+  cancelLoading(token) {
+    if (token == null || token !== this._loadEpoch) return false;
+    this._loadEpoch++;
+    this.loadEl.classList.remove('show');
+    return true;
   }
 
   // ---------- HUD ----------

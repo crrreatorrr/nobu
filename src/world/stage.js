@@ -11,6 +11,12 @@ export const THEMES = {
     sky: 'bg_boss5', fog: 0x1a0828, fogNear: 40, fogFar: 120, hemiSky: 0xffa0d0, hemiGround: 0x062014, sun: 0xc8ffd8, sunI: 1.3, hemiI: 1.2,
     dust: 0xc8ffd8, music: 'boss5',
   },
+  river: {
+    name: 'Smog Rapids', sky: 'bg_level6', fog: 0x8fa89a, fogNear: 38, fogFar: 110,
+    hemiSky: 0xd0e4d8, hemiGround: 0x4a5a3a, sun: 0xf0e8c8, sunI: 1.35, hemiI: 1.15,
+    ground: 'tex_l1_ground', wall: 'tex_l1_wall', platform: 'tex_l3_platform',
+    tint: { ground: 0x9a9a7a }, dust: 0x9a8aa8, music: 'level6',
+  },
   boss4: {
     name: 'Titan Living Room', ground: 'tex_house_ground', wall: 'tex_house_wall', platform: 'tex_house_platform',
     sky: 'bg_boss4', fog: 0xd8b890, fogNear: 45, fogFar: 125, hemiSky: 0xfff0d8, hemiGround: 0x8a5a32, sun: 0xffe0b0, sunI: 1.3, hemiI: 1.1,
@@ -257,8 +263,8 @@ export class Stage {
 
     const texFor = { ground: t.ground, wall: t.wall, platform: t.platform };
     if (this.track) {
-      const mk = (id) => new THREE.MeshLambertMaterial({ map: Assets.tiled(id), vertexColors: true, side: THREE.DoubleSide });
-      this.track.buildMeshes(this, { ground: mk(t.ground), wall: mk(t.wall), platform: mk(t.platform) });
+      const mk = (id, key) => new THREE.MeshLambertMaterial({ map: Assets.tiled(id), color: t.tint?.[key] ?? 0xffffff, vertexColors: true, side: THREE.DoubleSide });
+      this.track.buildMeshes(this, { ground: mk(t.ground, 'ground'), wall: mk(t.wall, 'wall'), platform: mk(t.platform, 'platform') });
     }
     for (const [key, B] of Object.entries(buckets)) {
       const g = new THREE.BufferGeometry();
@@ -268,7 +274,7 @@ export class Stage {
       g.setAttribute('color', new THREE.Float32BufferAttribute(B.col, 3));
       g.setIndex(B.idx);
       g.computeBoundingSphere();
-      const mtl = new THREE.MeshLambertMaterial({ map: Assets.tiled(texFor[key]), vertexColors: true });
+      const mtl = new THREE.MeshLambertMaterial({ map: Assets.tiled(texFor[key]), color: t.tint?.[key] ?? 0xffffff, vertexColors: true });
       const m = new THREE.Mesh(g, mtl);
       m.receiveShadow = true;
       m.castShadow = true;
@@ -320,7 +326,12 @@ export class Stage {
     const k = String(this.themeKey);
     const p = player.pos;
     const x = p.x + (Math.random() - 0.5) * 22, z = p.z + (Math.random() - 0.5) * 22, y = p.y + 0.5 + Math.random() * 4;
-    if (k === '1' || k === 'boss1') fx.sparkle(x, y, z, { count: 1, color: Math.random() < 0.5 ? 0xfff6a0 : 0xffb0e0, size: 0.18, speed: 0.4, up: 0.3, life: 2.5 });
+    if (k === 'river') {
+      const forward = this.track?.tangent(player.body?.s ?? 0) ?? new THREE.Vector3(0, 0, -1);
+      forward.y = 0; forward.normalize();
+      fx.smokeCard(x, y, z, { vx: forward.x * .4, vz: forward.z * .4, vy: .04, size: .16 * 1.4, colors: [0x9a8aa8], life: 2.5, g: 0, drag: 1, grow: 0, alpha: .45 });
+    }
+    else if (k === '1' || k === 'boss1') fx.sparkle(x, y, z, { count: 1, color: Math.random() < 0.5 ? 0xfff6a0 : 0xffb0e0, size: 0.18, speed: 0.4, up: 0.3, life: 2.5 });
     else if (k === '2' || k === 'boss2') fx.sparkle(x, y, z, { count: 1, color: 0xffd8a0, size: 0.14, speed: 0.8, up: 0.1, life: 2 });
     else fx.sparkle(x, p.y + Math.random() * 1.5, z, { count: 1, color: Math.random() < 0.5 ? 0xff9a4a : 0xb070ff, size: 0.16, speed: 0.3, up: 1.5, life: 1.6 });
   }

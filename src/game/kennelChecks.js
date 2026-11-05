@@ -12,7 +12,8 @@ export function checkDogMetadata(session) {
     else if (def.dogs[local] !== section) errors.push({ level, id: full, expected: def.dogs[local], actual: section, problem: 'dog section mismatch' });
     seen.add(local);
   }
-  for (const id of Object.keys(def.dogs)) if (!seen.has(id)) errors.push({ level, id, problem: 'missing authored dog' });
+  const omitted = session.trial ? new Set((def.sections || []).filter(s=>s.detour).map(s=>s.name)) : new Set();
+  for (const [id,section] of Object.entries(def.dogs)) if (!seen.has(id) && !omitted.has(section)) errors.push({ level, id, problem: 'missing authored dog' });
   return errors;
 }
 

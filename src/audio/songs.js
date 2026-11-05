@@ -29,6 +29,31 @@ export const SONGS = {
     ],
     drums: { kick: 'X...x...X...x...', snare: '....x.......x.xx', hat: 'x.x.x.x.x.x.xxx.' },
   },
+  // Eight bars of D-minor surf/shanty motion; the last bar has a tom fill.
+  level6: {
+    bpm: 136,
+    tracks: [
+      { wave: 'square', vol: .085, gate: .65, slide: 1.025, notes: bars(
+        'D5 . F5 . A5 - F5 . D5 . F5 . A5 . C6 .',
+        'Bb5 - A5 . F5 . D5 . C5 . D5 . F5 - - .',
+        'G5 . Bb5 . D6 - Bb5 . G5 . F5 . E5 . D5 .',
+        'A4 . C#5 . E5 . G5 . A5 - - . E5 . C#5 .',
+        'D5 . F5 . A5 . D6 . C6 - A5 . F5 . D5 .',
+        'Bb5 . D6 . F6 - D6 . C6 . Bb5 . A5 . F5 .',
+        'G5 . Bb5 . D6 . C6 . A5 . G5 . F5 . E5 .',
+        'A5 . C#6 . E6 - C#6 . D6 - A5 . D5 - - .') },
+      { wave: 'triangle', vol: .23, gate: .6, notes: bars(
+        '. D2 . A2 . D3 . F3 . D2 . A2 . C3 . A2',
+        '. Bb1 . F2 . Bb2 . D3 . C2 . G2 . C3 . E3',
+        '. G1 . D2 . G2 . Bb2 . G1 . D2 . F2 . D2',
+        '. A1 . E2 . A2 . C#3 . A1 . G2 . E2 . C#2',
+        '. D2 . A2 . D3 . F3 . D2 . A2 . C3 . A2',
+        '. Bb1 . F2 . Bb2 . D3 . C2 . G2 . C3 . E3',
+        '. G1 . D2 . G2 . Bb2 . A1 . E2 . G2 . C#3',
+        '. A1 . E2 . A2 . C#3 . D2 . A2 . F2 . D2') },
+    ],
+    drums: { kick: 'X.......X.......'.repeat(8), snare: '....x.......x...'.repeat(8), hat: 'x.x.x.x.x.x.x.x.'.repeat(8), tom: '.'.repeat(112) + '........x.x.x.xx' },
+  },
   // Titan: eight bars in D minor; motor-like square ostinato and sliding whirr.
   boss4: {
     bpm: 140,

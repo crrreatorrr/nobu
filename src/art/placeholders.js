@@ -28,6 +28,8 @@ export const PLACEHOLDERS = {
   tex_l6_wall: { from: 'tex_l1_wall', tint: 0x9a9a7a },
   tex_l6_platform: { from: 'tex_l3_platform' },
   story_ch2_river: { from: 'story_rescue_2' },
+  death_splash: { from: 'death_angel' },
+  death_whirl: { from: 'death_angel' },
   hidden_bone: { from: 'golden_bone', tint: 0x70baff },
 };
 

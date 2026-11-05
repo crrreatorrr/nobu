@@ -93,6 +93,7 @@ export class Session {
   // ---------- stage setup ----------
   _newStage(themeKey) {
     const g = this.game;
+    this._cancelGoalRain();
     if (this.stage) this.stage.dispose();
     const stage = new Stage(g, themeKey);
     this.stage = stage;
@@ -143,11 +144,19 @@ export class Session {
   async startLevel() {
     const g = this.game;
     const ui = g.ui;
+    const mainGoal = this.def.goal && !this.def.bonus;
+    let stage = this.stage;
+    const abandoned = () => mainGoal && (this.disposed || g.session !== this ||
+      (stage && (this.stage !== stage || g.stage !== stage)));
+    if (abandoned()) return false;
     this.busy = true;
+    this.loading = true;
     this.phase = 'level';
-    ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
+    const loadToken = ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
+    if (mainGoal) this._goalLoadingToken = loadToken;
     ui.loadingProgress(0.05, 'Saving progress...');
     const attempt = await hub.beginAttempt(this.level);
+    if (abandoned()) return false;
     this.attemptId = attempt.id;
     this.attemptDurable = attempt.ok;
     // Never wait on the hub here: a slow or unreachable hub used to leave this
@@ -155,7 +164,8 @@ export class Session {
     hub.startCarry();
     ui.loadingProgress(0.15, `Building ${this.def.name}...`);
     await nextFrame();
-    const stage = this._newStage(this.def.theme);
+    if (abandoned()) return false;
+    stage = this._newStage(this.def.theme);
     const info = this.def.build(g, stage, this.tickets);
     // The new stage may update during loading; configure its ride before the
     // first frame so foot detours never observe the previous stage's vacuum.
@@ -167,6 +177,7 @@ export class Session {
     stage.entities.filter((e) => e instanceof ConedDog).forEach((e, i) => { if (!e.dogId && dogIds[i]) e.dogId = `${this.level}:${dogIds[i]}`; });
     ui.loadingProgress(0.65, 'Placing Nobu...');
     await nextFrame();
+    if (abandoned()) return false;
     this.info = info;
     this.chase = info.chase || null;
     this._attachActors(info);
@@ -174,10 +185,13 @@ export class Session {
     this.dogsTotal = stage.entities.filter((e) => e instanceof ConedDog).length;
     ui.loadingProgress(0.8, 'Warming up...');
     await this._warmUp();
+    if (abandoned()) return false;
     audio.setRate(this.def.gauntlet ? 1.08 : 1);
     audio.playMusic(stage.gauntletInfo?.music || stage.theme.music);
     ui.fade(0, 0);
-    await ui.hideLoading();
+    await (mainGoal ? ui.hideLoading(700, this._goalLoadingToken) : ui.hideLoading());
+    if (abandoned()) return false;
+    this._goalLoadingToken = null;
     ui.showHud(4);
     this._pushHud();
     this.buddy = this.def.gauntlet ? null : addBuddy(this, save.data, LEVELS);
@@ -185,7 +199,11 @@ export class Session {
     g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
     if (LEVEL_INTRO[this.level] && !this.trial) {
       g.player.frozen = true;
-      await g.ui.say(LEVEL_INTRO[this.level]);
+      const intro = g.ui.say(LEVEL_INTRO[this.level]);
+      if (mainGoal) this._goalIntroDialog = g.ui.dialog;
+      await intro;
+      if (abandoned()) return false;
+      this._goalIntroDialog = null;
       g.player.frozen = false;
     }
     if (this.chase) this._startChase(this.chase.s, 1.8, true);
@@ -193,6 +211,7 @@ export class Session {
     // newly earned boss moves get a pop-up the first time
     const ab = g.player.abilities;
     for (const id of ['glide', 'zoom', 'bark']) if (ab[id]) { g.ui.tutorial(id); break; }
+    this.loading = false;
     this.busy = false;
   }
 
@@ -362,13 +381,15 @@ export class Session {
     this.game.ui.fade(1).then(() => this.startBoss());
   }
 
-  // End of a bonus stage (no boss): the missed-backpack rain, then the results screen.
+  // Goal stages capture the field before the rain, then show their results.
   async reachGoal() {
-    if (this.phase !== 'level' || this.busy) return;
+    const g = this.game, stage = this.stage;
+    const mainGoal = this.def.goal && !this.def.bonus;
+    const abandoned = () => mainGoal && (this.disposed || g.session !== this || this.stage !== stage || g.stage !== stage);
+    if (this.phase !== 'level' || this.busy || abandoned()) return;
     if (this.def.gauntlet) return this._finishGauntlet();
     if (import.meta.env.DEV) this.game.devTuning?.gate(this);
     finishSessionChain(this);
-    const g = this.game;
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
     this.deathsAtGate = this.deaths;
     this.busy = true;
@@ -377,8 +398,11 @@ export class Session {
     audio.play('checkpoint');
     g.ui.banner('STAGE CLEAR!', this.def.name, 1.6);
     await wait(900);
+    if (abandoned()) return;
     await this._missedRain();
+    if (abandoned()) return;
     await g.ui.fade(1);
+    if (abandoned()) return;
     g.player.setRide(null);
     if (this.def.bonus) g.bonusCleared(this);
     else g.goalLevelCleared(this);
@@ -419,10 +443,14 @@ export class Session {
 
   // Every breakable Nobu skipped drops on his head, one by one, before the level ends.
   async _missedRain() {
-    const g = this.game, p = g.player;
+    const g = this.game, p = g.player, stage = this.stage;
+    const abandoned = () => this.def.goal && !this.def.bonus &&
+      (this.disposed || g.session !== this || this.stage !== stage || g.stage !== stage);
+    if (abandoned()) return;
     if (!this.breakablesTotal) return;
     const missed = this.stage.entities.filter((e) => e instanceof Breakable && e.countable && !e.broken).length;
     await wait(350);
+    if (abandoned()) return;
     if (!missed) {
       g.ui.banner('PERFECT!', this.stats?.perfectCandidate ? MASTERY_TEXT.perfectRain : 'Not a single backpack missed', 1.8);
       audio.play('oneUp');
@@ -432,11 +460,20 @@ export class Session {
     const tc = g.camera.basis?.toCamera;
     if (tc !== undefined) p.facing = p.targetFacing = tc;
     g.ui.banner('MISSED!', `0 / ${missed}`, 30);
-    this.rain = { list: [], total: missed, spawned: 0, hit: 0, t: 0.2, gap: Math.max(0.07, Math.min(0.3, 3 / missed)) };
-    await new Promise((resolve) => { this.rain.done = resolve; });
-    this.rain = null;
+    const rain = this.rain = { list: [], total: missed, spawned: 0, hit: 0, t: 0.2, gap: Math.max(0.07, Math.min(0.3, 3 / missed)) };
+    await new Promise((resolve) => { rain.done = resolve; });
+    if (this.rain === rain) this.rain = null;
+    if (abandoned()) return;
     g.ui.banner('MISSED!', `${missed} backpack${missed > 1 ? 's' : ''} left behind`, 1.4);
     await wait(900);
+  }
+
+  _cancelGoalRain() {
+    if (!this.def?.goal || this.def.bonus || !this.rain) return;
+    const rain = this.rain;
+    this.rain = null;
+    for (const drop of rain.list) this.stage?.scene.remove(drop.m);
+    rain.done?.();
   }
 
   _updateRain(dt) {
@@ -878,7 +915,7 @@ export class Session {
   // ---------- per-frame ----------
   update(dt) {
     const g = this.game;
-    if (!this.stage) return;
+    if (!this.stage || this.loading) return;
     this.godUsed ||= !!save.data.godMode;
     if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
     if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
@@ -941,6 +978,11 @@ export class Session {
 
   dispose() {
     this.disposed = true;
+    if (this.def?.goal && !this.def.bonus) {
+      this.game.ui.cancelLoading?.(this._goalLoadingToken);
+      this.game.ui.cancelSay?.(this._goalIntroDialog);
+    }
+    this._cancelGoalRain();
     clearGauntletLook(this.game.player);
     if (this.def?.gauntlet) audio.setRate(1);
     if (this.stage) this.stage.dispose();
