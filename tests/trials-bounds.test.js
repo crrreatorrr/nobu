@@ -41,7 +41,7 @@ describe('trial bounds (metaverse-hub CONTRACT C13)', () => {
     expect(TRIAL_CEIL_MS).toBe(1_800_000);
   });
 
-  it('every floor is below the fastest physically possible run', () => {
+  it('keeps a nominal slide-distance reference for Classic and v2 layouts, not a fastest-score certificate', () => {
     expect(TUNING.SLIDE_SPEED).toBe(12.5);
     for (const level of [1, 2, 3]) for (const layout of new Set([1, trialLayout(level)])) {
       const dist = gateDistance(level, layout);
