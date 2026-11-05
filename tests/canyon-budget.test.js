@@ -26,8 +26,19 @@ test('overlong stops remain fatal, rather than being made safe by the rear catch
  expect(simulateCanyon({start:SB+2,until:SB+33,stops:[{d:SB+12,dur:8}]}).dead).toBe(true);
 });
 
-test('the measured151 whole fits fixed183 while an authored184 fails without growing the cap',async()=>{
- const{LEVEL_TICKET_CAP}=await import('../src/config/tickets.js'),{LEVEL_BUDGETS}=await import('../src/levels/data/budgets.js'),{checkTicketBudget}=await import('../src/game/ticketBudget.js');
- expect(LEVEL_TICKET_CAP[2]).toBe(183);expect(checkTicketBudget(2,LEVEL_BUDGETS[2]).wholeMax).toBe(151);
- const extra={...LEVEL_BUDGETS[2],field:LEVEL_BUDGETS[2].field+99};expect(()=>checkTicketBudget(2,extra)).toThrow(/184 exceeds fixed cap 183/);expect(LEVEL_TICKET_CAP[2]).toBe(183);
+test('the L2 cap is the owner-approved 17: 17 whole fits and 18 fails without growing the cap',async()=>{
+ const{LEVEL_TICKET_CAP}=await import('../src/config/tickets.js'),{checkTicketBudget}=await import('../src/game/ticketBudget.js');
+ const zero={field:0,packs:0,zipped:0,jackpots:0,bark:0,trampoline:0,mystery:0,arena:0,coconut:false};
+ expect(LEVEL_TICKET_CAP[2]).toBe(17);
+ expect(checkTicketBudget(2,{...zero,field:51})).toMatchObject({wholeMax:17,cap:17});
+ expect(checkTicketBudget(2,{...zero,field:53}).wholeMax).toBe(17); // The raw remainder does not round up.
+ expect(()=>checkTicketBudget(2,{...zero,field:54})).toThrow(/18 exceeds fixed cap 17/);
+ expect(()=>checkTicketBudget(2,{...zero,coconut:true,field:9})).toThrow(/18 exceeds fixed cap 17/);
+ expect(LEVEL_TICKET_CAP[2]).toBe(17);
+});
+
+test('level 2 as authored is still 151 whole, over the 17 cap until its Tickets are cut',async()=>{
+ const{LEVEL_BUDGETS}=await import('../src/levels/data/budgets.js'),{ticketBudget,checkTicketBudget}=await import('../src/game/ticketBudget.js');
+ expect(ticketBudget(LEVEL_BUDGETS[2]).wholeMax).toBe(151);
+ expect(()=>checkTicketBudget(2,LEVEL_BUDGETS[2])).toThrow(/151 exceeds fixed cap 17/);
 });
