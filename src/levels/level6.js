@@ -100,7 +100,7 @@ export function buildLevel6(game,stage,tickets,{corrections=true,decor=true}={})
  const loopCases=detours.map((d,i)=>buildRiverLoopCase(stage,track,d,{end:i?420:288,center:i?0:-1.5,width:i?9:6,moonDoor:!i}));
  // The Moon reward is authored after detours so its final safe placement can be checked against every support.
  if(decor){
-  k.banks(-6,L6_END,(x,y,d)=>{const r=Math.random();if(r<.3)k.tuft(x,y,d,rand(1.2,1.8));else if(r<.5)k.rock(x,y,d,rand(.6,1.2),0x6a6a5a,{moss:true});else if(r<.65)k.bush(x,y,d,rand(.9,1.3));else if(r<.78)k.fence(x,d,d,y);else if(r<.88)k.pipe(x,y,d);else k.cones(x,y,d);},{every:4.2});
+  k.banks(-6,L6_END,(x,y,d)=>{const r=Math.random();if(r<.3)k.tuft(x,y,d,rand(1.2,1.8));else if(r<.5)k.rock(x,y,d,rand(.6,1.2),0x6a6a5a,{moss:true});else if(r<.65)k.bush(x,y,d,rand(.9,1.3));else if(r<.78)k.fence(x,d,d,y);else if(r<.88)k.pipe(x,y,d,2.2);else k.cones(x,y,d);},{every:4.2});
   k.edges(-4,L6_END,(x,y,d)=>k.tuft(x,y,d,rand(.8,1.1)),{every:2.6});
   for(let d=20;d<L6_END;d+=40)k.bgDog(pick([-1,1])*rand(5.8,6.6),2.6,d+rand(-4,4),{height:1.1});
   buildRiverDecor(stage,track);

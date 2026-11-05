@@ -279,8 +279,9 @@ test('the no-death aqueduct pays only its authored1UP,6rawand5pack and closes af
  game.session.deaths=1;pack.restore();goodBoyGate.onRespawn();expect(pack.solid.enabled).toBe(false);expect(goodBoy.plats.every(p=>!p.solid.enabled)).toBe(true);expect(goodBoyPrizes.every(p=>!p.interactive)).toBe(true);expect(goodBoyTickets.every((t,i)=>t.y===goodBoyGate.ticketY[i]+1000)).toBe(true);expect(goodBoyTickets.map(t=>({taken:t.taken,seq:t.seq}))).toEqual(journal);stage.dispose();
 });
 
-test('the complete ordinary and trial scenes contain only finite authored transforms and vertices',()=>{
- for(const trial of[false,true]){const f=build({trial,decor:true}),bad=[];f.stage.scene.traverse(o=>{for(const key of['position','quaternion','scale'])if(!o[key].toArray().every(Number.isFinite))bad.push({name:o.name,type:o.type,key});const points=o.geometry?.attributes?.position?.array;if(points&&![...points].every(Number.isFinite))bad.push({name:o.name,type:o.type,key:'vertices'});});expect(bad).toEqual([]);f.stage.dispose();}
+test('finalized ordinary and trial scenes keep forced bank-pipe geometry finite',()=>{
+ const random=vi.spyOn(Math,'random').mockReturnValue(.85),results=[];
+ try{for(const trial of[false,true]){const f=build({trial,decor:true}),bad=[];f.stage.finalize();let objects=0,attributes=0;f.stage.scene.traverse(o=>{objects++;for(const key of['position','quaternion','scale'])if(!o[key].toArray().every(Number.isFinite))bad.push({name:o.name,type:o.type,key});for(const[key,attribute]of Object.entries(o.geometry?.attributes??{})){attributes++;if(![...attribute.array].every(Number.isFinite))bad.push({name:o.name,type:o.type,key});}});results.push({trial,objects,attributes,bad});f.stage.dispose();expect(bad).toEqual([]);}writeFileSync('/tmp/h45-finalized-geometry-proof.json',JSON.stringify(results,null,2));}finally{random.mockRestore();}
 });
 
 function springOnRiverShell(hopAt){
