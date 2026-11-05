@@ -120,13 +120,17 @@ it('retires its actual intro dialogue without cancelling a newer one or unfreezi
 
 it('keeps actual map nodes in the scroll surface, details separate and auto-centers the canonical selected node',()=>{
  const {game}=fixture();save.data.open[6]=true;game.mapSel=6;
- const centered=[];vi.stubGlobal('HTMLElement',HTMLElement);Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:function(opts){centered.push({node:this,opts});}});
- try{game._drawMap();const screen=game.ui.screen,selected=screen.querySelector('.map-node.sel');
+ const ancestorScroll=vi.fn();Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:ancestorScroll});
+ const rect=vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockImplementation(function(){return this.matches('.map-scroll')?{left:10,top:20,width:400,height:300}:{left:610,top:420,width:100,height:100};});
+ const width=vi.spyOn(HTMLElement.prototype,'clientWidth','get').mockReturnValue(400);
+ const height=vi.spyOn(HTMLElement.prototype,'clientHeight','get').mockReturnValue(300);
+ try{game._drawMap();const screen=game.ui.screen,selected=screen.querySelector('.map-node.sel'),viewport=screen.querySelector('.map-scroll');
  expect(selected.closest('.map-scroll')).toBeTruthy();expect(selected.closest('.map-island')).toBeTruthy();expect(selected.style.left).toBe('93%');expect(selected.style.top).toBe('33%');
  expect(screen.querySelector('.map-details .map-panel')).toBeTruthy();expect(screen.querySelector('.map-scroll .map-panel')).toBeNull();
- expect(centered.at(-1)).toEqual({node:selected,opts:{block:'center',inline:'center',behavior:'auto'}});
+ expect(viewport.scrollLeft).toBe(450);expect(viewport.scrollTop).toBe(270);expect(screen.scrollLeft).toBe(0);expect(screen.scrollTop).toBe(0);expect(ancestorScroll).not.toHaveBeenCalled();
  game.mapSel='kennel';save.data.open.kennel=true;game._drawMap();expect(screen.querySelector('.map-node.sel').style.left).toBe('12%');
- }finally{delete HTMLElement.prototype.scrollIntoView;vi.unstubAllGlobals();}
+ }finally{rect.mockRestore();width.mockRestore();height.mockRestore();delete HTMLElement.prototype.scrollIntoView;}
+
 });
 it('trial census omissions stay limited to declared detour section names and retain main/mismatch/duplicate errors',()=>{
  const {game,s}=goalFixture();const tr=s.stage.track,k=makeKit(game,s.stage,s.tickets,tr);s.stage.entities=[];
