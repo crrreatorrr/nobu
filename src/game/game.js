@@ -728,6 +728,7 @@ export class Game {
   openPause() {
     this.state = 'pause';
     this.pauseSel = 0;
+    this.pauseExitSel = null;
     this.ui.pinHud(true);
     audio.play('menu');
     this._drawPause();
@@ -746,6 +747,32 @@ export class Game {
     ];
   }
 
+  /** Leaving mid-level asks first: KEEP PLAYING (the default) resumes, EXIT TO HUB leaves. */
+  _pauseExitItems() {
+    return [
+      { id: 'stay', label: 'KEEP PLAYING' },
+      { id: 'leave', label: 'EXIT TO HUB' },
+    ];
+  }
+
+  _drawPauseExit() {
+    const items = this._pauseExitItems();
+    this.ui.setScreen(`<div class="big-title">EXIT TO HUB?</div><div class="hint">This level ends here. Tickets from it are not banked.</div><div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseExitSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
+      <div class="hint" style="margin-top:20px">ESC back</div>`, 'dim');
+  }
+
+  updatePauseExit() {
+    const items = this._pauseExitItems();
+    if (input.pressed('up') || input.pressed('down')) { this.pauseExitSel = 1 - this.pauseExitSel; audio.play('menu'); this._drawPauseExit(); }
+    if (input.pressed('pause')) { this.pauseExitSel = null; audio.play('menu'); this._drawPause(); return; }
+    if (input.confirmPressed() || input.pressed('bite')) {
+      const id = items[this.pauseExitSel].id;
+      this.pauseExitSel = null;
+      if (id === 'leave') this.exitToHub();
+      else this.closePause();
+    }
+  }
+
   _drawPause() {
     const items = this._pauseItems();
     const s = this.session;
@@ -760,6 +787,7 @@ export class Game {
   }
 
   updatePause() {
+    if (this.pauseExitSel != null) { this.updatePauseExit(); return; }
     const items = this._pauseItems();
     const it = items[this.pauseSel];
     if (input.pressed('up')) { this.pauseSel = (this.pauseSel + items.length - 1) % items.length; audio.play('menu'); this._drawPause(); }
@@ -783,7 +811,7 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawPause();
       } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
-      else if (it.id === 'hub') { this.exitToHub(); }
+      else if (it.id === 'hub') { this.pauseExitSel = 0; audio.play('menu'); this._drawPauseExit(); }
       else if (it.id === 'quit') {
         this.ui.pinHud(false);
         const session = this.session, level = session.level;
