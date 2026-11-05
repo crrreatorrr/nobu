@@ -14,7 +14,7 @@ import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
 import { RushSession } from './rushSession.js';
 import { rushAvailable } from './rushArenas.js';
-import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
+import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime, ownsAsyncLifecycle, isPipelineSession } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
@@ -41,8 +41,10 @@ function esc(text) {
 }
 
 const hostGauntlet = (host) => Object.values(LEVELS).find((def) => def.gauntlet && def.host === host);
-const retiresOnLeave = (session) => !!(session?.rush || session?.def?.gauntlet ||
-  (session?.def?.goal && !session.def.bonus));
+const retiresOnLeave = (session) => !!(session?.rush || session?.def?.gauntlet || ownsAsyncLifecycle(session));
+const pipelineCurrent = (game, session, stage = session.stage, epoch = session._lifecycleEpoch || 0) =>
+  !isPipelineSession(session) || (!session.disposed && !session.over && game.session === session &&
+    game.stage === stage && session.stage === stage && epoch === (session._lifecycleEpoch || 0));
 const gauntletMedals = (row = {}) => ['clear', 'allBoxes', 'flawless'].map((key) =>
   `<span data-gauntlet-medal="${key}" title="${esc(GAUNTLET_TEXT[key])}">${row[key] ? '●' : '○'}</span>`).join(' ');
 
@@ -346,9 +348,10 @@ export class Game {
   }
 
   // ---------------- cutscenes (comic panels) ----------------
-  playCutscene(panels, onDone, music = 'cutscene') {
+  playCutscene(panels, onDone, music = 'cutscene', isCurrent = null) {
+    if (isCurrent && !isCurrent()) return;
     this.state = 'cutscene';
-    this.cut = { panels, i: -1, onDone, t: 0 };
+    this.cut = { panels, i: -1, onDone, t: 0, isCurrent };
     this.ui.hideHud();
     audio.playMusic(music);
     this.ui.fade(0);
@@ -357,6 +360,8 @@ export class Game {
 
   _nextPanel() {
     const c = this.cut;
+    if (!c || (c.isCurrent && !c.isCurrent())) return;
+    const current = () => this.cut === c && (!c.isCurrent || c.isCurrent());
     c.i++;
     c.t = 0;
     if (c.i >= c.panels.length) { const done = c.onDone; this.cut = null; this.ui.clearScreen(); done(); return; }
@@ -365,7 +370,7 @@ export class Game {
     const caption = `${p.speaker ? `<span class="speaker">${p.speaker}</span>` : ''}${p.text}`;
     if (prev !== p.img || !this.ui.screen.querySelector('.cut-panel')) {
       this.ui.setScreen(`<div class="cut-panel" style="background-image:url('${Assets.url(p.img)}')"></div><div class="cut-caption">${caption}</div><div class="cut-skip">Any key: next · Esc: skip</div>`, 'dim');
-      requestAnimationFrame(() => this.ui.screen.querySelector('.cut-panel')?.classList.add('show'));
+      requestAnimationFrame(() => { if (current()) this.ui.screen.querySelector('.cut-panel')?.classList.add('show'); });
       audio.play('whoosh');
     } else {
       this.ui.screen.querySelector('.cut-caption').innerHTML = caption;
@@ -373,12 +378,12 @@ export class Game {
     // typewriter-lite: reveal caption
     const capEl = this.ui.screen.querySelector('.cut-caption');
     capEl.style.opacity = 0;
-    requestAnimationFrame(() => { capEl.style.transition = 'opacity 0.3s'; capEl.style.opacity = 1; });
+    requestAnimationFrame(() => { if (current()) { capEl.style.transition = 'opacity 0.3s'; capEl.style.opacity = 1; } });
     if (p.speaker) audio.play(p.speaker.includes('CONE') ? 'blipLow' : 'blip');
   }
 
   updateCutscene(dt) {
-    if (!this.cut) return;
+    if (!this.cut || (this.cut.isCurrent && !this.cut.isCurrent())) return;
     this.cut.t += dt;
     if (input.pressed('pause') && this.cut.t > 0.2) {
       const done = this.cut.onDone; this.cut = null; this.ui.clearScreen(); done(); return;
@@ -387,13 +392,14 @@ export class Game {
   }
 
   // ---------------- level select map ----------------
-  _trySecretEnding(next) {
-    if (!levelDef(5)?.shipped || save.data.secretSeen || !secretEndingUnlocked(save.data, LEVELS)) return false;
+  _trySecretEnding(next, isCurrent = null) {
+    if ((isCurrent && !isCurrent()) || !levelDef(5)?.shipped || save.data.secretSeen || !secretEndingUnlocked(save.data, LEVELS)) return false;
     this.playCutscene(SECRET_ENDING, () => {
+      if (isCurrent && !isCurrent()) return;
       save.data.secretSeen = true;
       save.write();
       next();
-    }, 'victory');
+    }, 'victory', isCurrent);
     return true;
   }
 
@@ -438,7 +444,7 @@ export class Game {
       const locked = !isOpen(n, d);
       const beaten = levelDef(n).rush ? !!d.rush?.clear : bonus ? !!d.bonus?.[n]?.beaten : save.beatenOf(n);
       const gauntlet = hostGauntlet(n);
-      nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
+      nodes += `<div data-level="${n}" class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
         ${!beaten && !bonus && !meta ? '<div class="cone-cloud"></div>' : ''}
         ${!bonus && save.boneOf(n) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
         ${!meta && !bonus ? perfectPaw(!!d.perfect?.[n], MASTERY_TEXT) : ''}
@@ -868,6 +874,9 @@ export class Game {
 
   // ---------------- level complete ----------------
   levelCleared(session) {
+    const stage = session.stage, epoch = session._lifecycleEpoch || 0;
+    const current = () => pipelineCurrent(this, session, stage, epoch);
+    if (!current()) return false;
     const n = levelDef(session.level).id;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
     const d = save.data;
@@ -883,7 +892,7 @@ export class Game {
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     // rescue scene first, then the results screen
-    this.playCutscene(RESCUE[n], () => this._showComplete(n, st, fresh), 'victory');
+    this.playCutscene(RESCUE[n], () => { if (current()) this._showComplete(n, st, fresh); }, 'victory', isPipelineSession(session) ? current : null);
   }
 
   goalLevelCleared(session) {
@@ -911,6 +920,7 @@ export class Game {
 
   // Time trial finished at the boss gate: time, dog tag, personal best.
   trialDone(session, t, medal, best) {
+    if (!pipelineCurrent(this, session)) return false;
     const n = session.level;
     const targets = trialTargetLine(trialVariant(n), ['gold', 'platinum'].includes(medal) ? { medal } : save.data.trials?.[n]);
     const eligible = eligibleTrialLine(save.data.trials?.[n], MASTERY_TEXT);
@@ -992,6 +1002,8 @@ export class Game {
   }
 
   async updateComplete(dt) {
+    const session = this.session, stage = session?.stage, epoch = session?._lifecycleEpoch || 0;
+    const current = () => !session || pipelineCurrent(this, session, stage, epoch);
     const pressed = input.anyPressed();
     let ready;
     if (this.completeMode === 'tally') ready = advanceCompleteTally(this, dt, pressed);
@@ -1003,9 +1015,13 @@ export class Game {
       if (bonus) { this.ui.screen.style.background = ''; this.toMap(n); return; }
       this.ui.screen.style.background = '';
       this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}');filter:brightness(0.5)"></div>`);
-      await this.ui.say(BETWEEN[n] || []);
+      const dialogue = this.ui.say(BETWEEN[n] || []);
+      if (isPipelineSession(session)) session._goalIntroDialog = this.ui.dialog;
+      await dialogue;
+      if (!current()) return;
+      if (isPipelineSession(session)) session._goalIntroDialog = null;
       if (n === 5 && levelDef(5)?.shipped) {
-        if (!this._trySecretEnding(() => this.toCredits())) this.playCutscene(QUEEN_ENDING, () => this.toCredits(), 'victory');
+        if (!this._trySecretEnding(() => { if (current()) this.toCredits(); }, current)) this.playCutscene(QUEEN_ENDING, () => { if (current()) this.toCredits(); }, 'victory', current);
         return;
       }
       // Keep the original chapter's credits, followed by CHAPTER2 on the next map visit.

@@ -55,6 +55,6 @@ it('banks a captured Perfect at the goal of a goal-only main L6 fixture without 
     s.game.stage = s.stage;
     s.game.goalLevelCleared = (run) => Game.prototype.goalLevelCleared.call({ session:run, stage:run.stage, _showComplete: shown, _unlockMainChapters: Game.prototype._unlockMainChapters }, run);
     const done = s.reachGoal(); await vi.runAllTimersAsync(); await done;
-    expect(s.stats.perfectCandidate).toBe(true); expect(save.data.perfect[6]).toBe(true); expect(save.data.beaten[6]).toBe(true); expect(save.data.open[5]).toBeUndefined(); expect(shown).toHaveBeenCalled();
+    expect(s.stats.perfectCandidate).toBe(true); expect(save.data.perfect[6]).toBe(true); expect(save.data.beaten[6]).toBe(true); expect(save.data.open[5]).toBe(true); expect(shown).toHaveBeenCalled();
   } finally { vi.useRealTimers(); }
 });

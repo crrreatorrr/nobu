@@ -50,7 +50,11 @@ export function makeKit(game, stage, tickets, track = null) {
       logMesh(stage, W(x, 0, d + 0.45), yawAt(d), w);
       tickets && k.tix(x, h + 0.3, d - 0.6, x, h + 0.3, d + 1.5, 2);
     },
-    backstop(d) { track.ground(d, d + 1.2, { w: 20, dy: 8, style: 'ground', depth: 9 }); },
+    backstop(d) {
+      const span = track.ground(d, d + 1.2, { w: 20, dy: 8, style: 'ground', depth: 9 });
+      span.cameraBackstop = true;
+      return span;
+    },
     platform(x, y, d, w = 2.4, dd = 2.4, h = 0.5) { return add(new StaticPlatform(stage, ...W(x, y, d).toArray(), { w, d: dd, h, yaw: yawAt(d) })); },
     spinDrum(d, o = {}) { return add(new SpinDrum(stage, track, d, o)); },
     zipline(x0, y0, d0, x1, y1, d1, o = {}) { return add(new Zipline(stage, W(x0, y0, d0), W(x1, y1, d1), o)); },

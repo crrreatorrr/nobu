@@ -45,7 +45,7 @@ test('ships pinned gauntlets with no ordinary bones/dogs/trial/map nodes or base
     save.data.gauntlets[id] = { polaroid: true, clear: true, allBoxes: true, flawless: true };
     expect(isOpen(id, save.data)).toBe(true);
   }
-  expect(totalDogs(LEVELS)).toBe(47); expect(basePointsMax(LEVELS)).toBe(basePointsMax(ordinary));
+  expect(totalDogs(LEVELS)).toBe(54); expect(basePointsMax(LEVELS)).toBe(basePointsMax(ordinary));
   expect(masteryPoints(save.data, LEVELS) - masteryPoints(save.data, ordinary)).toBe(9);
 });
 test('map attaches one three-medal entry to its host and RB takes precedence over ordinary bite-confirm', () => {

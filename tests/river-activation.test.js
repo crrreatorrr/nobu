@@ -11,20 +11,20 @@ import { resetWorld } from './helpers.js';
 beforeEach(()=>resetWorld());
 afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();});
 
-it('opens the actual Rapids after Titan while retaining the campaign order and future Queen gate',()=>{
+it('opens the actual Rapids after Titan while retaining the campaign order and Queen gate',()=>{
   const data={v:3,unlocked:3,beaten:{4:true},open:{1:true}};
   expect(unlockFollowingMain(data,LEVELS)).toEqual([6]);
   expect(isOpen(6,data)).toBe(true);
   expect(nextMainLevel(4,LEVELS)).toBe(6);
-  expect(nextMainLevel(6,LEVELS)).toBeNull();
+  expect(nextMainLevel(6,LEVELS)).toBe(5);
   expect(data.open[5]).toBeUndefined();
-  expect(playOrder()).toEqual([1,2,3,4,6]);
+  expect(playOrder()).toEqual([1,2,3,4,6,5]);
   expect(levelDef(6)).toMatchObject({goal:true,bonus:false,theme:'river',tier:4.5,trial:true});
   expect(Object.values(levelDef(6).dogs)).toEqual(['Drain Mouth','Gutter Run','The Lock','Whirlpool Bend','Barge Yard','Rain Gutter','Pump House']);
   expect(levelDef(6).hidden).toEqual({section:'Pump House',move:'dust'});
 });
 
-it('ends the real main-goal session after its rain and banks its gate snapshot without opening unshipped L5',async()=>{
+it('ends the real main-goal session after its rain and banks its gate snapshot and opens the shipped Pipeline',async()=>{
   vi.useFakeTimers();
   const order=[],noop=()=>{};
   vi.spyOn(hub,'bank').mockImplementation(async()=>{order.push('bank');});
@@ -42,7 +42,7 @@ it('ends the real main-goal session after its rain and banks its gate snapshot w
   const end=s.reachGoal();await vi.runAllTimersAsync();await end;
   expect(order).toEqual(['snapshot','rain','fade','bank']);
   expect(save.beatenOf(6)).toBe(true);
-  expect(save.data.open[5]).toBeUndefined();
+  expect(save.data.open[5]).toBe(true);
   expect(save.data.boneBoard[6]).toMatchObject({golden:true,goodBoy:true,hidden:true,snack:3});
   expect(save.data.perfect[6]).toBe(true);
   expect(Object.keys(save.data.dogsFreed)).toHaveLength(7);

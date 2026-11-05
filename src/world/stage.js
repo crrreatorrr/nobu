@@ -6,6 +6,11 @@ import { World, Solid } from './physics.js';
 import { advanceBeatClocks } from '../entities/boxes.js';
 
 export const THEMES = {
+  5: {
+    name: 'Pump & Dump Pipeline', ground: 'tex_l5_ground', wall: 'tex_l5_wall', platform: 'tex_l5_platform',
+    sky: 'bg_level5', fog: 0x160a24, fogNear: 30, fogFar: 95, hemiSky: 0x8affc8, hemiGround: 0x2a0830,
+    sun: 0xffd0f0, sunI: 1.3, hemiI: 1.2, rimI: .5, dust: 0xc8ffd8, music: 'level5', bpm: 128,
+  },
   boss5: {
     name: 'The Candle Chart', ground: 'tex_l3_ground', wall: 'tex_l3_wall', platform: 'tex_l3_platform',
     sky: 'bg_boss5', fog: 0x1a0828, fogNear: 40, fogFar: 120, hemiSky: 0xffa0d0, hemiGround: 0x062014, sun: 0xc8ffd8, sunI: 1.3, hemiI: 1.2,

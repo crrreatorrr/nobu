@@ -174,6 +174,7 @@ export class FreezePack extends Backpack {
     super(stage, x, y, z, { tickets: 1 });
     this.kind = 'freeze';
     this.secs = secs;
+    this.consumed = false;
     this.countable = false;
     const ice = new THREE.MeshPhongMaterial({ color: 0x8adcff, emissive: 0x1a4a6a, shininess: 110, specular: 0xffffff, transparent: true, opacity: 0.92 });
     this.model.traverse((o) => { if (o.isMesh && o !== this.model.children[1]) o.material = ice; });
@@ -190,10 +191,16 @@ export class FreezePack extends Backpack {
     if (Math.random() < dt * 3) this.fx.sparkle(this.pos.x + rand(-0.5, 0.5), this.pos.y + rand(0.3, 1.1), this.pos.z + rand(-0.5, 0.5), { count: 1, color: 0xbff0ff, size: 0.35, speed: 0.4 });
   }
   break(player, how) {
-    if (this.broken) return;
+    if (this.broken || this.consumed) return;
     super.break(player, how);
+    this.consumed = true;
     this.session.freezeClock?.(this.secs);
     this.fx.sparkle(this.pos.x, this.pos.y + 0.8, this.pos.z, { count: 18, color: 0xbff0ff, size: 0.6, speed: 4 });
+  }
+  restore() {
+    // Time credit belongs to the whole trial attempt, including checkpoint retries.
+    if (this.consumed) { this.broken = true; this.hide(); return; }
+    super.restore();
   }
 }
 

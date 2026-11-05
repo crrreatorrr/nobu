@@ -200,7 +200,7 @@ test('L2 Mysteries sit in the held Fort and sunken loop and do not re-hit a newl
 });
 
 test('each level module re-exports its budget declaration', async () => {
-  for (const [id, name] of Object.entries({ 1: 'level1', 2: 'level2Extended', 3: 'level3', 6: 'level6', ride: 'bonusRide', cave: 'bonusCave' })) {
+  for (const [id, name] of Object.entries({ 1: 'level1', 2: 'level2Extended', 3: 'level3', 5: 'level5', 6: 'level6', ride: 'bonusRide', cave: 'bonusCave' })) {
     expect((await import(`../src/levels/${name}.js`)).BUDGET).toBe(LEVEL_BUDGETS[id]);
   }
 });

@@ -9,10 +9,10 @@ import { enqueue, readQueue } from '../src/hub/scoreQueue.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { resetWorld } from './helpers.js';
 beforeEach(()=>{vi.restoreAllMocks();resetWorld();});
-it('activates L2 alone with seven stable dogs, forty shipped dogs and the exact gated trial targets',()=>{
+it('activates L2 alone with seven stable dogs, fifty-four shipped dogs and the exact gated trial targets',()=>{
  expect(LAYOUT).toEqual({1:2,2:2,3:2});expect(HUB_LAYOUT).toEqual({1:1,2:1,3:1});
  expect(Object.keys(LEVELS[2].dogs)).toEqual(['corgi-a','pug-a','shiba-a','corgi-b','shiba-b','dalmatian-a','pug-b']);
- expect(totalDogs(LEVELS)).toBe(47);expect(trialVariant(2)).toBe('2v2');expect(TRIAL_TARGETS['2v2']).toEqual([90,114,156,82]);
+ expect(totalDogs(LEVELS)).toBe(54);expect(trialVariant(2)).toBe('2v2');expect(TRIAL_TARGETS['2v2']).toEqual([90,114,156,82]);
  expect(trialMsInBounds('2v2',25999)).toBe(false);expect(trialMsInBounds('2v2',26000)).toBe(true);expect(LEVELS[2].hidden).toEqual({section:'Cat Flap Alley',move:'glide'});
 });
 it('archives Classic L2 scores, keeps earned Golden/old dogs, records clean local v2 and never queues it before deployment',async()=>{

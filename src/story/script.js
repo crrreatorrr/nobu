@@ -123,6 +123,11 @@ titan: {
 
 // Mask chatter before each level (tips, jokes, story updates).
 export const LEVEL_INTRO = {
+5: [
+  ['mask', 'The Pump & Dump Pipeline. Green means up, red means down. Just like my portfolio.'],
+  ['mask', 'Watch the arrows: platforms move one beat after they light up. Hop pump pills to make them rise. Don\'t hang around. They DUMP.'],
+  ['mask', 'Whoever pumped the Evil Cone is at the end of this pipe. Let\'s go say hi.'],
+],
 6: [
   ['mask', 'The Titan\'s dust bag burst and ALL that smog went down the drain. Straight into the river.'],
   ['mask', 'And the river runs right down to the Pump & Dump Pipeline. Convenient. Suspiciously convenient.'],
@@ -211,6 +216,7 @@ export const TUTORIALS = {
   zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
   toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
   market: { img: 'pill_bot', title: 'MARKET PLATFORMS', text: 'GREEN edge = going UP next beat. RED = going DOWN. Watch the arrows, then jump.' },
+  pipelineshutter: { img: 'nobu_head', title: 'SAFETY SHUTTER', text: 'Land on every glowing paw plate to open the safety shutter.' },
   rugpull: { img: 'rug', title: 'RUG PULL', text: 'The floor is leaving. Step on it and RUN. Do NOT stop.' },
   dustwall: { img: 'nobu_head', title: 'DUST WALL', text: 'Come back with a faster move.' },
   dustwallUnlocked: { img: 'nobu_head', title: 'DUST DASH', text: 'Dust Dash breaks this wall.' },
@@ -352,6 +358,12 @@ export const L4_TEXT = {
   name: 'Laundry Day', gate: 'ROOMBA TITAN', cerealExitSign: ['DOUBLE', 'JUMP!'],
   sections: { hallway: 'Hallway', laundry: 'Laundry Room', ironing: 'Ironing Board', kitchen: 'Kitchen Counter', stampede: 'Roomba Stampede', basement: 'Basement Stairs', boiler: 'Boiler Room', topShelf: 'Top Shelf', pantry: 'The Pantry' },
   chainSign: ['CHOMP', 'CHAIN!'], biteSign: ['BITE', 'FAST'],
+};
+
+export const L5_TEXT = {
+  name: 'Pump & Dump Pipeline', gate: 'THE PUMP QUEEN',
+  sections: { opening: 'Opening Bell', pump: 'Pump Field', smog: 'Smog Wave', trading: 'Trading Floor', chimney: 'Green Candle Chimney', rug: 'The Rug Pull', liquidation: 'Liquidation Line', orderBook: 'The Order Book', coldWallet: 'The Cold Wallet' },
+  signs: { market: ['▲ PUMP', '▼ DUMP'] },
 };
 
 export const CHAPTER2 = [

@@ -78,3 +78,45 @@ it('does not schedule a duplicate note in the queued lookahead when the rate cha
   for (const [, , when] of play.mock.calls) expect(when).toBeGreaterThan(lastQueued);
   expect(audio.song.nextTime).toBeGreaterThan(lastQueued);
 });
+
+
+it('compiles and schedules the eight-bar Market song with bounded voices and even-beat pumps', () => {
+  audio.ctx = { currentTime: 0 }; audio.songName = null; audio.rate = 1;
+  audio.playMusic('level5');
+  const song = audio.song, [arp, lead, bass, pump] = song.tracks;
+  expect(song.def.bpm).toBe(128);
+  const clock = new MarketClock({ theme: { music: 'level5' }, game: { player: { pos: new THREE.Vector3() } } });
+  expect(clock.step).toBe(.9375);
+  expect(song.tracks.every(track => track.steps.length === 128)).toBe(true);
+  expect(Object.values(song.drums).every(pattern => pattern.length === 128)).toBe(true);
+  for (const track of song.tracks) for (const step of track.steps) if (step) {
+    expect(step.freqs.every(freq => Number.isFinite(freq) && freq > 0)).toBe(true);
+    expect(step.len).toBeLessThanOrEqual(16);
+  }
+  expect(arp.steps.every(Boolean)).toBe(true);
+  expect(lead.steps.slice(0, 64).every(step => step === null)).toBe(true);
+  expect(lead.steps[64].len).toBe(8); expect(lead.gate).toBe(.9);
+  for (let bar = 0; bar < 8; bar++) {
+    expect(bass.steps[bar * 16].len).toBe(16);
+    for (const beat of [0, 8]) {
+      const motif = pump.steps.slice(bar * 16 + beat, bar * 16 + beat + 4);
+      expect(motif.every((step, i) => step && (!i || step.freqs[0] > motif[i - 1].freqs[0]))).toBe(true);
+    }
+  }
+  const events = [];
+  vi.spyOn(audio, '_osc').mockImplementation((_wave, f0, f1, duration, gain, delay) => {
+    expect([f0, f1, duration, gain, delay].every(Number.isFinite)).toBe(true);
+    events.push({ start: delay, end: delay + duration, gain });
+  });
+  vi.spyOn(audio, '_noise').mockImplementation((duration, gain, delay) => {
+    events.push({ start: delay, end: delay + duration, gain });
+  });
+  const stepDuration = 60 / song.def.bpm / 4;
+  for (let step = 0; step < 128; step++) audio._playStep(song, step, step * stepDuration, stepDuration);
+  // Conservative sum of every overlapping envelope peak, before the existing
+  // music bus's maximum0.5 gain and master compressor. No new gain/filter nodes.
+  for (const { start } of events) {
+    const peak = events.filter(event => event.start <= start && event.end > start).reduce((sum, event) => sum + event.gain, 0);
+    expect(peak * .5).toBeLessThan(1);
+  }
+});

@@ -45,6 +45,11 @@ export { TRIAL_TARGETS, trialMedal, fmtTime };
 
 export { LEVEL_NAMES };
 
+export const isPipelineSession = (session) => Number(session?.level) === 5 && session?.def?.bossKey === 'queen' && !session.rush;
+// Remix is additive: its own settlement/retry machinery remains separate.
+export const ownsAsyncLifecycle = (session) => !!(session?.remix || isPipelineSession(session) ||
+  (session?.def?.goal && !session.def.bonus));
+
 export class Session {
   constructor(game, level, { trial = false } = {}) {
     this.game = game;
@@ -84,6 +89,40 @@ export class Session {
     this.bossDeaths = {};
     this.bossStageDeaths = 0;
     this.bossDdaUsed = false;
+  }
+
+  _lifecycleCurrent(stage = this.stage, epoch = this._lifecycleEpoch || 0) {
+    return !ownsAsyncLifecycle(this) || (!this.disposed && !this.over && this.game.session === this &&
+      (!stage || (this.stage === stage && this.game.stage === stage)) && epoch === (this._lifecycleEpoch || 0));
+  }
+
+  _pipelineCurrent(stage, boss, epoch) {
+    return !isPipelineSession(this) || (this._lifecycleCurrent(stage, epoch) && (!boss || this.boss === boss));
+  }
+
+  _pipelineDelay(ms) {
+    if (!isPipelineSession(this)) return wait(ms);
+    return new Promise(resolve => {
+      this._lifecycleWaiters ||= new Map();
+      const timer = setTimeout(() => { this._lifecycleWaiters.delete(timer); resolve(); }, ms);
+      this._lifecycleWaiters.set(timer, resolve);
+    });
+  }
+
+  _retirePipelineTransitions() {
+    if (!isPipelineSession(this)) return;
+    this._lifecycleEpoch = (this._lifecycleEpoch || 0) + 1;
+    for (const [timer, resolve] of this._lifecycleWaiters || []) { clearTimeout(timer); resolve(); }
+    this._lifecycleWaiters?.clear();
+    // Animation promises otherwise wait forever after their arena stops updating.
+    this.boss?.introResolve?.();
+    if (this.boss) this.boss.introResolve = null;
+    this.boss?.evolving?.resolve?.();
+    if (this.boss) this.boss.evolving = null;
+    const dialog = this._goalIntroDialog;
+    // A newer dialogue may already own UI; settle only our old waiter in that case.
+    if (!this.game.ui.cancelSay?.(dialog)) dialog?.resolve?.();
+    this._goalIntroDialog = null;
   }
 
   nextSeq() { return ++this.seq; }
@@ -144,10 +183,10 @@ export class Session {
   async startLevel() {
     const g = this.game;
     const ui = g.ui;
-    const mainGoal = this.def.goal && !this.def.bonus;
+    const mainGoal = ownsAsyncLifecycle(this);
     let stage = this.stage;
-    const abandoned = () => mainGoal && (this.disposed || g.session !== this ||
-      (stage && (this.stage !== stage || g.stage !== stage)));
+    const epoch = this._lifecycleEpoch || 0;
+    const abandoned = () => mainGoal && !this._lifecycleCurrent(stage, epoch);
     if (abandoned()) return false;
     this.busy = true;
     this.loading = true;
@@ -329,7 +368,8 @@ export class Session {
   }
 
   _finishTrial() {
-    const g = this.game, t = this.trialT;
+    const g = this.game, t = this.trialT, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    if (!this._pipelineCurrent(stage, null, epoch)) return;
     this.trialRunning = false;
     const layout = trialLayout(this.level), variant = trialVariant(this.level, layout);
     const ms = Math.round(t * 1000), d = save.data;
@@ -359,16 +399,21 @@ export class Session {
     g.ui.trialTime(null);
     g.player.frozen = true;
     audio.play(medal ? 'oneUp' : 'checkpoint');
-    g.ui.fade(1).then(() => g.trialDone(this, t, medal, best));
+    g.ui.fade(1).then(() => { if (this._pipelineCurrent(stage, null, epoch)) g.trialDone(this, t, medal, best); });
   }
 
   _startChase(s, delay, first, { banner = true } = {}) {
     this.chase.begin(s, delay);
-    if (first && banner) setTimeout(() => this.game.ui.banner('RUN!', 'Hold ↓ / S toward the camera', 2.2), delay * 1000 - 300);
+    if (first && banner) {
+      const stage = this.stage, epoch = this._lifecycleEpoch || 0;
+      setTimeout(() => { if (this._pipelineCurrent(stage, null, epoch)) this.game.ui.banner('RUN!', 'Hold ↓ / S toward the camera', 2.2); }, delay * 1000 - 300);
+    }
   }
 
   async reachBossGate() {
-    if (this.phase !== 'level' || this.busy) return;
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, null, epoch);
+    if (this.phase !== 'level' || this.busy || !current()) return;
     if (import.meta.env.DEV) this.game.devTuning?.gate(this);
     finishSessionChain(this);
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
@@ -378,7 +423,10 @@ export class Session {
     if (this.chase) this.chase.state = 'stop';
     this.game.player.frozen = true;
     await this._missedRain();
-    this.game.ui.fade(1).then(() => this.startBoss());
+    if (!current()) return;
+    await g.ui.fade(1);
+    if (!current()) return;
+    return this.startBoss();
   }
 
   // Goal stages capture the field before the rain, then show their results.
@@ -444,8 +492,8 @@ export class Session {
   // Every breakable Nobu skipped drops on his head, one by one, before the level ends.
   async _missedRain() {
     const g = this.game, p = g.player, stage = this.stage;
-    const abandoned = () => this.def.goal && !this.def.bonus &&
-      (this.disposed || g.session !== this || this.stage !== stage || g.stage !== stage);
+    const epoch = this._lifecycleEpoch || 0;
+    const abandoned = () => ownsAsyncLifecycle(this) && !this._lifecycleCurrent(stage, epoch);
     if (abandoned()) return;
     if (!this.breakablesTotal) return;
     const missed = this.stage.entities.filter((e) => e instanceof Breakable && e.countable && !e.broken).length;
@@ -469,7 +517,7 @@ export class Session {
   }
 
   _cancelGoalRain() {
-    if (!this.def?.goal || this.def.bonus || !this.rain) return;
+    if (!ownsAsyncLifecycle(this) || !this.rain) return;
     const rain = this.rain;
     this.rain = null;
     for (const drop of rain.list) this.stage?.scene.remove(drop.m);
@@ -553,18 +601,25 @@ export class Session {
   }
 
   async startBoss() {
-    const g = this.game;
+    const g = this.game, epoch = this._lifecycleEpoch || 0;
+    let stage = this.stage;
+    const current = () => this._pipelineCurrent(stage, null, epoch);
+    if (!current()) return false;
     this.phase = 'boss';
+    if (isPipelineSession(this)) { this.loading = true; this.busy = true; }
     this.tickets.clearFlying?.();
-    g.ui.showLoading('BOSS FIGHT', this.def.name.toUpperCase());
+    const loadToken = g.ui.showLoading('BOSS FIGHT', this.def.name.toUpperCase());
+    if (isPipelineSession(this)) this._goalLoadingToken = loadToken;
     g.ui.loadingProgress(0.1, 'Building the arena...');
     await nextFrame();
-    const stage = this._newStage(this.def.bossTheme);
+    if (!current()) return false;
+    stage = this._newStage(this.def.bossTheme);
     const info = this.def.arena(g, stage, this.tickets);
     stage.finalize();
     this.tickets.finalize();
     g.ui.loadingProgress(0.6, 'Waking the boss...');
     await nextFrame();
+    if (!current()) return false;
     // arena pick-ups don't count toward the level reward
     for (const e of stage.entities) if (e instanceof Breakable) e.countable = false;
     this.info = info;
@@ -578,17 +633,27 @@ export class Session {
     g.player.frozen = true;
     g.ui.loadingProgress(0.8, 'Warming up...');
     await this._warmUp();
+    if (!current()) return false;
+    // Actor attachment is complete; the real boss intro now needs stage updates.
+    if (isPipelineSession(this)) this.loading = false;
     audio.playMusic('cutscene');
     // intro shot on the boss
     const bp = boss.pos.clone();
     g.camera.cinematic(new THREE.Vector3(bp.x + 3, Math.max(3, bp.y + 1.5), bp.z + 9), new THREE.Vector3(bp.x, bp.y + 1, bp.z), 2.5);
     g.camera.pos.set(bp.x + 6, bp.y + 4, bp.z + 16);
     g.ui.fade(0, 0);
-    await g.ui.hideLoading();
+    await (isPipelineSession(this) ? g.ui.hideLoading(700, loadToken) : g.ui.hideLoading());
+    if (!current()) return false;
+    this._goalLoadingToken = null;
     audio.play('bossRoar');
     g.camera.shake(0.4, 0.5);
     await boss.intro?.();
-    await g.ui.say(BOSS_TALK[this.def.bossKey].intro);
+    if (!current()) return false;
+    const intro = g.ui.say(BOSS_TALK[this.def.bossKey].intro);
+    if (isPipelineSession(this)) this._goalIntroDialog = g.ui.dialog;
+    await intro;
+    if (!current()) return false;
+    this._goalIntroDialog = null;
     g.camera.endCinematic();
     g.player.frozen = false;
     g.ui.bossShow(boss.name, boss.portrait, boss.stages);
@@ -607,14 +672,17 @@ export class Session {
   }
 
   async onBossPhase(boss, phase) {
-    const g = this.game;
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, boss, epoch);
+    if (!current()) return;
     this.busy = true;
     boss.active = false;
     this.projectiles.clear();
     this.bossPhaseCp = phase;
     this.bossStageDeaths = 0;
     boss.dda = { tele: 1, window: 0 };
-    await wait(600);
+    await this._pipelineDelay(600);
+    if (!current()) return;
     if (g.player.dead || this.over) { this.busy = false; return; }
     g.player.frozen = true;
     // the boss evolves: camera swings round to watch the transformation
@@ -625,10 +693,18 @@ export class Session {
     const gy = boss.ground ?? bp.y;
     g.camera.cinematic(new THREE.Vector3(bp.x + away.x * 10 + away.z * 3, gy + 4.2, bp.z + away.z * 10 - away.x * 3), new THREE.Vector3(bp.x, Math.max(gy + 1.6, bp.y + 0.6), bp.z), 1.4);
     await boss.evolve(phase);
+    if (!current()) return;
     g.ui.banner(`STAGE ${phase}: ${boss.stageNames[phase]}`, boss.stagePowers[phase], 2.6);
-    await wait(1300);
+    await this._pipelineDelay(1300);
+    if (!current()) return;
     const lines = BOSS_TALK[this.def.bossKey]['phase' + phase];
-    if (lines) await g.ui.say(lines);
+    if (lines) {
+      const dialogue = g.ui.say(lines);
+      if (isPipelineSession(this)) this._goalIntroDialog = g.ui.dialog;
+      await dialogue;
+      if (!current()) return;
+      this._goalIntroDialog = null;
+    }
     g.camera.endCinematic();
     g.player.frozen = false;
     g.ui.bossHp(boss.hp / boss.maxHp, phase);
@@ -645,7 +721,9 @@ export class Session {
   }
 
   onBossDefeated(boss) {
-    const g = this.game;
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, boss, epoch);
+    if (!current()) return;
     this._awardBossMedals(boss);
     if (this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
     this.busy = true;
@@ -655,8 +733,9 @@ export class Session {
     audio.stopMusic();
     audio.play('bossRoar');
     if (this.def.bossKey === 'cone') g.ui.say(BOSS_TALK.cone.death);
-    if (this.def.bossKey === 'queen') g.ui.say(BOSS_TALK.queen.death);
+    if (this.def.bossKey === 'queen') { g.ui.say(BOSS_TALK.queen.death); if (isPipelineSession(this)) this._goalIntroDialog = g.ui.dialog; }
     setTimeout(() => {
+      if (!current()) return;
       g.ui.bossHide();
       g.player.victory();
       g.camera.cinematic(g.player.pos.clone().add(new THREE.Vector3(0, 2.2, 5.5)), g.player.pos.clone().add(new THREE.Vector3(0, 1, 0)), 2);
@@ -664,7 +743,8 @@ export class Session {
       this._showBossMedals?.();
     }, 2600);
     setTimeout(() => {
-      g.ui.fade(1).then(() => g.levelCleared(this));
+      if (!current()) return;
+      g.ui.fade(1).then(() => { if (current()) g.levelCleared(this); });
     }, 6200);
   }
 
@@ -819,7 +899,10 @@ export class Session {
 
   // ---------- death + respawn ----------
   onPlayerDeath(type) {
-    if (this.dying) return;
+    if (this.dying || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    this._retirePipelineTransitions();
+    const stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, null, epoch);
     if (import.meta.env.DEV) this.game.devTuning?.death(this, type);
     this.dying = true;
     this.onPlayerHurt(); // Includes direct pit/crusher deaths which bypass hurt().
@@ -838,9 +921,12 @@ export class Session {
     g.mask.setLevel(0, prevMask);
     const wait = type === 'fall' ? 1.0 : 1.5;
     setTimeout(async () => {
+      if (!current()) return;
       g.ui.deathCard(type);
-      await new Promise((r) => setTimeout(r, 1700));
+      await this._pipelineDelay(1700);
+      if (!current()) return;
       await g.ui.fade(1, 0.35);
+      if (!current()) return;
       g.ui.clearScreen();
       if (!this.trial) save.data.lives -= 1; // time trials never cost lives
       if (save.data.lives < 0) {
@@ -857,6 +943,7 @@ export class Session {
   }
 
   respawn() {
+    if (!this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
     finishSessionChain(this);
     this.chain.sphereGiven = false;
     removeChainDrops(this);
@@ -889,6 +976,7 @@ export class Session {
     g.player.spawnAt(cp.pos, cp.facing);
     if (g.player.ride) g.player.ride.speedK = 0;
     this.stage.raftController?.restoreAtCheckpoint(cp.pos);
+    if (isPipelineSession(this) && this.phase === 'boss') { g.camera.endCinematic(); this.busy = false; }
     g.camera.snap(g.player);
     // Ordinary checkpoint help follows the same ladder and mode exclusions as pity spots.
     if (this.phase !== 'boss') {
@@ -915,7 +1003,7 @@ export class Session {
   // ---------- per-frame ----------
   update(dt) {
     const g = this.game;
-    if (!this.stage || this.loading) return;
+    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
     this.godUsed ||= !!save.data.godMode;
     if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
     if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
@@ -978,7 +1066,8 @@ export class Session {
 
   dispose() {
     this.disposed = true;
-    if (this.def?.goal && !this.def.bonus) {
+    this._retirePipelineTransitions();
+    if (ownsAsyncLifecycle(this)) {
       this.game.ui.cancelLoading?.(this._goalLoadingToken);
       this.game.ui.cancelSay?.(this._goalIntroDialog);
     }

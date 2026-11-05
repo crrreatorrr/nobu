@@ -23,10 +23,10 @@ it('uses 95 base points at 54 dogs and reaches 100 without mastery', () => {
   delete s.colorBones.red;
   expect(goodBoyPercent(s, all).base).toBe(98);
 });
-it('ships81 base points with Rapids and includes the Sniffer milestone', () => {
-  expect(basePointsMax(today)).toBe(81);
+it('ships95 base points with all six main levels and includes the Sniffer milestone', () => {
+  expect(basePointsMax(today)).toBe(95);
   expect(goodBoyPercent(filled(today), today).base).toBe(100);
-  expect(kennelUnlocks(filled(today), 47)).toEqual(['jukebox', 'buddy', 'fur', 'gallery', 'sniffer', 'golden']);
+  expect(kennelUnlocks(filled(today), 54)).toEqual(['jukebox', 'buddy', 'fur', 'gallery', 'sniffer', 'golden']);
   expect(goodBoyPercent({}, today)).toEqual({ base: 0, mastery: 0, total: 0 });
 });
 it('reaches 200 including the nine gauntlet medals inside mastery', () => {
@@ -44,7 +44,7 @@ it('counts L6 as a main story clear and requires L5 for the secret ending', () =
   delete s.beaten[5]; expect(secretEndingUnlocked(s, all)).toBe(false);
 });
 it('ignores unshipped and foreign dog records', () => {
-  const s = filled(today); s.dogsFreed['5:shiba-a'] = true;
+  const s = filled(today); s.dogsFreed['99:shiba-a'] = true;
   expect(goodBoyPercent(s, [...today, ...all.filter((e) => !today.some((t) => t.id === e.id)).map((e) => ({ ...e, shipped: false }))]).base).toBe(100);
 });
 it('uses exactly the 80 total threshold for the ending', () => {
