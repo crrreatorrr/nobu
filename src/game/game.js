@@ -479,7 +479,15 @@ export class Game {
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
     this.ui.setScreen(`<div class="map-layout"><div class="map-scroll"><div class="map-surface"><div class="map-island"><div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${chapterMapMarkup(chapterMapPaths(d,LEVELS,fresh))}${nodes}</div></div></div><div class="map-details">${this.exchangeOpen ? '' : info}</div></div>${exchange}`);
-    this.ui.screen?.querySelector?.('.map-node.sel')?.scrollIntoView?.({block:'center',inline:'center',behavior:'auto'});
+    // Scroll only the map viewport: scrollIntoView also moves overflow-hidden
+    // UI ancestors and can pull the controls (and hidden popups) into view.
+    const viewport = this.ui.screen?.querySelector?.('.map-scroll');
+    const selected = this.ui.screen?.querySelector?.('.map-node.sel');
+    if (viewport && selected) {
+      const bounds = viewport.getBoundingClientRect(), node = selected.getBoundingClientRect();
+      viewport.scrollLeft += node.left + node.width / 2 - bounds.left - viewport.clientWidth / 2;
+      viewport.scrollTop += node.top + node.height / 2 - 30 - bounds.top - viewport.clientHeight / 2;
+    }
   }
 
   // Hub board line for the selected level, fetched at most once a minute per level. Empty when
