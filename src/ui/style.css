@@ -203,7 +203,7 @@ html, body {
 .map-surface { position: relative; width: 100%; min-width: 1080px; height: 100%; min-height: 680px; }
 .map-island { position: absolute; inset: 100px 70px 20px; }
 .map-island .map-bg { background-size: 100% 100%; }
-.map-island .map-node .nobu-marker { top: 8px; left: 50%; margin-left: -20px; width: 40px; animation: none; pointer-events: none; }
+.map-island .map-node .nobu-marker { top: 8px; left: 50%; margin-left: -20px; width: 40px; animation: none; pointer-events: none; z-index: 1; }
 .map-island .map-node.sel .dot { font-size: 0; }
 .map-details { flex: 0 1 auto; max-height: 42vh; overflow: auto; pointer-events: auto; }
 .map-details:empty { display: none; }
