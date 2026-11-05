@@ -2,7 +2,9 @@
 
 Client for a game page that was opened from the hub. The hub puts a one-time ticket in the URL fragment (`#t=`). `redeemTicket` strips that fragment immediately and exchanges it for a Nakama session using the server key only. Later calls use that session. With no ticket and no saved session, every method no-ops, so the game still runs on its own.
 
-Version 0.6.0 adds the `sproto-arcade` game id, the `breakwater_coin` Relic and its `arcade.boss_defeated` event, and optional cloud saves: `loadSave()` / `writeSave(data)` (RPCs `save.get` / `save.put`, one JSON object of at most 4096 bytes per player per game, no-op standalone). Games must re-vendor to see the new Relic, because the SDK drops relic ids it does not know.
+Version 0.6.1 fixes the outbox so one refused write cannot lock a game out of the hub. When the server answers a queued earn, event, exchange, spend, or sell with a final error in its reply body (for example `amount_over_rule`, `session_ticket_cap`, `daily_ticket_cap`, `idempotency_mismatch`, `unknown_reason`, or `bad_amount`), the SDK drops that row: the call that queued it still rejects with the error, and the next `init()` no longer rethrows it. Network failures and HTTP errors (5xx, or 401 for an expired token) stay queued and are retried, and a row on a closed session still waits for its own player's next session. `EventResult` gains an optional `granted_items` (pets the live server granted for that event). Nothing else changes.
+
+Version 0.6.0 added the `sproto-arcade` game id, the `breakwater_coin` Relic and its `arcade.boss_defeated` event, and optional cloud saves: `loadSave()` / `writeSave(data)` (RPCs `save.get` / `save.put`, one JSON object of at most 4096 bytes per player per game, no-op standalone). Games must re-vendor to see the new Relic, because the SDK drops relic ids it does not know.
 
 Version 0.5.0 added the realtime client (`createRealtime`, `realtimeFromSdk`), an in-memory realtime mock for game tests, `getSession` / `refreshSession` / `getLeaderboard`, and a `ScoreResult` answer from `submitScore`. Everything is additive: 0.4 callers and test doubles still typecheck. `redeemTicket` is the handoff. Shop calls (`spendTickets`, `sellItem`, and `getTicketBalance`) sit on the same surface. Method names, argument order, game ids, relic ids, and event ids stay stable.
 
@@ -155,7 +157,7 @@ Guest accounts and recovery codes live in the hub, not in the game. The device i
 
 `submitScore(boardId, value, meta)` always reaches the server when there is a game session; the server decides. It answers `{ accepted, posted?, value?, order?, reason? }`, where `reason` is `god_mode`, `server_board` or `unranked`. Errors throw `HubSdkError` with `session_closed`, `not_game_session`, `bad_board`, `bad_score`, `bad_variant`, `implausible_score` or `rate_limited`.
 
-- `nobu_trial_time` is per layout: pass `meta.level` (`'1'`..`'3'` for Classic, `'1v2'`..`'3v2'` for the extended levels) and an **integer number of milliseconds**. Floors are `NOBU_TRIAL_FLOOR_MS`: Classic 15000/15000/12000; layout 2 25700/26000/20600. The ceiling is `NOBU_TRIAL_CEIL_MS` (30 min). NOBU trials count from unranked sessions. One submit per variant per 5 s. Existing numeric Classic levels remain valid.
+- `nobu_trial_time` is per layout: pass `meta.level` (`'1'`..`'3'` for Classic, `'1v2'`..`'3v2'` for the extended levels, `'4'`/`'6'`/`'5'` for Chapter 2) and an **integer number of milliseconds**. Floors are `NOBU_TRIAL_FLOOR_MS`: Classic 15000/15000/12000; layout 2 25700/26000/20600; Chapter 2 levels 4/6/5 24000/30000/21000. The ceiling is `NOBU_TRIAL_CEIL_MS` (30 min). NOBU trials count from unranked sessions. One submit per variant per 5 s. Existing numeric Classic levels remain valid.
 - `sproto_wins` and `meta` are server boards (`reason: 'server_board'`).
 - `meta.godMode === true` posts nothing (`reason: 'god_mode'`).
 

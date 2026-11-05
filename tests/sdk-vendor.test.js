@@ -27,7 +27,10 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 //   1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b
 // 0.6.0 / hub ee187cf (sproto-arcade, breakwater_coin, optional loadSave/writeSave).
 // 0.6.0 / hub main 93e4894 (Classic/layout2 trial variants; generated vendor workflow).
-const CONTENT_MANIFEST_SHA256 = '18018817130d23586ba30db373fafb6244ff730d663588a2ce94f50426bfbf1a';
+//   18018817130d23586ba30db373fafb6244ff730d663588a2ce94f50426bfbf1a
+// 0.6.1 / exact merged hub main b8636ee7b222cc39f2a4e18b1ce944276299e52d
+// (expanded trial variants and terminal outbox refusals; supported helper output).
+const CONTENT_MANIFEST_SHA256 = '98b625bac349f83e5afe75491c14d0fe70e8ac63206b8beaafba51d210b6a372';
 
 function listFiles(dir) {
   const out = [];
@@ -74,9 +77,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.6.0', () => {
+  it('package.json is SDK 0.6.1', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.6.0');
+    expect(pkg.version).toBe('0.6.1');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -95,6 +98,16 @@ describe('vendored hub SDK', () => {
     expect(live).toContain('async function rebind(row)');
     expect(live).toContain('deadSession(error)');
     expect(nakama).toContain('Authorization: `Basic ${btoa(`${serverKey}:`)}`');
+  });
+
+  it('pins generated provenance and has no source maps or mapping URLs', () => {
+    const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
+    expect(note).toContain('- branch: main\n- sha: b8636ee\n- package: packages/hub-sdk @ 0.6.1');
+    const files = listFiles(path.resolve('vendor/hub-sdk'));
+    expect(files.some(file => file.endsWith('.map'))).toBe(false);
+    for (const file of files) expect(fs.readFileSync(file, 'utf8')).not.toContain('sourceMappingURL=');
+    const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
+    expect(types).toContain('granted_items?: string[];');
   });
 
   // The trial board (CONTRACT C9/C13): unranked sessions post, and the answer comes back.
@@ -130,7 +143,7 @@ describe('vendored hub SDK', () => {
     expect(vendorNote).not.toContain('## Local patch');
   });
 
-  it('content manifest matches SDK 0.6.0 after maps and sourceMappingURL are removed', () => {
+  it('content manifest matches SDK 0.6.1 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);
