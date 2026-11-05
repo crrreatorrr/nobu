@@ -267,7 +267,7 @@ test('the live mandatory lane routes also work at30and60Hz',()=>{
 test('a disposed loop session cannot resume its pending entry fade on the shared Player',async()=>{
  const f=build(),{game,stage}=f,p=actualPlayer(f),loop=stage.rapids.loops[0],d=loop.detour;let resolve;
  game.ui.fade=vi.fn(()=>new Promise(r=>{resolve=r;}));const spawn=vi.spyOn(p,'spawnAt'),snap=vi.spyOn(game.camera,'snap'),sound=vi.spyOn(audio,'play');
- const pending=loop.travel(d.startPos,d.entryD);expect(game.ui.fade).toHaveBeenCalledTimes(1);Object.assign(game.session,{game,stage});Session.prototype.dispose.call(game.session);expect(game.session.disposed).toBe(true);p.frozen=false;const before=p.pos.clone();resolve();await pending;
+ const pending=loop.travel(d.startPos,d.entryD);expect(game.ui.fade).toHaveBeenCalledTimes(1);Object.assign(game.session,{game,stage});Object.setPrototypeOf(game.session,Session.prototype);game.session.dispose();expect(game.session.disposed).toBe(true);p.frozen=false;const before=p.pos.clone();resolve();await pending;
  expect(spawn).not.toHaveBeenCalled();expect(snap).not.toHaveBeenCalled();expect(sound).not.toHaveBeenCalled();expect(game.ui.fade).toHaveBeenCalledTimes(1);expect(p.pos.equals(before)).toBe(true);expect(p.frozen).toBe(false);
  await loop.travel(d.startPos,d.entryD);expect(game.ui.fade).toHaveBeenCalledTimes(1);spawn.mockRestore();snap.mockRestore();sound.mockRestore();
 });
