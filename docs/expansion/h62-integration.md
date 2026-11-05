@@ -20,6 +20,8 @@ Track's physical `toWorld`, `project`, `right`, `groundAt` and body.u stay physi
 
 Root resolved retained boss fights from boss-system1.6, and ordinary Ticket/life banking from the absence of any economy removal in the owning spec. No currency is awarded for a Remix bone. Root resolved the cross-context God ambiguity using the explicit mastery exclusion in box-gauntlets4.6: sticky God use voids Remix Golden while ordinary God Golden/Hidden/Snack rules stay unchanged. Gate death count does not disqualify the same Golden countable/dog rule.
 
+New Game clears Remix bones. Rewards-spec1.5 (lines205–207 in the source snapshot) explicitly retains `trials`, `trialsClassic`, `bossMedals`, `perfect`, `rush` and trial Platinum medals, then states, “Everything else is cleared.” That narrower enumeration controls over section18.9's general mastery wording. The existing reset behavior is preserved; ordinary completion/reload and tab merging still union earned Remix bones until New Game.
+
 ## Remaining acceptance
 
 Actual L1–4 builders are paired at every countable, dog, static Ticket and World solid. H45/H50 actual L6/L5 builders are not yet integrated, so the all-six-main claim remains blocked. River force/mount/slick/DriftLog reflection requires H45 file release. Current-base Session gate/boss/goal/quit/partial/God/warp/colored tests and keyboard/pad tests pass. Final rebased Session/Game/map/retry/save integration tests, full suite/build, independent review, and the specified assisted L1/L2 chase + full Golden browser evidence remain required. No GPU/manual play evidence is implied by CPU geometry tests.
