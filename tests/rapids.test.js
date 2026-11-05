@@ -330,3 +330,13 @@ function bounceStartTeach(offset=0){
 test('the shortcut divider preserves both authored bounce teaches at center and quarter-metre offsets',()=>{
  const results=[-.25,0,.25].map(bounceStartTeach);writeFileSync('/tmp/h45-divider-proof.json',JSON.stringify(results,null,2));expect(results.filter(r=>!r.broken.every(Boolean)||r.dead)).toEqual([]);
 });
+
+test('deferred real loading preserves the new goal until actors attach and the run can cross it',async()=>{
+ const f=build(),{game}=f,p=actualPlayer(f),{hub}=await import('../src/hub/hubBridge.js');p.shadow=new THREE.Group();Object.assign(game.ui,{showLoading(){},loadingProgress(){},trialTime(){},setHud(){},showHud(){},hideLoading:async()=>{},say:async()=>{}});Object.assign(game.camera,{cam:new THREE.PerspectiveCamera(),update(){},endCinematic(){}});game.mask={attach(){},setLevel(){},snapTo(){},update(){}};game.trialDone=vi.fn();game.state='play';p.spawnAt(f.stage.track.toWorld(455.1,0,-.98),f.stage.track.yaw(455.1));p.frozen=true;
+ const begin=vi.spyOn(hub,'beginAttempt').mockResolvedValue({id:'deferred-local',ok:false}),carry=vi.spyOn(hub,'startCarry').mockImplementation(()=>{}),bank=vi.spyOn(hub,'bank').mockResolvedValue(false);vi.useFakeTimers();const frames=[];vi.stubGlobal('requestAnimationFrame',fn=>{frames.push(fn);return frames.length;});const s=new Session(game,6,{trial:true});s._warmUp=async()=>{};game.session=s;const launch=s.startLevel();
+ try{
+  for(let i=0;i<8&&!frames.length;i++)await Promise.resolve();expect(frames.length).toBe(1);frames.shift()(0);for(let i=0;i<8&&!s.stage;i++)await Promise.resolve();expect(s.stage).toBeTruthy();const goal=s.stage.track.triggers.find(t=>t.d===455),reach=vi.spyOn(s,'reachGoal');expect(s.loading).toBe(true);expect(s.busy).toBe(true);expect(p.body.s).toBeGreaterThan(455);s.update(0);expect(goal.fired).not.toBe(true);expect(reach).not.toHaveBeenCalled();
+  let loaded=false;launch.then(()=>{loaded=true;});for(let i=0;i<25&&!loaded;i++){for(let j=0;j<4;j++)await Promise.resolve();if(frames.length)frames.shift()(i*16);}await launch;expect(s.loading).toBe(false);expect(p.body.s).toBeCloseTo(1,1);expect(goal.fired).not.toBe(true);
+  game.fx=new Proxy({},{get:()=>()=>{}});game.camera.basis={right:s.stage.track.right(455.1),forward:s.stage.track.tangent(455.1)};s.trialT=65;p.spawnAt(s.stage.track.toWorld(455.1,0,-.98),s.stage.track.yaw(455.1));p.frozen=false;s.update(0);await Promise.resolve();await Promise.resolve();expect(goal.fired).toBe(true);expect(reach).toHaveBeenCalledTimes(1);expect(game.trialDone).toHaveBeenCalledTimes(1);
+ }finally{s.dispose();f.stage.dispose();begin.mockRestore();carry.mockRestore();bank.mockRestore();vi.useRealTimers();vi.unstubAllGlobals();}
+});

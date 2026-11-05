@@ -30,7 +30,7 @@ These are explicit authored departures/integration reconciliations for root/owne
 
 ## Verification
 
-- Final builder test file:21tests pass against actual Player/World/Stage and authored geometry. Art/render loading is mocked; enemy actors are isolated in the timing-route probes, so those tests establish movement/timing feasibility rather than complete enemy fairness.
+- The initial frozen builder had21passing tests against actual Player/World/Stage and authored geometry. Subsequent targeted regressions cover the divider, finalized pipe geometry and deferred loading. Art/render loading is mocked; enemy actors are isolated in the timing-route probes, so those tests establish movement/timing feasibility rather than complete enemy fairness.
 - Timing cases: both positive geometry routes; twelve live entry-phase cases at120Hz; eight additional live cases at30/60Hz. Bounded absent-support negatives include180 ordinary gear/earned-move starts and96 early Crown/fully charged earned Moon starts, God off. These are bounded searches, not an exhaustive proof of every possible input.
 - Moon: walkable entrance; charged positive and Crown negative; external bounce negative with a positive removed-wall control; all10Tickets collected from the ledge.
 - Physical safe-yard versus genuine-river falls; both loop exit coordinates and haul persistence; actual Dust Wall guard; exact aqueduct inventory/reveal/broken/restore/death collision states; finite default-decor ordinary/trial scenes; Remix Golden inventory.
@@ -41,6 +41,7 @@ Tests emit bounded diagnostic JSON under/tmp/h45-*.json and are reproducible fro
 ## Remaining integration and manual verification
 
 - Root shared activation and metadata, remaining latest-main union and H62 authored reflection adapters, independent actual whole-builder/Golden-raft probes, final full suite/build, exclusive frozen-browser activation and CI.
+- A real-browser follow-up reproduced a stale-player loading race: a new busy Session could consume its goal before actors attached. The owned regression now invokes real startLevel/update across deferred frames, verifies no pre-attach trigger, releases to loading=false/spawn1, then finishes an actual post-load trial crossing. Root owns the Session.loading implementation.
 - No unaided whole-level Golden run, three first-play attempts per section, human first-play death target11–15, medal-time calibration, complete enemy readability/fairness, or final narrow-screen map verification has been performed by this author. Do not describe these as verified.
 - No deployment, board publication, media generation or vendor update was performed.
 
