@@ -151,12 +151,12 @@ test('every shipped registry id has a declaration and fixed cap, and planned lev
   const budgetIds = Object.values(LEVELS).filter(def => def.shipped && !def.meta && typeof def.build === 'function').map(def => String(def.id));
   expect(Object.keys(LEVEL_BUDGETS).sort()).toEqual(budgetIds.sort());
   for (const id of [...budgetIds, '4', '6', '5']) expect(LEVEL_TICKET_CAP[id]).toBeGreaterThan(0);
-  expect(Object.entries(LEVEL_BUDGETS).filter(([, b]) => b.coconut).map(([id]) => id)).toEqual(['1', '2', '4']);
+  expect(Object.entries(LEVEL_BUDGETS).filter(([, b]) => b.coconut).map(([id]) => id)).toEqual(['1', '4']);
   expect(() => checkTicketBudget('missing', LEVEL_BUDGETS[1])).toThrow(/Missing Ticket cap/);
 });
 
 test('ordinary stage and arena share raw remainder before floor; coconut is a separate shared allowance', () => {
-  expect(ticketBudget(LEVEL_BUDGETS[2])).toEqual({ raw: 409, coconut: 15, wholeMax: 151 });
+  expect(ticketBudget(LEVEL_BUDGETS[2])).toEqual({ raw: 51, coconut: 0, wholeMax: 17 });
   expect(ticketBudget(LEVEL_BUDGETS[1])).toEqual({ raw: 565, coconut: 15, wholeMax: 203 });
 });
 

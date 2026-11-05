@@ -40,10 +40,11 @@ export class TopplingPost extends Entity {
   onBite(){}
 }
 
-// Shares CoconutRoller's capped ticket category, but uses authored giant yarn volleys.
+// Giant yarn volleys. Spawn count still shares the coconut cap so the lane
+// cannot flood. Bites clear a ball and pay no Tickets (Level 2's 17 ceiling).
 export class YarnAvalanche extends CoconutRoller {
   constructor(stage,track,d,opts) {
-    super(stage,track,d,opts);if(track.mirror)this.lanes=this.lanes.map(u=>track.authorU(u));this.skip=opts.skip;this.scale=opts.scale??2;this.radius=.6*this.scale;this.volley=0;
+    super(stage,track,d,{...opts,reward:false});if(track.mirror)this.lanes=this.lanes.map(u=>track.authorU(u));this.skip=opts.skip;this.scale=opts.scale??2;this.radius=.6*this.scale;this.volley=0;
     // Borrow the existing YarnBall mesh/material, without adding an extra enemy.
     const template=new YarnBall(stage,0,0,0,{r:this.radius});this.geo=template.ball.geometry;this.mat=template.ball.material;
     this.shadows=[];
@@ -80,7 +81,7 @@ export class YarnAvalanche extends CoconutRoller {
       const b=this.balls[i];b.s-=this.speed*dt;this.track.toWorld(b.s,b.u,0,b.m.position);b.m.position.y=this.track.heightAt(b.s)+this.radius;b.m.rotation.x-=this.speed*dt/this.radius;
       const distance=b.m.position.distanceTo(p.pos.clone().setY(p.pos.y+.5));let remove=b.s<this.until;
       if(!p.dead&&distance<this.radius+.45){
-        if(p.biteT>=.1&&p.biteT<=.75){remove=true;audio.play('chompHit');if(!session.collectedCoconuts.has(b.id)){session.collectedCoconuts.add(b.id);this.game.tickets.spawnFlying(...b.m.position.toArray(),1,'coconut');}}
+        if(p.biteT>=.1&&p.biteT<=.75){remove=true;audio.play('chompHit');if(this.reward!==false&&!session.collectedCoconuts.has(b.id)){session.collectedCoconuts.add(b.id);this.game.tickets.spawnFlying(...b.m.position.toArray(),1,'coconut');}}
         else if(p.vel.y<0&&p.pos.y>b.m.position.y+.1){remove=true;p.bounce(TUNING.STOMP_BOUNCE);audio.play('squash');}
         else p.hurt('flat',b.m.position.x,b.m.position.z);
       }
