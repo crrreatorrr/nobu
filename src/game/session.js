@@ -130,6 +130,7 @@ export class Session {
 
   nextSeq() { return ++this.seq; }
   _remixAbandoned() { return this.remix && (this.disposed || this.over || this.game.session !== this); }
+  _retryAbandoned() { return (this.remix || this.def?.gauntlet) && (this.disposed || this.over || this.game.session !== this); }
   get chainSoundPitch() { return this.phase === 'level' ? chainPitch(this.chain.n) : 1; }
   chainRefresh() { if (this.phase === 'level') refreshChain(this.chain); }
 
@@ -920,10 +921,10 @@ export class Session {
 
   // ---------- death + respawn ----------
   onPlayerDeath(type) {
-    if (this.dying || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    if (this.dying || this._retryAbandoned() || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
     this._retirePipelineTransitions();
     const stage = this.stage, epoch = this._lifecycleEpoch || 0;
-    const current = () => this._pipelineCurrent(stage, null, epoch);
+    const current = () => this._pipelineCurrent(stage, null, epoch) && !this._retryAbandoned() && this.stage === stage;
     if (import.meta.env.DEV) this.game.devTuning?.death(this, type);
     this.dying = true;
     this.onPlayerHurt(); // Includes direct pit/crusher deaths which bypass hurt().
@@ -941,6 +942,8 @@ export class Session {
     this.mask = 0;
     g.mask.setLevel(0, prevMask);
     const wait = type === 'fall' ? 1.0 : 1.5;
+    const deathStage = this.stage;
+    const abandoned = () => this._retryAbandoned() || ((this.remix || this.def?.gauntlet) && this.stage !== deathStage);
     setTimeout(async () => {
       if (!current()) return;
       g.ui.deathCard(type);
@@ -957,6 +960,7 @@ export class Session {
         return;
       }
       this.respawn();
+      if (abandoned()) return;
       this.dying = false;
       g.ui.showHud(2.5);
       await g.ui.fade(0, 0.35);
@@ -964,7 +968,7 @@ export class Session {
   }
 
   respawn() {
-    if (!this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    if (this._retryAbandoned() || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
     finishSessionChain(this);
     this.chain.sphereGiven = false;
     removeChainDrops(this);
