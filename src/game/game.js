@@ -245,7 +245,6 @@ export class Game {
   openKennel(mode = null) {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (!isOpen('kennel', save.data)) return false;
-    this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.kennel?.dispose();
     this.session?.dispose(); this.session = null;
     this.ui.trialTime(null); this.ui.hideHud(); this.ui.bossHide(); this.ui.clearScreen();

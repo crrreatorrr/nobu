@@ -100,6 +100,8 @@ export class Session {
   }
 
   _pipelineCurrent(stage, boss, epoch) {
+    // Reuse Queen's owned transitions for every Remix boss without changing
+    // ordinary Bird/Cat/Cone behavior or their selected retry policy.
     return (!isPipelineSession(this) && !this.remix) || (this._lifecycleCurrent(stage, epoch) && (!boss || this.boss === boss));
   }
 
@@ -437,9 +439,9 @@ export class Session {
 
   // Goal stages capture the field before the rain, then show their results.
   async reachGoal() {
-    const g = this.game, stage = this.stage;
-    const mainGoal = this.remix || (this.def.goal && !this.def.bonus);
-    const abandoned = () => mainGoal && (this.disposed || g.session !== this || this.stage !== stage || g.stage !== stage);
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const mainGoal = ownsAsyncLifecycle(this);
+    const abandoned = () => mainGoal && !this._lifecycleCurrent(stage, epoch);
     if (this.phase !== 'level' || this.busy || abandoned()) return;
     if (this.def.gauntlet) return this._finishGauntlet();
     if (import.meta.env.DEV) this.game.devTuning?.gate(this);
@@ -459,7 +461,7 @@ export class Session {
     await g.ui.fade(1);
     if (abandoned()) return;
     g.player.setRide(null);
-    if (this.remix) { this._remixClearReached = true; this._finishRemix(); }
+    if (this.remix) { this._remixClearReached = { stage, epoch }; this._finishRemix(); }
     else if (this.def.bonus) g.bonusCleared(this);
     else g.goalLevelCleared(this);
   }
@@ -499,7 +501,8 @@ export class Session {
 
   _finishRemix() {
     if (!this.remix || !this.remixGate || !this._remixClearReached || this._remixCompleted || this.over ||
-        this.disposed || this.game.session !== this) return false;
+        !this._lifecycleCurrent(this.stage) ||
+        (this._remixClearReached.stage && !this._lifecycleCurrent(this._remixClearReached.stage, this._remixClearReached.epoch))) return false;
     this._remixCompleted = true;
     this.godUsed ||= !!save.data.godMode || !!this.game.player.god;
     const fresh = applyRemixResult(save.data, this.level, this.remixGate,
@@ -671,7 +674,7 @@ export class Session {
     await boss.intro?.();
     if (!current()) return false;
     const intro = this.remix ? Promise.resolve() : g.ui.say(BOSS_TALK[this.def.bossKey].intro);
-    if (isPipelineSession(this) || this.remix) this._goalIntroDialog = g.ui.dialog;
+    if (!this.remix && isPipelineSession(this)) this._goalIntroDialog = g.ui.dialog;
     await intro;
     if (!current()) return false;
     this._goalIntroDialog = null;
@@ -745,7 +748,7 @@ export class Session {
     const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
     const current = () => this._pipelineCurrent(stage, boss, epoch);
     if (!current()) return;
-    if (this.remix) this._remixClearReached = true;
+    if (this.remix) this._remixClearReached = { stage, epoch };
     this._awardBossMedals(boss);
     if (!this.remix && this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
     this.busy = true;
@@ -942,8 +945,6 @@ export class Session {
     this.mask = 0;
     g.mask.setLevel(0, prevMask);
     const wait = type === 'fall' ? 1.0 : 1.5;
-    const deathStage = this.stage;
-    const abandoned = () => this._retryAbandoned() || ((this.remix || this.def?.gauntlet) && this.stage !== deathStage);
     setTimeout(async () => {
       if (!current()) return;
       g.ui.deathCard(type);
@@ -960,7 +961,7 @@ export class Session {
         return;
       }
       this.respawn();
-      if (abandoned()) return;
+      if (!current()) return;
       this.dying = false;
       g.ui.showHud(2.5);
       await g.ui.fade(0, 0.35);
