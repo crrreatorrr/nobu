@@ -362,13 +362,15 @@ export class Session {
     this.game.ui.fade(1).then(() => this.startBoss());
   }
 
-  // End of a bonus stage (no boss): the missed-backpack rain, then the results screen.
+  // Goal stages capture the field before the rain, then show their results.
   async reachGoal() {
-    if (this.phase !== 'level' || this.busy) return;
+    const g = this.game, stage = this.stage;
+    const mainGoal = this.def.goal && !this.def.bonus;
+    const abandoned = () => mainGoal && (this.disposed || g.session !== this || this.stage !== stage || g.stage !== stage);
+    if (this.phase !== 'level' || this.busy || abandoned()) return;
     if (this.def.gauntlet) return this._finishGauntlet();
     if (import.meta.env.DEV) this.game.devTuning?.gate(this);
     finishSessionChain(this);
-    const g = this.game;
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
     this.deathsAtGate = this.deaths;
     this.busy = true;
@@ -377,8 +379,11 @@ export class Session {
     audio.play('checkpoint');
     g.ui.banner('STAGE CLEAR!', this.def.name, 1.6);
     await wait(900);
+    if (abandoned()) return;
     await this._missedRain();
+    if (abandoned()) return;
     await g.ui.fade(1);
+    if (abandoned()) return;
     g.player.setRide(null);
     if (this.def.bonus) g.bonusCleared(this);
     else g.goalLevelCleared(this);

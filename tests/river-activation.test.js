@@ -33,6 +33,7 @@ it('ends the real main-goal session after its rain and banks its gate snapshot w
     _showComplete:vi.fn(),bonusCleared:vi.fn()};
   game.goalLevelCleared=s=>Game.prototype.goalLevelCleared.call(game,s);
   const s=new Session(game,6);game.session=s;
+  s.stage={};game.stage=s.stage;
   s.stats={broken:48,breakables:48,dogs:7,dogsTotal:7,deathsAtGate:0,
     snackRaw:100,snackPotential:100,hiddenFound:true,bestChain:0,perfectCandidate:true,
     freedIds:Object.keys(levelDef(6).dogs).map(id=>`6:${id}`)};

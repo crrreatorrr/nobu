@@ -876,6 +876,8 @@ export class Game {
   }
 
   goalLevelCleared(session) {
+    if (session.def?.goal && !session.def.bonus &&
+      (session.disposed || this.session !== session || this.stage !== session.stage)) return false;
     const n = session.level, st = session.stats;
     save.setBeaten(n); save.setBestDogs(n, st.dogs);
     this._unlockMainChapters();
