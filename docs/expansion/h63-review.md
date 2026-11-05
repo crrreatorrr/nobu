@@ -122,3 +122,12 @@ Rush/actual Session/map/registry checks pass **3 files / 35 tests** after this p
 and the production build passes (183 modules). A brief map-only screenshot closure follows; no
 full combat replay or full-suite repeat is needed for this cosmetic coordinate change. Unaided Rush,
 human No-Hit, audio and gameplay readability acceptance remain unrun.
+
+Map-only closure passed on `345626b78c218877c8b2002df7eb2148f47766b4` using a second fresh Chromium
+profile and strict ports5294/9394. At1100×800, the Rush dot spans x100–164 and label ends atx225.52;
+the panel starts atx240, so neither overlaps it. The final screenshot was visually inspected. Evidence:
+`/tmp/nobu-h63-map-browser-results.json` and `/tmp/nobu-h63-final-map.png`. Runtime errors, console
+errors, external writes and Hub calls are all zero. The browser/server closed and both ports were
+confirmed closed before this documentation update. No source change followed this visual closure.
+The final exact PR head must still pass CI; the local full suite is explicitly pre-position and the
+post-position targeted/build checks above close the cosmetic change.
