@@ -1,4 +1,5 @@
 import { addMoonReturnExtras, addColoredReturnExtras } from './moonReturnRoutes.js';
+import { settleLevel2Tickets } from './level2TicketPayout.js';
 import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
 export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[2]]);
 // Layout2 is active; public uploads remain gated separately by HUB_LAYOUT.
@@ -51,13 +52,13 @@ export function buildLevel2Extended(game, stage, tickets, {corrections = true} =
   k.yarn(0, 0, D(80), { range: 3.2, speed: 4.4 });
   log(88);
   k.tix(2.5, 0, D(90), 2.5, 0, D(94), 3);
-  k.barkRock(-3.3, 0, D(100), { prize: 'tickets', tickets: 15 });
+  k.barkRock(-3.3, 0, D(100), { prize: 'tickets', tickets: 3 });
   k.tix(-2.6, 0, D(103), -2.6, 0, D(112), 5);
   k.pill(0, 0, D(118), { range: 2.8 });
   k.tixArc(0, 0, D(119), 0, D(127), 3.6, 7);
   F(126, 160);
   // blue bone path (the blue bone is up on the fan catwalk in the Cone Factory)
-  k.colorPath('blue', [[3.4, 1.4, D(132), 1.6, 1.8], [3.4, 2.8, D(135), 1.6, 1.8], [3.2, 4.2, D(138.5), 2.2, 3]], { jackpot: 15 });
+  k.colorPath('blue', [[3.4, 1.4, D(132), 1.6, 1.8], [3.4, 2.8, D(135), 1.6, 1.8], [3.2, 4.2, D(138.5), 2.2, 3]], { jackpot: 3 });
   k.mouse(0, 0, D(138), { range: 3.4, speed: 5 });
 
   k.tix(2.8, 0, D(148), 2.8, 0, D(156), 5);
@@ -114,6 +115,7 @@ export function buildLevel2Extended(game, stage, tickets, {corrections = true} =
   buildCanyonSections(k, game, stage, cat,{switchbacks:SECTION_TEXT.switchbacks,fort:SECTION_TEXT.cardboardFort,forest:SECTION_TEXT.scratchpostForest,avalanche:SECTION_TEXT.yarnAvalanche,flap:SECTION_TEXT.catFlapAlley,river:SECTION_TEXT.dryRiverbed},{corrections});
   addMoonReturnExtras(k,stage,2); addColoredReturnExtras(k,stage,2);
   for(const dog of dogs){const e=k.dog(dog.x,dog.y??0,dog.d,dog.breed,{id:dog.id});e.detour=!!dog.detour;}
+  settleLevel2Tickets(stage, tickets);
   stage.layoutVersion = 2;
 
   return {

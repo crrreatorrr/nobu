@@ -37,8 +37,11 @@ test('the L2 cap is the owner-approved 17: 17 whole fits and 18 fails without gr
  expect(LEVEL_TICKET_CAP[2]).toBe(17);
 });
 
-test('level 2 as authored is still 151 whole, over the 17 cap until its Tickets are cut',async()=>{
- const{LEVEL_BUDGETS}=await import('../src/levels/data/budgets.js'),{ticketBudget,checkTicketBudget}=await import('../src/game/ticketBudget.js');
- expect(ticketBudget(LEVEL_BUDGETS[2]).wholeMax).toBe(151);
- expect(()=>checkTicketBudget(2,LEVEL_BUDGETS[2])).toThrow(/151 exceeds fixed cap 17/);
+test('level 2 as authored is exactly 17 whole, and one extra raw ticket fails the cap',async()=>{
+ const{LEVEL_TICKET_CAP}=await import('../src/config/tickets.js'),{LEVEL_BUDGETS}=await import('../src/levels/data/budgets.js'),{ticketBudget,checkTicketBudget}=await import('../src/game/ticketBudget.js');
+ expect(ticketBudget(LEVEL_BUDGETS[2])).toEqual({raw:51,coconut:0,wholeMax:17});
+ expect(checkTicketBudget(2,LEVEL_BUDGETS[2])).toMatchObject({wholeMax:17,cap:17});
+ const extra={...LEVEL_BUDGETS[2],field:LEVEL_BUDGETS[2].field+3};
+ expect(()=>checkTicketBudget(2,extra)).toThrow(/18 exceeds fixed cap 17/);
+ expect(LEVEL_TICKET_CAP[2]).toBe(17);
 });

@@ -29,9 +29,9 @@ export function rawTicketsForWhole(whole) {
 
 /** Fixed authoring ceilings, proposed from the measured layout-1 density.
  * Owner sign-off is required before H12 merges; see docs/expansion/h12-review.md.
- * L2 is 17, approved by the owner. Level 2's current content (151 whole) is over it
- * until its Tickets are cut; level-budget.test.js fails until then.
- * Never derive these from a level's current budget: an over-cap edit must fail. */
+ * Level 2 is 17 whole Tickets, the total the owner approved. The builder
+ * settles payouts to that ceiling. Never derive a cap from current content:
+ * an over-cap edit must fail. */
 export const LEVEL_TICKET_CAP = Object.freeze({
   g1: 5, g2: 5, g3: 5,
   1: 205, 2: 17, 3: 101, ride: 110, cave: 89,

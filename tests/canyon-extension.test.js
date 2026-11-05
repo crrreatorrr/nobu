@@ -49,9 +49,13 @@ test('actual candidate builds 519m route and every stable/new dog ID exactly onc
   expect(stage.entities.filter(e=>e instanceof ConedDog).map(e=>e.dogId).sort()).toEqual(EXTENDED_DOGS.map(e=>e.id).sort());
   expect(stage.track.spans.some(s=>s.d0<YA+48&&s.d1>YA+54)).toBe(false);
 });
-test('candidate measures every authored payer without changing approved caps',()=>{
- const {stage,game}=fixture(),budget=measureTicketBudget(stage,game.tickets,7);expect(budget.mystery).toBe(2);expect(budget.coconut).toBe(true);
- expect(budget).toEqual({field:158,packs:196,zipped:0,jackpots:15,bark:15,trampoline:0,mystery:2,arena:7,coconut:true});expect(ticketBudget(budget).wholeMax).toBe(151);
+test('candidate measures every authored payer at the approved 17 whole Ticket ceiling',()=>{
+ const {stage,game}=fixture(),budget=measureTicketBudget(stage,game.tickets,7);expect(budget.mystery).toBe(2);expect(budget.coconut).toBe(false);
+ expect(budget).toEqual({field:20,packs:0,zipped:0,jackpots:3,bark:3,trampoline:0,mystery:2,arena:7,coconut:false});expect(ticketBudget(budget).wholeMax).toBe(17);
+ expect(stage.entities.filter(e=>e.dogId)).toHaveLength(EXTENDED_DOGS.length);
+ expect(stage.entities.filter(e=>e.kind==='backpack').length).toBeGreaterThan(0);
+ expect(stage.entities.filter(e=>e.kind==='backpack').every(e=>e.tickets===0&&e.authoredTickets===0)).toBe(true);
+ expect(stage.entities.filter(e=>e instanceof YarnAvalanche).every(e=>e.reward===false)).toBe(true);
 });
 test('extended countable data is placed at final coordinates with reset Snacks options',()=>{
  const{stage}=fixture({corrections:false});for(const item of EXTENDED_CHASE_ITEMS){if(item.kind==='stack')continue;const p=stage.track.toWorld(item.d,item.x,item.y);expect(stage.entities.some(e=>e.pos.distanceTo(p)<.05)).toBe(true);}
@@ -69,6 +73,15 @@ test('yarn volleys show a stable seeded empty lane 1.5s ahead and respect shared
  const{stage,game}=fixture();const roller=stage.entities.filter(e=>e instanceof YarnAvalanche).at(-1);game.player.body.s=roller.until;game.player.pos.set(999,0,999);roller.timer=1.5;roller.update(0);const shown=roller.shadows.findIndex(s=>s.m.material.opacity>0);expect(shown).toBeGreaterThanOrEqual(0);
  roller.update(1.5);expect(roller.balls).toHaveLength(2);expect(roller.balls.every(b=>b.u!==roller.lanes[shown])).toBe(true);
  game.session.coconutSpawned=45;roller.timer=0;roller.update(.1);expect(roller.balls).toHaveLength(2);
+});
+test('a yarn bite clears the ball and pays no Ticket',()=>{
+ const{stage,game}=fixture(),roller=stage.entities.find(e=>e instanceof YarnAvalanche);
+ game.player.pos.set(999,0,999);game.player.body.s=roller.until;game.player.biteT=.4;game.player.dead=false;game.player.vel={y:0};
+ const fly=vi.spyOn(game.tickets,'spawnFlying');
+ roller.timer=0;roller.update(0);expect(roller.balls.length).toBeGreaterThan(0);
+ const ball=roller.balls[0];game.player.pos.copy(ball.m.position);game.player.pos.y-=.5;
+ roller.timer=10;roller.update(0);expect(roller.balls.includes(ball)).toBe(false);expect(fly).not.toHaveBeenCalled();
+ fly.mockRestore();
 });
 test('chase arrows preserve vertical launch while providing at least run forward speed',()=>{
  const{stage,game}=fixture();for(const arrow of stage.canyonExtension.arrows){game.player.vel.set(0,0,0);arrow.onLand(game.player);expect(game.player.bounce).toHaveBeenCalledWith(16,{allowCut:false});const f=stage.track.tangent(stage.track.project(arrow.pos.x,arrow.pos.z).s);f.y=0;f.normalize();expect(game.player.vel.dot(f)).toBeGreaterThanOrEqual(7.999);}
@@ -213,5 +226,5 @@ test('corrected optional gap requires Glide in the actual Player timing sweep wh
 
 test('later-move Dust Wall pickups retain the jackpot source for shared Snack-potential accounting',async()=>{
  const{staticSnackPotential}=await import('../src/game/bones.js');
- const{game}=fixture(),extras=game.tickets.list.filter(t=>t.source==='jackpot');expect(extras).toHaveLength(10);expect(extras.every(t=>t.y>90)).toBe(true);expect(staticSnackPotential(game.tickets.list)).toBe(148);
+ const{game}=fixture(),extras=game.tickets.list.filter(t=>t.source==='jackpot');expect(extras).toHaveLength(3);expect(extras.every(t=>t.y>90)).toBe(true);expect(staticSnackPotential(game.tickets.list)).toBe(17);
 });

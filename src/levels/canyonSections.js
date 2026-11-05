@@ -37,9 +37,9 @@ export function buildCanyonSections(k,game,stage,chase,labels={}, {corrections=t
   k.tix(0,0,SF+4,0,0,SF+10,3);k.floor(SF+44,SF+50,{x:2.6,w:2,y:[0,2.4],style:'platform'});k.tix(2.6,2.8,SF+50,2.6,2.8,SF+57,4);
   k.pitySnacks(-2.6,0,SF+62);hazard(k.yarn(-2.4,0,SF+72,{range:3.2,speed:5.2}));hazard(k.yarn(2.4,0,SF+82,{range:3.2,speed:5.6}));
   k.tix(-2.6,0,SF+64,-2.6,0,SF+70,4);k.tix(0,0,SF+80,0,0,SF+89,5);
-  // Later-move alcove: authored reward is non-countable and uses the shared jackpot source.
+  // Later-move alcove: three jackpot Tickets, hidden until the dust wall breaks.
   const dustWall=k.dustWall(-4,0,SF+46,{w:1.8,h:2.6,gatedBox:k.gatedArea(-4.5,-3.5,0,2,SF+47,SF+50)});
-  const before=game.tickets.list.length;k.tix(-4,0,SF+48,-4,0,SF+49,10);
+  const before=game.tickets.list.length;k.tix(-4,0,SF+48,-4,0,SF+49,3);
   const prizes=game.tickets.list.slice(before).map(t=>({t,y:t.y}));for(const {t}of prizes){t.source='jackpot';t.y+=100;}
   const unlock=new Entity(stage,...dustWall.pos.toArray());unlock.interactive=false;unlock.update=()=>{if(dustWall.broken)for(const {t,y}of prizes)t.y=y;};stage.add(unlock);
   k.floor(YA,YA+48,{w:9.2});
