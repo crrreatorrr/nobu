@@ -13,6 +13,7 @@ const {input}=await import('../src/core/input.js');
 const {save}=await import('../src/core/save.js');
 const {Enemy}=await import('../src/entities/enemies.js');
 const {audio}=await import('../src/audio/audio.js');
+const {Session}=await import('../src/game/session.js');
 export function build({trial=false,remix=false,corrections=true,decor=false}={}){
  const game={player:{pos:new THREE.Vector3(),vel:new THREE.Vector3(),body:{s:0,u:0},abilities:{}},camera:{opts:{height:4.3,dist:8.6,ahead:5.5},shake(){},snap(){},setMode(_,opts){this.opts=opts;}},ui:{tutorial(){},banner(){},fade:async()=>{}},fx:new Proxy({},{get:()=>()=>{}}),session:{level:6,def:{tier:4.5},phase:'level',trial,remix,deaths:0,deathsAtCp:0,runSeed:42,nextSeq:()=>1,onBreak(){},onEnemyDefeated(){},checkpoint(){},rescueDog(){},addTickets(){},reachGoal(){}}};
  const stage=new Stage(game,'river');game.stage=stage;const tickets=new TicketSystem(game,stage);game.tickets=tickets;const info=buildLevel6(game,stage,tickets,{corrections,decor});tickets.finalize();return{game,stage,tickets,info};
@@ -266,9 +267,9 @@ test('the live mandatory lane routes also work at30and60Hz',()=>{
 test('a disposed loop session cannot resume its pending entry fade on the shared Player',async()=>{
  const f=build(),{game,stage}=f,p=actualPlayer(f),loop=stage.rapids.loops[0],d=loop.detour;let resolve;
  game.ui.fade=vi.fn(()=>new Promise(r=>{resolve=r;}));const spawn=vi.spyOn(p,'spawnAt'),snap=vi.spyOn(game.camera,'snap'),sound=vi.spyOn(audio,'play');
- const pending=loop.travel(d.startPos,d.entryD);expect(game.ui.fade).toHaveBeenCalledTimes(1);game.session.disposed=true;p.frozen=false;const before=p.pos.clone();resolve();await pending;
+ const pending=loop.travel(d.startPos,d.entryD);expect(game.ui.fade).toHaveBeenCalledTimes(1);Object.assign(game.session,{game,stage});Session.prototype.dispose.call(game.session);expect(game.session.disposed).toBe(true);p.frozen=false;const before=p.pos.clone();resolve();await pending;
  expect(spawn).not.toHaveBeenCalled();expect(snap).not.toHaveBeenCalled();expect(sound).not.toHaveBeenCalled();expect(game.ui.fade).toHaveBeenCalledTimes(1);expect(p.pos.equals(before)).toBe(true);expect(p.frozen).toBe(false);
- await loop.travel(d.startPos,d.entryD);expect(game.ui.fade).toHaveBeenCalledTimes(1);spawn.mockRestore();snap.mockRestore();sound.mockRestore();stage.dispose();
+ await loop.travel(d.startPos,d.entryD);expect(game.ui.fade).toHaveBeenCalledTimes(1);spawn.mockRestore();snap.mockRestore();sound.mockRestore();
 });
 
 test('the no-death aqueduct pays only its authored1UP,6rawand5pack and closes after death',()=>{

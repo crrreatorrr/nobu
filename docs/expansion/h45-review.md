@@ -24,7 +24,7 @@ The complete builder is ready for independent source and actual-engine review. I
 | Aqueduct prizes | Default helper adds12raw and a second1UP; explicit prizes were live before reveal and the pack retained collision | Explicit jackpot0/oneUp:false; L6-only guard exposes exactly1UP/6raw/5raw-pack after the route rises with deaths0. Hiding also disables pack solidity, including restore/broken states. Later death closes platforms and prizes. Static Ticket taken/seq records are preserved. |
 | Guide arcs | Stale array examples do not match scalar boxKit.guideArc and create NaNs | Scalar calls with D260–268/base1.6/hump.8 andD393–411/base1.4/hump.8. Full ordinary/trial scene transforms and vertex arrays are finite. |
 | River Shellback | Generic onSlide bonks; owning section3.8 requires the raft to flip the D210 enemy | Narrow per-instance raft+alive+walk opt-in. Actual descending hop rams/flips, then stomps the flipped shell and reaches ring pickups. On-foot, vacuum and other Shellbacks keep their prior behavior. |
-| Loop lifecycle | Session identity can stay unchanged while pause-quit disposal precedes a pending fade | Entry/current/finally/update honor session.disposed. Deferred-fade flag-contract regression verifies no stale spawn, camera, audio, second UI fade or shared-player unfreeze. Real Session.dispose coverage awaits the newest-main integration rebase. |
+| Loop lifecycle | Session identity can stay unchanged while pause-quit disposal precedes a pending fade | Entry/current/finally/update honor session.disposed. Deferred-fade regression invokes real Session.dispose on the rebased implementation and verifies no stale spawn, camera, audio, second UI fade or shared-player unfreeze. |
 
 These are explicit authored departures/integration reconciliations for root/owner review; this document does not itself grant merge approval.
 
@@ -34,12 +34,12 @@ These are explicit authored departures/integration reconciliations for root/owne
 - Timing cases: both positive geometry routes; twelve live entry-phase cases at120Hz; eight additional live cases at30/60Hz. Bounded absent-support negatives include180 ordinary gear/earned-move starts and96 early Crown/fully charged earned Moon starts, God off. These are bounded searches, not an exhaustive proof of every possible input.
 - Moon: walkable entrance; charged positive and Crown negative; external bounce negative with a positive removed-wall control; all10Tickets collected from the ledge.
 - Physical safe-yard versus genuine-river falls; both loop exit coordinates and haul persistence; actual Dust Wall guard; exact aqueduct inventory/reveal/broken/restore/death collision states; finite default-decor ordinary/trial scenes; Remix Golden inventory.
-- Rebased component/compatibility probes passed for raft, falls, ride behavior, hazards/barrels, presentation, Moon and side-input behavior. The earlier complete suite passed102files/961tests before the last independent-review closures. It is not attributed as a final-SHA full-suite result. Root will run the final complete suite after activation.
+- After rebasing onto main c9b3f5bb,11focused files/125tests passed: Rapids, raft/falls, legacy ride behavior, hazards/barrels, presentation, Moon/return routes, Queen powers and side-input behavior. The pending-loop regression invokes real Session.dispose. The earlier complete suite passed102files/961tests before the last independent-review closures. It is not attributed as a final-SHA full-suite result. Root will run the final complete suite after activation.
 
 Tests emit bounded diagnostic JSON under/tmp/h45-*.json and are reproducible from tests/rapids.test.js.
 
 ## Remaining integration and manual verification
 
-- Root shared activation and metadata, latest-main union (including actual Session.dispose), H62 authored reflection adapters, independent actual whole-builder/Golden-raft probes, final full suite/build, exclusive frozen-browser activation and CI.
+- Root shared activation and metadata, remaining latest-main union and H62 authored reflection adapters, independent actual whole-builder/Golden-raft probes, final full suite/build, exclusive frozen-browser activation and CI.
 - No unaided whole-level Golden run, three first-play attempts per section, human first-play death target11–15, medal-time calibration, complete enemy readability/fairness, or final narrow-screen map verification has been performed by this author. Do not describe these as verified.
 - No deployment, board publication, media generation or vendor update was performed.
