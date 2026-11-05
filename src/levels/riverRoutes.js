@@ -149,7 +149,7 @@ export function buildRiverDecor(stage, track) {
 // Reserve the last four metres of the dock for a descending left-hand line.
 export function buildRiverStartLine(stage, track, k) {
   const shell=riverPanels(stage,track,'river-start-divider');
-  for(let d=14.8;d<=25.8;d+=.6)shell.panel(-2.4,d,.16,.8,track.heightAt(d),track.heightAt(d)+2.6,false);
+  for(let d=14.8;d<=25.8;d+=.6)shell.panel(-3,d,.08,.8,track.heightAt(d),track.heightAt(d)+2.6,false);
   const ramp=k.floor(22,26,{x:-3.5,w:2.2,y:[0,-1.05],depth:1,style:'platform'});
   shell.finish();return{shell,ramp,start:22,end:26};
 }

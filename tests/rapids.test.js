@@ -313,3 +313,19 @@ test('all ten post-game Moon Tickets are collectible from the earned ledge witho
   expect(well.reward.filter(t=>t.taken)).toHaveLength(10);expect(p.dead).toBe(false);
  }finally{pressed.mockRestore();held.mockRestore();input.state.x=input.state.y=0;stage.dispose();}
 });
+
+function bounceStartTeach(offset=0){
+ const f=build({trial:true}),{stage}=f,p=actualPlayer(f),boxes=stage.timedBoxes.filter(b=>b.kind==='bounce').map(b=>b.entity);for(const e of stage.entities)if(e instanceof Enemy)e.dead=true;save.data.godMode=false;
+ const first=boxes[0],a=stage.track.project(first.pos.x,first.pos.z),point=stage.track.toWorld(a.s,a.u+offset);point.y=first.solid.max.y+3;p.spawnAt(point,stage.track.yaw(a.s));p.vel.y=-1;p.body.grounded=false;p.body.ground=null;
+ const pressed=vi.spyOn(input,'pressed').mockReturnValue(false),held=vi.spyOn(input,'held').mockImplementation(k=>k==='jump');let maxY=p.pos.y,ground=null;
+ try{
+  for(let frame=0;frame<500&&!p.dead;frame++){
+   const target=boxes.find(b=>!b.broken);if(!target)break;const q=stage.track.project(p.pos.x,p.pos.z),goal=stage.track.project(target.pos.x,target.pos.z),du=goal.u+offset-q.u,dd=goal.s-q.s,length=Math.hypot(du,dd),factor=Math.min(1,length*3);input.state.x=length>.02?du/length*factor:0;input.state.y=length>.02?dd/length*factor:0;
+   stage.update(1/120,p);p.update(1/120,stage,{right:stage.track.right(q.s),forward:stage.track.tangent(q.s)});maxY=Math.max(maxY,p.pos.y);if(p.body.grounded)ground=p.body.ground?.ref?.kind??p.body.ground?.ref?.constructor.name;
+  }
+  return{offset,broken:boxes.map(b=>b.broken),dead:p.dead,maxY,ground,s:p.body.s,u:p.body.u,y:p.pos.y};
+ }finally{pressed.mockRestore();held.mockRestore();input.state.x=input.state.y=0;stage.dispose();}
+}
+test('the shortcut divider preserves both authored bounce teaches at center and quarter-metre offsets',()=>{
+ const results=[-.25,0,.25].map(bounceStartTeach);writeFileSync('/tmp/h45-divider-proof.json',JSON.stringify(results,null,2));expect(results.filter(r=>!r.broken.every(Boolean)||r.dead)).toEqual([]);
+});
