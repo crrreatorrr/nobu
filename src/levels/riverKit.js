@@ -24,6 +24,6 @@ export function installRiverKit(k,game,stage){
  k.slick=(d0,d1,o)=>stage.add(new Slick(stage,k.track,d0,d1,o));
  k.driftLog=(d,o)=>stage.add(new DriftLog(stage,k.track,d,o));
  k.floatPack=(x,d,n)=>{const pack=k.pack(x,-1,d,n);stage.add(new FloatDisc(stage,pack));return pack;};
- k.coconuts=(d,o)=>stage.add(new CoconutRoller(stage,k.track,d,o));
+ k.coconuts=(d,o={})=>stage.add(new CoconutRoller(stage,k.track,d,k.track.mirror?{...o,lanes:(o.lanes??[-2,0,2]).map(u=>k.track.authorU(u))}:o));
  return k;
 }

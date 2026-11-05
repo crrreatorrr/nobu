@@ -3,6 +3,7 @@ import { Entity } from '../entities/entity.js';
 import { Solid } from '../world/physics.js';
 import { ownRiverRoot } from '../entities/riverResources.js';
 import { audio } from '../audio/audio.js';
+const authoredWorld=(track,...args)=>(track.authorToWorld||track.toWorld).call(track,...args);
 
 // Cutaway warehouse panels are real collision, tiled along the curved river.
 // Only the procedural panel resources are owned; kit and asset caches are borrowed.
@@ -13,7 +14,7 @@ export function riverPanels(stage, track, name) {
   const lineMaterial = new THREE.LineBasicMaterial({ color: 0x526d65, transparent: true, opacity: .6 });
   const solids = [];
   const panel = (u, d, width, depth, bottom, top, outline = true) => {
-    const pos = track.toWorld(d, u), yaw = track.yaw(d);
+    const pos = authoredWorld(track,d,u), yaw = track.yaw(d);
     const geometry = new THREE.BoxGeometry(width, top - bottom, depth);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(pos.x, (bottom + top) / 2, pos.z); mesh.rotation.y = yaw;
@@ -26,7 +27,7 @@ export function riverPanels(stage, track, name) {
     const c = Math.abs(Math.cos(yaw)), s = Math.abs(Math.sin(yaw));
     const made = [];
     for (let i = 0; i < n; i++) {
-      const p = track.toWorld(d, u - width / 2 + tile * (i + .5));
+      const p = authoredWorld(track,d,u-width/2+tile*(i+.5));
       const hx = (tile * c + depth * s) / 2, hz = (tile * s + depth * c) / 2;
       const solid = stage.world.add(new Solid({ x: p.x - hx, y: bottom, z: p.z - hz }, { x: p.x + hx, y: top, z: p.z + hz }, { ref: root }));
       solids.push(solid); made.push(solid);
@@ -84,7 +85,7 @@ export class RiverLoop extends Entity {
   }
   returnToDock() {
     const d = this.detour;
-    return this.travel(d.track.toWorld(d.exitD, this.returnU, .05), d.exitD);
+    return this.travel(authoredWorld(d.track,d.exitD,this.returnU,.05),d.exitD);
   }
   update() {
     const p = this.player, d = this.detour;
@@ -139,7 +140,7 @@ export function buildRiverLoopCase(stage, track, detour, { end, center = 0, widt
 export function buildRiverDecor(stage, track) {
   const root=stage.add(new Entity(stage,0,0,0));root.interactive=false;root.alwaysActive=true;
   const wood=new THREE.MeshLambertMaterial({color:0x725341}),metal=new THREE.MeshLambertMaterial({color:0x586663});
-  const block=(u,y,d,w,h,depth,material)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,depth),material);mesh.position.copy(track.toWorld(d,u,y+h/2));mesh.rotation.y=track.yaw(d);root.obj.add(mesh);};
+  const block=(u,y,d,w,h,depth,material)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,depth),material);mesh.position.copy(authoredWorld(track,d,u,y+h/2));mesh.rotation.y=track.yaw(d);root.obj.add(mesh);};
   for(const[u,d]of[[-6.3,254],[6.3,276],[-6.3,293]]){block(u,-1.4,d,3,1.2,7,wood);block(u,0,d,2,.8,2,wood);}
   block(6.3,0,280,.5,10,.5,metal);block(3.8,9.5,280,5.5,.45,.5,metal);block(1.3,7,280,.12,2.5,.12,metal);
   ownRiverRoot(stage,root.obj);return root;
