@@ -252,7 +252,7 @@ export class Game {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
-    this.session?.dispose();
+    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
     this.session = null;
     this._refreshTitleNobu();
     this.applyKennelTint(this.titleNobu, {});
@@ -402,7 +402,7 @@ export class Game {
 
   toMap(sel = 1) {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
-    this.session?.dispose();
+    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
     this.session = null;
     sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
     this._unlockMainChapters();
@@ -601,8 +601,10 @@ export class Game {
 
   exitToHub() {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
-    this.session?.dispose();
-    this.session = null;
+    if (this.session?.rush || this.session?.def?.gauntlet) {
+      if (!this.session.disposed) this.session.dispose();
+      this.session = null;
+    }
     this.hubExit = true;
     hub.exit('exit_to_hub');
   }
@@ -632,10 +634,10 @@ export class Game {
   async startLevel(n, opts = {}) {
     if (n === 'rush' && !rushAvailable(save.data)) return false;
     if (levelDef(n)?.meta && n !== 'rush') return this.openKennel();
-    const epoch = this._launchEpoch = (this._launchEpoch || 0) + 1;
-    this.session?.dispose();
     if (levelDef(n)?.gauntlet && !isOpen(n, save.data)) return;
     if (levelDef(n)?.gauntlet) opts = { ...opts, trial: false };
+    const epoch = this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
     await this.ui.fade(1);
     if (epoch !== this._launchEpoch) return false;
     this.ui.clearScreen();
@@ -646,7 +648,6 @@ export class Game {
       save.write();
     }
     this.state = 'play';
-    this.session?.dispose();
     this.session = n === 'rush' ? new RushSession(this) : new Session(this, n, opts);
     this.flyingMasks.length = 0;
     await this.session.startLevel();
@@ -754,7 +755,7 @@ export class Game {
         this.ui.pinHud(false);
         const level = this.session.level;
         if (!this.session.rush) save.write();
-        this.session.dispose();
+        if ((this.session.rush || this.session.def?.gauntlet) && !this.session.disposed) this.session.dispose();
         this.ui.fade(1).then(() => this.toMap(level));
       }
     }

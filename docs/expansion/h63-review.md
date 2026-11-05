@@ -75,3 +75,25 @@ browser remain pending coordinator review/window; an unaided full Rush remains u
 
 Additional real Game pause-quit regression passes: it disposes the Rush before the deferred map
 return, makes no Save write and no Hub call. The 20-test Session file passes after that addition.
+
+## H46 integration rebase
+
+Rebased onto fetched main `c7c05b135f8dbd95ba31ae254edef7e158735c78` without fetching.
+The union retains H46 Gauntlet text, map pins/entry and RB handling, host return, ordinary bookmark
+rules, result presenter and `Save.withGauntletEnd`/origin-lock transaction unchanged. The Rush
+`progressOnly` option remains additive; UI cancellation adds only the identity-scoped method.
+Focused Rush + Gauntlet atomic/runtime + registry/migration: 7 files / 85 tests passed. Independent
+pre-rebase review is `/workspace/nobu-spec/h63-independent-review.md` (approved 28 authored tests +
+3 external all-HP-phase/Game/map/wallet probes). Source-only full-suite and build results follow.
+
+The first integrated full run exposed exactly two ordinary Hub-exit fixture failures: newly broadened
+cleanup tried to dispose a deliberately partial ordinary stage. The reviewed correction scopes new
+retirement to Rush/existing Gauntlet, retains ordinary Hub behavior, validates locked Gauntlets before
+retirement, and avoids a duplicate disposal of already retired sessions. Latest-launch epoch guards
+remain. Affected balance/Rush/Gauntlet runtime: 3 files / 55 tests passed.
+
+Final source verification after that correction: **102 files / 1,023 tests passed** (`npm test --
+--maxWorkers=2`), production build passed with **183 modules**, and `git diff --check` passed. The
+existing bundle-size warning and jsdom navigation warnings remain. Session.js and H46's atomic claim
+implementation have no H63 diff. GPU/browser is still pending its coordinator-assigned exclusive slot;
+unaided five-fight gameplay, human No-Hit, audio and readability acceptance remain unrun.
