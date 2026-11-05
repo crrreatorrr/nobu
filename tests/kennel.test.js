@@ -20,13 +20,13 @@ const dataAt = (n, reg = full) => ({ dogsFreed: Object.fromEntries(all(reg).slic
 beforeEach(() => { vi.restoreAllMocks(); resetWorld(); });
 
 describe('Kennel shipped milestone and stable dog data', () => {
-  it('unlocks8/16/24/32/42/all47 and never counts unshipped dogs', () => {
-    expect(kennelStatus(dataAt(0, current), current).milestones.map((m) => m.target)).toEqual([8, 16, 24, 32, 42, 47]);
+  it('unlocks8/16/24/32/42/all54 and never counts unshipped dogs', () => {
+    expect(kennelStatus(dataAt(0, current), current).milestones.map((m) => m.target)).toEqual([8, 16, 24, 32, 42, 54]);
     expect(kennelStatus(dataAt(7, current), current).unlocks).toEqual([]);
     expect(kennelStatus(dataAt(8, current), current).unlocks).toEqual(['jukebox']);
     expect(kennelStatus(dataAt(16, current), current).unlocks).toEqual(['jukebox', 'buddy']);
-    const d = dataAt(47, current); d.dogsFreed['5:shiba-a'] = true;
-    expect(kennelStatus(d, current)).toMatchObject({ total: 47, freed: 47, unlocks: ['jukebox', 'buddy', 'fur', 'gallery', 'sniffer', 'golden'] });
+    const d = dataAt(54, current); d.dogsFreed['99:shiba-a'] = true;
+    expect(kennelStatus(d, current)).toMatchObject({ total: 54, freed: 54, unlocks: ['jukebox', 'buddy', 'fur', 'gallery', 'sniffer', 'golden'] });
   });
   it('uses final8/16/24/32/42/54 thresholds and preserves released identity order', () => {
     expect(kennelStatus(dataAt(54), full).milestones.map((m) => m.target)).toEqual([8, 16, 24, 32, 42, 54]);
@@ -113,7 +113,7 @@ it('retains milestone identities when shipped-total Golden precedes future Fur',
   expect(noticeKennelMilestones(d, full)).toEqual([]);
 });
 it('migrates count-only milestones only from earned current unlocks, idempotently, and unions tab flags', () => {
-  const d = dataAt(47, current); d.v = 3; d.kennel.seen = 6;
+  const d = dataAt(54, current); d.v = 3; d.kennel.seen = 6;
   localStorage.setItem(SAVE_KEY, JSON.stringify(d)); save.load();
   expect(save.data.kennel.seenMilestones).toEqual({ jukebox: true, buddy: true, fur: true, gallery: true, sniffer: true, golden: true });
   save.write(); save.load(); expect(save.data.kennel.seenMilestones.golden).toBe(true);

@@ -37,7 +37,7 @@ function gateDistance(level, layout = trialLayout(level)) {
 describe('trial bounds (metaverse-hub CONTRACT C13)', () => {
   it('preserves Classic hub bounds and declares gated v2 bounds', () => {
     expect(TRIAL_BOARD).toBe('nobu_trial_time');
-    expect(TRIAL_FLOOR_MS).toEqual({ 1: 15000, 2: 15000, 3: 12000, '1v2': 25700, '2v2': 26000, '3v2': 20600, 4: 24000, 6: 30000 });
+    expect(TRIAL_FLOOR_MS).toEqual({ 1: 15000, 2: 15000, 3: 12000, '1v2': 25700, '2v2': 26000, '3v2': 20600, 4: 24000, 6: 30000, 5: 21000 });
     expect(TRIAL_CEIL_MS).toBe(1_800_000);
   });
 

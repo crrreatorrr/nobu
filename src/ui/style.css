@@ -205,6 +205,9 @@ html, body {
 .map-island .map-bg { background-size: 100% 100%; }
 .map-island .map-node .nobu-marker { top: 8px; left: 50%; margin-left: -20px; width: 40px; animation: none; pointer-events: none; z-index: 1; }
 .map-island .map-node.sel .dot { font-size: 0; }
+/* The new summit pin sits above the Factory: keep its caption above its dot. */
+.map-island .map-node[data-level="5"] { padding-bottom: 32px; }
+.map-island .map-node[data-level="5"] .label { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); margin-top: 0; }
 .map-details { flex: 0 1 auto; max-height: 42vh; overflow: auto; pointer-events: auto; }
 .map-details:empty { display: none; }
 .map-details .map-panel { position: relative; bottom: auto; left: auto; transform: none; min-width: 0; width: min(100%, 760px); margin: 0 auto; padding: 12px 18px; box-sizing: border-box; }
