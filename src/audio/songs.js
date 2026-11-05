@@ -29,6 +29,48 @@ export const SONGS = {
     ],
     drums: { kick: 'X...x...X...x...', snare: '....x.......x.xx', hat: 'x.x.x.x.x.x.xxx.' },
   },
+  // Level 5: eight bars of E-minor ticker trance, locked to MarketClock.
+  level5: {
+    bpm: 128,
+    tracks: [
+      { wave: 'triangle', vol: .085, gate: .6, notes: bars(
+        'E3 G3 B3 E4 E3 G3 B3 E4 E3 G3 B3 E4 E3 G3 B3 E4',
+        'C3 E3 G3 C4 C3 E3 G3 C4 C3 E3 G3 C4 C3 E3 G3 C4',
+        'G2 B2 D3 G3 G2 B2 D3 G3 G2 B2 D3 G3 G2 B2 D3 G3',
+        'D3 F#3 A3 D4 D3 F#3 A3 D4 D3 F#3 A3 D4 D3 F#3 A3 D4',
+        'E3 B3 E4 G4 E3 B3 E4 G4 E3 B3 E4 G4 E3 B3 E4 G4',
+        'C3 G3 C4 E4 C3 G3 C4 E4 C3 G3 C4 E4 C3 G3 C4 E4',
+        'A2 E3 A3 C4 A2 E3 A3 C4 A2 E3 A3 C4 A2 E3 A3 C4',
+        'B2 F#3 B3 D4 B2 F#3 B3 D4 B2 F#3 B3 D4 B2 F#3 B3 D4') },
+      { wave: 'square', vol: .045, gate: .9, attack: .015, notes: bars(
+        ...Array(4).fill('. . . . . . . . . . . . . . . .'),
+        'E5 - - - - - - - B4 - - - - - - -',
+        'G5 - - - - - - - E5 - - - - - - -',
+        'A5 - - - - - - - F#5 - - - - - - -',
+        'B5 - - - - - - - E5 - - - - - - -') },
+      { wave: 'sine', vol: .16, gate: .95, attack: .02, notes: bars(
+        'E2 - - - - - - - - - - - - - - -',
+        'C2 - - - - - - - - - - - - - - -',
+        'G1 - - - - - - - - - - - - - - -',
+        'D2 - - - - - - - - - - - - - - -',
+        'E2 - - - - - - - - - - - - - - -',
+        'C2 - - - - - - - - - - - - - - -',
+        'A1 - - - - - - - - - - - - - - -',
+        'B1 - - - - - - - - - - - - - - -') },
+      { wave: 'triangle', vol: .055, gate: .55, pluck: .06, notes: bars(
+        'E4 G4 B4 E5 . . . . E4 G4 B4 E5 . . . .',
+        'C4 E4 G4 C5 . . . . C4 E4 G4 C5 . . . .',
+        'G3 B3 D4 G4 . . . . G3 B3 D4 G4 . . . .',
+        'D4 F#4 A4 D5 . . . . D4 F#4 A4 D5 . . . .',
+        'E4 G4 B4 E5 . . . . E4 G4 B4 E5 . . . .',
+        'C4 E4 G4 C5 . . . . C4 E4 G4 C5 . . . .',
+        'A3 C4 E4 A4 . . . . A3 C4 E4 A4 . . . .',
+        'B3 D4 F#4 B4 . . . . B3 D4 F#4 B4 . . . .') },
+    ],
+    // Procedural placeholders: existing snare supplies the clap backbeat;
+    // accented hats use the sequencer's longer, open noise envelope.
+    drums: { kick: 'x...x...x...x...'.repeat(8), snare: '....x.......x...'.repeat(8), hat: '..X...X...X...X.'.repeat(8) },
+  },
   // Eight bars of D-minor surf/shanty motion; the last bar has a tom fill.
   level6: {
     bpm: 136,
