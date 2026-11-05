@@ -167,7 +167,8 @@ Client validation floors, in seconds, are:
 The ceiling is 30 minutes. These bounds are separate from medal targets; source values live in
 `src/config/trials.js`. Public submission, when enabled, also requires a hub player session and an
 eligible run. Standalone times are never uploaded retroactively. Eligible score-queue rows remain
-scoped to player and variant, with network retries; a successful server acknowledgement confirms posting.
+scoped to player and variant, with network retries; an accepted acknowledgement confirms the board
+holds that time or a better one.
 The map can show Classic records and a total of all six current trial bests once each exists.
 
 ## Saves and New Game
