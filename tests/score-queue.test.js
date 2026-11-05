@@ -114,7 +114,7 @@ describe('score queue', () => {
     expect(enqueue('p', 3, 12000, {})).toBe(true);
     expect(enqueue('p', 2, 1_800_001, {})).toBe(false);
     expect(enqueue('p', 2, 40000.5, {})).toBe(false);
-    expect(enqueue('p', 4, 40000, {})).toBe(false);
+    expect(enqueue('p', 7, 40000, {})).toBe(false);
     expect(enqueue('p', 'ride', 40000, {})).toBe(false);
     expect(enqueue('', 1, 40000, {})).toBe(false);
     expect(pendingRows('p').map((r) => r.ms)).toEqual([12000]);

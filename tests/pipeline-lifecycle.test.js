@@ -152,12 +152,12 @@ it('finishes a live Queen gate/arena/defeat without awarding clear at the field 
  s.boss.hp=1;s.boss.vulnerable=true;s.boss.hitCool=0;s.boss.damage();await flush(6200);expect(save.data.beaten[5]).toBe(true);expect(hub.bank).toHaveBeenCalledTimes(1);expect(game.state).toBe('cutscene');
  const done=game.cut.onDone;game.toMap(5);const write=watchAfterExit(game);done();expect(game._showComplete).not.toHaveBeenCalled();expect(write).not.toHaveBeenCalled();
 });
-it('keeps a live L5 trial local, then rejects its retired result fade',async()=>{
+it('queues a live L5 trial, then rejects its retired result fade',async()=>{
  const{game,s}=fixture({trial:true});s.trialT=95;s.freezeMs=0;s.trialRunning=true;const hold=deferred();game.ui.fade.mockReturnValueOnce(hold.promise);
- const submit=vi.spyOn(hub,'submitScore');const pid=vi.spyOn(hub,'playerId').mockReturnValue('pipeline-local');
+ vi.spyOn(hub,'flushScores').mockResolvedValue();const submit=vi.spyOn(hub,'submitScore');const pid=vi.spyOn(hub,'playerId').mockReturnValue('pipeline-local');
  s.reachBossGate();expect(save.data.trials[5]).toBeTruthy();expect(s.phase).toBe('level');expect(s.boss).toBeUndefined();expect(hub.bank).toHaveBeenCalledTimes(1);
- // The real bridge rejects unsupported public level5 without enqueuing a write.
- expect(submit).toHaveBeenCalled();game.toMap(5);hub.bank.mockClear();const write=watchAfterExit(game);hold.resolve();await flush(1000);assertNoLateEffect(game,write);expect(game.state).toBe('map');pid.mockRestore();
+ // The live result queues before retirement; the delayed result callback stays cancelled.
+ expect(submit).toHaveBeenCalled();expect(readQueue().rows['pipeline-local']['nobu_trial_time:5'].ms).toBe(95000);game.toMap(5);hub.bank.mockClear();const write=watchAfterExit(game);hold.resolve();await flush(1000);assertNoLateEffect(game,write);expect(game.state).toBe('map');pid.mockRestore();
 });
 it('keeps lifecycle scope additive and leaves legacy boss levels outside new ownership gates',()=>{
  const{game,s}=fixture();expect(ownsAsyncLifecycle(s)).toBe(true);expect(s.def.goal).not.toBe(true);expect(ownsAsyncLifecycle({remix:true})).toBe(true);
@@ -175,8 +175,8 @@ it('continues a live Queen stage-checkpoint retry after cancelling an in-progres
  expect(s.bossPhaseCp).toBe(2);expect(boss.phase).toBe(2);expect(boss.active).toBe(true);expect(s.busy).toBe(false);expect(game.player.dead).toBe(false);expect(game.camera.cine).toBeNull();expect(save.data.lives).toBe(lives-1);expect(s.bossDeaths[2]).toBe(1);
 });
 
-it('shows a live L5 local-trial result without changing the public queue',async()=>{
- const{game,s}=fixture({trial:true});s.trialT=95;s.freezeMs=0;const before=JSON.stringify(readQueue());vi.spyOn(hub,'playerId').mockReturnValue('pipeline-local');
+it('shows a standalone L5 trial result without changing the public queue',async()=>{
+ const{game,s}=fixture({trial:true});s.trialT=95;s.freezeMs=0;const before=JSON.stringify(readQueue());vi.spyOn(hub,'playerId').mockReturnValue(null);
  await s.reachBossGate();await Promise.resolve();expect(game.state).toBe('complete');expect(game.completeMode).toBe('trial');expect(save.data.trials[5].ms).toBe(95000);expect(JSON.stringify(readQueue())).toBe(before);expect(s.boss).toBeUndefined();
 });
 it('cancels L5 post-result dialogue on title departure without starting its ending later',async()=>{

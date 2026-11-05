@@ -9,8 +9,8 @@ import { hub } from '../src/hub/hubBridge.js';
 import { resetWorld } from './helpers.js';
 import { UI } from '../src/ui/ui.js';
 import { Assets } from '../src/art/assets.js';
-beforeEach(()=>{resetWorld();save.data.beaten[5]=true;vi.spyOn(hub,'bank').mockResolvedValue();vi.spyOn(hub,'reportCone').mockResolvedValue();});
-afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();});
+beforeEach(()=>{resetWorld();save.data.beaten[5]=true;vi.spyOn(hub,'bank').mockResolvedValue();vi.spyOn(hub,'reportCone').mockResolvedValue();vi.spyOn(hub,'submitScore');});
+afterEach(()=>{expect(hub.submitScore).not.toHaveBeenCalled();vi.useRealTimers();vi.restoreAllMocks();});
 function fixture({broken=true,god=false,level=1}={}){
  const game={ui:{fade:async()=>{},banner:vi.fn(),bossHp(){},bossHide(){},say:vi.fn()},
  player:{pos:new THREE.Vector3(),frozen:false,setRide:vi.fn(),victory:vi.fn()},camera:{cinematic(){}},

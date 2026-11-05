@@ -82,10 +82,12 @@ describe('save: trial scores', () => {
     expect(disk().bestDogs).toEqual({});
   });
 
-  it('totalTrialMs() sums the three bests once all exist', () => {
+  it('totalTrialMs() sums all six bests once all exist', () => {
     save.data.trials = { 1: { ms: 50000 }, 2: { ms: 60000 } };
     expect(save.totalTrialMs()).toBe(null);
     save.data.trials[3] = { ms: 40500 };
-    expect(save.totalTrialMs()).toBe(150500);
+    expect(save.totalTrialMs()).toBe(null);
+    save.data.trials[4] = { ms: 90000 };save.data.trials[6] = { ms: 60000 };save.data.trials[5] = { ms: 95000 };
+    expect(save.totalTrialMs()).toBe(395500);
   });
 });
