@@ -1,6 +1,6 @@
 # H62 integration contract
 
-Core snapshot is based on main c4d6c547. Game/Session ownership was explicitly released after H46 and H63 froze their source. Current-base integration is implemented; it must be rebased with both reviewed branches before final acceptance. This document records the integration contract and remaining checks; it does not claim complete H62 acceptance.
+Core/shared integration is rebased onto main39373095262eb720dc60c4e276c67710ac62c4be. Game/Session ownership was explicitly released for this union after H46, H51/Sofa, H63 and H45 merged. Their Gauntlet claims/music, Rush branches/map input, early ride setup, owned loading/dialogue epochs, main-goal rain cleanup and loop return contracts are retained. H50 activation and the later six-main reflection proof remain separate gates. This document records the integration contract and remaining checks; it does not claim complete H62 acceptance.
 
 ## Coordinate contract
 
@@ -31,3 +31,7 @@ Independent review reproduced an abandoned Remix death retry changing a replacem
 ## Enemy tier calculation
 
 Ordinary enemies use authored movement speed × `TIER.enemySpeed[min(5, baseTier + 1)]`, interpolating fractional table indices. This is one absolute lookup, never the product of two rows. Base5 therefore targets5 and applies1.32; ordinary non-remix and boss enemies retain1. Chaser/calibrated hazards, player motion, telegraphs and box clocks keep their authored tuning. Dust Bunny half-flee displacement uses the same multiplier while flee/puff clocks and physical clamps remain unchanged.
+
+## Shared-union handoff
+
+The registered G1 regression now constructs its real builder and actual Player, starts a death, and quits through actual Game.toMap. Delayed retry cannot change the replacement wallet/lives/player or show retired UI. Remix boss loading uses the existing owned loading token and actual UI epoch cancellation; disposing it cannot hide a successor overlay. A merge-only eager normal Bone Board call in Gauntlet pause was removed. Shared Game/Session/Story/registry/Stage/Kit contracts are frozen for root H50 activation after this union; river-specific authored adapters and actual L6 pairing follow without parallel shared-file edits.

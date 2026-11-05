@@ -752,7 +752,7 @@ export class Game {
     const s = this.session;
     const live = s?.stage && s.phase === 'level' ? s.liveStats() : s?.stats;
     const pct = live?.snackPotential ? Math.floor(live.snackRaw / live.snackPotential * 100) : 0;
-    const board = s?.remix ? `<div class="sub-title">${esc(REMIX_TEXT.toggle)}</div>` : live ? this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) }) : '';
+    const board = s?.def?.gauntlet ? '' : s?.remix ? `<div class="sub-title">${esc(REMIX_TEXT.toggle)}</div>` : live ? this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) }) : '';
     const stats = s?.def?.gauntlet
       ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
       : live ? `${board}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(s.remix ? REMIX_TEXT.complete.missed : goalHint(this, s.level, live))}</div>` : '';

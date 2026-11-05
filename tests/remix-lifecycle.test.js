@@ -24,6 +24,7 @@ import {makeKit} from '../src/levels/kit.js';
 import {moveBody} from '../src/world/physics.js';
 import {save} from '../src/core/save.js';
 import {hub} from '../src/hub/hubBridge.js';
+import {UI} from '../src/ui/ui.js';
 import {resetWorld} from './helpers.js';
 const noop=()=>{};const sessions=[];
 beforeEach(()=>{vi.useFakeTimers();resetWorld();save.data.beaten[5]=true;save.data.tickets=77;save.data.lives=5;
@@ -32,11 +33,16 @@ beforeEach(()=>{vi.useFakeTimers();resetWorld();save.data.beaten[5]=true;save.da
  vi.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('');
 });
 afterEach(()=>{for(const s of sessions.splice(0))s.dispose();vi.clearAllTimers();vi.useRealTimers();vi.restoreAllMocks();});
-function fixture(remix=true){
+function fixture(remix=true,level=1){
  const game={state:'play',ui:new Proxy({fade:vi.fn(async()=>{}),say:vi.fn(async()=>{})},{get:(o,k)=>o[k]??(o[k]=vi.fn())}),
  camera:new GameCamera(1.5),loadout:{effects:{},cosmeticSlots:()=>({})},mask:{attach:vi.fn(),setLevel:vi.fn(),snapTo:vi.fn(),update:vi.fn()},gameOver:vi.fn()};
  game.player=new Player(game);game.onPlayerDeath=Game.prototype.onPlayerDeath;
- const s=game.session=new Session(game,1,{remix});sessions.push(s);
+ const s=game.session=new Session(game,level,{remix});sessions.push(s);
+ if(s.def.gauntlet){
+  const stage=s._newStage(s.def.theme),info=s.def.build(game,stage,s.tickets);stage.finalize();s.tickets.finalize();
+  s.breakablesTotal=stage.entities.filter(e=>e.countable).length;s.dogsTotal=0;s._attachActors(info);
+  return{game,s,stage,tr:stage.track};
+ }
  const stage=s._newStage(1),tr=new Track(turtle([5,0,8],[[40,32,1],[40,-51,-1]]),{mirror:remix});stage.setTrack(tr);
  const k=makeKit(game,stage,s.tickets,tr);k.floor(0,80);k.walls([[0,4,6,3],[80,4,6,3]]);
  s._attachActors({spawn:k.W(0,0,5),facing:tr.yaw(5),camera:{mode:'behind',track:tr},fov:58});s.projectiles.clear=vi.fn();
@@ -62,8 +68,10 @@ it('ignores a stale death entry and a previous stage retry within a live Remix S
  game.session={level:2};const deaths=s.deaths;s.dying=false;s.onPlayerDeath('fall');expect(s.deaths).toBe(deaths);
  s.stage=null;stage.dispose();
 });
-it('applies the same pending-retry ownership rule to the Gauntlet Session context',async()=>{
- const {game,s}=fixture(false);s.def={...s.def,gauntlet:true};game.player.die('fall');s.dispose();game.session={level:2};
+it('retires an actual registered G1 death retry through the real Game map-quit path',async()=>{
+ const {game,s}=fixture(false,'g1');expect(s.def.id).toBe('g1');expect(s.stage.gauntletInfo).toBeTruthy();
+ game.player.die('fall');Object.assign(game,{_unlockMainChapters:vi.fn(),_trySecretEnding:()=>false,_drawMap:vi.fn()});
+ Game.prototype.toMap.call(game,1);expect(s.disposed).toBe(true);expect(game.session).toBeNull();
  save.data.tickets=123;save.data.lives=7;game.player.pos.set(100,10,100);game.ui.deathCard.mockClear();
  await vi.advanceTimersByTimeAsync(3000);s.respawn();
  expect(save.data.tickets).toBe(123);expect(save.data.lives).toBe(7);expect(game.player.pos.toArray()).toEqual([100,10,100]);expect(game.ui.deathCard).not.toHaveBeenCalled();
@@ -77,6 +85,14 @@ it('retains the live actual Player death life cost, checkpoint wallet and assist
 it('retains live Remix checkpoint economy and disables help after many actual retries',()=>{
  const {game,s}=fixture();save.data.tickets=100;s.levelTickets=10;s.fieldRaw=40;s.deathsAtCp=20;
  s.respawn();expect(save.data.tickets).toBe(77);expect(s.levelTickets).toBe(0);expect(s.mask).toBe(0);expect(game.player.pos.toArray()).toEqual(s.cp.pos.toArray());
+});
+it('retires an owned Remix boss-loading overlay without hiding its successor',async()=>{
+ const {game,s}=fixture(),ui=game.ui=new UI(document.createElement('div'));
+ const pending=s.startBoss(),token=s._goalLoadingToken;expect(token).toBeTypeOf('number');expect(ui.loadEl.classList.contains('show')).toBe(true);
+ s.dispose();expect(ui.loadEl.classList.contains('show')).toBe(false);
+ const successor=ui.showLoading('NEXT','Successor');expect(successor).not.toBe(token);
+ await vi.runAllTimersAsync();await pending;
+ expect(ui.loadEl.classList.contains('show')).toBe(true);expect(ui.loadEl.querySelector('.ll-title').textContent).toBe('Successor');
 });
 it('preserves reflected real collision outcomes for an asymmetric curved corridor and off-center raised platform',()=>{
  const a=fixture(false),b=fixture(true);for(const f of[a,b])f.k.platform(2,1.5,25,2.8,4,.5);

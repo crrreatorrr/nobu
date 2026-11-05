@@ -16,7 +16,7 @@ function fixture({broken=true,god=false}={}){
  const s=new Session(game,1,{remix:true});game.session=s;s.godUsed=god;
  const b=Object.assign(Object.create(Breakable.prototype),{countable:true,broken});
  const dog=Object.assign(Object.create(ConedDog.prototype),{freed:true,dogId:'1:shiba-a'});
- s.stage={entities:[b,dog],sections:[],dispose:vi.fn()};s.breakablesTotal=s.dogsTotal=1;s.freedIds.add('1:shiba-a');
+ s.stage={entities:[b,dog],sections:[],dispose:vi.fn()};game.stage=s.stage;s.breakablesTotal=s.dogsTotal=1;s.freedIds.add('1:shiba-a');
  s._missedRain=async()=>{};s.startBoss=vi.fn();s.projectiles={clear(){}};
  s.attemptId='remix-attempt';s.attemptDurable=true;s.levelTickets=11;
  return s;
