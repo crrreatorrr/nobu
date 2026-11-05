@@ -71,7 +71,8 @@ describe('per-level layout upgrades', () => {
     load({ v: 3, trialsClassic: { 1: { ms: 52000, layout: 1 } } });
     const bank = vi.spyOn(hub, 'bank').mockResolvedValue(undefined);
     const done = vi.fn(), game = { player: {}, ui: { trialTime: vi.fn(), fade: () => Promise.resolve() }, trialDone: done };
-    const session = { game, level: 1, trialT: 85, deaths: 2, freezeMs: 1000, levelTickets: 0 };
+    const session = Object.assign(new Session(game, 1, { trial: true }), { trialT: 85, deaths: 2, freezeMs: 1000, levelTickets: 0 });
+    game.session = session;
     Session.prototype._finishTrial.call(session);
     await Promise.resolve();
     expect(save.data.trials[1]).toMatchObject({ ms: 85000, layout: 2, medal: 'platinum' });
