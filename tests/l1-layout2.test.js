@@ -159,8 +159,10 @@ test('lands the actual curved Temple receivers, Canopy crumble chain and Burrow 
   const surface=p=>[p.x,p.y-tr.heightAt(p.d)+(['blink','lunch'].includes(p.kind)?.98:p.kind==='pack'?1:0),p.d+(p.kind==='floorStart'?.5:0)];
   expect(await realJump(s,surface(a),surface(b),step.move==='bounceHeld'?{velocity:10.5*1.15}:{}),`Temple ${a.d}→${b.d}`).toBe(true);
  }
- for(const [a,b] of [[ [1,1.8,292],[-.6,1.8,295] ],[[-.6,1.8,295],[-.6,2.2,298.5]],[[.6,1.6,458.8],[.6,.6,461]],[[.6,.6,461],[.6,.6,464.5]],[[.6,.6,464.5],[.6,.6,468]],[[.6,.6,468],[.6,.6,471.5]],[[.6,.6,471.5],[.6,0,474.5]]]){
-  expect(await realJump(s,a,b),`${a[2]}→${b[2]}`).toBe(true);
+ // Moon's small permanent launch pad raises only the branch centre; retain
+ // direct landings on the unchanged2.2m rim and the new2.70m centre.
+ for(const [a,b,options] of [[ [1,1.8,292],[-.6,1.8,295] ],[[-.6,1.8,295],[1.1,2.2,298.5],{doubleAt:.45}],[[-.6,1.8,295],[-.6,2.7,298.5]],[[.6,1.6,458.8],[.6,.6,461]],[[.6,.6,461],[.6,.6,464.5]],[[.6,.6,464.5],[.6,.6,468]],[[.6,.6,468],[.6,.6,471.5]],[[.6,.6,471.5],[.6,0,474.5]]]){
+  expect(await realJump(s,a,b,options),`${a.join(",")}→${b.join(",")}`).toBe(true);
  }
  // Hold vertical over the trench until feet clear its side wall, then steer right.
  const {simJump}=await import('../src/levels/gauntletMath.js');
