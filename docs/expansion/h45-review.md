@@ -1,23 +1,45 @@
-# H45 Smog Rapids draft checkpoint
+# H45 Smog Rapids author review
 
-This draft is not ready to ship. The source components at 94a07fb retain their independent review attribution; the new level builder and riverRoutes module are candidates awaiting whole-level review.
+The complete builder is ready for independent source and actual-engine review. It is not activated by this branch: root owns registry, chapter progression, local trial metadata, map paths, final integration and merge. No new media or vendor files are used. Previously approved raft/hazard/presentation components retain their scoped review attribution; this document covers the new whole-level authoring.
 
-## Current evidence
+## Authored content and budget
 
-- Numeric recipe builds in ordinary and trial modes, seven stable ordinary dog IDs, four raft spans, Mystery slots 0/1/2. Trial omits the two high detours.
-- Measured budget before the unfinished Moon reward: 323 raw / 107 whole Tickets against the owner-approved cap 159. No rewarding Coconut stream.
-- Actual Player crosses both candidate physical timing cases with single jumps and authored Arrow launches, with their timing solids forced present. This proves geometry only; it does not establish live-clock fairness.
-- 180 legal Double Jump / Glide / Crown / dash launch combinations do not reach the exit threshold or the downstream mill-wheel carrier with the timing solids absent. This bounded sweep is not an exhaustive path proof.
-- 21 focused tests pass across rapids, raft-player, raft. Production build passes (existing large-chunk warning).
+- Main track: four raft spans, S0–S6, two mandatory timing cases, seven stable ordinary dog IDs and 48 countable breakables. No extra pack was invented to match the source's approximate 49.
+- Ordinary and Remix retain both high-loop Golden routes. Trials omit the loops and their two dogs; Moon is omitted from trials and Remix. Mystery slots are stable0/1/2, fitting the actual helper API.
+- Complete measured maximum: field116 + packs175 + zipped3 + Mystery27 =321raw /107whole, with no rewarding Coconut stream. The owner-approved cap remains159. The six aqueduct field Tickets and its five-raw pack use jackpot sources, excluding them from Snack progress; its helper jackpot is explicitly0 and automatic1UP is false.
+- All ten optional Moon Tickets are physically collectible from the earned ledge with no gear. They do not gate the Golden Bone.
 
-## Candidate source corrections
+## Reconciled source discrepancies
 
-The four late bank ram pickups use the tested stagger coordinates from data/rapids.js rather than their stale literal values. Falls keep their four-metre gaps with proven edge shifts. The Floodgate adds a permanent lunchbox rest at D401.55 to split its ten actions. Gutter floors are split around the crumbles. Real cutaway roof/side/exit collision panels make the main timing patterns mandatory; non-Arrow boxes have low braces, and the roof leaves the Arrow chain its full impulse clearance. These enclosure additions are design departures requiring the handoff decision before merge.
+| Area | Literal source / problem | Candidate correction and evidence |
+| --- | --- | --- |
+| Raft pairs and falls | Four late pair placements miss the robust steering margin; one literal falls gap fails normal helped coarse-step crossing | Use the already independently proven data/rapids stagger and four-metre fall-edge shifts. Existing component proofs remain unchanged. |
+| Timing cabinets | Existing earned jumps can bypass an open pit. Starting under a roof alone would miss an earlier Crown/Moon jump onto that roof. | Real cutaway sidewalls, roof, front/end upper headers and low non-Arrow braces. Both patterns have actual single-jump/Arrow routes, live-clock routes and bounded legal-move negative sweeps. Headers reach+24 so the nearby Arrow teach and high loops cannot launch onto a cabinet. No movement tuning changed. |
+| Floodgate rest | Ten timed actions exceed the tier4.5 maximum | Permanent Lunchbox atD401.55 splits the run into safe stretches. Source Blink timings are unchanged. |
+| Mill wheel | D273/radius3/depth2 paddles overlap the last slider; default direction carries a rear boarding paddle down into water | D276 anddir-1. Seven actual Player continuation phases reach the crane safely; six use a paddle ride and one uses a legal Double Jump. This is not a claim that the wheel itself is mandatory. |
+| Gutter falls and loop skips | A continuous high floor hides the crumble gaps; unrestricted high exits can skip a main gauntlet or the goal approach | Split Gutter floor249–262 and269.5–289; tall loop sides/end caps. A tested physical side fall onto BargeA returns toD251, retaining the haul. A real water-gap fall dies splash. Exit lifts return to251/390, never beyond a mandatory pattern. |
+| Hidden Bone | HiddenBone.move is metadata, so an earned player could collect without actually breaking the Dust Wall | L6-only collection guard requires the authored wall.broken. Other Hidden Bones are unchanged. |
+| Moon placement | Literal(-3.6,+4.6,D255) lies below the Gutter and admits later-launcher shortcuts | Side chamber at+10 with a low entrance, ledge(-6.3,+16.2,D259), elevated10raw ring, tall outer walls, and a bounded local left-bank widening. Earned Moon+Double lands; Crown does not. External held Shellback-strength bounce+Crown fails; removing chamber/loop walls admits the same approach. Its low entrance remains walkable. |
+| S0 shortcut | Prose says ramp toD30/skips4m dock, but literal dock ends and raft starts atD26 | Reserve the leftmost final4m dock for a D22→26 descent into the raft, with a narrow divider after the unchanged gate. Keep gateD14.5/plateD11/open2.5. Actual ramp entry reaches the raft14frames earlier at120Hz than the unchanged normal dock line. |
+| Aqueduct prizes | Default helper adds12raw and a second1UP; explicit prizes were live before reveal and the pack retained collision | Explicit jackpot0/oneUp:false; L6-only guard exposes exactly1UP/6raw/5raw-pack after the route rises with deaths0. Hiding also disables pack solidity, including restore/broken states. Later death closes platforms and prizes. Static Ticket taken/seq records are preserved. |
+| Guide arcs | Stale array examples do not match scalar boxKit.guideArc and create NaNs | Scalar calls with D260–268/base1.6/hump.8 andD393–411/base1.4/hump.8. Full ordinary/trial scene transforms and vertex arrays are finite. |
+| River Shellback | Generic onSlide bonks; owning section3.8 requires the raft to flip the D210 enemy | Narrow per-instance raft+alive+walk opt-in. Actual descending hop rams/flips, then stomps the flipped shell and reaches ring pickups. On-foot, vacuum and other Shellbacks keep their prior behavior. |
+| Loop lifecycle | Session identity can stay unchanged while pause-quit disposal precedes a pending fade | Entry/current/finally/update honor session.disposed. Deferred-fade flag-contract regression verifies no stale spawn, camera, audio, second UI fade or shared-player unfreeze. Real Session.dispose coverage awaits the newest-main integration rebase. |
 
-## Remaining work
+These are explicit authored departures/integration reconciliations for root/owner review; this document does not itself grant merge approval.
 
-- Rebase onto current main to test actual H51 Moon/earned Bark and H32 depth behavior.
-- Author and physically prove the Moon reward above Gutter (literal +4.6 is bypassable).
-- Complete high-loop housing and grounded safe-yard return semantics while genuine river falls still die. Prevent Pump House-to-goal and high-loop-to-main gauntlet skips.
-- Prove live-clock lane fairness, absent-support negative controls, supported spawn/checkpoint recovery, dust-wall reward gating, ordinary traversal and resource teardown.
-- Independent whole-level review, browser/manual verification, complete tests, integration and CI remain pending. No GPU/browser run has been performed for this draft.
+## Verification
+
+- Final builder test file:21tests pass against actual Player/World/Stage and authored geometry. Art/render loading is mocked; enemy actors are isolated in the timing-route probes, so those tests establish movement/timing feasibility rather than complete enemy fairness.
+- Timing cases: both positive geometry routes; twelve live entry-phase cases at120Hz; eight additional live cases at30/60Hz. Bounded absent-support negatives include180 ordinary gear/earned-move starts and96 early Crown/fully charged earned Moon starts, God off. These are bounded searches, not an exhaustive proof of every possible input.
+- Moon: walkable entrance; charged positive and Crown negative; external bounce negative with a positive removed-wall control; all10Tickets collected from the ledge.
+- Physical safe-yard versus genuine-river falls; both loop exit coordinates and haul persistence; actual Dust Wall guard; exact aqueduct inventory/reveal/broken/restore/death collision states; finite default-decor ordinary/trial scenes; Remix Golden inventory.
+- Rebased component/compatibility probes passed for raft, falls, ride behavior, hazards/barrels, presentation, Moon and side-input behavior. The earlier complete suite passed102files/961tests before the last independent-review closures. It is not attributed as a final-SHA full-suite result. Root will run the final complete suite after activation.
+
+Tests emit bounded diagnostic JSON under/tmp/h45-*.json and are reproducible from tests/rapids.test.js.
+
+## Remaining integration and manual verification
+
+- Root shared activation and metadata, latest-main union (including actual Session.dispose), H62 authored reflection adapters, independent actual whole-builder/Golden-raft probes, final full suite/build, exclusive frozen-browser activation and CI.
+- No unaided whole-level Golden run, three first-play attempts per section, human first-play death target11–15, medal-time calibration, complete enemy readability/fairness, or final narrow-screen map verification has been performed by this author. Do not describe these as verified.
+- No deployment, board publication, media generation or vendor update was performed.
