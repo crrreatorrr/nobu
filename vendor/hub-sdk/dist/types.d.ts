@@ -82,6 +82,8 @@ export interface TicketBalanceResult {
 }
 export interface EventResult {
     granted?: RelicId;
+    /** Cosmetic items (pets) this event granted, from the live server (migration 0030). `[]` when none. */
+    granted_items?: string[];
 }
 /** Nakama session from `redeemTicket`. The HTTP key is not involved. */
 export interface RedeemedSession {
@@ -179,8 +181,8 @@ export interface LeaderboardTop {
     rows: LeaderboardRow[];
     me: LeaderboardRow | null;
 }
-/** NOBU time-trial floors per Classic level or versioned layout, integer ms (Contract C13). */
-export declare const NOBU_TRIAL_FLOOR_MS: Readonly<Record<'1' | '2' | '3' | '1v2' | '2v2' | '3v2', number>>;
+/** NOBU time-trial floors per Classic level, versioned layout or Chapter 2 level, integer ms (Contract C13). */
+export declare const NOBU_TRIAL_FLOOR_MS: Readonly<Record<'1' | '2' | '3' | '1v2' | '2v2' | '3v2' | '4' | '6' | '5', number>>;
 /** NOBU time-trial ceiling, integer ms. */
 export declare const NOBU_TRIAL_CEIL_MS = 1800000;
 export declare function isGameId(value: string): value is GameId;

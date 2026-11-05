@@ -2,8 +2,8 @@
 
 - repo: https://github.com/crrreatorrr/metaverse-hub
 - branch: main
-- sha: 93e4894
-- package: packages/hub-sdk @ 0.6.0
+- sha: b8636ee
+- package: packages/hub-sdk @ 0.6.1
 - built with: `node scripts/vendor-sdk.mjs`
 
 Layout matches the previous vendor tree (`package.json`, `README.md`, `dist/**/*.js`, `dist/**/*.d.ts`, now with the `dist/realtime/` folder). No source maps are included, and `sourceMappingURL` lines are stripped.
