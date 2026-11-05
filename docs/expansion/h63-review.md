@@ -101,7 +101,8 @@ unaided five-fight gameplay, human No-Hit, audio and readability acceptance rema
 ## Assisted browser evidence and map placement closure
 
 Exclusive Chromium/SwiftShader browser verification passed on source `c0c6c605`: actual Game starts
-all five existing arenas in order; each boss death from its final stage (Queen stage4) restarts stage1
+all five existing arenas in order; with each actual boss phase marker set directly to its final stage
+(Queen stage4), real Player death restarts stage1
 with zero masks, neutral DDA and unchanged five lives/77 Tickets. Won-fight transitions retain one mask
 and zero depleted Golden Collar charges. The catalog collar is an in-memory loadout fixture; no gear
 ownership is granted. Active/death-delay time advances, pause/intermission time does not. Assisted
