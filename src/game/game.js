@@ -478,7 +478,8 @@ export class Game {
       <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
-    this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${chapterMapMarkup(chapterMapPaths(d,LEVELS,fresh))}${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
+    this.ui.setScreen(`<div class="map-layout"><div class="map-scroll"><div class="map-surface"><div class="map-island"><div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${chapterMapMarkup(chapterMapPaths(d,LEVELS,fresh))}${nodes}</div></div></div><div class="map-details">${this.exchangeOpen ? '' : info}</div></div>${exchange}`);
+    this.ui.screen?.querySelector?.('.map-node.sel')?.scrollIntoView?.({block:'center',inline:'center',behavior:'auto'});
   }
 
   // Hub board line for the selected level, fetched at most once a minute per level. Empty when

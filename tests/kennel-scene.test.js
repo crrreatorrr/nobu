@@ -40,3 +40,14 @@ it('runs metadata validation after awaited Game start, chains existing wrappers 
   report.mockClear(); installKennelChecks(outer, report); expect(await outer.startLevel()).toBe(9); expect(report).not.toHaveBeenCalled();
   expect(original).toBe(game.startLevel);
 });
+
+it('accepts trial-omitted detour dogs while still checking main dogs and ordinary censuses',()=>{
+  const dog=Object.create(ConedDog.prototype);dog.dogId='6:shiba-a';dog.pos=new THREE.Vector3(0,0,-5);
+  const session={level:6,trial:true,def:{dogs:{'shiba-a':'Start','pug-b':'Rain Gutter'},sections:[{name:'Rain Gutter',detour:true}]},
+    stage:{entities:[dog],track:{project:(x,z)=>({s:-z}),sections:[{d0:0,d1:10,name:'Start'}]}}};
+  expect(checkDogMetadata(session)).toEqual([]);
+  session.stage.entities=[];
+  expect(checkDogMetadata(session)).toEqual([{level:6,id:'shiba-a',problem:'missing authored dog'}]);
+  session.stage.entities=[dog];session.trial=false;
+  expect(checkDogMetadata(session)).toEqual([{level:6,id:'pug-b',problem:'missing authored dog'}]);
+});

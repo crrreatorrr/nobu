@@ -145,6 +145,7 @@ export class Session {
     const g = this.game;
     const ui = g.ui;
     this.busy = true;
+    this.loading = true;
     this.phase = 'level';
     ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
     ui.loadingProgress(0.05, 'Saving progress...');
@@ -194,6 +195,7 @@ export class Session {
     // newly earned boss moves get a pop-up the first time
     const ab = g.player.abilities;
     for (const id of ['glide', 'zoom', 'bark']) if (ab[id]) { g.ui.tutorial(id); break; }
+    this.loading = false;
     this.busy = false;
   }
 
@@ -897,7 +899,7 @@ export class Session {
   // ---------- per-frame ----------
   update(dt) {
     const g = this.game;
-    if (!this.stage) return;
+    if (!this.stage || this.loading) return;
     this.godUsed ||= !!save.data.godMode;
     if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
     if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
