@@ -6,10 +6,10 @@ export { LAYOUT, HUB_LAYOUT };
 // The hub server applies the same floor and ceiling (metaverse-hub CONTRACT C13).
 // NOBU may be stricter here, never looser.
 
-/** Hub board for trial times. One board, variant = level ("1" | "2" | "3"), integer ms, lower is better. */
+/** Hub board for trial times. One board, variant = current level/layout key, integer ms, lower is better. */
 export const TRIAL_BOARD = 'nobu_trial_time';
-// Public variants stay gated until the owner-deployed Hub supports them (H70).
-export const TRIAL_LEVELS = Object.freeze([1, 2, 3]);
+// Activate only with matching owner-confirmed Hub deployment and vendored SDK (H70).
+export const TRIAL_LEVELS = Object.freeze([1, 2, 3, 4, 6, 5]);
 // Shipped stages can keep local trial records before their public boards exist.
 export const LOCAL_TRIAL_LEVELS = Object.freeze([1, 2, 3, 4, 6, 5]);
 

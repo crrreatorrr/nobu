@@ -152,11 +152,10 @@ on death, disable gear effects and retain earned story moves. Freeze Packs pause
 Bronze/Silver/Gold tags and an eligible Platinum target.
 
 The current extended L1–3 layouts are **layout 2**; previous layout-1 records are retained separately
-as **Classic**. L4, L6 and L5 also keep local trial bests. The public board is `nobu_trial_time`, but
-this client still has `TRIAL_LEVELS = [1, 2, 3]` and `HUB_LAYOUT = {1:1, 2:1, 3:1}`. Consequently,
-**new times on the current layouts remain local and are not queued for upload** until the matching
-owner-deployed hub support and client gate are enabled. L4/L6/L5 have no enabled public variants.
-Merging server code alone does not enable or deploy those boards.
+as **Classic**. All six main levels keep local bests and support eligible public submissions to
+`nobu_trial_time`: variants `1v2`, `2v2`, `3v2`, `4`, `6` and `5`. This client gate must ship only
+after the owner confirms the matching hub deployment and the SDK is synchronized; merging server
+code alone does not deploy or enable the boards. Classic records remain archived separately.
 
 Client validation floors, in seconds, are:
 
@@ -168,8 +167,8 @@ Client validation floors, in seconds, are:
 The ceiling is 30 minutes. These bounds are separate from medal targets; source values live in
 `src/config/trials.js`. Public submission, when enabled, also requires a hub player session and an
 eligible run. Standalone times are never uploaded retroactively. Eligible score-queue rows remain
-scoped to player and variant, with network retries; they are not a promise that gated variants post.
-The map can show Classic records and a total of the three L1–3 trial bests when available.
+scoped to player and variant, with network retries; a successful server acknowledgement confirms posting.
+The map can show Classic records and a total of all six current trial bests once each exists.
 
 ## Saves and New Game
 
