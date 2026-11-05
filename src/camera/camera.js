@@ -42,7 +42,35 @@ export class GameCamera {
     }
   }
 
+  // Backstop metadata is additive: ordinary terrain and every non-track camera
+  // keep their existing framing. Leave the near plane in front of the stop.
+  _backstopS(player, requested) {
+    const tr = this.opts.track, sp = player.body.s ?? 0;
+    if (!tr || !['track', 'rise', 'trackFront'].includes(this.mode)) return requested;
+    const margin = this.cam.near + .1, front = this.mode === 'trackFront';
+    let safe = requested;
+    for (const span of tr.spans || []) {
+      if (!span.cameraBackstop || span.disabled) continue;
+      if (front && span.d0 >= sp) safe = Math.min(safe, span.d0 - margin);
+      else if (!front && span.d1 <= sp) safe = Math.max(safe, span.d1 + margin);
+    }
+    return safe;
+  }
+
+  _constrainBackstop(player, position) {
+    const tr = this.opts.track;
+    if (!tr || !['track', 'rise', 'trackFront'].includes(this.mode)) return;
+    const projection = tr.project(position.x, position.z);
+    const safe = this._backstopS(player, projection.s);
+    if (safe === projection.s) return;
+    const height = position.y;
+    tr.toWorld(safe, projection.u, 0, position);
+    position.y = height;
+  }
+
   _targets(player, out) {
+    out.backstopClamped = false;
+    out.minBackstopY = null;
     const p = player.pos;
     const o = this.opts;
     if (Number.isFinite(o.holdY)) this.trackY = o.holdY;
@@ -53,24 +81,39 @@ export class GameCamera {
     if ((this.mode === 'track' || this.mode === 'trackFront' || this.mode === 'side' || this.mode === 'rise') && o.track) {
       const tr = o.track;
       const sp = player.body.s ?? 0, u = player.body.u ?? 0;
+      let framing = 1;
       // keep the camera above the path itself (hills behind / ahead)
       if (this.mode === 'side') {
         tr.toWorld(sp + (o.ahead ?? 2.5), (o.side ?? 1) * (o.dist ?? 13), 0, out.pos);
         out.pos.y = ty + (o.height ?? 4.5);
         tr.toWorld(sp + (o.ahead ?? 2.5), 0, 0, out.look); out.look.y = ty + 1;
       } else if (this.mode === 'track' || this.mode === 'rise') {
-        const cs = sp - (o.dist ?? (this.mode === 'rise' ? 9.5 : 8.6));
-        tr.toWorld(cs, u * 0.55, 0, out.pos);
+        const distance = o.dist ?? (this.mode === 'rise' ? 9.5 : 8.6);
+        const desired = sp - distance, cs = this._backstopS(player, desired);
+        out.backstopClamped = cs !== desired;
+        framing = cs === desired ? 1 : Math.max(0, Math.min(1, (sp - cs) / distance));
+        tr.toWorld(cs, u * (1 - .45 * framing), 0, out.pos);
         out.pos.y = Math.max(ty + (o.height ?? 4.3), tr.heightAt(cs) + 2.2);
-        tr.toWorld(sp + (o.ahead ?? 5.5), u * 0.8, 0, out.look);
+        tr.toWorld(sp + (o.ahead ?? 5.5) * framing, u * (1 - .2 * framing), 0, out.look);
         out.look.y = ty + 1.15;
-        if (this.mode === 'rise') { out.pos.y = ty + (o.height ?? 2.2); out.look.y += o.lookUp ?? 3; }
+        if (this.mode === 'rise') { out.pos.y = ty + (o.height ?? 2.2); out.look.y += (o.lookUp ?? 3) * framing * framing; }
       } else {
-        const cs = sp + (o.dist ?? 12.5);
-        tr.toWorld(cs, u * 0.5, 0, out.pos);
+        const distance = o.dist ?? 12.5;
+        const desired = sp + distance, cs = this._backstopS(player, desired);
+        out.backstopClamped = cs !== desired;
+        framing = cs === desired ? 1 : Math.max(0, Math.min(1, (cs - sp) / distance));
+        tr.toWorld(cs, u * (1 - .5 * framing), 0, out.pos);
         out.pos.y = Math.max(ty + (o.height ?? 6.6), tr.heightAt(cs) + 3);
-        tr.toWorld(sp - (o.behind ?? 0.5), u * 0.7, 0, out.look);
+        tr.toWorld(sp - (o.behind ?? 0.5) * framing, u * (1 - .3 * framing), 0, out.look);
         out.look.y = ty + 1.0;
+      }
+      if (out.backstopClamped) {
+        // A low rise camera can be almost overhead at a stop. Keep the body's
+        // width inside even the narrow viewport's horizontal field of view.
+        const aperture = Math.tan(this.cam.fov * Math.PI / 360) * Math.min(1, this.cam.aspect);
+        const radius = Math.max(player.body.hw ?? .3, player.body.hd ?? .3, .36);
+        out.minBackstopY = p.y + ((player.body.h ?? 1.3) + radius / aperture + .15) * (1 - framing);
+        out.pos.y = Math.max(out.pos.y, out.minBackstopY);
       }
       return;
     }
@@ -101,7 +144,7 @@ export class GameCamera {
     this._targets(player, t);
     this.pos.copy(t.pos);
     this.look.copy(t.look);
-    this._apply(0);
+    this._apply(0, player);
   }
 
   update(dt, player) {
@@ -117,12 +160,18 @@ export class GameCamera {
       this.switchT = Math.max(0, this.switchT - dt);
       this.pos.x = damp(this.pos.x, t.pos.x, k, dt);
       this.pos.y = damp(this.pos.y, t.pos.y, 4.5, dt);
+      if (t.minBackstopY !== null) this.pos.y = Math.max(this.pos.y, t.minBackstopY);
       this.pos.z = damp(this.pos.z, t.pos.z, k, dt);
-      this.look.x = damp(this.look.x, t.look.x, k + 3, dt);
-      this.look.y = damp(this.look.y, t.look.y, 6, dt);
-      this.look.z = damp(this.look.z, t.look.z, k + 3, dt);
+      if (t.backstopClamped) {
+        // At the wall a stale, eased lookahead can look past the nearby player.
+        this.look.copy(t.look);
+      } else {
+        this.look.x = damp(this.look.x, t.look.x, k + 3, dt);
+        this.look.y = damp(this.look.y, t.look.y, 6, dt);
+        this.look.z = damp(this.look.z, t.look.z, k + 3, dt);
+      }
     }
-    this._apply(dt);
+    this._apply(dt, player);
     if (player) {
       const f = this.basis.forward.set(this.look.x - this.pos.x, 0, this.look.z - this.pos.z).normalize();
       this.basis.right.set(-f.z, 0, f.x);
@@ -134,7 +183,8 @@ export class GameCamera {
     }
   }
 
-  _apply(dt) {
+  _apply(dt, player) {
+    if (player && !this.cine) this._constrainBackstop(player, this.pos);
     this.cam.position.copy(this.pos);
     if (this.shakeT > 0) {
       this.shakeT -= dt;
@@ -142,6 +192,7 @@ export class GameCamera {
       this.cam.position.x += rand(-a, a);
       this.cam.position.y += rand(-a, a);
       this.cam.position.z += rand(-a, a) * 0.5;
+      if (player && !this.cine) this._constrainBackstop(player, this.cam.position);
     }
     this.cam.lookAt(this.look);
   }
