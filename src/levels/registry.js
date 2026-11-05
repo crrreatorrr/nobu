@@ -81,7 +81,7 @@ export const LEVELS = {
     hidden: { section: L4_TEXT.sections.basement, move: 'dust' },
   },
   rush: { id: 'rush', name: RUSH_TEXT.title, meta: true, rush: true, bonus: false, shipped: true, trial: false,
-    mapPos: { x: 67, y: 83 }, unlock: rushAvailable },
+    mapPos: { x: 12, y: 75 }, unlock: rushAvailable },
   kennel: { id: 'kennel', name: 'The Kennel', meta: true, bonus: false, shipped: true, trial: false,
     mapPos: { x: 88, y: 72 }, unlock: (data) => !!data.open?.kennel },
   ...Object.fromEntries([buildGauntlet1, buildGauntlet2, buildGauntlet3].map((build, i) => {

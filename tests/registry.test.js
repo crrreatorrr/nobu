@@ -26,7 +26,7 @@ describe('level registry', () => {
     expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 4, 'rush', 'kennel']);
     expect(playOrder()).toEqual([1, 2, 3, 4]);
     expect(MAP_ORDER.map((id) => levelDef(id).mapPos)).toEqual([
-      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 40 }, { x: 67, y: 83 }, { x: 88, y: 72 },
+      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 40 }, { x: 12, y: 75 }, { x: 88, y: 72 },
     ]);
     for (const id of [1, 2, 3, 4]) {
       expect(levelDef(id).id).toBe(id);

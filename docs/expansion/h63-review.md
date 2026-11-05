@@ -97,3 +97,28 @@ Final source verification after that correction: **102 files / 1,023 tests passe
 existing bundle-size warning and jsdom navigation warnings remain. Session.js and H46's atomic claim
 implementation have no H63 diff. GPU/browser is still pending its coordinator-assigned exclusive slot;
 unaided five-fight gameplay, human No-Hit, audio and readability acceptance remain unrun.
+
+## Assisted browser evidence and map placement closure
+
+Exclusive Chromium/SwiftShader browser verification passed on source `c0c6c605`: actual Game starts
+all five existing arenas in order; each boss death from its final stage (Queen stage4) restarts stage1
+with zero masks, neutral DDA and unchanged five lives/77 Tickets. Won-fight transitions retain one mask
+and zero depleted Golden Collar charges. The catalog collar is an in-memory loadout fixture; no gear
+ownership is granted. Active/death-delay time advances, pause/intermission time does not. Assisted
+last-HP defeats produce the Rush-only clear record (`noHit:false`, synthetic 11,500ms), followed by
+actual complete→map selection/disposal. Every other Save field stays equal. Authored dialogue is
+skipped; actual intro animations and arenas run. There are zero runtime/console errors, Hub calls
+or external writes. This synthetic time is test evidence, not a play-performance benchmark.
+
+Evidence: `/tmp/nobu-h63-browser-results.json`, `/tmp/nobu-h63-arena-{0..4}.png`,
+`/tmp/nobu-h63-result.png` and `/tmp/nobu-h63-map.png`. The fresh-profile strict-port browser and Vite
+server closed before edits; ports5293/9393 were confirmed closed. No HMR source change occurred.
+
+The browser screenshot revealed the original Rush node at67/83 beneath the map panel. The coordinator
+approved the routine layout correction to12/75, clear of L1 and future canonical Kennel12/40; there
+are no authored Rush map coordinates. Only the registry position and its expected fixture changed.
+The previous full **102 files / 1,023 tests** therefore applies to the pre-position source; scoped
+Rush/actual Session/map/registry checks pass **3 files / 35 tests** after this position-only change,
+and the production build passes (183 modules). A brief map-only screenshot closure follows; no
+full combat replay or full-suite repeat is needed for this cosmetic coordinate change. Unaided Rush,
+human No-Hit, audio and gameplay readability acceptance remain unrun.
