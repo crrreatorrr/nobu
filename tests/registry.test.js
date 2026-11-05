@@ -23,10 +23,10 @@ const oldMapOpen = (id, data) => {
 
 describe('level registry', () => {
   it('keeps the current map order, node positions and main-level ids', () => {
-    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 4, 'kennel']);
+    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 4, 'rush', 'kennel']);
     expect(playOrder()).toEqual([1, 2, 3, 4]);
     expect(MAP_ORDER.map((id) => levelDef(id).mapPos)).toEqual([
-      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 40 }, { x: 88, y: 72 },
+      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 40 }, { x: 12, y: 75 }, { x: 88, y: 72 },
     ]);
     for (const id of [1, 2, 3, 4]) {
       expect(levelDef(id).id).toBe(id);
@@ -101,4 +101,12 @@ describe('level registry', () => {
     }
     expect(new Set(ids).size).toBe(40);
   });
+});
+
+
+it('unlocks the meta Rush after Queen without adding a story level or trial', () => {
+  expect(isOpen('rush', {beaten:{4:true}})).toBe(false);
+  expect(isOpen('rush', {beaten:{5:true}})).toBe(true);
+  expect(levelDef('rush')).toMatchObject({meta:true, rush:true, trial:false});
+  expect(playOrder()).not.toContain('rush');
 });

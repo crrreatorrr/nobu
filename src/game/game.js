@@ -12,11 +12,13 @@ import { dressNobuModel, setCollarGlow } from '../player/accessories.js';
 import { Loadout } from '../gear/loadout.js';
 import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
+import { RushSession } from './rushSession.js';
+import { rushAvailable } from './rushArenas.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
-import { MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT, GAUNTLET_TEXT } from '../story/script.js';
+import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT, GAUNTLET_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
@@ -234,6 +236,7 @@ export class Game {
   }
 
   openKennel(mode = null) {
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (!isOpen('kennel', save.data)) return false;
     this.kennel?.dispose();
     this.session?.dispose(); this.session = null;
@@ -246,9 +249,10 @@ export class Game {
   }
 
   toTitle() {
-    if (this.session?.def?.gauntlet) this.session.dispose();
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
+    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
     this.session = null;
     this._refreshTitleNobu();
     this.applyKennelTint(this.titleNobu, {});
@@ -397,7 +401,9 @@ export class Game {
   }
 
   toMap(sel = 1) {
-    if (this.session?.def?.gauntlet) this.session.dispose();
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+    this.session = null;
     sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
     this._unlockMainChapters();
     if (levelDef(4)?.shipped && save.data.finished && !save.data.seenCh2) {
@@ -427,7 +433,7 @@ export class Game {
       const p = levelDef(n).mapPos;
       const bonus = levelDef(n).bonus, meta = !!levelDef(n).meta;
       const locked = !isOpen(n, d);
-      const beaten = bonus ? !!d.bonus?.[n]?.beaten : save.beatenOf(n);
+      const beaten = levelDef(n).rush ? !!d.rush?.clear : bonus ? !!d.bonus?.[n]?.beaten : save.beatenOf(n);
       const gauntlet = hostGauntlet(n);
       nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
         ${!beaten && !bonus && !meta ? '<div class="cone-cloud"></div>' : ''}
@@ -441,8 +447,12 @@ export class Game {
     }
     const lv = this.mapSel;
     const bonusSel = levelDef(lv).bonus, metaSel = !!levelDef(lv).meta;
-    const head = metaSel ? KENNEL_TEXT.title : bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
-    const status = esc(metaSel ? KENNEL_TEXT.mapDescription : goalHint(this, lv));
+    const rushSel = !!levelDef(lv).rush;
+    const head = rushSel ? RUSH_TEXT.title : metaSel ? KENNEL_TEXT.title : bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
+    const rushStatus = [isOpen(lv, d) ? RUSH_TEXT.description : RUSH_TEXT.locked,
+      d.rush?.clear ? RUSH_TEXT.record : '', d.rush?.noHit ? RUSH_TEXT.noHitRecord : '',
+      d.rush?.bestMs ? `${RUSH_TEXT.best} ${fmtTime(d.rush.bestMs / 1000)}` : ''].filter(Boolean).join(' · ');
+    const status = esc(rushSel ? rushStatus : metaSel ? KENNEL_TEXT.mapDescription : goalHint(this, lv));
     const sniffer = !metaSel && kennelStatus(d, LEVELS).unlocks.includes('sniffer') ? missingSecrets(d, LEVELS).find((def) => String(def.id) === String(lv)) : null;
     const snifferLine = sniffer ? `<div class="hint">${esc(KENNEL_TEXT.secretLine(sniffer))}</div>` : '';
     const tr = !!levelDef(lv).trial && save.beatenOf(lv)
@@ -462,7 +472,7 @@ export class Game {
       ? `<div class="hint">${esc(SECRET_ENDING_HINT(goodBoyPercent(d, LEVELS).total))}</div>` : '';
     const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel })}
       <div class="hint">${status}</div>${secretHint}${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${gauntletLine}${world}${totalNote}
-      <div class="hint" style="margin-top:6px">${metaSel ? esc(KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
+      <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
     this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
@@ -590,6 +600,11 @@ export class Game {
   }
 
   exitToHub() {
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if (this.session?.rush || this.session?.def?.gauntlet) {
+      if (!this.session.disposed) this.session.dispose();
+      this.session = null;
+    }
     this.hubExit = true;
     hub.exit('exit_to_hub');
   }
@@ -610,25 +625,30 @@ export class Game {
       if (def && isOpen(def.id, d)) { audio.play('select'); this.startLevel(def.id); }
       return; // RB also maps to bite: consume it before ordinary-level confirmation.
     }
-    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta) this.openKennel(); else this.startLevel(this.mapSel); }
+    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta && !levelDef(this.mapSel).rush) this.openKennel(); else this.startLevel(this.mapSel); }
     else if (input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
 
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
-    if (levelDef(n)?.meta) return this.openKennel();
+    if (n === 'rush' && !rushAvailable(save.data)) return false;
+    if (levelDef(n)?.meta && n !== 'rush') return this.openKennel();
     if (levelDef(n)?.gauntlet && !isOpen(n, save.data)) return;
     if (levelDef(n)?.gauntlet) opts = { ...opts, trial: false };
+    const epoch = this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
     await this.ui.fade(1);
+    if (epoch !== this._launchEpoch) return false;
     this.ui.clearScreen();
     this.ui.trialTime(null);
-    if (this.session?.def?.gauntlet) this.session.dispose();
-    if (!levelDef(n)?.gauntlet) save.data.lastLevel = n;
-    if (save.data.lives < 0) save.data.lives = START_LIVES;
-    save.write();
+    if (n !== 'rush') {
+      if (!levelDef(n)?.gauntlet) save.data.lastLevel = n;
+      if (save.data.lives < 0) save.data.lives = START_LIVES;
+      save.write();
+    }
     this.state = 'play';
-    this.session = new Session(this, n, opts);
+    this.session = n === 'rush' ? new RushSession(this) : new Session(this, n, opts);
     this.flyingMasks.length = 0;
     await this.session.startLevel();
   }
@@ -733,8 +753,10 @@ export class Game {
       else if (it.id === 'hub') { this.exitToHub(); }
       else if (it.id === 'quit') {
         this.ui.pinHud(false);
-        save.write();
-        this.ui.fade(1).then(() => this.toMap(this.session.level));
+        const level = this.session.level;
+        if (!this.session.rush) save.write();
+        if ((this.session.rush || this.session.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+        this.ui.fade(1).then(() => this.toMap(level));
       }
     }
   }
@@ -937,6 +959,22 @@ export class Game {
       board: this.ui.boneBoard(n, { bonus }), hint: goalHint(this, n, st),
       milestones: (st.kennelFresh || []).map((id) => ({ id, text: BONE_TEXT.kennel(id) })),
     });
+  }
+
+  rushCompleted(session, result) {
+    if (this.session !== session) return;
+    this.ui.trialTime(null);
+    this.ui.hideHud();
+    this.ui.bossHide();
+    this.state = 'complete';
+    this.completeMode = 'rush';
+    this.completeT = 0;
+    this.completeMinT = 2.3;
+    this.completeNext = { n: 'rush', bonus: true };
+    audio.playMusic('complete');
+    const medal = result.eligible ? (result.noHit ? RUSH_TEXT.noHit : RUSH_TEXT.record) : RUSH_TEXT.ineligible;
+    this.ui.setScreen(`<div class="big-title">${RUSH_TEXT.clear}</div><div class="big-title">${fmtTime(result.ms / 1000)}</div><div class="sub-title">${medal}</div><div class="hint">${RUSH_TEXT.continue}</div>`, 'dim');
+    this.ui.fade(0);
   }
 
   async updateComplete(dt) {

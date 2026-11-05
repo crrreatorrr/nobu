@@ -302,11 +302,16 @@ export const save = {
     return data;
   },
   // Re-read the disk first so another tab's faster trial or bigger best is never overwritten.
-  write({ merge = true } = {}) {
+  write({ merge = true, progressOnly = false } = {}) {
     try {
-      if (merge) {
+      if (merge || progressOnly) {
         const disk = readDisk();
-        if (disk) mergeScores(data, disk);
+        if (disk) {
+          mergeScores(data, disk);
+          // Non-economic modes must not overwrite another tab's newer wallet.
+          // This refresh does not restore lives, checkpoints or whole-save state.
+          if (progressOnly) data.tickets = finite(disk.tickets, 0);
+        }
       }
       localStorage.setItem(KEY, JSON.stringify(data));
     } catch (e) { /* storage unavailable */ }

@@ -1,3 +1,5 @@
+import { rushAvailable } from '../game/rushArenas.js';
+import { RUSH_TEXT } from '../story/script.js';
 import { buildLevel4 } from './level4.js';
 import { buildBoss4Arena } from './boss4Arena.js';
 import { RoombaTitan } from '../bosses/roombaTitan.js';
@@ -78,6 +80,8 @@ export const LEVELS = {
       {d0:186,d1:246.001,name:L4_TEXT.sections.pantry,detour:true}].sort((a,b)=>a.d0-b.d0),
     hidden: { section: L4_TEXT.sections.basement, move: 'dust' },
   },
+  rush: { id: 'rush', name: RUSH_TEXT.title, meta: true, rush: true, bonus: false, shipped: true, trial: false,
+    mapPos: { x: 12, y: 75 }, unlock: rushAvailable },
   kennel: { id: 'kennel', name: 'The Kennel', meta: true, bonus: false, shipped: true, trial: false,
     mapPos: { x: 88, y: 72 }, unlock: (data) => !!data.open?.kennel },
   ...Object.fromEntries([buildGauntlet1, buildGauntlet2, buildGauntlet3].map((build, i) => {
@@ -93,7 +97,7 @@ for (const [id, def] of Object.entries(LEVELS)) {
   if (HIDDEN_SECTION[id]) def.hidden ??= { section: SECTION_TEXT[HIDDEN_SECTION[id]], move: null };
 }
 
-export const MAP_ORDER = [1, 'ride', 2, 'cave', 3, 4, 'kennel'];
+export const MAP_ORDER = [1, 'ride', 2, 'cave', 3, 4, 'rush', 'kennel'];
 export const LEVEL_NAMES = Object.fromEntries(Object.entries(LEVELS).map(([id, def]) => [id, def.name]));
 
 // Numeric ids and their save-key strings resolve to the same definition.

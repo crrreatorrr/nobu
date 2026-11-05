@@ -3,7 +3,7 @@ vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CORRUPT_KEY, SAVE_KEY, migrateSave, save } from '../src/core/save.js';
 import { LEVEL_DOGS } from '../src/levels/metadata.js';
-import { MAP_ORDER, isOpen } from '../src/levels/registry.js';
+import { MAP_ORDER, isOpen, levelDef } from '../src/levels/registry.js';
 import { Game } from '../src/game/game.js';
 import { Player } from '../src/player/player.js';
 import { hub } from '../src/hub/hubBridge.js';
@@ -164,14 +164,14 @@ describe('keyed runtime readers', () => {
     const open = () => MAP_ORDER.filter((id) => isOpen(id, save.data));
     expect(save.hasProgress()).toBe(false);
     expect(open()).toEqual([1]);
-    for (const [level, expected] of [[1, [1, 'ride', 2]], [2, [1, 'ride', 2, 'cave', 3]], [3, MAP_ORDER.filter((id) => id !== 'kennel')]]) {
+    for (const [level, expected] of [[1, [1, 'ride', 2]], [2, [1, 'ride', 2, 'cave', 3]], [3, MAP_ORDER.filter((id) => !levelDef(id).meta)]]) {
       Game.prototype.levelCleared.call(game, { level, levelTickets: 0 });
       expect(open()).toEqual(expected);
       expect(save.hasProgress()).toBe(true);
     }
     save.write();
     save.load();
-    expect(open()).toEqual(MAP_ORDER.filter((id) => id !== 'kennel'));
+    expect(open()).toEqual(MAP_ORDER.filter((id) => !levelDef(id).meta));
     bank.mockRestore();
   });
 
