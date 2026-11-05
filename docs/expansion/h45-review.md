@@ -43,3 +43,11 @@ Tests emit bounded diagnostic JSON under/tmp/h45-*.json and are reproducible fro
 - Root shared activation and metadata, remaining latest-main union and H62 authored reflection adapters, independent actual whole-builder/Golden-raft probes, final full suite/build, exclusive frozen-browser activation and CI.
 - No unaided whole-level Golden run, three first-play attempts per section, human first-play death target11–15, medal-time calibration, complete enemy readability/fairness, or final narrow-screen map verification has been performed by this author. Do not describe these as verified.
 - No deployment, board publication, media generation or vendor update was performed.
+
+## Coordinator activation and lifecycle follow-up
+
+The shipped registry now includes main goal Level6, its seven stable dog IDs and static sections. The shipped census is47 and the base track81 points; the fixed159 cap is unchanged. Local trial6 uses floor30000ms and targets62/78/102/56, while public variants remain gated. Goal clears reconcile only shipped successors, preserving the retained clear for future Level5. Canonical Chapter2 pins follow new-levels-spec5.1, and newly unlocked chapter paths draw over0.8s with a chime. Green collection copy names both Pipeline and Bark Jungle.
+
+Independent actual pause→Quit probes found that pending goal/rain callbacks could settle and reopen the tally on the map. Main goal callbacks now verify session/stage ownership around deferred boundaries; main-goal exits retire the session and resolve/remove pending rain. Inner rain delays also reject retired presentation. Legacy bonus completion and ordinary Levels1–4 exit behavior remain unchanged. Six focused files/70 tests passed across actual Player/Game lifecycle, activation, mastery, ordinary economy, Gauntlets and Rush after this fix.
+
+The first activated full suite ran111 files with1121/1126 tests passing; five outdated census/floor/progression fixtures failed, including a missing mocked chapter reconciler. All43 tests in those four affected files passed after fixture corrections. This is not the final-head full result; the subsequent divider and lifecycle changes still require final integration checks and exact PR CI.

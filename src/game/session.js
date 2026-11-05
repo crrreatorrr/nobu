@@ -93,6 +93,7 @@ export class Session {
   // ---------- stage setup ----------
   _newStage(themeKey) {
     const g = this.game;
+    this._cancelGoalRain();
     if (this.stage) this.stage.dispose();
     const stage = new Stage(g, themeKey);
     this.stage = stage;
@@ -424,10 +425,14 @@ export class Session {
 
   // Every breakable Nobu skipped drops on his head, one by one, before the level ends.
   async _missedRain() {
-    const g = this.game, p = g.player;
+    const g = this.game, p = g.player, stage = this.stage;
+    const abandoned = () => this.def.goal && !this.def.bonus &&
+      (this.disposed || g.session !== this || this.stage !== stage || g.stage !== stage);
+    if (abandoned()) return;
     if (!this.breakablesTotal) return;
     const missed = this.stage.entities.filter((e) => e instanceof Breakable && e.countable && !e.broken).length;
     await wait(350);
+    if (abandoned()) return;
     if (!missed) {
       g.ui.banner('PERFECT!', this.stats?.perfectCandidate ? MASTERY_TEXT.perfectRain : 'Not a single backpack missed', 1.8);
       audio.play('oneUp');
@@ -437,11 +442,20 @@ export class Session {
     const tc = g.camera.basis?.toCamera;
     if (tc !== undefined) p.facing = p.targetFacing = tc;
     g.ui.banner('MISSED!', `0 / ${missed}`, 30);
-    this.rain = { list: [], total: missed, spawned: 0, hit: 0, t: 0.2, gap: Math.max(0.07, Math.min(0.3, 3 / missed)) };
-    await new Promise((resolve) => { this.rain.done = resolve; });
-    this.rain = null;
+    const rain = this.rain = { list: [], total: missed, spawned: 0, hit: 0, t: 0.2, gap: Math.max(0.07, Math.min(0.3, 3 / missed)) };
+    await new Promise((resolve) => { rain.done = resolve; });
+    if (this.rain === rain) this.rain = null;
+    if (abandoned()) return;
     g.ui.banner('MISSED!', `${missed} backpack${missed > 1 ? 's' : ''} left behind`, 1.4);
     await wait(900);
+  }
+
+  _cancelGoalRain() {
+    if (!this.def?.goal || this.def.bonus || !this.rain) return;
+    const rain = this.rain;
+    this.rain = null;
+    for (const drop of rain.list) this.stage?.scene.remove(drop.m);
+    rain.done?.();
   }
 
   _updateRain(dt) {
@@ -946,6 +960,7 @@ export class Session {
 
   dispose() {
     this.disposed = true;
+    this._cancelGoalRain();
     clearGauntletLook(this.game.player);
     if (this.def?.gauntlet) audio.setRate(1);
     if (this.stage) this.stage.dispose();

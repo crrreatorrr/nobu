@@ -23,6 +23,7 @@ import {Session} from '../src/game/session.js';
 import {makeKit,makeTrack,turtle} from '../src/levels/kit.js';
 import {hub} from '../src/hub/hubBridge.js';
 import {save} from '../src/core/save.js';
+import {audio} from '../src/audio/audio.js';
 import {resetWorld} from './helpers.js';
 const noop=()=>{};const sessions=[];
 beforeEach(()=>{resetWorld();vi.useFakeTimers();const ctx=new Proxy({measureText:()=>({width:50}),createRadialGradient:()=>({addColorStop:noop}),createLinearGradient:()=>({addColorStop:noop}),getImageData:(x,y,w,h)=>({data:new Uint8ClampedArray(w*h*4)})},{get:(o,k)=>o[k]??noop});vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(ctx);vi.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('');vi.spyOn(hub,'bank').mockResolvedValue();});
@@ -58,4 +59,24 @@ it.each(['wait900','rain','finalFade'])('rejects a retired main goal at %s after
 it('rejects direct Game settlement from a stale main-goal Session',()=>{
  const {game,s}=goalFixture();s._recordLevelStats();game.session=null;game.state='map';
  game.goalLevelCleared(s);expect(save.data.beaten[6]).not.toBe(true);expect(hub.bank).not.toHaveBeenCalled();expect(game.state).toBe('map');
+});
+
+it('does not show a retired Perfect banner or sound after the inner rain delay',async()=>{
+ const {game,s}=goalFixture();const done=s.reachGoal();await vi.advanceTimersByTimeAsync(900);
+ game.toMap(6);game.ui.banner.mockClear();audio.play.mockClear();await vi.runAllTimersAsync();await done;
+ expect(game.ui.banner).not.toHaveBeenCalledWith('PERFECT!',expect.anything(),expect.anything());
+ expect(audio.play).not.toHaveBeenCalledWith('oneUp');
+ expect(save.data.beaten[6]).not.toBe(true);expect(game.state).toBe('map');
+});
+
+it('resolves and removes active main-goal rain when the real map transition retires it',async()=>{
+ const {game,s}=goalFixture();for(const e of s.stage.entities)if(e.kind==='backpack')e.broken=false;
+ const done=s.reachGoal();await vi.advanceTimersByTimeAsync(1250);
+ expect(s.rain).not.toBeNull();s._updateRain(.21);
+ const drops=s.rain.list.map(d=>d.m);expect(drops.length).toBeGreaterThan(0);
+ game.toMap(6);game.ui.banner.mockClear();audio.play.mockClear();
+ expect(s.disposed).toBe(true);expect(s.rain).toBeNull();expect(drops.every(m=>m.parent===null)).toBe(true);
+ await vi.runAllTimersAsync();await done;
+ expect(game.ui.banner).not.toHaveBeenCalled();expect(audio.play).not.toHaveBeenCalled();
+ expect(hub.bank).not.toHaveBeenCalled();expect(save.data.beaten[6]).not.toBe(true);expect(game.state).toBe('map');
 });

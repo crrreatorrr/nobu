@@ -41,6 +41,8 @@ function esc(text) {
 }
 
 const hostGauntlet = (host) => Object.values(LEVELS).find((def) => def.gauntlet && def.host === host);
+const retiresOnLeave = (session) => !!(session?.rush || session?.def?.gauntlet ||
+  (session?.def?.goal && !session.def.bonus));
 const gauntletMedals = (row = {}) => ['clear', 'allBoxes', 'flawless'].map((key) =>
   `<span data-gauntlet-medal="${key}" title="${esc(GAUNTLET_TEXT[key])}">${row[key] ? '●' : '○'}</span>`).join(' ');
 
@@ -253,7 +255,7 @@ export class Game {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
-    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     this.session = null;
     this._refreshTitleNobu();
     this.applyKennelTint(this.titleNobu, {});
@@ -403,7 +405,7 @@ export class Game {
 
   toMap(sel = 1) {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
-    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     this.session = null;
     sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
     this._unlockMainChapters();
@@ -602,7 +604,7 @@ export class Game {
 
   exitToHub() {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
-    if (this.session?.rush || this.session?.def?.gauntlet) {
+    if (retiresOnLeave(this.session)) {
       if (!this.session.disposed) this.session.dispose();
       this.session = null;
     }
@@ -638,7 +640,7 @@ export class Game {
     if (levelDef(n)?.gauntlet && !isOpen(n, save.data)) return;
     if (levelDef(n)?.gauntlet) opts = { ...opts, trial: false };
     const epoch = this._launchEpoch = (this._launchEpoch || 0) + 1;
-    if ((this.session?.rush || this.session?.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     await this.ui.fade(1);
     if (epoch !== this._launchEpoch) return false;
     this.ui.clearScreen();
@@ -756,7 +758,7 @@ export class Game {
         this.ui.pinHud(false);
         const level = this.session.level;
         if (!this.session.rush) save.write();
-        if ((this.session.rush || this.session.def?.gauntlet) && !this.session.disposed) this.session.dispose();
+        if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
         this.ui.fade(1).then(() => this.toMap(level));
       }
     }
