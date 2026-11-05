@@ -200,9 +200,10 @@ html, body {
 .map-bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
 .map-layout { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; box-sizing: border-box; }
 .map-scroll { position: relative; flex: 1; min-height: min(240px, 35vh); overflow: auto; pointer-events: auto; touch-action: pan-x pan-y; }
-.map-surface { position: relative; width: 100%; min-width: 1080px; height: 100%; min-height: 480px; }
+.map-surface { position: relative; width: 100%; min-width: 1080px; height: 100%; min-height: 680px; }
 .map-island { position: absolute; inset: 100px 70px 20px; }
 .map-island .map-bg { background-size: 100% 100%; }
+.map-island .map-node .nobu-marker { top: -4px; left: -62px; width: 48px; }
 .map-details { flex: 0 1 auto; max-height: 42vh; overflow: auto; pointer-events: auto; }
 .map-details:empty { display: none; }
 .map-details .map-panel { position: relative; bottom: auto; left: auto; transform: none; min-width: 0; width: min(100%, 760px); margin: 0 auto; padding: 12px 18px; box-sizing: border-box; }
