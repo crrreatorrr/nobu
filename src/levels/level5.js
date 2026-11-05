@@ -74,7 +74,8 @@ export function buildLevel5(game,stage,tickets,{corrections=true,sealed=true,dec
   const candles=new THREE.Group(),bodyGeo=new THREE.BoxGeometry(1,1,1),wickGeo=new THREE.BoxGeometry(.04,.2,.04);
   const colors=[0x4ade80,0xff4a5a].map(color=>new THREE.MeshBasicMaterial({color})),wickMaterial=new THREE.MeshBasicMaterial({color:0xdce5e3});stage.scene.add(candles);
   const candle=(x,y,d,h)=>{const p=k.W(x,y,d),m=new THREE.Mesh(bodyGeo,colors[Math.random()<.5?0:1]);m.scale.set(.35,h,.35);m.position.copy(p);m.position.y+=h/2;candles.add(m);const wick=new THREE.Mesh(wickGeo,wickMaterial);wick.position.copy(p);wick.position.y+=h+.1;candles.add(wick);};
-  k.banks(-6,L5_END,(x,y,d)=>{const r=Math.random();if(r<.35)k.pipe(x,y,d,rand(4,9),0x7a5aa0);else if(r<.6)k.vat(x,y,d,rand(1.2,1.8));else if(r<.8)candle(x,y,d,rand(3,7));else k.cones(x,y,d,3);},{every:5});
+  // Cut away the camera-facing bank around the side view, including its view margin.
+  k.banks(-6,L5_END,(x,y,d)=>{if(x>0&&d>=376&&d<=460)return;const r=Math.random();if(r<.35)k.pipe(x,y,d,rand(4,9),0x7a5aa0);else if(r<.6)k.vat(x,y,d,rand(1.2,1.8));else if(r<.8)candle(x,y,d,rand(3,7));else k.cones(x,y,d,3);},{every:5});
   k.edges(-4,L5_END,(x,y,d)=>Math.random()<.5?k.vent(x,y,d):k.cones(x,y,d,1),{every:4});
   for(let d=40;d<L5_END;d+=40)k.ticker((d/40%2?1:-1)*3.8,3,d,{group:d<125?'b':d<205?'c':d<280?'d':d<335?'e':d<385?'f':'g'});
   ownRiverRoot(stage,candles);

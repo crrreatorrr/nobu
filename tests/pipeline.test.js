@@ -54,11 +54,22 @@ it('supports resize-free actual World carries and over-pump dump, checkpoint res
  stage.world.beginFrame();stone.update(1/120);rideGround(body);moveBody(stage.world,body,1/120);expect(body.pos.x).toBe(stone.pos.x);
  stone.supported=false;stone.onLand(p);expect(stone.state).toBe('dumped');expect(stone.alwaysActive).toBe(true);stone.onRespawn();expect(stone.state).toBe('idle');expect(stone.solid.enabled).toBe(true);
 });
-it('finalizes finite geometry for every decor branch and restores field atmosphere on disposal',()=>{
- for(const roll of[.1,.4,.7,.9]){
-  const rng=vi.spyOn(Math,'random').mockReturnValue(roll);const{stage,game}=build({decor:true});rng.mockRestore();stage.finalize();
-  stage.scene.traverse(o=>{expect(o.position.toArray().every(Number.isFinite)).toBe(true);if(o.geometry)for(const a of Object.values(o.geometry.attributes))expect(Array.from(a.array).every(Number.isFinite)).toBe(true);});
-  game.player.body.s=300;stage.entities.find(e=>e.constructor.name==='PipelineAtmosphere').update();expect(stage.scene.fog.far).toBe(60);
-  stage.dispose();expect(stage.scene.fog.far).toBe(stage.theme.fogFar);
+it.each([.1,.4,.7,.9])('finalizes finite geometry for decor roll%s and restores field atmosphere on disposal',roll=>{
+ const rng=vi.spyOn(Math,'random').mockReturnValue(roll);const{stage,game}=build({decor:true});rng.mockRestore();stage.finalize();
+ stage.scene.traverse(o=>{expect(o.position.toArray().every(Number.isFinite)).toBe(true);if(o.geometry)for(const a of Object.values(o.geometry.attributes))expect(Array.from(a.array).every(Number.isFinite)).toBe(true);});
+ game.player.body.s=300;stage.entities.find(e=>e.constructor.name==='PipelineAtmosphere').update();expect(stage.scene.fog.far).toBe(60);
+ stage.dispose();expect(stage.scene.fog.far).toBe(stage.theme.fogFar);
+});
+it.each([.1,.4,.7,.9])('keeps the actual side-camera body sightline clear with decor roll%s',async roll=>{
+ const {GameCamera}=await import('../src/camera/camera.js');
+ const rng=vi.spyOn(Math,'random').mockReturnValue(roll),f=build({decor:true});rng.mockRestore();f.stage.finalize();
+ const camera=new GameCamera(1100/800);f.game.camera=camera;
+ const zone=f.stage.entities.find(e=>e.constructor.name==='CamZone'&&e.d0===390);
+ for(const d of[391,400,428.49,435,444]){
+  f.p.spawnAt(f.k.W(0,d===400?0:d===444?3:0,d),f.track.yaw(d));zone.update(0);camera.snap(f.p);f.stage.update(0,f.p);f.stage.scene.updateMatrixWorld(true);
+  const target=f.p.pos.clone().add(new THREE.Vector3(0,.9,0)),delta=target.clone().sub(camera.cam.position),ray=new THREE.Raycaster(camera.cam.position,delta.clone().normalize(),0,delta.length()-.04);
+  ray.camera=camera.cam;
+  const blockers=ray.intersectObjects(f.stage.scene.children,true).filter(hit=>{for(let o=hit.object;o;o=o.parent)if(!o.visible)return false;return true;});
+  expect(blockers.map(h=>({name:h.object.name,type:h.object.type,distance:h.distance})),`body sightline D${d}`).toEqual([]);
  }
 });

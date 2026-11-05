@@ -67,9 +67,9 @@ it('the low door and thick podium preserve the pre-Queen main catwalk and Sphere
  expect(f.moon.hidden.dead).toBe(false);
 });
 
-it('keeps every Crown/Clown catwalk launch, bite, slide, flop and air dash outside the Hidden envelope',()=>{
+it.each([322.05,323.1,323.5,324,325,326,327,328,329,330])('keeps Crown/Clown touch, bite, slide, flop and dash outside Hidden from authored D%s',d=>{
  const f=build({crown:true,clown:true});expect(f.p.abilities.airDash).toBe(true);const boards=structuredClone(save.data.boneBoard);let dashes=0;
- for(const d of[322.05,323.1,323.5,324,325,326,327,328,329,330])for(const x of[-1.35,0,1.35])for(const direction of[-1,0,1])for(const action of['touch','bite','slide','flop']){
+ for(const x of[-1.35,0,1.35])for(const direction of[-1,0,1])for(const action of['touch','bite','slide','flop']){
   f.moon.hidden.dead=false;f.p.bitten=new Set();
   const result=crownAttempt(f,{d,x,direction,dash:true,action});
   expect(result.collected,`${x}/${d}/${direction}/${action}`).toBe(false);dashes+=Number(result.sawDash);
