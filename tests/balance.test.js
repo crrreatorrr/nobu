@@ -219,11 +219,15 @@ describe('local-only tickets', () => {
     save.data.tickets = amount;
     const game = Object.create(Game.prototype);
     game.session = session;
-    game.pauseSel = 6;
+    game.pauseSel = game._pauseItems().findIndex((i) => i.id === 'hub');
     game.ui = { pinHud() {}, fade: () => Promise.resolve(), setScreen() {} };
     game._drawPause = () => {};
     game.toMap = () => {};
     press('confirm');
+    game.updatePause();
+    // EXIT TO HUB asks first mid-level; confirm leaving.
+    expect(sdk.calls.earn).toHaveLength(0);
+    game.pauseExitSel = 1;
     game.updatePause();
     await expectStillLocal(amount);
   });
@@ -377,11 +381,15 @@ describe('local-only tickets', () => {
     save.data.tickets = amount;
     const game = Object.create(Game.prototype);
     game.session = quit;
-    game.pauseSel = 6;
+    game.pauseSel = game._pauseItems().findIndex((i) => i.id === 'hub');
     game.ui = { pinHud() {}, fade: () => Promise.resolve(), setScreen() {} };
     game._drawPause = () => {};
     game.toMap = () => {};
     press('confirm');
+    game.updatePause();
+    // EXIT TO HUB asks first mid-level; confirm leaving.
+    expect(sdk.calls.earn).toHaveLength(0);
+    game.pauseExitSel = 1;
     game.updatePause();
     expect(sdk.calls.earn).toHaveLength(0);
     resetHub(hub);
