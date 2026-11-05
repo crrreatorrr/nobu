@@ -39,7 +39,7 @@ it('finishes the six-stage census at54 dogs and95 base points, normalized to100'
   expect(goodBoyPercent(data,LEVELS)).toEqual({base:100,mastery:0,total:100});
 });
 
-it('stores a real Pipeline local trial while leaving public queues, economy and story rewards untouched',async()=>{
+it('stores and queues an eligible Pipeline trial without economy or story rewards',async()=>{
   const bank=vi.spyOn(hub,'bank').mockResolvedValue();
   vi.spyOn(hub,'playerId').mockReturnValue('pipeline-player');
   const flush=vi.spyOn(hub,'flushScores').mockResolvedValue();
@@ -53,7 +53,7 @@ it('stores a real Pipeline local trial while leaving public queues, economy and 
   expect(game.trialDone).toHaveBeenCalledOnce();
   expect(save.data.tickets).toBe(wallet);expect(save.beatenOf(5)).toBe(false);
   expect(save.data.boneBoard[5]).toBeUndefined();expect(bank).toHaveBeenCalledWith(undefined,0,undefined);
-  expect(canUploadTrial('5')).toBe(false);expect(enqueue('pipeline-player','5',84000)).toBe(false);
-  expect(readQueue().rows).toEqual({});expect(flush).not.toHaveBeenCalled();
+  expect(canUploadTrial('5')).toBe(true);expect(enqueue('pipeline-player','5',84000)).toBe(false); // already queued by Session
+  expect(readQueue().rows['pipeline-player']['nobu_trial_time:5']).toMatchObject({ms:84000,meta:{level:5}});expect(flush).toHaveBeenCalledOnce();
   expect(trialMsInBounds('5',21000)).toBe(true);expect(trialMsInBounds('5',20999)).toBe(false);
 });

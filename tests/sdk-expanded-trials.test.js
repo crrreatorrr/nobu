@@ -7,7 +7,7 @@ import {
   NOBU_TRIAL_FLOOR_MS, NOBU_TRIAL_CEIL_MS, HUB_OUTBOX_DB, HubEvent,
 } from '../vendor/hub-sdk/dist/index.js';
 import { TRIAL_FLOOR_MS, TRIAL_CEIL_MS, TRIAL_LEVELS, HUB_LAYOUT, canUploadTrial } from '../src/config/trials.js';
-import { enqueue, flushQueue, SCORE_QUEUE_KEY } from '../src/hub/scoreQueue.js';
+import { enqueue, flushQueue, readQueue } from '../src/hub/scoreQueue.js';
 
 const NOW = Date.parse('2026-11-05T05:00:00Z');
 const FLOORS = { 1: 15000, 2: 15000, 3: 12000, '1v2': 25700, '2v2': 26000, '3v2': 20600, 4: 24000, 6: 30000, 5: 21000 };
@@ -85,13 +85,13 @@ async function rows() {
 }
 
 describe('real vendored expanded trial contract', () => {
-  it('matches every Classic/current/new floor and ceiling without activating public gates', () => {
+  it('matches every Classic/current/new floor and ceiling with current public gates', () => {
     expect(NOBU_TRIAL_FLOOR_MS).toEqual(FLOORS);
     expect(TRIAL_FLOOR_MS).toEqual(FLOORS);
     expect(NOBU_TRIAL_CEIL_MS).toBe(1800000);
     expect(TRIAL_CEIL_MS).toBe(NOBU_TRIAL_CEIL_MS);
-    expect(TRIAL_LEVELS).toEqual([1, 2, 3]);
-    expect(HUB_LAYOUT).toEqual({ 1: 1, 2: 1, 3: 1 });
+    expect(TRIAL_LEVELS).toEqual([1, 2, 3, 4, 6, 5]);
+    expect(HUB_LAYOUT).toEqual({ 1: 2, 2: 2, 3: 2 });
   });
   it.each(variants)('mock %s accepts inclusive bounds, keeps fastest independent rows and grants no economy', async (variant, floor) => {
     const { sdk, local } = await mockSession();
@@ -135,15 +135,26 @@ describe('real vendored expanded trial contract', () => {
     }
     expect(h.sent).toEqual([]);
   });
-  it.each([4, 6, 5])('SDK support still cannot enqueue or flush gated level %s', async level => {
-    expect(canUploadTrial(String(level))).toBe(false);
-    expect(enqueue('player', String(level), 90000)).toBe(false);
-    localStorage.setItem(SCORE_QUEUE_KEY, JSON.stringify({ v: 2, rows: { player: {
-      [`nobu_trial_time:${level}`]: { ms: 90000, meta: { level }, at: 1, tries: 0 },
-    } }, posted: {} }));
+  it.each(['1v2', '2v2', '3v2', '4', '6', '5'])('queues and flushes owned current %s through the real SDK without crossing owners', async variant => {
+    const floor = FLOORS[variant], level = variant.includes('v2') ? variant : Number(variant);
+    expect(canUploadTrial(variant)).toBe(true);
+    expect(enqueue('player', variant, floor - 1)).toBe(false);
+    expect(enqueue('player', variant, floor)).toBe(true);
+    expect(enqueue('other', variant, floor + 1)).toBe(true);
     const h = wire(), sdk = await h.open('a');
-    await flushQueue(sdk, 'player');
-    expect(h.sent.some(call => call.path.endsWith('/score.submit'))).toBe(false);
+    expect(await flushQueue(sdk, 'player')).toMatchObject({ sent: 1, acked: 1, dropped: 0, kept: 0 });
+    const scores = h.sent.filter(call => call.path.endsWith('/score.submit'));
+    expect(scores).toEqual([{ path: '/v2/rpc/score.submit', body: {
+      boardId: 'nobu_trial_time', value: floor,
+      meta: { level, ...(variant.includes('v2') ? { layout: 2 } : {}) }, godMode: false,
+    }, authorization: `Bearer ${h.tokens.a}` }]);
+    expect(readQueue().rows.player).toBeUndefined();
+    expect(readQueue().rows.other[`nobu_trial_time:${variant}`]).toMatchObject({ ms: floor + 1 });
+    expect(readQueue().posted.player[variant]).toBe(floor);
+    expect(h.sent.some(call => /tickets|session.event|save\./.test(call.path))).toBe(false);
+    expect(await rows()).toEqual([]);
+    for (const invalid of ['1', '2', '3', '4v2', '6v2', '5v2', '7'])
+      expect(enqueue('player', invalid, 90000)).toBe(false);
   });
 });
 

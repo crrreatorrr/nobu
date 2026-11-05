@@ -247,10 +247,10 @@ test('Burrow return can recover skipped main-road Golden targets across the old 
  expect(await realJump(s,[1.2,0,239],[1.2,0,247.2],{doubleAt:.45}),'forward return to Canopy after recovering skipped targets').toBe(true);
 });
 
-test('activated L1 metadata, approved cap and local-only version2 trial match the real builder',async()=>{
+test('activated L1 metadata, approved cap and public version2 trial match the real builder',async()=>{
  const {LEVELS}=await import('../src/levels/registry.js'),{trialLayout,trialVariant,canUploadTrial,HUB_LAYOUT,TRIAL_TARGETS}=await import('../src/config/trials.js');
  const{sectionName}=await import('../src/game/hints.js');const{g,s}=candidate,def=LEVELS[1];
- expect(trialLayout(1)).toBe(2);expect(trialVariant(1)).toBe('1v2');expect(HUB_LAYOUT[1]).toBe(1);expect(canUploadTrial('1v2')).toBe(false);expect(TRIAL_TARGETS['1v2']).toEqual([94,120,158,86]);
+ expect(trialLayout(1)).toBe(2);expect(trialVariant(1)).toBe('1v2');expect(HUB_LAYOUT[1]).toBe(2);expect(canUploadTrial('1v2')).toBe(true);expect(TRIAL_TARGETS['1v2']).toEqual([94,120,158,86]);
  expect(def.build).toBe(buildLevel1);expect(def.hidden).toEqual({section:SECTION_TEXT.burrow,move:'dust'});
  for(const dog of s.entities.filter(e=>e instanceof ConedDog)){const d=s.track.project(dog.pos.x,dog.pos.z).s;expect(sectionName(def.sections,d,dog)).toBe(def.dogs[dog.dogId.slice(2)]);}
  expect(checkTicketBudget(1,measureTicketBudget(s,candidate.t,7))).toMatchObject({wholeMax:203,cap:205});

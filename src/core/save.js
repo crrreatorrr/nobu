@@ -346,7 +346,7 @@ export const save = {
     data = { ...fresh(), ...keep, ...mastery };
     this.write({ merge: false });
   },
-  /** Sum of the three trial bests in ms, or null until all three exist. */
+  /** Sum of current public-level trial bests in ms, or null until all exist. */
   totalTrialMs() {
     let sum = 0;
     for (const level of TRIAL_LEVELS) {
