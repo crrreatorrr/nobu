@@ -897,6 +897,7 @@ export class Game {
     this.ui.hideHud(); this.ui.bossHide(); audio.playMusic('complete');
     const text = result.fresh ? REMIX_TEXT.complete.earned : result.golden ? REMIX_TEXT.complete.already : REMIX_TEXT.complete.missed;
     this.ui.setScreen(`<div class="big-title">${esc(REMIX_TEXT.complete.title)}</div><div class="sub-title">${esc(session.def.name)}</div><div class="big-title">${result.golden ? '🦴' : '○'}</div><div class="hint">${esc(text)}</div>`, 'dim');
+    this.ui.fade(0);
     return true;
   }
 

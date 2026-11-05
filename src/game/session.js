@@ -1002,7 +1002,7 @@ export class Session {
     g.player.spawnAt(cp.pos, cp.facing);
     if (g.player.ride) g.player.ride.speedK = 0;
     this.stage.raftController?.restoreAtCheckpoint(cp.pos);
-    if (isPipelineSession(this) && this.phase === 'boss') { g.camera.endCinematic(); this.busy = false; }
+    if ((isPipelineSession(this) || this.remix) && this.phase === 'boss') { g.camera.endCinematic(); this.busy = false; }
     g.camera.snap(g.player);
     // Ordinary checkpoint help follows the same ladder and mode exclusions as pity spots.
     if (this.phase !== 'boss') {

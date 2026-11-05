@@ -7,6 +7,8 @@ import { ConedDog } from '../src/entities/dogs.js';
 import { save, SAVE_KEY } from '../src/core/save.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { resetWorld } from './helpers.js';
+import { UI } from '../src/ui/ui.js';
+import { Assets } from '../src/art/assets.js';
 beforeEach(()=>{resetWorld();save.data.beaten[5]=true;vi.spyOn(hub,'bank').mockResolvedValue();vi.spyOn(hub,'reportCone').mockResolvedValue();});
 afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();});
 function fixture({broken=true,god=false,level=1}={}){
@@ -81,4 +83,17 @@ it('settles a retained live Queen Remix without original ending, medals or story
  expect(save.data).toEqual({...before,remix:{5:{golden:true}}});
  expect(hub.bank).toHaveBeenCalledOnce();expect(s.game.remixCleared).toHaveBeenCalledOnce();
  expect(s.game.levelCleared).not.toHaveBeenCalled();expect(s.game.ui.say).not.toHaveBeenCalled();
+});
+
+it.each([1,6])('reveals the actual DOM result after Remix%i boss/goal black fade',async level=>{
+ vi.useFakeTimers();const s=fixture({level}),game=s.game;
+ vi.spyOn(Assets,'url').mockImplementation(id=>id);
+ game.ui=new UI(document.createElement('div'));
+ game.remixCleared=(session,result)=>Game.prototype.remixCleared.call(game,session,result);
+ if(level===6){const end=s.reachGoal();await vi.runAllTimersAsync();await end;}
+ else{const gate=s.reachBossGate();await vi.runAllTimersAsync();await gate;
+  expect(game.ui.fadeEl.style.opacity).toBe('1');s.phase='boss';s.onBossDefeated(s.boss);await vi.runAllTimersAsync();}
+ expect(game.state).toBe('complete');expect(game.completeMode).toBe('remix');
+ expect(game.ui.screen.textContent).toContain('REMIX GOLDEN BONE!');
+ expect(game.ui.fadeEl.style.opacity).toBe('0');expect(hub.bank).toHaveBeenCalledOnce();
 });

@@ -82,6 +82,19 @@ it('retains the live actual Player death life cost, checkpoint wallet and assist
  expect(save.data.lives).toBe(4);expect(save.data.tickets).toBe(77);expect(s.mask).toBe(0);
  expect(game.player.pos.distanceTo(s.cp.pos)).toBeLessThan(.001);expect(game.ui.showHud).toHaveBeenCalled();
 });
+
+it.each([1,2,3,4,5])('releases the actual Remix boss%i phase transition when death retries',async level=>{
+ const {game,s}=fixture(true,level),launch=s.startBoss();
+ await vi.advanceTimersByTimeAsync(100);
+ if(typeof s.boss.introResolve==='function'){s.boss.introResolve();s.boss.introResolve=null;}
+ await launch;
+ const boss=s.boss;boss.phase=2;const phase=s.onBossPhase(boss,2);
+ expect(s.busy).toBe(true);game.player.die('fall');await phase;
+ await vi.advanceTimersByTimeAsync(3000);
+ expect(game.player.dead).toBe(false);expect(boss.active).toBe(true);
+ expect(boss.phase).toBe(boss.phaseCheckpoints===false?1:2);
+ expect(s.busy).toBe(false);expect(game.camera.cine).toBeNull();
+});
 it('retains live Remix checkpoint economy and disables help after many actual retries',()=>{
  const {game,s}=fixture();save.data.tickets=100;s.levelTickets=10;s.fieldRaw=40;s.deathsAtCp=20;
  s.respawn();expect(save.data.tickets).toBe(77);expect(s.levelTickets).toBe(0);expect(s.mask).toBe(0);expect(game.player.pos.toArray()).toEqual(s.cp.pos.toArray());
