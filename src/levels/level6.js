@@ -3,6 +3,8 @@ import {makeKit,makeTrack,turtle} from './kit.js';
 import {installRiverKit} from './riverKit.js';
 import {installBoneHelpers} from '../entities/hiddenBone.js';
 import {L6_TEXT} from '../story/script.js';
+import {LEVEL_BUDGETS} from './data/budgets.js';
+export const BUDGET=LEVEL_BUDGETS[6];
 import {L6_TRACK,L6_END,L6_GOAL,L6_GATE,L6_RAFT_SPANS,L6_RAFT_SPANS_LITERAL,L6_RAFT_ITEMS,L6_RAFT_ITEMS_LITERAL} from './data/rapids.js';
 import {buildRiverTimingCase,buildRiverMoonWell,buildRiverLoopCase,buildRiverDecor,buildRiverStartLine,RiverGoodBoyPrizes,RiverLoop} from './riverRoutes.js';
 

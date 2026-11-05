@@ -23,12 +23,12 @@ const oldMapOpen = (id, data) => {
 
 describe('level registry', () => {
   it('keeps the current map order, node positions and main-level ids', () => {
-    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 4, 'rush', 'kennel']);
-    expect(playOrder()).toEqual([1, 2, 3, 4]);
+    expect(MAP_ORDER).toEqual([1, 'ride', 2, 'cave', 3, 4, 6, 'rush', 'kennel']);
+    expect(playOrder()).toEqual([1, 2, 3, 4, 6]);
     expect(MAP_ORDER.map((id) => levelDef(id).mapPos)).toEqual([
-      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 40 }, { x: 12, y: 75 }, { x: 88, y: 72 },
+      { x: 24, y: 70 }, { x: 34, y: 55 }, { x: 50, y: 50 }, { x: 66, y: 62 }, { x: 77, y: 27 }, { x: 88, y: 52 }, { x: 93, y: 33 }, { x: 12, y: 75 }, { x: 12, y: 40 },
     ]);
-    for (const id of [1, 2, 3, 4]) {
+    for (const id of [1, 2, 3, 4, 6]) {
       expect(levelDef(id).id).toBe(id);
       expect(levelDef(String(id))).toBe(levelDef(id));
     }
@@ -73,33 +73,33 @@ describe('level registry', () => {
   });
 
   it('marks only current content shipped and only main levels trial-enabled', () => {
-    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => levelDef(id).tier)).toEqual([1, 1.5, 2, 2.5, 3, 4]);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => levelDef(id).tier)).toEqual([1, 1.5, 2, 2.5, 3, 4, 4.5]);
     expect(Object.values(LEVELS).every((def) => def.shipped)).toBe(true);
-    expect(MAP_ORDER.filter((id) => levelDef(id).trial)).toEqual([1, 2, 3, 4]);
-    for (const id of [5, 6, 'toString']) {
+    expect(MAP_ORDER.filter((id) => levelDef(id).trial)).toEqual([1, 2, 3, 4, 6]);
+    for (const id of [5, 'toString']) {
       expect(levelDef(id)).toBeUndefined();
       expect(isOpen(id, { unlocked: 9 })).toBe(false);
     }
     // A caller cannot accidentally change the order by sorting its result.
     playOrder().reverse();
-    expect(playOrder()).toEqual([1, 2, 3, 4]);
+    expect(playOrder()).toEqual([1, 2, 3, 4, 6]);
   });
 
   it('exposes migration dog ids in stable authoring order with current counts', () => {
     expect(LEVEL_IDS).toEqual(['1', '2', '3', '4', '5', '6', 'ride', 'cave']);
-    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 7, 4, 9, 7]);
+    expect(MAP_ORDER.filter((id) => !levelDef(id).meta).map((id) => Object.keys(levelDef(id).dogs).length)).toEqual([9, 4, 7, 4, 9, 7, 7]);
     expect(Object.keys(LEVEL_DOGS[1])).toEqual(['shiba-a','pug-a','dalmatian-a','shiba-b','corgi-a','pug-b','dalmatian-b','corgi-b','shiba-c']);
     const ids = [];
     for (const def of Object.values(LEVELS).filter((d) => !d.meta && !d.gauntlet)) {
       expect(def.dogs).toBe(LEVEL_DOGS[def.id]);
       for (const [dog, section] of Object.entries(def.dogs)) {
         const id = `${def.id}:${dog}`;
-        expect(id).toMatch(/^(1|2|3|4|ride|cave):[a-z]+-[a-z0-9]+$/);
+        expect(id).toMatch(/^(1|2|3|4|6|ride|cave):[a-z]+-[a-z0-9]+$/);
         expect(section.length).toBeGreaterThan(0);
         ids.push(id);
       }
     }
-    expect(new Set(ids).size).toBe(40);
+    expect(new Set(ids).size).toBe(47);
   });
 });
 

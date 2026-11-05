@@ -17,6 +17,7 @@ import { rushAvailable } from './rushArenas.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
+import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
 import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT, GAUNTLET_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
@@ -419,14 +420,14 @@ export class Game {
     this.ui.hideHud();
     this.ui.bossHide();
     audio.playMusic('map');
-    this._drawMap();
+    this._drawMap(this._pendingMainUnlocks || []);
     const unlocked = this._pendingMainUnlocks?.pop();
     this._pendingMainUnlocks = [];
-    if (MAIN_UNLOCK_TEXT[unlocked]) this.ui.banner?.(...MAIN_UNLOCK_TEXT[unlocked], 2.5);
+    if (MAIN_UNLOCK_TEXT[unlocked]) { audio.play('chime'); this.ui.banner?.(...MAIN_UNLOCK_TEXT[unlocked], 2.5); }
     this.ui.fade(0);
   }
 
-  _drawMap() {
+  _drawMap(fresh = []) {
     const d = save.data;
     let nodes = '';
     for (const n of MAP_ORDER) {
@@ -475,7 +476,7 @@ export class Game {
       <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
-    this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
+    this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${chapterMapMarkup(chapterMapPaths(d,LEVELS,fresh))}${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
   }
 
   // Hub board line for the selected level, fetched at most once a minute per level. Empty when
@@ -877,7 +878,7 @@ export class Game {
   goalLevelCleared(session) {
     const n = session.level, st = session.stats;
     save.setBeaten(n); save.setBestDogs(n, st.dogs);
-    if (String(n) === '6') save.data.open['5'] = true;
+    this._unlockMainChapters();
     const fresh = bankBoneResults(session, st);
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
@@ -886,7 +887,7 @@ export class Game {
 
   // Colored bone found: it opens a path in an earlier level.
   collectBone(color) {
-    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon', green: 'Pump & Dump Pipeline', purple: 'The Cone Factory', yellow: 'Scratchpost Canyon' };
+    const where = BONE_TEXT.destinations;
     save.data.colorBones ||= {};
     const fresh = !save.data.colorBones[color];
     save.data.colorBones[color] = true;
