@@ -269,3 +269,47 @@ it('Ride Moon remains inside the real Sofa bonus lifecycle and returns to the ma
  expect(f.p.pos.distanceTo(f.k.W(0,0,176))).toBeLessThan(.001);
  f.stage.dispose();
 });
+
+// World owns every collision surface, including multipart drums/rug tiles that
+// have no entity.solid. Sample a complete moving orbit, including exact extrema;
+// a frozen surface gives the player unlimited setup time on its highest pose.
+for(const id of [1,2,3,4,'ride','cave'])it(`proposal ${id}: all nearby World tops and moving phases exclude a Crown bypass`,()=>{
+ const f=build(id),extra=f.stage.moonExtras[0],target=extra.ledge;
+ const movers=f.stage.entities.filter(e=>['SpinDrum','MovingPlatform','FlipPlank','RugPull'].includes(e.constructor.name));
+ function phaseAt(phase){
+  for(const e of movers){
+   if(e.constructor.name==='SpinDrum'){e.t=(phase-e.opts.phase/(2*Math.PI))*e.opts.period/e.opts.dir;e._place(0);}
+   else if(e.constructor.name==='MovingPlatform'){e.t=(phase*2*Math.PI-e.phase)/e.speed;e.update(0);}
+   else if(e.constructor.name==='FlipPlank'){e.t=phase*e.period;e.update(0);}
+   // Rug tiles only move down; their restored pose is the conservative maximum.
+   else e.onRespawn();
+  }
+ }
+ const seen=new Set(),probes=[],multipartMetrics={};
+ for(let i=0;i<16;i++){
+  const phase=i/16;phaseAt(phase);
+  for(const [index,s]of f.stage.world.all.entries()){
+   if(!s.enabled||s===target.solid)continue;
+   const x=Math.max(s.min.x+.01,Math.min(s.max.x-.01,target.pos.x));
+   const z=Math.max(s.min.z+.01,Math.min(s.max.z-.01,target.pos.z));
+   const distance=Math.hypot(x-target.pos.x,z-target.pos.z);
+   const kind=s.ref?.constructor.name;
+   if(['SpinDrum','RugPull'].includes(kind)){
+    const metric=multipartMetrics[kind]??={nearestEdge:Infinity,maxTop:-Infinity};
+    metric.nearestEdge=Math.min(metric.nearestEdge,distance);metric.maxTop=Math.max(metric.maxTop,s.max.y);
+   }
+   if(distance>28)continue;
+   const key=[index,...Object.values(s.min),...Object.values(s.max)].map(v=>Number(v).toFixed(4)).join(':');
+   if(seen.has(key))continue;seen.add(key);
+   probes.push({phase,s,start:new THREE.Vector3(x,s.max.y,z),distance,label:s.ref?.constructor.name??s.kind});
+  }
+ }
+ expect(probes.length).toBeGreaterThan(0);
+ for(const probe of probes)for(const delay of [0,.2,.4,.6,.8]){
+  phaseAt(probe.phase);
+  const result=flight(f,target,{crown:true,start:probe.start,support:probe.s,delay});
+  expect(result.landed,`${id}: World ${probe.label} phase${probe.phase} distance${probe.distance} top${probe.start.y} apex${result.peak}`).toBe(false);
+ }
+ if(process.env.MOON_AUDIT)console.log(JSON.stringify({id,worldLaunches:probes.length,multipartMetrics,multipart:probes.filter(p=>['SpinDrum','RugPull'].includes(p.label)).map(p=>({kind:p.label,phase:p.phase,distance:p.distance,top:p.start.y}))}));
+ f.stage.dispose();
+},30000);
