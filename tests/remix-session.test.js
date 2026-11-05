@@ -4,7 +4,7 @@ import { Session } from '../src/game/session.js';
 import { Game } from '../src/game/game.js';
 import { Breakable } from '../src/entities/entity.js';
 import { ConedDog } from '../src/entities/dogs.js';
-import { save } from '../src/core/save.js';
+import { save, SAVE_KEY } from '../src/core/save.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { resetWorld } from './helpers.js';
 beforeEach(()=>{resetWorld();save.data.beaten[5]=true;vi.spyOn(hub,'bank').mockResolvedValue();vi.spyOn(hub,'reportCone').mockResolvedValue();});
@@ -57,4 +57,10 @@ it('routes the main L6 goal to remix completion and suppresses colored/warp prog
  const done=s.reachGoal();await vi.runAllTimersAsync();await done;
  expect(save.data.remix[6].golden).toBe(true);expect(save.data.beaten[6]).toBeUndefined();expect(save.data.open[5]).not.toBe(true);
  expect(s.game.goalLevelCleared).not.toHaveBeenCalled();expect(hub.bank).toHaveBeenCalledOnce();
+});
+it('unions another tab\'s Remix bones on actual completion and reload without erasing either',async()=>{
+ const s=fixture();await s.reachBossGate();s._remixClearReached=true;
+ localStorage.setItem(SAVE_KEY,JSON.stringify({...save.data,remix:{2:{golden:true}}}));
+ expect(s._finishRemix()).toBe(true);save.load();
+ expect(save.data.remix).toMatchObject({1:{golden:true},2:{golden:true}});
 });
