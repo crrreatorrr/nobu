@@ -147,12 +147,13 @@ export class Toaster extends Entity {
 }
 
 export class RugPull extends Entity {
-  constructor(stage, track, d0, d1, { x = 0, w = 3, tile = 2.4, speed = 7 } = {}) {
+  constructor(stage, track, d0, d1, { x = 0, w = 3, tile = 2.4, speed = 7, triggerOnAnyTile = false } = {}) {
     const p = propWorld(track, x, 0, d0, _point);
     super(stage, p.x, p.y, p.z);
     if (!(speed >= 6.5 && speed < 8)) throw new Error('Rug pull speed must be at least RUN - 1.5 and below RUN');
     if (!(tile > 0 && d1 - d0 >= tile)) throw new Error('Rug pull needs at least one tile');
     this.track = track; this.x = x; this.w = w; this.d0 = d0; this.d1 = d1; this.speed = speed;
+    this.triggerOnAnyTile = triggerOnAnyTile;
     this.state = 'idle'; this.t = 0; this.front = d0; this.shown = false; this.tiles = []; this.litCats = new Set();
     this.interactive = false; this._projection = {};
     const count = Math.floor((d1 - d0) / tile);
@@ -173,7 +174,10 @@ export class RugPull extends Entity {
   update(dt) {
     if (this.state === 'idle') {
       const p = this.player;
-      if (!p.dead && p.body.grounded && p.body.ground === this.tiles[0].solid) {
+      const onTrigger = this.triggerOnAnyTile
+        ? this.tiles.some(part => part.solid === p.body.ground)
+        : p.body.ground === this.tiles[0].solid;
+      if (!p.dead && p.body.grounded && onTrigger) {
         this.state = 'pulling'; this.alwaysActive = true;
         if (!this.shown) { this.game.camera?.shake(0.15, 0.2); this.game.ui?.banner(PROP_TEXT.rugPull, '', 1.4); this.shown = true; }
       }
