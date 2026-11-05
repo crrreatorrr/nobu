@@ -157,6 +157,9 @@ export class Session {
     await nextFrame();
     const stage = this._newStage(this.def.theme);
     const info = this.def.build(g, stage, this.tickets);
+    // The new stage may update during loading; configure its ride before the
+    // first frame so foot detours never observe the previous stage's vacuum.
+    g.player.setRide(info.ride || null);
     stage.finalize();
     this.tickets.finalize();
     this.snack.potential = staticSnackPotential(this.tickets.list) + stage.entities.filter((e) => e instanceof Backpack && e.countable && e.kind !== 'mystery').reduce((n, e) => n + e.tickets, 0);
@@ -177,7 +180,6 @@ export class Session {
     await ui.hideLoading();
     ui.showHud(4);
     this._pushHud();
-    g.player.setRide(info.ride || null);
     this.buddy = this.def.gauntlet ? null : addBuddy(this, save.data, LEVELS);
     if (this.trial) this._setupTrial();
     g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
@@ -217,23 +219,31 @@ export class Session {
   async enterBonusRound(tray) {
     if (this.busy || this.bonusRound) return;
     finishSessionChain(this);
-    const g = this.game, p = g.player, R = tray.round;
+    const g = this.game, p = g.player, R = tray.round, stage = this.stage;
+    const current = () => !this.disposed && g.session === this && this.stage === stage && g.stage === stage;
+    const rideConfig = R.onFoot && p.ride ? { speed: p.ride.speed, lift: p.ride.lift } : null;
     this.busy = true;
     p.frozen = true;
     audio.play('boing');
     await g.ui.fade(1, 0.25);
-    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
+    if (R.onFoot && !current()) return;
+    this.bonusRound = { tray, R, rideConfig, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
+    if (rideConfig) p.setRide(null);
     p.spawnAt(R.start, R.facing);
     g.camera.snap(p);
     g.mask.snapTo(p);
     await g.ui.fade(0, 0.25);
+    if (R.onFoot && !current()) return;
     g.ui.banner('BONUS ROUND!', 'Fall off and the haul is lost (but not a life)', 2);
     p.frozen = false;
     this.busy = false;
   }
 
   async _leaveBonusRound(kept) {
-    const g = this.game, p = g.player, B = this.bonusRound;
+    const g = this.game, p = g.player, B = this.bonusRound, stage = this.stage;
+    if (!B) return;
+    const current = () => !this.disposed && g.session === this && this.stage === stage && g.stage === stage;
+    if (B.R.onFoot && !current()) return;
     B.tray?.onRoundLeave?.(kept, B);
     finishSessionChain(this);
     this.busy = true;
@@ -260,11 +270,14 @@ export class Session {
     } else B.tray.used = true;
     audio.play(kept ? 'checkpoint' : 'fade');
     await g.ui.fade(1, 0.25);
+    if (B.R.onFoot && !current()) return;
     this.bonusRound = null;
     p.spawnAt(B.R.back, B.R.facing);
+    if (B.rideConfig) p.setRide(B.rideConfig);
     g.camera.snap(p);
     g.mask.snapTo(p);
     await g.ui.fade(0, 0.25);
+    if (B.R.onFoot && !current()) return;
     g.ui.banner(kept ? 'BONUS CLEAR!' : 'BONUS LOST', kept ? 'Haul kept!' : 'Try again, or carry on', 1.6);
     p.frozen = false;
     this.busy = false;

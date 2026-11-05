@@ -41,7 +41,7 @@ export class SofaLoop extends Entity {
   constructor(stage,k) {
     super(stage,...k.W(-2.6,2.6,175).toArray()); this.k=k;
     this.interactive=false; this.alwaysActive=true; this.entryD=175; this.exitD=176; this.loop=true; this.used=false;
-    this.round={start:k.W(-2.6,2.6,175),back:k.W(-2.6,0,170),floorY:this.pos.y,facing:k.yawAt(175)};
+    this.round={onFoot:true,start:k.W(-2.6,2.6,175),back:k.W(-2.6,0,170),floorY:this.pos.y,facing:k.yawAt(175)};
   }
   onRespawn() { this.used=false; }
   onRoundLeave(kept,B) { B.R.back=this.k.W(kept?0:-2.6,0,kept?176:170); }

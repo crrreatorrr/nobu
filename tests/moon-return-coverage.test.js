@@ -257,9 +257,15 @@ it('keeps the40 authored dogs and one original HiddenBone per covered stage',()=
 it('Ride Moon remains inside the real Sofa bonus lifecycle and returns to the main route',async()=>{
  const f=build('ride'),extra=addMoonReturnExtras(f.k,f.stage,'ride');
  const loop=f.stage.detours.find(e=>e.constructor.name==='SofaLoop');
+ f.p.setRide({speed:10.5,lift:.42});
+ expect(f.p.ride).toBeTruthy();
  f.game.mask={snapTo:noop};
  await f.game.session.enterBonusRound(loop);
  expect(f.game.session.bonusRound?.tray).toBe(loop);
+ expect(f.p.ride).toBeNull();
+ resetPlayer(f,extra.launchWorld,extra.pad.solid,{moon:true});pressed.add('slide');held.add('slide');
+ for(let i=0;i<75;i++)tick(f,1/120);
+ expect(f.p.moonHold?.charged).toBe(true);
  expect(flight(f,extra.ledge,{moon:true,start:extra.launchWorld,support:extra.pad.solid}).landed).toBe(true);
  expect(f.p.body.s).toBeLessThan(203);
  expect(f.game.session.bonusRound?.tray).toBe(loop);
@@ -267,6 +273,7 @@ it('Ride Moon remains inside the real Sofa bonus lifecycle and returns to the ma
  expect(f.game.session.bonusRound).toBeNull();
  expect(loop.used).toBe(true);
  expect(f.p.pos.distanceTo(f.k.W(0,0,176))).toBeLessThan(.001);
+ expect(f.p.ride).toMatchObject({speed:10.5,lift:.42,speedK:0});
  f.stage.dispose();
 });
 
@@ -313,3 +320,48 @@ for(const id of [1,2,3,4,'ride','cave'])it(`proposal ${id}: all nearby World top
  if(process.env.MOON_AUDIT)console.log(JSON.stringify({id,worldLaunches:probes.length,multipartMetrics,multipart:probes.filter(p=>['SpinDrum','RugPull'].includes(p.label)).map(p=>({kind:p.label,phase:p.phase,distance:p.distance,top:p.start.y}))}));
  f.stage.dispose();
 },30000);
+
+it('Sofa loss restores the saved vacuum configuration and returns safely toD170',async()=>{
+ const f=build('ride'),loop=f.stage.detours.find(e=>e.constructor.name==='SofaLoop');
+ f.game.mask={snapTo:noop};f.p.setRide({speed:11.25,lift:.48});
+ await f.game.session.enterBonusRound(loop);expect(f.p.ride).toBeNull();
+ await f.game.session._leaveBonusRound(false);
+ expect(f.p.ride).toMatchObject({speed:11.25,lift:.48,speedK:0});
+ expect(f.p.pos.distanceTo(f.k.W(-2.6,0,170))).toBeLessThan(.001);
+ expect(loop.used).toBe(false);f.stage.dispose();
+});
+
+for(const direction of ['enter','leave'])it(`a deferred Sofa ${direction} cannot alter a replacement session`,async()=>{
+ const f=build('ride'),loop=f.stage.detours.find(e=>e.constructor.name==='SofaLoop');
+ f.game.mask={snapTo:noop};f.p.setRide({speed:10.5});
+ if(direction==='leave')await f.game.session.enterBonusRound(loop);
+ let release;f.game.ui.fade=()=>new Promise(resolve=>{release=resolve;});
+ const pending=direction==='enter'?f.game.session.enterBonusRound(loop):f.game.session._leaveBonusRound(true);
+ f.game.session={};f.game.stage={};f.p.setRide({speed:7,lift:.3});
+ const position=f.p.pos.clone();release();await pending;
+ expect(f.p.ride).toMatchObject({speed:7,lift:.3});
+ expect(f.p.pos.equals(position)).toBe(true);f.stage.dispose();
+});
+
+it('actual Game.startLevel configures Ride/foot mode before loading-frame detour validation',async()=>{
+ const {Game}=await import('../src/game/game.js');
+ const {hub}=await import('../src/hub/hubBridge.js');
+ const {validateDetours}=await import('../src/levels/environmentKit.js');
+ const {audio}=await import('../src/audio/audio.js');
+ audio.playMusic=noop;
+ vi.spyOn(hub,'beginAttempt').mockResolvedValue({id:'local-test',ok:true});
+ vi.spyOn(hub,'startCarry').mockImplementation(noop);
+ const f=build('ride'),g=f.game;g.flyingMasks=[];g.applyKennelTint=noop;
+ g.mask={attach:noop,setLevel:noop,snapTo:noop};g.camera.cam=new THREE.PerspectiveCamera();g.camera.endCinematic=noop;
+ f.p.attach=noop;f.p.setRide({speed:10.5});
+ const frames=[];g.ui.loadingProgress=(progress)=>{
+  if(progress===.65){frames.push({id:g.session.level,ride:!!f.p.ride});expect(()=>validateDetours(g.stage)).not.toThrow();}
+ };
+ const oldRAF=globalThis.requestAnimationFrame;globalThis.requestAnimationFrame=cb=>setTimeout(cb,0);
+ try{
+  await Game.prototype.startLevel.call(g,4);
+  expect(frames.at(-1)).toEqual({id:4,ride:false});expect(f.p.ride).toBeNull();
+  await Game.prototype.startLevel.call(g,'ride');
+  expect(frames.at(-1)).toEqual({id:'ride',ride:true});expect(f.p.ride).toMatchObject({speed:10.5});
+ }finally{globalThis.requestAnimationFrame=oldRAF;g.stage.dispose();f.stage.dispose();}
+});
