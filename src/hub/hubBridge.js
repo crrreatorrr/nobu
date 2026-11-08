@@ -635,6 +635,14 @@ function txDone(tx, db) {
   });
 }
 
+// The SDK's `hub-outbox` database is shared by every game on the origin. Each row
+// carries the `gameId` of the session that queued it (SDK `sendOnce`), and the keys
+// are bare UUIDs with no game prefix, so `gameId` is the only owner mark. nobu picks
+// and deletes only its own rows. A row without `gameId` is never treated as nobu's.
+function isOwnOutboxRow(row) {
+  return !!row && row.gameId === GAME_ID;
+}
+
 async function firstOutboxKey() {
   try {
     const { db, store, tx } = await openWrites('readonly');
@@ -642,7 +650,7 @@ async function firstOutboxKey() {
       const req = store.getAll();
       req.onsuccess = () => {
         const rows = req.result || [];
-        resolve(rows[0]?.key || null);
+        resolve(rows.find(isOwnOutboxRow)?.key || null);
       };
       req.onerror = () => resolve(null);
     });
@@ -657,7 +665,10 @@ async function forgetOutbox(key) {
   if (!key) return;
   try {
     const { db, store, tx } = await openWrites('readwrite');
-    store.delete(key);
+    const req = store.get(key);
+    req.onsuccess = () => {
+      if (isOwnOutboxRow(req.result)) store.delete(key);
+    };
     await txDone(tx, db);
   } catch {
     /* the row stays queued and the next init tries again */
@@ -788,6 +799,9 @@ class HubBridge {
             continue;
           }
           console.warn('[hub] terminal error, dropping write', info.code, key || '', info.message);
+          // No nobu row to blame: the refused write belongs to another game (all games share
+          // one outbox), and we never touch it. SDK >= 0.6.1 already drops final refusals
+          // itself, so this path should not occur; play offline for this launch.
           if (!key) { this.reach = 'offline'; break; }
           await this._dropKey(key);
           await forgetOutbox(key);
