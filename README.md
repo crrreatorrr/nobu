@@ -10,7 +10,7 @@ npm run dev
 ```
 
 Open the printed URL, normally **http://localhost:5173/play/nobu/**. `npm run build` creates the
-static production build in `dist/`; `npm test` runs the automated checks.
+static production build in `dist/`; `npm test` runs the automated checks and `npm run lint` runs ESLint.
 
 ## Controls
 
