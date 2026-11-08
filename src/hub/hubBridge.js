@@ -799,6 +799,9 @@ class HubBridge {
             continue;
           }
           console.warn('[hub] terminal error, dropping write', info.code, key || '', info.message);
+          // No nobu row to blame: the refused write belongs to another game (all games share
+          // one outbox), and we never touch it. SDK >= 0.6.1 already drops final refusals
+          // itself, so this path should not occur; play offline for this launch.
           if (!key) { this.reach = 'offline'; break; }
           await this._dropKey(key);
           await forgetOutbox(key);
