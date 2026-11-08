@@ -31,7 +31,7 @@ export function createHubSdk() {
   const api = {
     async init(gameId) {
       sdk.calls.init += 1;
-      if (sdk.initError) throw sdk.initError;
+      if (sdk.initError) throw take('initError', 'initErrorOnce');
       return {
         playerId: 'player-1',
         ranked: true,
