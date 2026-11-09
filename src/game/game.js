@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
 import { input } from '../core/input.js';
+import { HINTS } from '../core/prompts.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { UI } from '../ui/ui.js';
@@ -156,6 +157,7 @@ export class Game {
         input.poll();
         if (input.anyPressed()) audio.unlock();
         this.update(dt);
+        if (input.deviceSwitched()) this.refreshPrompts();
         this.ui.update(dt);
         this.render();
         this.crash.frameOk();
@@ -164,6 +166,19 @@ export class Game {
       this.crash.frameFailed(e);
     } finally {
       if (!manual) requestAnimationFrame((t) => this.loop(t));
+    }
+  }
+
+  // Redraw the open menu so its control prompts match the device just used (keyboard or pad).
+  refreshPrompts() {
+    if (this.state === 'map') this._drawMap();
+    else if (this.state === 'pause') { if (this.pauseExitSel != null) this._drawPauseExit(); else this._drawPause(); }
+    else if (this.state === 'wardrobe') this._drawWardrobe();
+    else if (this.state === 'kennel' && !this.kennel?.disposed) this.kennel?.draw();
+    else if (this.state === 'cutscene') { const skip = this.ui.screen?.querySelector?.('.cut-skip'); if (skip) skip.innerHTML = input.prompt(HINTS.cutscene); }
+    else if (this.state === 'title' && !this.titleMenu) {
+      const footer = this.ui.screen?.querySelector?.('.title-footer');
+      if (footer) footer.innerHTML = input.prompt(HINTS.title);
     }
   }
 
@@ -280,7 +295,7 @@ export class Game {
     this.ui.setScreen(`
       <img class="title-logo" src="${Assets.url('logo')}">
       <div class="press-start">PRESS START</div>
-      <div class="title-footer">Arrows/WASD move · Space jump · J/Shift bite · K/Ctrl slide &amp; belly flop · Esc pause · Gamepad supported</div>`);
+      <div class="title-footer">${HINTS.title}</div>`);
     this.ui.fade(0);
     audio.playMusic('title');
   }
@@ -353,6 +368,7 @@ export class Game {
       } else if (it.id === 'hub') {
         this.exitToHub();
       }
+      return; // pad Start is confirm as well as pause: it must not also leave the menu
     }
     if (input.pressed('pause') || input.pressed('back')) { this.titleMenu = null; this.toTitle(); }
   }
@@ -379,7 +395,7 @@ export class Game {
     const prev = c.i > 0 ? c.panels[c.i - 1].img : null;
     const caption = `${p.speaker ? `<span class="speaker">${p.speaker}</span>` : ''}${p.text}`;
     if (prev !== p.img || !this.ui.screen.querySelector('.cut-panel')) {
-      this.ui.setScreen(`<div class="cut-panel" style="background-image:url('${Assets.url(p.img)}')"></div><div class="cut-caption">${caption}</div><div class="cut-skip">Any key: next · Esc: skip</div>`, 'dim');
+      this.ui.setScreen(`<div class="cut-panel" style="background-image:url('${Assets.url(p.img)}')"></div><div class="cut-caption">${caption}</div><div class="cut-skip">${HINTS.cutscene}</div>`, 'dim');
       requestAnimationFrame(() => { if (current()) this.ui.screen.querySelector('.cut-panel')?.classList.add('show'); });
       audio.play('whoosh');
     } else {
@@ -478,7 +494,7 @@ export class Game {
     const sniffer = !this.mapRemix && !metaSel && kennelStatus(d, LEVELS).unlocks.includes('sniffer') ? missingSecrets(d, LEVELS).find((def) => String(def.id) === String(lv)) : null;
     const snifferLine = sniffer ? `<div class="hint">${esc(KENNEL_TEXT.secretLine(sniffer))}</div>` : '';
     const tr = !this.mapRemix && !!levelDef(lv).trial && save.beatenOf(lv)
-      ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
+      ? `<div class="hint" style="margin-top:4px">${HINTS.trial} · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
       : '';
     const targets = !this.mapRemix && !metaSel && levelDef(lv).trial && save.beatenOf(lv) ? `<div class="hint">${trialTargetLine(trialVariant(lv), d.trials?.[lv])}</div>` : '';
     const eligible = !this.mapRemix && !metaSel && levelDef(lv).trial && d.trials?.[lv] ? eligibleTrialLine(d.trials[lv], MASTERY_TEXT) : '';
@@ -496,7 +512,7 @@ export class Game {
     const board = this.mapRemix ? `<div class="hint">${d.remix?.[lv]?.golden ? '🦴' : '○'} ${esc(REMIX_TEXT.bone)}</div>` : metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel });
     const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${board}${remixLine}
       <div class="hint">${status}</div>${secretHint}${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${gauntletLine}${world}${totalNote}
-      <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : '◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title'}</div>
+      <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : HINTS.map}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
     this.ui.setScreen(`<div class="map-layout"><div class="map-scroll"><div class="map-surface"><div class="map-island"><div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${chapterMapMarkup(chapterMapPaths(d,LEVELS,fresh))}${nodes}</div></div></div><div class="map-details">${this.exchangeOpen ? '' : info}</div></div>${exchange}`);
@@ -568,7 +584,7 @@ export class Game {
       ${cap}
       <div class="menu-item ${can ? 'sel' : 'disabled'}">EXCHANGE</div>
       ${status ? `<div class="hint">${status}</div>` : ''}
-      <div class="hint">${locked ? 'ESC close' : '◀ ▶ amount · ENTER exchange · ESC close'}</div>
+      <div class="hint">${locked ? HINTS.exchangeLocked : HINTS.exchange}</div>
     </div>`;
   }
 
@@ -655,13 +671,13 @@ export class Game {
     if (input.pressed('left') || input.pressed('down')) { if (i > 0) { this.mapSel = open[i - 1]; audio.play('menu'); this._drawMap(); } }
     if (input.pressed('exchange')) { audio.play('select'); this.openExchange(); return; }
     if (input.pressed('hub')) { audio.play('select'); this.exitToHub(); return; }
-    if (input.pressed('bark') && kennelStatus(d, LEVELS).unlocks.includes('sniffer')) { this.openKennel('sniffer'); return; }
+    if (input.pressed('sniffer') && kennelStatus(d, LEVELS).unlocks.includes('sniffer')) { this.openKennel('sniffer'); return; }
     if (input.pressed('gauntlet')) {
       const def = hostGauntlet(this.mapSel);
       if (!this.mapRemix && def && isOpen(def.id, d)) { audio.play('select'); this.startLevel(def.id); }
       return; // RB also maps to bite: consume it before ordinary-level confirmation.
     }
-    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta && !levelDef(this.mapSel).rush) this.openKennel(); else this.startLevel(this.mapSel, { remix: !!this.mapRemix }); }
+    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta && !levelDef(this.mapSel).rush) this.openKennel(); else this.startLevel(this.mapSel, { remix: !!this.mapRemix }); return; }
     else if (!this.mapRemix && input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
@@ -708,7 +724,9 @@ export class Game {
     const s = this.session;
     if (!s) return;
     if (input.pressed('god')) { this.toggleGod(); audio.play('select'); }
-    if (input.pressed('pause') && !this.ui.talking && !s.dying) { this.openPause(); return; }
+    // Start pauses; so does losing the pad mid-level, so Nobu never runs on without the player.
+    if ((input.pressed('pause') || input.padLost()) && !this.ui.talking && !s.dying) { this.openPause(); return; }
+    if (this.camera) this.camera.peekInput = input.look; // right stick: camera peek (see GameCamera._applyPeek)
     s.update(dt);
     this._updateFlyingMasks(dt);
   }
@@ -778,13 +796,13 @@ export class Game {
   _drawPauseExit() {
     const items = this._pauseExitItems();
     this.ui.setScreen(`<div class="big-title">EXIT TO HUB?</div><div class="hint">This level ends here. Tickets from it are not banked.</div><div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseExitSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
-      <div class="hint" style="margin-top:20px">ESC back</div>`, 'dim');
+      <div class="hint" style="margin-top:20px">${HINTS.pauseExit}</div>`, 'dim');
   }
 
   updatePauseExit() {
     const items = this._pauseExitItems();
     if (input.pressed('up') || input.pressed('down')) { this.pauseExitSel = 1 - this.pauseExitSel; audio.play('menu'); this._drawPauseExit(); }
-    if (input.pressed('pause')) { this.pauseExitSel = null; audio.play('menu'); this._drawPause(); return; }
+    if (input.pressed('pause') || input.pressed('back')) { this.pauseExitSel = null; audio.play('menu'); this._drawPause(); return; }
     if (input.confirmPressed() || input.pressed('bite')) {
       const id = items[this.pauseExitSel].id;
       this.pauseExitSel = null;
@@ -803,7 +821,7 @@ export class Game {
       ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
       : live ? `${board}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(s.remix ? REMIX_TEXT.complete.missed : goalHint(this, s.level, live))}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
-      <div class="hint" style="margin-top:20px">◀ ▶ adjust · ESC resume</div>`, 'dim');
+      <div class="hint" style="margin-top:20px">${HINTS.pause}</div>`, 'dim');
   }
 
   updatePause() {
@@ -821,7 +839,7 @@ export class Game {
       save.write();
       this._drawPause();
     }
-    if (input.pressed('pause')) { this.closePause(); return; }
+    if (input.pressed('pause') || input.pressed('back')) { this.closePause(); return; }
     if (input.confirmPressed() || input.pressed('bite')) {
       if (it.id === 'resume') this.closePause();
       else if (it.id === 'wardrobe') this.openWardrobe('pause');
@@ -887,7 +905,7 @@ export class Game {
       banner += `<div class="wardrobe-offline">${esc(note)}</div>`;
     }
     this.ui.setScreen(`<div class="wardrobe-panel"><div class="sub-title">WARDROBE</div>${banner}${rows}
-      <div class="hint" style="margin-top:14px">↑↓ slot · ←→ item · ENTER close</div></div>`, 'dim');
+      <div class="hint" style="margin-top:14px">${HINTS.wardrobe}</div></div>`, 'dim');
   }
 
   _cycleWardrobe(dir) {

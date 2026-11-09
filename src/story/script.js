@@ -313,7 +313,7 @@ export const BONE_TEXT = {
 export const REMIX_TEXT = {
   banner: { title: 'SMOG REMIX', subtitle: 'Mirrored · no assistance · earn its own Golden Bone' },
   complete: { title: 'SMOG REMIX CLEAR!', earned: 'REMIX GOLDEN BONE!', missed: 'Every backpack and every dog in one run', already: 'Remix Golden Bone already earned' },
-  toggle: 'SMOG REMIX', locked: 'Beat the Pump Queen to unlock Smog Remixes', controls: 'R / RT: Smog Remix',
+  toggle: 'SMOG REMIX', locked: 'Beat the Pump Queen to unlock Smog Remixes', controls: 'R: Smog Remix',
   bone: 'Remix Golden Bone', normal: 'NORMAL',
 };
 export const BOSS_MEDAL_TEXT = { noHit: 'NO-HIT!', speed: 'SPEED MEDAL' };
@@ -396,7 +396,7 @@ export const GAUNTLET_TEXT = {
   title: 'BOX GAUNTLET', clear: 'CLEAR', allBoxes: 'ALL BOXES', flawless: 'FLAWLESS',
   firstClear: 'First clear: 5 Tickets', localBest: 'LOCAL BEST',
   deaths: (n) => `Deaths: ${n}`,
-  enter: 'G / RB · Enter gauntlet', grey: 'Reach it without a scratch.',
+  enter: 'G: Enter gauntlet', grey: 'Reach it without a scratch.',
   tutorial: "A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip.",
 };
 
