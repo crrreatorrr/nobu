@@ -35,20 +35,24 @@ export function attachGlb(parent, id, height, offsetY = 0, hideRoots = []) {
 }
 
 // ---------- telegraph marker ----------
+// Landing spots read as a soft ground shadow, not a red target: a subtle cue that darkens as the
+// threat arrives. One shared texture and one geometry per radius; only the material is per marker
+// because callers fade its opacity.
 let markerTex;
+const markerGeo = new Map();
 function markerTexture() {
-  markerTex ||= canvasTex(128, 128, (g) => {
-    g.strokeStyle = 'rgba(255,60,60,1)'; g.lineWidth = 10;
-    g.beginPath(); g.arc(64, 64, 56, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = 'rgba(255,40,40,0.28)';
-    g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 5;
-    g.beginPath(); g.moveTo(64, 30); g.lineTo(64, 98); g.moveTo(30, 64); g.lineTo(98, 64); g.stroke();
+  markerTex ||= canvasTex(64, 64, (g) => {
+    // stacked translucent discs: dense core, soft edge
+    g.fillStyle = 'rgba(255,255,255,0.16)';
+    for (let r = 31; r > 4; r -= 3) { g.beginPath(); g.arc(32, 32, r, 0, Math.PI * 2); g.fill(); }
   });
   return markerTex;
 }
+export const MARKER_OPACITY = 0.38;
 export function makeMarker(radius = 1.5) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(radius * 2, radius * 2), new THREE.MeshBasicMaterial({ map: markerTexture(), transparent: true, depthWrite: false }));
+  let geo = markerGeo.get(radius);
+  if (!geo) { markerGeo.set(radius, geo = new THREE.PlaneGeometry(radius * 2, radius * 2)); geo.userData.shared = true; }
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: markerTexture(), color: 0x000000, transparent: true, opacity: MARKER_OPACITY, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }));
   m.rotation.x = -Math.PI / 2;
   m.renderOrder = 2;
   return m;
@@ -281,8 +285,9 @@ export class Projectiles {
       } else if (pr.kind === 'drop') {
         pr.t += dt;
         const k = Math.min(1, pr.t / pr.delay);
+        // the falling cone's shadow widens and darkens as it drops
         pr.marker.scale.setScalar(0.5 + k * 0.5);
-        pr.marker.material.opacity = 0.5 + Math.sin(pr.t * 20) * 0.3;
+        pr.marker.material.opacity = MARKER_OPACITY * (0.35 + k * 0.65);
         if (pr.t > pr.delay - 0.35) {
           pr.mesh.visible = true;
           const f = Math.min(1, (pr.t - (pr.delay - 0.35)) / 0.35);
@@ -342,7 +347,7 @@ export class Projectiles {
           pr.fuse -= dt;
           pr.marker.visible = true;
           pr.marker.position.set(m.x, pr.groundY + 0.05, m.z);
-          pr.marker.material.opacity = 0.55 + Math.sin(pr.fuse * 24) * 0.35;
+          pr.marker.material.opacity = MARKER_OPACITY * (0.5 + 0.5 * (1 - pr.fuse / pr.fuseMax));
           // no numbers: the egg shivers, swells and blinks faster the closer it is to going off
           const k = 1 - pr.fuse / pr.fuseMax;
           const on = Math.sin(pr.fuse * (30 - pr.fuse * 8)) > 0;

@@ -33,10 +33,12 @@ export class CamZone extends Entity {
   onRespawn() { this.active = !this.contains(checkpointS(this), this.session.cp.pos.y); this.apply(checkpointS(this), this.session.cp.pos.y); }
 }
 export class RisingHazard extends Entity {
-  constructor(stage, track, d0, d1, { y0, y1, rate, trigger = 'enter', color = 0xffb070, w = 8.6, material } = {}) {
+  // still: the liquid never moves. It stays at y0 as a plain death plane (no rise, no drain, no
+  // per-frame emitter or mesh writes), which is the cheapest form of this hazard.
+  constructor(stage, track, d0, d1, { y0, y1, rate, trigger = 'enter', color = 0xffb070, w = 8.6, material, still = false } = {}) {
     super(stage, 0, 0, 0);
     if (!(y1 > y0 && rate > 0 && d1 > d0)) throw new Error('RisingHazard requires increasing bounds and a positive rate');
-    Object.assign(this, { track, d0, d1, y0, y1, rate, trigger });
+    Object.assign(this, { track, d0, d1, y0, y1, rate, trigger, still });
     this.alwaysActive = true; this.interactive = false;
     const vertices = [], indices = [], uv = [], v = new THREE.Vector3();
     const n = Math.max(1, Math.ceil((d1 - d0) / .75));
@@ -58,10 +60,15 @@ export class RisingHazard extends Entity {
     this.onRespawn();
   }
   armWith(sw) { this.switchEntity = sw; return this; }
-  start() { if (this.state !== 'armed') return; this.state = 'rising'; audio.play('suck'); this.game.ui.banner(ENVIRONMENT_TEXT.rising, '', 2); }
-  onRespawn() { this.y = this.y0; this.state = 'armed'; this.soundT = 0; if (this.mesh) this.mesh.position.y = this.y; }
+  start() { if (this.state !== 'armed' || this.still) return; this.state = 'rising'; audio.play('suck'); this.game.ui.banner(ENVIRONMENT_TEXT.rising, '', 2); }
+  onRespawn() { this.y = this.y0; this.state = this.still ? 'done' : 'armed'; this.soundT = 0; if (this.mesh) this.mesh.position.y = this.y; }
   update(dt) {
     const p = this.player, s = p.body.s ?? 0;
+    if (this.still) {
+      if (this.mesh.material.uniforms?.uTime) this.mesh.material.uniforms.uTime.value += dt;
+      if (s >= this.d0 && s <= this.d1 && !p.dead && p.pos.y < this.track.heightAt(s) + this.y0) p.die('fall');
+      return;
+    }
     if (this.state === 'armed') {
       const at = typeof this.trigger === 'number' ? this.trigger : this.d0;
       const sw = this.switchEntity;

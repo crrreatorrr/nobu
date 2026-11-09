@@ -6,6 +6,7 @@ import { audio } from '../audio/audio.js';
 import { save } from '../core/save.js';
 import { BONE_TEXT, SPEAKERS, TUTORIALS, DEATH_CAPTIONS, DEATH_ART } from '../story/script.js';
 import { savedBoard } from '../game/bones.js';
+import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
@@ -52,7 +53,8 @@ export class UI {
     this.hud.appendChild(m);
     this.slots.mask = { el: m, v: null, timer: 0 };
     root.appendChild(this.hud);
-    this.god = h('div', 'god-badge', 'GOD MODE');
+    this.god = h('div', 'god-badge', 'GOD MODE<div class="god-tally"></div>');
+    this.godTallyEl = this.god.querySelector('.god-tally');
     root.appendChild(this.god);
     this.trialEl = h('div', 'trial-timer');
     root.appendChild(this.trialEl);
@@ -145,6 +147,8 @@ export class UI {
     }
   }
   godBadge(on) { this.god.classList.toggle('on', !!on); }
+  // hits and deaths God Mode absorbed this level, or null to hide (outside a level)
+  godTally(t) { this.godTallyEl.textContent = t ? godTallyText(t) : ''; }
   setConed(on) { this.conedVignette.style.display = on ? 'block' : 'none'; }
   // time trial clock: text, or null to hide; `frozen` tints it icy while a Freeze Pack holds it
   // Called every frame during a trial, so the DOM is touched only when the shown text changes.

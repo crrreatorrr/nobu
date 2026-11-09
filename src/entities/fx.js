@@ -55,7 +55,7 @@ class Pool {
     for (const p of this.items) {
       if (p.delay > 0) continue;
       const t = p.life / p.max;
-      let sc = p.size;
+      let sc;
       if (mode === 'spark') sc = p.size * t;
       else sc = p.size * Math.min(1, t * 4);
       _p.set(p.x, p.y, p.z);
