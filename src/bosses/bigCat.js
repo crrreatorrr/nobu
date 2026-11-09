@@ -274,7 +274,7 @@ export class BigCatBoss extends Boss {
     this.collectMeshes();
     this.setStageLook(1);
     this.powers = new CatPowers(this);
-    this.CHAINS = { 2: [['claws', 'pounce'], ['tailspin', 'cough']], 3: [['yarn', 'claws'], ['dot', 'pounce'], ['claws', 'pounce']] };
+    this.CHAINS = { 1: [['cough', 'pounce'], ['yarn', 'pounce']], 2: [['claws', 'pounce'], ['tailspin', 'cough']], 3: [['yarn', 'claws'], ['dot', 'pounce'], ['claws', 'pounce']] };
     this.attackHistory = [];
   }
 
@@ -635,6 +635,8 @@ export class BigCatBoss extends Boss {
     if (this.ultReady) { this.setState('frenzy'); this.did = false; this.fz = 'charge'; return; }
     if (toP < 4.2 && this.sinceVuln < 2 && Math.random() < .5) { this.beginAttack('swipeUp'); return; }
     const pool = ['pounce', 'pounce', 'cough', 'yarn', 'dot'];
+    // Stage 1 also throws two-attack combos (it used to be too easy); stage 2 keeps its authored pool.
+    if (this.phase === 1) pool.push('chain');
     if (this.phase >= 2) pool.push('claws', 'tailspin', 'pounce', 'table');
     if (this.phase >= 3) pool.push('zoomies', 'claws', 'yarn', 'dot', 'chain');
     const eligible = pool.filter((a) => a !== 'table' || !this.attackHistory.slice(-2).includes('table'));

@@ -18,11 +18,12 @@ import { CONE_STAGE_POWERS } from '../story/script.js';
 
 const ARENA_R = 12.5;
 export const CONE_PLANS = Object.freeze({
-  1: ['summon','barrage','shock','shame','spiral','overheat','drops','barrage','overheat'],
+  1: ['summon','barrage','chain','shame','spiral','overheat','drops','chain','barrage','overheat'],
   2: ['summon','sweep','lasers','overheat','rugpull','grab','chain','vortex','shame','spiral','shock','overheat'],
   3: ['summon','clones','tide','spiral','chain','overheat','lasers','grab','sweep','rugpull','overheat','drops','chain','barrage','grab','overheat'],
 });
-export const CONE_CHAINS = Object.freeze({ 2: [['barrage','shame'],['shock','rugpull']],
+export const CONE_CHAINS = Object.freeze({ 1: [['barrage','shock'],['drops','spiral']],
+  2: [['barrage','shame'],['shock','rugpull']],
   3: [['vortex','grab','spiral'],['sweep','lasers'],['barrage','shame']] });
 
 // rig layout (model units: 4 tall, facing +z). The cone's axis leans a little toward +x.

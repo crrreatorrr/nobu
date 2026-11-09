@@ -11,13 +11,13 @@ import { materialSet, modelSkeletons } from './catResources.js';
 import { queenCleanup, queenHazardsPaused, queenProceduralCleanup } from './queenResources.js';
 
 export const QUEEN_PLANS = Object.freeze({
-  1: ['mint', 'wave', 'pump', 'mint', 'chain', 'pump'],
+  1: ['mint', 'wave', 'chain', 'pump', 'wave', 'mint', 'chain', 'pump'],
   2: ['mint', 'airdrop', 'fomo', 'pump', 'chain', 'mint', 'pump'],
   3: ['mint', 'crash', 'fomo', 'pump', 'airdrop', 'chain', 'pump'],
   4: ['liquidation', 'wake', 'airdrop', 'chain', 'liquidation', 'wake']
 });
 export const QUEEN_CHAINS = Object.freeze({
-  1: [['mint', 'pump']],
+  1: [['mint', 'pump'], ['wave', 'mint']],
   2: [
     ['fomo', 'pump'],
     ['airdrop', 'fomo'],
