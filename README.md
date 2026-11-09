@@ -10,28 +10,54 @@ npm run dev
 ```
 
 Open the printed URL, normally **http://localhost:5173/play/nobu/**. `npm run build` creates the
-static production build in `dist/`; `npm test` runs the automated checks.
+static production build in `dist/`; `npm test` runs the automated checks and `npm run lint` runs ESLint.
 
 ## Controls
 
+Play on the keyboard or on any standard-mapping gamepad (Xbox, PlayStation or Switch Pro buttons
+by position) with no setup. Plug a pad in at any time; the last device used decides
+whether on-screen prompts show keys or buttons.
+
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
-| Move | Arrows / WASD | Left stick / D-pad |
+| Move | WASD / Arrows | Left stick / D-pad |
+| Look around (camera peek) | — | Right stick |
 | Jump; press again for Double Jump | Space | A |
 | Bite | J / Shift | X / RB |
-| Slide on ground; Belly Flop in air | K / Ctrl | B / LB / triggers |
+| Slide on ground; Belly Flop in air | K / Ctrl | B / LB / LT / RT |
 | Mega Bark, once unlocked | L / E | Y |
-| Clown Collar air dash, when equipped | U | LT |
-| Pause | Esc / P | Start |
+| Clown Collar air dash, when equipped | Q / U | LT |
+| Pause / resume | Esc / P | Start (B also resumes) |
+| Menus: move, confirm, back | Arrows or W/S, Enter or Space, Esc (Backspace) | D-pad or left stick, A, B |
+| Map: play the selected stage | Space / Enter | A |
 | God Mode on/off during play | 9 9 (twice quickly) | — |
 | Map: time trial on a beaten level | T | Y |
 | Map: Box Gauntlet on its unlocked host level | G | RB |
 | Map: toggle Smog Remix after the Queen | R | RT |
 | Map: wardrobe | I | LB |
+| Map: Ticket exchange | X | LT |
+| Map: Sniffer, once unlocked | L / E | View |
+| Exit to the hub | Map: H · Pause: EXIT TO HUB | Title menu: RETURN TO HUB · Pause: EXIT TO HUB |
 
 Movement is camera-relative. In Scratchpost Canyon's front-facing chase, hold **Down / S** to run
 away from the cat. `K` avoids browser shortcuts such as Ctrl+W. With the Clown Collar equipped,
 LT spends an available air dash instead of starting a Belly Flop; B/LB/RT remain slide/flop inputs.
+
+The keyboard has two complete hands: the left alone (WASD, Space, Shift bite, Ctrl slide, E bark,
+Q dash), or WASD/Arrows with J/K/L/U on the right. Shift stays Bite rather than a run key because
+NOBU has no run button; Zoomies (hold Slide) is its sprint.
+
+Why this pad layout: Jump is the most frequent action, so it sits on A, with Bite, Slide and Bark
+on the other face buttons as in classic mascot platformers. Slide is also on LB and both
+triggers because three earned moves hold Slide while pressing something else (Zoomies, Moon Jump
+with A, Dust Dash with X); a finger holds Slide while the thumb stays on the face buttons. The
+camera is authored per section, so the right stick only peeks: it swings the view up to about 30°
+and eases back when released, and movement keeps following the authored framing. The mouse does
+not look around for the same reason, and so Esc always pauses. A button still held when the game
+loads (such as the hub's portal confirm) is ignored until released, and unplugging the pad during
+a level pauses it. The left stick has a 0.2 radial deadzone and the right stick 0.15; held menu
+directions repeat after 350 ms, then every 120 ms. The layout lives in `src/core/gamepad.js` and
+the prompt rewrites in `src/core/prompts.js`.
 
 | Earned move | Unlock | Input |
 | --- | --- | --- |
@@ -118,7 +144,7 @@ rescues across all eight stages:
 The Buddy follows ordinary on-foot field play; it does not fight, collect items or appear in bosses,
 trials, Remix, Rush, mounted sections or Treat Tray rounds. Five Chomp Chain badges also unlock the
 Chomp Gold tint. In the Kennel, use directions to choose, Jump/Enter to select, Bark for Sniffer and
-Esc/Back to return; on the map, Bark also opens Sniffer once unlocked.
+Esc/B to return; on the map, L/E or pad View also opens Sniffer once unlocked.
 
 **Box Gauntlets:** find a Polaroid in a deathless normal visit to L1, L3 or L4 to unlock **Jungle
 Crates**, **Assembly Rush** or **Hamper Hop**. Select that host on the map and press G/RB. Earn Clear,

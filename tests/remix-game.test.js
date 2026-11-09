@@ -10,7 +10,7 @@ function fixture(){return{mapSel:1,mapRemix:true,ui:{setScreen:vi.fn(),boneBoard
 it('renders only its own single bone and suppresses ordinary board and ranked controls',()=>{
  save.data.beaten[5]=true;save.data.beaten[1]=true;save.data.remix[1]={golden:true};
  const g=fixture();Game.prototype._drawMap.call(g);const html=g.ui.setScreen.mock.calls[0][0];
- expect(html).toContain('Remix Golden Bone');expect(html).toContain('R / RT: Smog Remix');
+ expect(html).toContain('Remix Golden Bone');expect(html).toContain('R: Smog Remix');
  expect(html).not.toContain('NORMAL BOARD');expect(html).not.toContain('TIME TRIAL');expect(html).not.toContain('WORLD BOARD');
  expect(g._worldLine).not.toHaveBeenCalled();
 });

@@ -146,12 +146,14 @@ test('reversing belt warns a full second, flips real force and UV direction, and
  belt.onRespawn();expect(belt.span.conveyor.z).toBe(4);expect(belt.warning).toBe(false);
 });
 
-test('switch starts actual rising vat, death resets it, and activated pity drains it immediately',()=>{
+test('the vat liquid never moves: the switch, waiting and death all leave it still at the bottom',()=>{
  const {stage,game}=build();const vat=stage.entities.find(e=>e instanceof RisingHazard);
  game.player.body.s=338;game.player.pos.copy(stage.track.toWorld(338,0,3));
+ expect(vat.still).toBe(true);expect(vat.state).toBe('done');
  vat.update(1);expect(vat.y).toBe(-1.2);
- vat.switchEntity.press();vat.update(1);expect(vat.state).toBe('rising');expect(vat.y).toBeCloseTo(-.78);
- vat.onRespawn();expect(vat.y).toBe(-1.2);
+ vat.switchEntity.press();for(let i=0;i<40;i++)vat.update(.5);expect(vat.state).toBe('done');expect(vat.y).toBe(-1.2);expect(vat.mesh.position.y).toBe(-1.2);
+ expect(game.player.dead).toBeFalsy();
+ vat.onRespawn();expect(vat.y).toBe(-1.2);expect(vat.state).toBe('done');
  const pity=stage.entities.find(e=>e.kind==='pitysnacks'&&Math.abs(stage.track.project(e.pos.x,e.pos.z).s-359)<.1);
  vat.y=5;pity.arm();pity.hit();expect(vat.y).toBe(-1.2);expect(pity.broken).toBe(true);
 });
@@ -311,4 +313,14 @@ test('activated registry builds layout2 and exposes the same main sections and d
  expect(fresh.track.length).toBeCloseTo(stage.track.length,5);
  expect(fresh.track.triggers.some(t=>Math.abs((t.s??t.d)-420)<.01)).toBe(true);
  expect(fresh.entities.filter(e=>e.dogId)).toHaveLength(9);
+});
+
+test('standing on the Maintenance Ducts pipe takes Nobu up, like sliding in under its roof',()=>{
+ const {stage,game}=build();
+ const recovery=stage.entities.find(e=>e instanceof FactoryDetourRecovery && !e.launch), p=game.player;
+ const travel=vi.spyOn(recovery.detour,'travel').mockImplementation(()=>{});
+ p.body.s=188;p.body.u=recovery.entryX;p.mode='normal';p.body.grounded=true;
+ p.pos.copy(stage.track.toWorld(188,recovery.entryX,1.05));
+ recovery.update();
+ expect(travel).toHaveBeenCalledTimes(1);expect(recovery.snapshot).not.toBeNull();
 });

@@ -240,7 +240,7 @@ it('never starts pumping an absent ladder, then gives the full DDA tell once a p
   boss.dda.tele = 1.15;
   boss.update(0.01);
   expect(boss.state).toBe('pump');
-  expect(boss.tell).toBeCloseTo(1.4 * 0.82 * 1.15);
+  expect(boss.tell).toBeCloseTo(1.4 * 0.76 * 1.15);
   step(boss, boss.tell - 0.02);
   expect(boss.vulnerable).toBe(false);
   step(boss, 0.03);

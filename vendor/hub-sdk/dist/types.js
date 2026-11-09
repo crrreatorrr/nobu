@@ -1,5 +1,14 @@
 /** Game ids stored on the server and used in `/hub#from=<game>` and `play/<game>`. */
-export const GAME_IDS = ['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter', 'sproto-arcade'];
+export const GAME_IDS = [
+    'hpos10i',
+    'nobu',
+    'peoples-bitcoin',
+    'sproto',
+    'sproto-fighter',
+    'sproto-arcade',
+    'sproto-shooter',
+    'sproto-coop-battle',
+];
 /** Earn-once relics. The primary key on the server is (user, relic). */
 export const RELIC_IDS = [
     'hpos10i_core',
@@ -15,6 +24,7 @@ export const RELIC_IDS = [
  * So does the Breakwater Coin (Sproto Arcade, the Bar cabinet's second game).
  */
 export const FOUR_LIGHTS_RELIC_IDS = ['hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown'];
+/** Games with no entry here have no Relic. Shooter and Coop Battle are in that set. */
 export const RELIC_BY_GAME = {
     hpos10i: 'hpos10i_core',
     'peoples-bitcoin': 'genesis_shard',

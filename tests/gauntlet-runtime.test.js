@@ -54,7 +54,7 @@ test('map attaches one three-medal entry to its host and RB takes precedence ove
   Game.prototype._drawMap.call(game);
   expect(game.ui.screen.querySelectorAll('[data-gauntlet-pin]')).toHaveLength(1);
   const entry = game.ui.screen.querySelector('[data-gauntlet-entry="g2"]');
-  expect(entry.textContent).toContain('ASSEMBLY RUSH'); expect(entry.textContent).toContain('G / RB');
+  expect(entry.textContent).toContain('ASSEMBLY RUSH'); expect(entry.textContent).toContain('G: Enter gauntlet');
   expect(entry.textContent).toContain('0:42.13'); expect(entry.querySelectorAll('[data-gauntlet-medal]')).toHaveLength(3);
   vi.spyOn(input, 'pressed').mockImplementation((a) => a === 'gauntlet' || a === 'bite');
   vi.spyOn(input, 'confirmPressed').mockReturnValue(false);
@@ -67,8 +67,10 @@ test('real keyboard G and pad RB expose gauntlet edges while RB retains the game
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyG' })); input.poll();
   expect(input.pressed('gauntlet')).toBe(true);
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyG' }));
-  navigator.getGamepads = vi.fn(() => [{ connected: true, axes: [0, 0],
-    buttons: Array.from({ length: 16 }, (_, i) => ({ pressed: i === 5 })) }]);
+  // The pad connects with nothing held (a button held at connect is latched), then RB goes down.
+  const buttons = Array.from({ length: 16 }, () => ({ pressed: false }));
+  navigator.getGamepads = vi.fn(() => [{ connected: true, axes: [0, 0], buttons }]);
+  input.poll(); buttons[5].pressed = true;
   input.poll(); expect(input.pressed('gauntlet')).toBe(true); expect(input.pressed('bite')).toBe(true);
   input.poll(); expect(input.pressed('gauntlet')).toBe(false);
   input.codes.clear(); input.pad.held.clear(); input._pressed.clear();
