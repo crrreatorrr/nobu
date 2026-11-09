@@ -28,6 +28,14 @@ const KEYMAP = {
 
 const actionsOf = (code) => { const a = KEYMAP[code]; return !a ? [] : Array.isArray(a) ? a : [a]; };
 
+// Typing 9 twice quickly (main row or numpad) queues the 'god' action: God Mode on/off mid-game.
+export const GOD_KEYS = new Set(['Digit9', 'Numpad9']);
+export const GOD_COMBO_MS = 600;
+// Returns the new pending time: null once the combo fires (so 999 is one toggle, 9999 two).
+export function godCombo(pending, t) {
+  return pending != null && t - pending <= GOD_COMBO_MS ? null : t;
+}
+
 class Input {
   constructor() {
     this.down = new Set();        // actions currently held (keyboard)
@@ -45,6 +53,7 @@ class Input {
     this._deviceSwitched = false;
 
     this.codes = new Set();
+    this._god9 = null;
     window.addEventListener('keydown', (e) => {
       const acts = actionsOf(e.code);
       if (acts.length) {
@@ -53,6 +62,11 @@ class Input {
       }
       // Ctrl+key combos would trigger browser shortcuts while sliding; swallow what we can.
       if (e.ctrlKey && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyJ', 'KeyK', 'KeyL', 'KeyE', 'KeyQ', 'KeyU', 'Space'].includes(e.code)) e.preventDefault();
+      if (GOD_KEYS.has(e.code) && !e.repeat) {
+        const was = this._god9;
+        this._god9 = godCombo(was, e.timeStamp);
+        if (was != null && this._god9 == null) this.pressedQ.add('god');
+      }
       this.codes.add(e.code);
       this._recompute();
       if (!e.repeat) this.anyKeyQ = true;

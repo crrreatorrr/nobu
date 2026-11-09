@@ -30,6 +30,7 @@ whether on-screen prompts show keys or buttons.
 | Pause / resume | Esc / P | Start (B also resumes) |
 | Menus: move, confirm, back | Arrows or W/S, Enter or Space, Esc (Backspace) | D-pad or left stick, A, B |
 | Map: play the selected stage | Space / Enter | A |
+| God Mode on/off during play | 9 9 (twice quickly) | — |
 | Map: time trial on a beaten level | T | Y |
 | Map: Box Gauntlet on its unlocked host level | G | RB |
 | Map: toggle Smog Remix after the Queen | R | RT |
@@ -165,10 +166,13 @@ After defeating the Queen:
   progress; New Game clears Remix records.
 
 **God Mode** is a saved title-menu toggle: damage is ignored, falls recover to recent solid ground,
-and extra jumps make practice easier. It can still advance ordinary story progress, but cannot earn
+and extra jumps make practice easier. Typing 9 twice quickly switches it on or off during play;
+switching it on mid-level marks that run as God-assisted even if it is switched off again. It can still advance ordinary story progress, but cannot earn
 Good Boy Bones, Perfect Runs, boss medals, Rush records, Remix Golden Bones, Gauntlet records/rewards,
 trial Platinum tags or public scores. Ordinary boss assistance also voids boss medals. Practice trial
-bests can remain local, with eligibility tracked separately from clean records.
+bests can remain local, with eligibility tracked separately from clean records. Under the badge, a HITS · DEATHS
+tally counts what God Mode absorbed this level (a death is a pit, a crusher, or a hit with no mask
+or collar charge left). It resets each level and is never saved or scored.
 
 ## Time trials and public-board status
 

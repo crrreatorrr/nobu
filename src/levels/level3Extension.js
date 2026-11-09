@@ -69,7 +69,8 @@ export function addFactoryExtension(k, game, stage, tickets, track) {
   k.camZone(331,381,'rise',{height:5.5,dist:11});
   k.floor(331,337); k.snacks(-2.4,0,334);
   const valve=k.boneSwitch(1.8,0,336,[[0,9,378,3.2,3.2]]);
-  const vat=k.rising(337,381,{y0:-1.2,y1:7.2,rate:.42,trigger:'switch'}).armWith(valve);
+  // Owner request: the vat liquid stays still at the bottom of the pit (it used to rise after the valve).
+  const vat=k.rising(337,381,{y0:-1.2,y1:7.2,rate:.42,trigger:'switch',still:true}).armWith(valve);
   const pattern=vatPattern(), worldPattern=worldVatPattern(track,pattern), problems=validatePattern(worldPattern);
   if (problems.length) throw new Error(`Unsafe L3 vat: ${JSON.stringify(problems)}`);
   stage.timedPatterns.push(worldPattern);
