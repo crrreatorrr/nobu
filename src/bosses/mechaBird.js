@@ -71,7 +71,7 @@ export class MechaBird extends Boss {
     this.lastPhase = 1;
     this.stageNames = { 2: 'OVERCLOCKED', 3: 'HYPER MECHA' };
     this.stagePowers = BIRD_STAGE_POWERS;
-    this.CHAINS = { 3: [['laser','volley'],['cage','aim']] };
+    this.CHAINS = { 1: [['volley','aim'],['volley','gust']], 3: [['laser','volley'],['cage','aim']] };
     this.drones = []; this.droneSphereGiven = false;
     this.eggCraters = new BirdEggCraters(this.proj);
     this.stageColors = [0, 0, 0xff7a1a, 0x3ad8ff];
@@ -244,7 +244,7 @@ export class MechaBird extends Boss {
   }
   nextAction() {
     if (!this.plan.length) {
-      if(this.phase===1)this.plan=['circle','aim','circle','perch','aim','gust','aim'];
+      if(this.phase===1)this.plan=['circle','volley','aim','chain','perch','aim','volley','gust','aim'];
       else if(this.phase===2)this.plan=['circle','volley','laser','circle','cage','aim','perch','volley','tired','aim'];
       else this.plan=['escort','circle','missiles','aim','eggs','chain','aim','gust','cage','perch','bomb','aim'];
     }

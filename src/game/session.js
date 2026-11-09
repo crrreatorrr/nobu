@@ -20,6 +20,7 @@ import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
 import { LEVELS, levelDef, LEVEL_NAMES } from '../levels/registry.js';
+import { preloadVictory } from './victoryPreload.js';
 import { MASTERY_TEXT, LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT, SECTION_TEXT } from '../story/script.js';
 import { createChain, refreshChain, chainPitch } from './rewards.js';
 import { hitSessionChain, finishSessionChain, updateSessionChain, removeChainDrops } from './chain.js';
@@ -741,6 +742,8 @@ export class Session {
     boss.stateT = 0; // the phase-change reaction (rage/roar) starts now, after the dialogue
     boss.active = true;
     boss.beginPhase?.();
+    // Final stage: begin loading the post-fight screens now, while the fight goes on.
+    if (phase === boss.stages && !this.remix && !this._victoryPreload) this._victoryPreload = preloadVictory(levelDef(this.level)?.id ?? this.level);
     this.busy = false;
   }
 

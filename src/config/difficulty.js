@@ -24,16 +24,18 @@ export function tierValue(key, tier) {
 export const remixEnemySpeed = (tier) => tierValue('enemySpeed', Math.min(5, tier + 1));
 
 export const BOSS = {
-  bird: { hp: 6, perStage: 2, stages: 3, speed: [1, 1.2, 1.4], window: [2.7, 2.4, 2.2],
-    tele: [1, 0.88, 0.78], chain: [1, 1, 2] },
-  cat: { hp: 6, perStage: 2, stages: 3, speed: [1, 1.2, 1.45], window: [2.7, 2.4, 2],
-    tele: [0.95, 0.84, 0.74], chain: [1, 2, 2] },
-  cone: { hp: 9, perStage: 3, stages: 3, speed: [1, 1.25, 1.5], window: [1.8, 1.4, 1.1],
-    tele: [0.9, 0.8, 0.7], chain: [1, 2, 3] },
-  titan: { hp: 9, perStage: 3, stages: 3, speed: [1.15, 1.35, 1.55], window: [1.7, 1.35, 1.05],
-    tele: [0.85, 0.76, 0.68], chain: [2, 2, 3] },
-  queen: { hp: 12, perStage: 3, stages: 4, speed: [1.2, 1.4, 1.6, 1.7], window: [1.6, 1.3, 1.05, 0.95],
-    tele: [0.82, 0.74, 0.66, 0.62], chain: [2, 3, 3, 4] },
+  // Stage 1 is faster, with shorter tells and two-attack combos (owner request: phase one was too easy).
+  // Each value still sits at or below the stage-2 value, so the ladder stays monotonic.
+  bird: { hp: 6, perStage: 2, stages: 3, speed: [1.15, 1.2, 1.4], window: [2.5, 2.4, 2.2],
+    tele: [0.9, 0.88, 0.78], chain: [2, 2, 2] },
+  cat: { hp: 6, perStage: 2, stages: 3, speed: [1.15, 1.2, 1.45], window: [2.5, 2.4, 2],
+    tele: [0.86, 0.84, 0.74], chain: [2, 2, 2] },
+  cone: { hp: 9, perStage: 3, stages: 3, speed: [1.18, 1.25, 1.5], window: [1.6, 1.4, 1.1],
+    tele: [0.82, 0.8, 0.7], chain: [2, 2, 3] },
+  titan: { hp: 9, perStage: 3, stages: 3, speed: [1.28, 1.35, 1.55], window: [1.5, 1.35, 1.05],
+    tele: [0.78, 0.76, 0.68], chain: [2, 2, 3] },
+  queen: { hp: 12, perStage: 3, stages: 4, speed: [1.32, 1.4, 1.6, 1.7], window: [1.4, 1.3, 1.05, 0.95],
+    tele: [0.76, 0.74, 0.66, 0.62], chain: [2, 3, 3, 4] },
 };
 
 export const FLOOR = { teleSec: 0.40, windowSec: 0.90 };

@@ -84,7 +84,10 @@ export class FactoryDetourRecovery extends Entity {
     if (!this.snapshot) {
       if (this.session.trial) return;
       const near=Math.abs(s-this.detour.entryD)<1.8 && Math.abs((p.body.u ?? 0)-this.entryX)<.85;
-      if (!this.launch && near && y<1 && p.mode==='slide') {
+      // Slide in under the roof, or stand on top of the pipe: both take Nobu up into the ducts.
+      // (Standing on the pipe used to do nothing, so players were stuck on top of it.)
+      const onPipe=near && p.body.grounded && y>=.8 && y<2.6;
+      if (!this.launch && ((near && y<1 && p.mode==='slide') || onPipe)) {
         this.capture(); this.detour.travel(this.detour.startPos,this.detour.entryD);
       } else if (this.launch && s>=275 && s<279 && y>=5 && Math.abs((p.body.u ?? 0)-(tr.authorU ? tr.authorU(-2.8) : -2.8))<1.7) this.capture();
       return;
