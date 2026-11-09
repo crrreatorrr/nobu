@@ -158,7 +158,7 @@ describe('real vendored expanded trial contract', () => {
   });
 });
 
-describe('real SDK 0.6.3 durable economy outbox', () => {
+describe('real SDK 0.6.4 durable economy outbox', () => {
   it.each(['amount_over_rule', 'idempotency_mismatch', 'session_cap'])('terminal 2xx %s drops only refused row and never poisons later init', async code => {
     const h = wire(), sdk = await h.open('a');
     h.answers.set('keep', 'offline');
@@ -185,7 +185,7 @@ describe('real SDK 0.6.3 durable economy outbox', () => {
     expect(saved).toMatchObject({ key: 'retry', gameId: 'nobu', body: { amount: 20, reason: 'level_end' } });
     const attempts = () => h.sent.filter(call => call.body.key === 'retry').length;
     const before = attempts();
-    // 0.6.3 keeps a non-final row queued and does not reject init.
+    // 0.6.4 keeps a non-final row queued and does not reject init.
     await expect(h.open('b')).resolves.toBeDefined();
     expect(attempts()).toBe(before + 1);
     expect((await rows())[0].body).toEqual(saved.body);
@@ -200,7 +200,7 @@ describe('real SDK 0.6.3 durable economy outbox', () => {
     await expect(sdk.earnTickets(20, 'level_end', 'rate')).rejects.toMatchObject({ code: 'rate_limited' });
     const attempts = () => h.sent.filter(call => call.body.key === 'rate').length;
     const before = attempts();
-    // 0.6.3 keeps a rate-limited row queued and does not reject init.
+    // 0.6.4 keeps a rate-limited row queued and does not reject init.
     await expect(h.open('a')).resolves.toBeDefined();
     expect(attempts()).toBe(before + 1);
     expect((await rows()).map(row => row.key)).toEqual(['rate']);
