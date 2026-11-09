@@ -142,7 +142,9 @@ After defeating the Queen:
 and extra jumps make practice easier. It can still advance ordinary story progress, but cannot earn
 Good Boy Bones, Perfect Runs, boss medals, Rush records, Remix Golden Bones, Gauntlet records/rewards,
 trial Platinum tags or public scores. Ordinary boss assistance also voids boss medals. Practice trial
-bests can remain local, with eligibility tracked separately from clean records.
+bests can remain local, with eligibility tracked separately from clean records. Under the badge, a HITS · DEATHS
+tally counts what God Mode absorbed this level (a death is a pit, a crusher, or a hit with no mask
+or collar charge left). It resets each level and is never saved or scored.
 
 ## Time trials and public-board status
 
