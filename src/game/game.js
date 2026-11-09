@@ -246,7 +246,7 @@ export class Game {
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (!isOpen('kennel', save.data)) return false;
     this.kennel?.dispose();
-    this.session?.dispose(); this.session = null;
+    this.session?.dispose(); this.session = null; this.ui.godTally?.(null);
     this.ui.trialTime(null); this.ui.hideHud(); this.ui.bossHide(); this.ui.clearScreen();
     this.state = 'kennel';
     this.kennel = new Kennel(this, KENNEL_TEXT);
@@ -260,7 +260,7 @@ export class Game {
     this.ui.trialTime(null);
     this.state = 'title';
     if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
-    this.session = null;
+    this.session = null; this.ui.godTally?.(null);
     this._refreshTitleNobu();
     this.applyKennelTint(this.titleNobu, {});
     this.titleScene.background = Assets.tex('bg_title');
@@ -333,9 +333,7 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawTitleMenu();
       } else if (it.id === 'god') {
-        save.data.godMode = !save.data.godMode;
-        save.write();
-        this.ui.godBadge(save.data.godMode);
+        this.toggleGod();
         this._drawTitleMenu();
       } else if (it.id === 'pixel') {
         save.data.pixelated = !save.data.pixelated;
@@ -415,7 +413,7 @@ export class Game {
     const fromRemix = !!this.session?.remix;
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
-    this.session = null;
+    this.session = null; this.ui.godTally?.(null);
     sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
     if (!fromRemix) this._unlockMainChapters();
     if (!fromRemix && levelDef(4)?.shipped && save.data.finished && !save.data.seenCh2) {
@@ -679,15 +677,27 @@ export class Game {
     }
     this.state = 'play';
     const session = this.session = n === 'rush' ? new RushSession(this) : new Session(this, n, opts);
+    this.player?.resetGodTally?.();
     this.flyingMasks.length = 0;
     await session.startLevel();
     if (epoch !== this._launchEpoch || this.session !== session || session.disposed) return false;
     if (opts.remix && this.state === 'play') this.ui.banner(REMIX_TEXT.banner.title, REMIX_TEXT.banner.subtitle, 2.2);
   }
 
+  // Title-menu toggle, and 99 during play. Turning it on marks the current run as God-assisted
+  // right away; turning it off later does not clear that.
+  toggleGod() {
+    save.data.godMode = !save.data.godMode;
+    save.write();
+    this.ui.godBadge(save.data.godMode);
+    if (save.data.godMode) this.session?.markGodUsed?.();
+    return save.data.godMode;
+  }
+
   updatePlay(dt) {
     const s = this.session;
     if (!s) return;
+    if (input.pressed('god')) { this.toggleGod(); audio.play('select'); }
     if (input.pressed('pause') && !this.ui.talking && !s.dying) { this.openPause(); return; }
     s.update(dt);
     this._updateFlyingMasks(dt);

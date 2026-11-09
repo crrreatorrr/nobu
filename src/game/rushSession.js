@@ -212,6 +212,11 @@ export class RushSession extends Session {
     })();
   }
 
+  markGodUsed() {
+    super.markGodUsed();
+    this.run.godUsed = true;
+  }
+
   update(dt) {
     if (this.disposed || this.over || this.game.session !== this) return;
     tickRush(this.run, dt, { active: !!this.boss?.active && !this.boss.defeated,

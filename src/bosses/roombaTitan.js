@@ -10,7 +10,7 @@ import { TITAN_STAGE_POWERS, TITAN_FLOP_HINT } from '../story/script.js';
 import { startBossFling } from '../player/bossFling.js';
 
 export const TITAN_PLANS = Object.freeze({
-  1: ['patrol', 'charge', 'patrol', 'cable', 'charge', 'patrol', 'chain'],
+  1: ['patrol', 'charge', 'cable', 'chain', 'patrol', 'charge', 'cable', 'chain'],
   2: ['patrol', 'swarm', 'charge', 'suction', 'chain', 'patrol', 'cable', 'charge', 'suction', 'chain'],
   3: [
     'lightsout',

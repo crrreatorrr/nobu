@@ -29,8 +29,12 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // 0.6.0 / hub main 93e4894 (Classic/layout2 trial variants; generated vendor workflow).
 //   18018817130d23586ba30db373fafb6244ff730d663588a2ce94f50426bfbf1a
 // 0.6.1 / exact merged hub main b8636ee7b222cc39f2a4e18b1ce944276299e52d
-// (expanded trial variants and terminal outbox refusals; supported helper output).
-const CONTENT_MANIFEST_SHA256 = '98b625bac349f83e5afe75491c14d0fe70e8ac63206b8beaafba51d210b6a372';
+// (expanded trial variants and terminal outbox refusals; supported helper output):
+//   98b625bac349f83e5afe75491c14d0fe70e8ac63206b8beaafba51d210b6a372
+// 0.6.3 / exact merged hub main 5cc4e4809180f5bc0b016301d9222c26a80e6d4c
+// (hub #90; classic-script IIFE, global HubSDK). File sha256 of dist/hub-sdk.iife.js:
+const CONTENT_MANIFEST_SHA256 = '3813f4566254eff06733e0f5f156052116fa3aad6d4fd36b259b86f00da65dd5';
+const IIFE_SHA256 = '4ceb36321fc09820c4ef6292b8bd31ebaa198f0a9b90d38bcbd458505222df76';
 
 function listFiles(dir) {
   const out = [];
@@ -77,9 +81,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.6.1', () => {
+  it('package.json is SDK 0.6.3', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.6.1');
+    expect(pkg.version).toBe('0.6.3');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -102,7 +106,14 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: main\n- sha: b8636ee\n- package: packages/hub-sdk @ 0.6.1');
+    expect(note).toContain('- branch: main\n- sha: 5cc4e48\n- package: packages/hub-sdk @ 0.6.3');
+    expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
+    const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
+    const iife = fs.readFileSync(iifePath);
+    expect(createHash('sha256').update(iife).digest('hex')).toBe(IIFE_SHA256);
+    expect(iife.toString('utf8')).toContain('global HubSDK');
+    const pin = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/SOURCE.pin.json'), 'utf8'));
+    expect(pin).toMatchObject({ version: '0.6.3', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
     const files = listFiles(path.resolve('vendor/hub-sdk'));
     expect(files.some(file => file.endsWith('.map'))).toBe(false);
     for (const file of files) expect(fs.readFileSync(file, 'utf8')).not.toContain('sourceMappingURL=');
@@ -134,7 +145,10 @@ describe('vendored hub SDK', () => {
     expect(types.isRelicId('tidebreaker_belt')).toBe(true);
     expect(types.isRelicId('breakwater_coin')).toBe(true);
     expect(types.isRelicId('not_a_relic')).toBe(false);
-    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter', 'sproto-arcade']);
+    expect(types.GAME_IDS).toEqual([
+      'hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter', 'sproto-arcade',
+      'sproto-shooter', 'sproto-coop-battle',
+    ]);
     const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
     expect(live).toContain("value.filter((item) => typeof item === 'string' && isRelicId(item))");
     const dts = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
@@ -143,7 +157,7 @@ describe('vendored hub SDK', () => {
     expect(vendorNote).not.toContain('## Local patch');
   });
 
-  it('content manifest matches SDK 0.6.1 after maps and sourceMappingURL are removed', () => {
+  it('content manifest matches SDK 0.6.3 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);

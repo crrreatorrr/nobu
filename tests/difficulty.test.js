@@ -5,10 +5,11 @@ import { MechaBird } from '../src/bosses/mechaBird.js';
 import { BigCatBoss } from '../src/bosses/bigCat.js';
 import { EvilCone } from '../src/bosses/evilCone.js';
 
+// Stage 1 was tuned up (faster, shorter tells, two-attack combos); stages 2 and 3 are unchanged.
 const old = {
-  bird: { hp: 6, perStage: 2, speed: [1, 1.2, 1.4], window: [2.7, 2.4, 2.2] },
-  cat: { hp: 6, perStage: 2, speed: [1, 1.2, 1.45], window: [2.7, 2.4, 2] },
-  cone: { hp: 9, perStage: 3, speed: [1, 1.25, 1.5], window: [1.8, 1.4, 1.1] },
+  bird: { hp: 6, perStage: 2, speed: [1.15, 1.2, 1.4], window: [2.5, 2.4, 2.2] },
+  cat: { hp: 6, perStage: 2, speed: [1.15, 1.2, 1.45], window: [2.5, 2.4, 2] },
+  cone: { hp: 9, perStage: 3, speed: [1.18, 1.25, 1.5], window: [1.6, 1.4, 1.1] },
 };
 const boss = (key) => new Boss({ game: {} }, 0, 0, 0, { key, name: key, portrait: key });
 
@@ -28,8 +29,8 @@ describe('authored difficulty configuration', () => {
       b.phase = phase;
       expect(b.sp).toBe(expected.speed[phase - 1]);
       expect(b.W).toBe(expected.window[phase - 1]);
-      expect(b.tele(1)).toBe({ bird: [1, .88, .78], cat: [.95, .84, .74], cone: [.9, .8, .7] }[key][phase - 1]);
-      expect(b.chainLen).toBe({ bird: [1, 1, 2], cat: [1, 2, 2], cone: [1, 2, 3] }[key][phase - 1]);
+      expect(b.tele(1)).toBe({ bird: [.9, .88, .78], cat: [.86, .84, .74], cone: [.82, .8, .7] }[key][phase - 1]);
+      expect(b.chainLen).toBe({ bird: [2, 2, 2], cat: [2, 2, 2], cone: [2, 2, 3] }[key][phase - 1]);
     }
   });
 
