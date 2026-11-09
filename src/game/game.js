@@ -24,6 +24,7 @@ import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
 import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT, GAUNTLET_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
+import { crashGuard } from '../core/crashGuard.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
 import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
@@ -94,6 +95,8 @@ export class Game {
     this.exchangeOpen = false;
     this.exAmount = TICKETS_PER_VERSE;
     this.exBusy = false;
+    /** Counts frames that throw; halts the loop and shows the "Something broke" panel after a streak. */
+    this.crash = crashGuard;
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('beforeunload', (e) => {
       if (this.hubExit) return;
@@ -143,20 +146,27 @@ export class Game {
   }
 
   // ---------------- main loop ----------------
+  // The whole frame (input, update, UI, render) runs inside the crash guard and the next frame is
+  // always scheduled. A throw ends that frame; a streak of failing frames halts the game (the panel
+  // shows and nothing updates), and the console gets each distinct error only once.
   loop(now, manual = false) {
-    const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
-    this.last = now;
-    input.poll();
-    if (input.anyPressed()) audio.unlock();
     try {
-      this.update(dt);
-      if (input.deviceSwitched()) this.refreshPrompts();
+      if (!this.crash.halted) {
+        const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
+        this.last = now;
+        input.poll();
+        if (input.anyPressed()) audio.unlock();
+        this.update(dt);
+        if (input.deviceSwitched()) this.refreshPrompts();
+        this.ui.update(dt);
+        this.render();
+        this.crash.frameOk();
+      }
     } catch (e) {
-      console.error(e);
+      this.crash.frameFailed(e);
+    } finally {
+      if (!manual) requestAnimationFrame((t) => this.loop(t));
     }
-    this.ui.update(dt);
-    this.render();
-    if (!manual) requestAnimationFrame((t) => this.loop(t));
   }
 
   // Redraw the open menu so its control prompts match the device just used (keyboard or pad).
