@@ -44,7 +44,7 @@ export class Kennel {
       if (this.mode !== 'main') this.closeMode(); else { this.dispose(); this.game.toMap('kennel'); }
       return;
     }
-    if (this.mode !== 'golden' && input.pressed('bark') && this.status.unlocks.includes('sniffer')) { this.mode = 'sniffer'; audio.play('sniff'); this.draw(); return; }
+    if (this.mode !== 'golden' && (input.pressed('bark') || input.pressed('sniffer')) && this.status.unlocks.includes('sniffer')) { this.mode = 'sniffer'; audio.play('sniff'); this.draw(); return; }
     const delta = (input.pressed('right') || input.pressed('down') ? 1 : 0) - (input.pressed('left') || input.pressed('up') ? 1 : 0);
     if (delta) {
       const n = this.mode === 'main' ? this.options.length : this.choices().length;

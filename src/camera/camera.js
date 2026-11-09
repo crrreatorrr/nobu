@@ -5,6 +5,28 @@ import { damp, rand } from '../core/util.js';
 
 const _v = new THREE.Vector3();
 
+// Right-stick camera peek. The authored framing stays in charge: the stick swings the camera
+// around its look point by at most these angles (radians) and it eases back when released.
+// Movement keeps using the authored framing, so a peek never changes which way Up goes.
+export const PEEK = {
+  yaw: 0.5, // stick fully left/right
+  up: 0.15, // stick fully up lowers the camera to look up
+  down: 0.3, // stick fully down raises it to look down
+  response: 8, // per second; frame-rate independent easing toward the stick position
+  minElevation: 0.05, maxElevation: 1.3, // camera stays above the look point, short of overhead
+};
+
+/** Ease the peek angles toward the stick ([x right, y down], already deadzoned). */
+export function stepPeek(peek, stick, dt, cfg = PEEK) {
+  const x = stick?.[0] || 0, y = stick?.[1] || 0;
+  const k = 1 - Math.exp(-cfg.response * Math.max(0, dt));
+  peek.yaw += (x * cfg.yaw - peek.yaw) * k;
+  peek.pitch += ((y > 0 ? y * cfg.down : y * cfg.up) - peek.pitch) * k;
+  if (Math.abs(peek.yaw) < 1e-4 && !x) peek.yaw = 0;
+  if (Math.abs(peek.pitch) < 1e-4 && !y) peek.pitch = 0;
+  return peek;
+}
+
 export class GameCamera {
   constructor(aspect) {
     this.cam = new THREE.PerspectiveCamera(58, aspect, 0.1, 800);
@@ -21,6 +43,8 @@ export class GameCamera {
     this.cine = null;
     this.sideAxis = false;
     this.switchT = 0;
+    this.peekInput = [0, 0]; // set each play frame from the right stick
+    this.peek = { yaw: 0, pitch: 0 };
   }
 
   setMode(mode, opts = {}, blend = 0.6) {
@@ -139,6 +163,7 @@ export class GameCamera {
   }
 
   snap(player) {
+    this.peek.yaw = 0; this.peek.pitch = 0;
     const t = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
     this.trackY = player.pos.y;
     this._targets(player, t);
@@ -181,6 +206,25 @@ export class GameCamera {
       }
       this.basis.toCamera = Math.atan2(this.cam.position.x - player.pos.x, this.cam.position.z - player.pos.z);
     }
+    stepPeek(this.peek, this.cine || !player ? null : this.peekInput, dt);
+    this._applyPeek(player);
+  }
+
+  // Swing the rendered camera around the look point. Runs after the movement basis is taken.
+  _applyPeek(player) {
+    const { yaw, pitch } = this.peek;
+    if (!yaw && !pitch) return;
+    const p = this.cam.position, o = _v.subVectors(p, this.look);
+    const c = Math.cos(yaw), s = Math.sin(yaw);
+    const ox = o.x * c - o.z * s, oz = o.z * c + o.x * s; // yaw > 0 turns the view right
+    const flat = Math.hypot(ox, oz), dist = Math.hypot(flat, o.y);
+    if (flat < 1e-6) return;
+    const base = Math.atan2(o.y, flat); // never clamp the authored angle itself, only the peek
+    const elev = Math.min(Math.max(base, PEEK.maxElevation), Math.max(Math.min(base, PEEK.minElevation), base + pitch));
+    const h = Math.cos(elev) * dist / flat;
+    p.set(this.look.x + ox * h, this.look.y + Math.sin(elev) * dist, this.look.z + oz * h);
+    if (player && !this.cine) this._constrainBackstop(player, p);
+    this.cam.lookAt(this.look);
   }
 
   _apply(dt, player) {
