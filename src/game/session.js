@@ -1026,6 +1026,12 @@ export class Session {
     }
   }
 
+  // God Mode switched on mid-run (99): the run stays God-assisted even if it is switched off again.
+  markGodUsed() {
+    this.godUsed = true;
+    if (this.phase === 'boss' && this.bossRun) this.bossRun.void = true;
+  }
+
   // ---------- per-frame ----------
   update(dt) {
     const g = this.game;

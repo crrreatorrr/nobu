@@ -333,9 +333,7 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawTitleMenu();
       } else if (it.id === 'god') {
-        save.data.godMode = !save.data.godMode;
-        save.write();
-        this.ui.godBadge(save.data.godMode);
+        this.toggleGod();
         this._drawTitleMenu();
       } else if (it.id === 'pixel') {
         save.data.pixelated = !save.data.pixelated;
@@ -686,9 +684,20 @@ export class Game {
     if (opts.remix && this.state === 'play') this.ui.banner(REMIX_TEXT.banner.title, REMIX_TEXT.banner.subtitle, 2.2);
   }
 
+  // Title-menu toggle, and 99 during play. Turning it on marks the current run as God-assisted
+  // right away; turning it off later does not clear that.
+  toggleGod() {
+    save.data.godMode = !save.data.godMode;
+    save.write();
+    this.ui.godBadge(save.data.godMode);
+    if (save.data.godMode) this.session?.markGodUsed?.();
+    return save.data.godMode;
+  }
+
   updatePlay(dt) {
     const s = this.session;
     if (!s) return;
+    if (input.pressed('god')) { this.toggleGod(); audio.play('select'); }
     if (input.pressed('pause') && !this.ui.talking && !s.dying) { this.openPause(); return; }
     s.update(dt);
     this._updateFlyingMasks(dt);
