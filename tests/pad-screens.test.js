@@ -18,11 +18,19 @@ beforeEach(() => {
   vi.stubGlobal('navigator', { getGamepads: () => pads });
   input.poll();
 });
-afterEach(() => { pads = []; input.poll(); reset(); vi.unstubAllGlobals(); });
+afterEach(() => { key('KeyQ', 'keyup'); pads = []; input.poll(); reset(); vi.unstubAllGlobals(); });
 
 function playGame() {
   return { session: { dying: false, update: vi.fn() }, ui: { talking: false }, openPause: vi.fn(), _updateFlyingMasks: vi.fn(), camera: { peekInput: [0, 0] } };
 }
+
+test('Q is a left-hand Clown Collar dash key next to U', () => {
+  key('KeyQ');
+  expect(input.pressed('dash')).toBe(true); expect(input.held('dash')).toBe(true);
+  key('KeyQ', 'keyup'); key('KeyU');
+  expect(input.pressed('dash')).toBe(true);
+  key('KeyU', 'keyup');
+});
 
 test('the right stick reaches the camera as a peek, and play keeps running', () => {
   const g = playGame();

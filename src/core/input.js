@@ -18,7 +18,7 @@ const KEYMAP = {
   KeyG: 'gauntlet',
   KeyR: 'remix',
   KeyI: 'wardrobe',
-  KeyU: 'dash',
+  KeyU: 'dash', KeyQ: 'dash', // Q is the left-hand reach next to WASD/E; U sits above J/K/L
   KeyX: 'exchange',
   KeyH: 'hub',
   Escape: 'pause', KeyP: 'pause',
@@ -52,7 +52,7 @@ class Input {
         if (!e.repeat) for (const a of acts) this.pressedQ.add(a);
       }
       // Ctrl+key combos would trigger browser shortcuts while sliding; swallow what we can.
-      if (e.ctrlKey && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyJ', 'KeyK', 'Space'].includes(e.code)) e.preventDefault();
+      if (e.ctrlKey && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyJ', 'KeyK', 'KeyL', 'KeyE', 'KeyQ', 'KeyU', 'Space'].includes(e.code)) e.preventDefault();
       this.codes.add(e.code);
       this._recompute();
       if (!e.repeat) this.anyKeyQ = true;

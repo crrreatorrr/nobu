@@ -26,7 +26,7 @@ whether on-screen prompts show keys or buttons.
 | Bite | J / Shift | X / RB |
 | Slide on ground; Belly Flop in air | K / Ctrl | B / LB / LT / RT |
 | Mega Bark, once unlocked | L / E | Y |
-| Clown Collar air dash, when equipped | U | LT |
+| Clown Collar air dash, when equipped | Q / U | LT |
 | Pause / resume | Esc / P | Start (B also resumes) |
 | Menus: move, confirm, back | Arrows or W/S, Enter or Space, Esc (Backspace) | D-pad or left stick, A, B |
 | Map: play the selected stage | Space / Enter | A |
@@ -41,6 +41,10 @@ whether on-screen prompts show keys or buttons.
 Movement is camera-relative. In Scratchpost Canyon's front-facing chase, hold **Down / S** to run
 away from the cat. `K` avoids browser shortcuts such as Ctrl+W. With the Clown Collar equipped,
 LT spends an available air dash instead of starting a Belly Flop; B/LB/RT remain slide/flop inputs.
+
+The keyboard has two complete hands: the left alone (WASD, Space, Shift bite, Ctrl slide, E bark,
+Q dash), or WASD/Arrows with J/K/L/U on the right. Shift stays Bite rather than a run key because
+NOBU has no run button; Zoomies (hold Slide) is its sprint.
 
 Why this pad layout: Jump is the most frequent action, so it sits on A, with Bite, Slide and Bark
 on the other face buttons as in classic mascot platformers. Slide is also on LB and both
