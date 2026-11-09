@@ -54,7 +54,7 @@ export class Kennel {
   }
   draw() {
     const c = this.copy;
-    let content = '';
+    let content;
     if (this.mode === 'golden') content = `<div class="sub-title">${esc(c.goldenTitle)}</div><p><b>${esc(c.goldenSpeaker)}</b>: ${esc(c.golden)}</p><div class="hint">${esc(c.continue)}</div>`;
     else if (this.mode === 'main') {
       const milestones = this.status.milestones.map((m) => `<div class="hint">${m.remaining ? esc(c.needed(m.remaining)) : '✓'} ${esc(c.names[m.id])}</div>`).join('');

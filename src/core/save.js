@@ -287,7 +287,7 @@ let data = fresh();
 export const save = {
   get data() { return data; },
   load() {
-    let raw = null;
+    let raw;
     try { raw = localStorage.getItem(KEY); } catch { return data; }
     if (!raw) return data;
     try {
