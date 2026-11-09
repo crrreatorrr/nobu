@@ -32,9 +32,13 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // (expanded trial variants and terminal outbox refusals; supported helper output):
 //   98b625bac349f83e5afe75491c14d0fe70e8ac63206b8beaafba51d210b6a372
 // 0.6.3 / exact merged hub main 5cc4e4809180f5bc0b016301d9222c26a80e6d4c
-// (hub #90; classic-script IIFE, global HubSDK). File sha256 of dist/hub-sdk.iife.js:
-const CONTENT_MANIFEST_SHA256 = '3813f4566254eff06733e0f5f156052116fa3aad6d4fd36b259b86f00da65dd5';
-const IIFE_SHA256 = '4ceb36321fc09820c4ef6292b8bd31ebaa198f0a9b90d38bcbd458505222df76';
+// (hub #90; classic-script IIFE, global HubSDK):
+//   3813f4566254eff06733e0f5f156052116fa3aad6d4fd36b259b86f00da65dd5
+//   iife 4ceb36321fc09820c4ef6292b8bd31ebaa198f0a9b90d38bcbd458505222df76
+// 0.6.4 / exact merged hub main 2a82e9ec5986fc6eac10d90d4b121dfcb408e9e9
+// (hub #117; marina_anchor and dragon_scale). File sha256 of dist/hub-sdk.iife.js:
+const CONTENT_MANIFEST_SHA256 = 'd4da695e6fda1b575ac41ef308d5ef4a862b9d0cdc68b5064385590b6adf9818';
+const IIFE_SHA256 = 'e7626595184dc132e72ffd707c87149b266c7b3933d40670e55eb2fb0a64eda6';
 
 function listFiles(dir) {
   const out = [];
@@ -81,9 +85,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.6.3', () => {
+  it('package.json is SDK 0.6.4', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.6.3');
+    expect(pkg.version).toBe('0.6.4');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -106,14 +110,14 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: main\n- sha: 5cc4e48\n- package: packages/hub-sdk @ 0.6.3');
+    expect(note).toContain('- branch: main\n- sha: 2a82e9e\n- package: packages/hub-sdk @ 0.6.4');
     expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
     const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
     const iife = fs.readFileSync(iifePath);
     expect(createHash('sha256').update(iife).digest('hex')).toBe(IIFE_SHA256);
     expect(iife.toString('utf8')).toContain('global HubSDK');
     const pin = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/SOURCE.pin.json'), 'utf8'));
-    expect(pin).toMatchObject({ version: '0.6.3', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
+    expect(pin).toMatchObject({ version: '0.6.4', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
     const files = listFiles(path.resolve('vendor/hub-sdk'));
     expect(files.some(file => file.endsWith('.map'))).toBe(false);
     for (const file of files) expect(fs.readFileSync(file, 'utf8')).not.toContain('sourceMappingURL=');
@@ -135,15 +139,22 @@ describe('vendored hub SDK', () => {
 
   // live.js asRelics() keeps only ids isRelicId() accepts. Without the Belt here,
   // profile.get would drop it and the Champion's Crown would never unlock; the same
-  // goes for breakwater_coin (0.6.0) and Wizard Hat II. Hub ships both, so the vendor
-  // tree carries no local patch.
-  it('accepts tidebreaker_belt and breakwater_coin as relic ids from upstream', async () => {
+  // goes for breakwater_coin (0.6.0) and Wizard Hat II. 0.6.4 adds marina_anchor and
+  // dragon_scale the same way. They stay outside FOUR_LIGHTS_RELIC_IDS. Hub ships
+  // all four, so the vendor tree carries no local patch.
+  it('accepts tidebreaker_belt, breakwater_coin, marina_anchor and dragon_scale as relic ids from upstream', async () => {
     const types = await import('../vendor/hub-sdk/dist/types.js');
     expect(types.RELIC_IDS).toEqual([
       'hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt', 'breakwater_coin',
+      'marina_anchor', 'dragon_scale',
+    ]);
+    expect(types.FOUR_LIGHTS_RELIC_IDS).toEqual([
+      'hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown',
     ]);
     expect(types.isRelicId('tidebreaker_belt')).toBe(true);
     expect(types.isRelicId('breakwater_coin')).toBe(true);
+    expect(types.isRelicId('marina_anchor')).toBe(true);
+    expect(types.isRelicId('dragon_scale')).toBe(true);
     expect(types.isRelicId('not_a_relic')).toBe(false);
     expect(types.GAME_IDS).toEqual([
       'hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter', 'sproto-arcade',
@@ -152,12 +163,12 @@ describe('vendored hub SDK', () => {
     const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
     expect(live).toContain("value.filter((item) => typeof item === 'string' && isRelicId(item))");
     const dts = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
-    expect(dts).toContain('"tinubu_crown", "tidebreaker_belt", "breakwater_coin"]');
+    expect(dts).toContain('"tidebreaker_belt", "breakwater_coin", "marina_anchor", "dragon_scale"]');
     const vendorNote = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
     expect(vendorNote).not.toContain('## Local patch');
   });
 
-  it('content manifest matches SDK 0.6.3 after maps and sourceMappingURL are removed', () => {
+  it('content manifest matches SDK 0.6.4 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);
