@@ -8,6 +8,10 @@ import { CrashPanel } from './ui/crashPanel.js';
 // crashGuard.onCrash(fn) is where an opt-in crash reporter can attach later. Nothing is sent.
 const crashPanel = new CrashPanel(document, () => window.location.reload());
 crashGuard.installGlobal(window);
+// Errors while the tab was hidden (no frames ran) must not count toward a halt once it is back.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') crashGuard.resetStreak();
+});
 crashGuard.onHalt((info) => {
   try { audio.stopMusic(); } catch { /* audio may be what broke; the panel matters more */ }
   crashPanel.show(info.source === 'boot' ? 'retry' : 'reload');
@@ -18,4 +22,8 @@ if (import.meta.env.DEV) {
   window.__nobu = game;
   import('./dev.js').then((m) => m.installDevTools(game));
 }
-game.boot().catch((err) => crashGuard.report(err, 'boot'));
+game.boot().then(
+  // Loading is over: whatever went wrong during it does not count toward a halt.
+  () => crashGuard.resetStreak(),
+  (err) => crashGuard.report(err, 'boot'),
+);
