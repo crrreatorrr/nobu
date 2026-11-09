@@ -214,7 +214,7 @@ export class UI {
     }
     const [who, text] = d.lines[d.i];
     const sp = SPEAKERS[who] || SPEAKERS.narrator;
-    d.full = text; d.shown = 0; d.t = 0; d.hold = 0.15; d.blip = sp.blip;
+    d.full = input.prompt(text); d.shown = 0; d.t = 0; d.hold = 0.15; d.blip = sp.blip;
     const img = this.tb.querySelector('.tb-portrait');
     if (sp.portrait) { img.src = Assets.url(sp.portrait); img.style.display = ''; } else img.style.display = 'none';
     this.tb.querySelector('.tb-name').textContent = sp.name;
@@ -252,14 +252,14 @@ export class UI {
     save.write();
     this.popup.querySelector('img').src = Assets.url(t.img);
     this.popup.querySelector('.p-title').textContent = t.title;
-    this.popup.querySelector('.p-text').innerHTML = t.text;
+    this.popup.querySelector('.p-text').innerHTML = input.prompt(t.text);
     this.popup.classList.add('show');
     this.popupT = 6;
     audio.play('select');
   }
 
   banner(text, sub = '', dur = 1.8) {
-    this.bannerEl.innerHTML = `${text}${sub ? `<small>${sub}</small>` : ''}`;
+    this.bannerEl.innerHTML = input.prompt(`${text}${sub ? `<small>${sub}</small>` : ''}`);
     this.bannerEl.classList.add('show');
     this.bannerT = dur;
   }
@@ -274,7 +274,7 @@ export class UI {
   // ---------- screens ----------
   setScreen(html, cls = '') {
     this.screen.className = `screen ${cls}`;
-    this.screen.innerHTML = html;
+    this.screen.innerHTML = input.prompt(html); // pad players see pad buttons in control prompts
   }
   clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; }
 
