@@ -6,6 +6,7 @@ import { audio } from '../audio/audio.js';
 import { save } from '../core/save.js';
 import { BONE_TEXT, SPEAKERS, TUTORIALS, DEATH_CAPTIONS, DEATH_ART } from '../story/script.js';
 import { savedBoard } from '../game/bones.js';
+import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
@@ -52,7 +53,8 @@ export class UI {
     this.hud.appendChild(m);
     this.slots.mask = { el: m, v: null, timer: 0 };
     root.appendChild(this.hud);
-    this.god = h('div', 'god-badge', 'GOD MODE');
+    this.god = h('div', 'god-badge', 'GOD MODE<div class="god-tally"></div>');
+    this.godTallyEl = this.god.querySelector('.god-tally');
     root.appendChild(this.god);
     this.trialEl = h('div', 'trial-timer');
     root.appendChild(this.trialEl);
@@ -145,6 +147,8 @@ export class UI {
     }
   }
   godBadge(on) { this.god.classList.toggle('on', !!on); }
+  // hits and deaths God Mode absorbed this level, or null to hide (outside a level)
+  godTally(t) { this.godTallyEl.textContent = t ? godTallyText(t) : ''; }
   setConed(on) { this.conedVignette.style.display = on ? 'block' : 'none'; }
   // time trial clock: text, or null to hide; `frozen` tints it icy while a Freeze Pack holds it
   // Called every frame during a trial, so the DOM is touched only when the shown text changes.
@@ -214,7 +218,7 @@ export class UI {
     }
     const [who, text] = d.lines[d.i];
     const sp = SPEAKERS[who] || SPEAKERS.narrator;
-    d.full = text; d.shown = 0; d.t = 0; d.hold = 0.15; d.blip = sp.blip;
+    d.full = input.prompt(text); d.shown = 0; d.t = 0; d.hold = 0.15; d.blip = sp.blip;
     const img = this.tb.querySelector('.tb-portrait');
     if (sp.portrait) { img.src = Assets.url(sp.portrait); img.style.display = ''; } else img.style.display = 'none';
     this.tb.querySelector('.tb-name').textContent = sp.name;
@@ -252,14 +256,14 @@ export class UI {
     save.write();
     this.popup.querySelector('img').src = Assets.url(t.img);
     this.popup.querySelector('.p-title').textContent = t.title;
-    this.popup.querySelector('.p-text').innerHTML = t.text;
+    this.popup.querySelector('.p-text').innerHTML = input.prompt(t.text);
     this.popup.classList.add('show');
     this.popupT = 6;
     audio.play('select');
   }
 
   banner(text, sub = '', dur = 1.8) {
-    this.bannerEl.innerHTML = `${text}${sub ? `<small>${sub}</small>` : ''}`;
+    this.bannerEl.innerHTML = input.prompt(`${text}${sub ? `<small>${sub}</small>` : ''}`);
     this.bannerEl.classList.add('show');
     this.bannerT = dur;
   }
@@ -274,7 +278,7 @@ export class UI {
   // ---------- screens ----------
   setScreen(html, cls = '') {
     this.screen.className = `screen ${cls}`;
-    this.screen.innerHTML = html;
+    this.screen.innerHTML = input.prompt(html); // pad players see pad buttons in control prompts
   }
   clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; }
 

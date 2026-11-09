@@ -179,7 +179,7 @@ describe('Titan actual attack states', () => {
     const { boss, player } = fixture();
     boss.dda.tele = 1.15;
     boss.beginAttack('charge');
-    expect(boss.tell).toBeCloseTo(0.9775);
+    expect(boss.tell).toBeCloseTo(0.78 * 1.15);
     step(boss, 0.65);
     player.pos.x = 4;
     step(boss, 0.03);

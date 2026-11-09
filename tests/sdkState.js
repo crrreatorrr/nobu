@@ -34,6 +34,7 @@ function fresh() {
     noBoardRead: false,
     boardError: null,
     initError: null,
+    initErrorOnce: false,
     exchangeResponder: null,
     ticketBalance: null,
     // Epoch ms from the hub, or 0 for the SDK's no-clock sentinel. Null omits serverTime.

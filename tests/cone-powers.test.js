@@ -111,9 +111,10 @@ describe('Cone tiled arena fairness and rollback',()=>{
 describe('authored Cone attacks, tells and chains',()=>{
   it('has exact stage plans and chains, with full DDA tells on actual Shame firing',()=>{
     const {boss,game}=fixture();expect(CONE_PLANS[3]).toContain('tide');expect(CONE_CHAINS[3][0]).toEqual(['vortex','grab','spiral']);
-    boss.beginAttack('shame');boss.stateT=.77;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(1);
-    game.session.projectiles.clear();boss.beginAttack('shame');boss.dda.tele=1.15;boss.stateT=.77;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(0);
-    boss.stateT=.83;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(1);
+    expect(CONE_CHAINS[1]).toEqual([['barrage','shock'],['drops','spiral']]);
+    boss.beginAttack('shame');boss.stateT=.7;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(1);
+    game.session.projectiles.clear();boss.beginAttack('shame');boss.dda.tele=1.15;boss.stateT=.7;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(0);
+    boss.stateT=.76;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(1);
   });
   it('fires S3 Shame homers exactly.6seconds apart and they can be outrun without biting',()=>{
     const {boss,player,game}=fixture();boss.phase=3;boss.beginAttack('shame');boss.stateT=.56;boss.ai(.01);

@@ -15,6 +15,7 @@ import { advanceHang } from './hang.js';
 import { stepRide, setPlayerRide } from './rideMotion.js';
 import { applyBossFling } from './bossFling.js';
 import { MOON_JUMP, advanceMoonCharge, cancelMoonCharge } from './moonJump.js';
+import { createGodTally, tickGodTally, countGodHit } from '../game/godTally.js';
 export { MOON_JUMP } from './moonJump.js';
 
 import { TUNING } from '../config/movement.js';
@@ -193,6 +194,7 @@ export class Player {
 
   // ---------- main update ----------
   update(dt, stage, camBasis) {
+    tickGodTally(this.godTally, dt);
     this._advanceDustFov(dt);
     this.dustDashCool = Math.max(0, (this.dustDashCool || 0) - dt);
     if (this.frozen) { if (this.moonHold) cancelMoonCharge(this); this.dustDashT = 0; this._clearDustFov(); this._animate(dt); return; }
@@ -721,7 +723,8 @@ export class Player {
     return true;
   }
   cone(sec) {
-    if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || this.god || !(sec > 0)) return false;
+    if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || !(sec > 0)) return false;
+    if (this.god) { this._godHit(false); return false; }
     const s = this.game.session;
     if (s?.mask > 0) {
       s.setMask(s.mask - 1); this._reportHurt(); audio.play('maskLost');
@@ -745,10 +748,11 @@ export class Player {
   }
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
-    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god || this.frozen) return false;
+    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.frozen) return false;
+    const s = this.game.session;
+    if (this.god) { this._godHit(!(s?.mask > 0) && !(this.gear.damage_guard && this.guardCharges > 0)); return false; }
     if (this.moonHold) cancelMoonCharge(this);
     this.hang = null;
-    const s = this.game.session;
     if (s && s.mask > 0) {
       s.setMask(s.mask - 1);
       this.invulnT = 1.7;
@@ -816,6 +820,15 @@ export class Player {
     setCollarGlow(this.model, this.guardCharges > 0);
   }
 
+  // God mode tally for this level (game.js resets it when a level starts)
+  resetGodTally() {
+    this.godTally = createGodTally();
+    this.game.ui?.godTally?.(this.godTally);
+  }
+  _godHit(lethal) {
+    if (countGodHit(this.godTally, { lethal })) this.game.ui?.godTally?.(this.godTally);
+  }
+
   // God mode: fell in a pit -> pop back up onto the last solid footing
   _rescue() {
     const to = this.lastSafe || this.pos;
@@ -838,7 +851,7 @@ export class Player {
     this.bossFling = null;
     this._clearDustFov(); this.dustDashT = 0;
     if (this.mode === 'dead') return;
-    if (this.god) { if (type === 'fall') this._rescue(); return; }
+    if (this.god) { this._godHit(true); if (type === 'fall') this._rescue(); return; }
     this.hang = null;
     this._reportHurt();
     this.clearConed();
