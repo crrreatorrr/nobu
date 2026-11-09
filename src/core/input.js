@@ -88,7 +88,7 @@ class Input {
     this.anyKeyQ = false;
 
     // Gamepad: polled every frame (hot-plug safe), latched on connect. See gamepad.js.
-    let pads = [];
+    let pads;
     try { pads = navigator.getGamepads ? navigator.getGamepads() : []; } catch { pads = []; }
     const frame = this.padReader.read(pads, now);
     this.pad.prev = this.pad.held;
