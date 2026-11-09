@@ -20,7 +20,7 @@ export function explode(stage, x, y, z, r, { kind = 'flat', source = null, color
   game.fx.ring(x, y, z, { color: 0xf0e0c8, radius: r * 0.8, count: 10, size: 0.5 });
   game.camera.shake(0.5, 0.35);
   audio.play('explosion');
-  for (const e of stage.entities) {
+  for (const e of [...stage.entities]) {
     if (e === source || e.dead || !e.onExplosion) continue;
     const dx = e.pos.x - x, dz = e.pos.z - z, dy = e.pos.y - y;
     if (dx * dx + dz * dz + dy * dy * 0.5 < r * r) e.onExplosion(source);
@@ -67,6 +67,7 @@ export class Backpack extends Breakable {
   constructor(stage, x, y, z, { tickets } = {}) {
     super(stage, x, y, z);
     this.kind = 'backpack';
+    this.authoredTickets = tickets ?? null; // null: budget uses the random maximum, five.
     this.tickets = tickets ?? randInt(1, 5);
     this.model = backpackModel();
     this.model.rotation.y = rand(-0.25, 0.25);
@@ -101,8 +102,8 @@ export class Backpack extends Breakable {
     const y = this.pos.y + 0.5;
     this.fx.burst(this.pos.x, y, this.pos.z, { count: 16, colors: [0x2b2b33, 0x3d3d48, 0x1c1c22, 0xff8a12], speed: 5, size: 0.2, floor: this.pos.y });
     this.fx.puff(this.pos.x, y, this.pos.z, { count: 4, size: 0.4, color: 0x9a9aaa, speed: 2 });
-    audio.play('break');
-    this.game.tickets.spawnFlying(this.pos.x, y + 0.3, this.pos.z, this.tickets);
+    audio.play('break', this.countable ? (this.session.chainSoundPitch ?? 1) : 1);
+    this.game.tickets.spawnFlying(this.pos.x, y + 0.3, this.pos.z, this.tickets, this.countable ? undefined : 'jackpot');
   }
   onBite(p) { this.break(p, 'bite'); }
   onSlide(p) { this.break(p, 'slide'); }
@@ -288,12 +289,17 @@ export class Trampoline extends Breakable {
     this.ticketsLeft = 0;
     this.markBroken();
     this.hide();
-    audio.play('break');
+    audio.play('break', this.countable ? (this.session.chainSoundPitch ?? 1) : 1);
     this.fx.burst(this.pos.x, this.pos.y + 0.4, this.pos.z, { count: 14, colors: [0xe23a3a, 0x7a3fd0, 0xffd23f, 0xc8c8d0], speed: 4, floor: this.pos.y });
   }
   onSlide() { this.onBite(); }
   onExplosion() { this.onBite(); }
-  onRestore() { this.ticketsLeft = this.ticketsMax; this.spent = false; }
+  onCheckpoint() { this.ticketCheckpoint = { left: this.ticketsLeft, spent: this.spent }; }
+  onRestore() {
+    this.ticketsLeft = this.ticketCheckpoint?.left ?? this.ticketsMax;
+    this.spent = this.ticketCheckpoint?.spent ?? false;
+  }
+  onRespawn() { if (!this.broken) this.onRestore(); }
 }
 
 // ---------- Snacks: checkpoint ----------
@@ -425,6 +431,7 @@ export class Cat extends Breakable {
     this.lastNum = 0;
     this.count.visible = true;
   }
+  light() { this.arm(); }
   pounce() {
     if (this.dead) return;
     this.markBroken();
@@ -637,6 +644,7 @@ export class ZippedBackpack extends Backpack {
     // bites, stomps and head-bonks unzip one notch; flops, slides and explosions rip it open in one go
     if (this.broken) return;
     if (this.hits > 1 && (how === 'bite' || how === 'stomp' || how === 'head')) {
+      this.session.chainRefresh?.();
       this.hits--;
       const tag = this.tags[this.hits];
       tag.visible = false;
@@ -650,7 +658,15 @@ export class ZippedBackpack extends Backpack {
     }
     super.break(player, how);
   }
-  onRestore() { this.hits = this.maxHits; this.tickets = 8; this.tags.forEach((t) => (t.visible = true)); }
+  onCheckpoint() {
+    if (this.kind !== 'mystery') this.ticketCheckpoint = { hits: this.hits, tickets: this.tickets };
+  }
+  onRestore() {
+    this.hits = this.ticketCheckpoint?.hits ?? this.maxHits;
+    this.tickets = this.ticketCheckpoint?.tickets ?? this.authoredTickets;
+    this.tags.forEach((t, i) => (t.visible = i < this.hits));
+  }
+  onRespawn() { if (!this.broken) this.onRestore(); }
 }
 
 // ---------- Vacuum Dock switch: a robot vacuum zooms out and pops every rug in the stage ----------

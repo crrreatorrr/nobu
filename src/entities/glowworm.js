@@ -22,14 +22,14 @@ function glowTexture() {
 }
 
 export class Glowworm extends Entity {
-  constructor(stage, track, nests) {
+  constructor(stage, track, nests, { baseY, nestU = 2.6 } = {}) {
     super(stage, 0, 0, 0);
     this.track = track;
     this.alwaysActive = true;
     this.interactive = false;
     // nests: track distances where Lumi rests and refuels
-    this.nests = nests.slice().sort((a, b) => a - b).map((d) => ({ d, pos: track.toWorld(d, 2.6, 0, new THREE.Vector3()), used: -99 }));
-    this.nests.forEach((n) => { n.pos.y = (track.groundAt(n.d, 2.6)?.y ?? track.heightAt(n.d)); });
+    this.nests = nests.slice().sort((a, b) => a - b).map((d) => ({ d, pos: (track.authorToWorld || track.toWorld).call(track, d, nestU, 0, new THREE.Vector3()), used: -99 }));
+    this.nests.forEach((n) => { n.pos.y = baseY === undefined ? (track.groundAt(n.d, track.authorU ? track.authorU(nestU) : nestU)?.y ?? track.heightAt(n.d)) : track.heightAt(n.d) + baseY; });
     // body: three glowing segments and a head with eyes
     // beacon visuals ignore the black fog so Lumi can be spotted from far down the cave
     const mat = new THREE.MeshBasicMaterial({ color: GREEN, fog: false });
@@ -67,6 +67,7 @@ export class Glowworm extends Entity {
       stage.scene.add(g);
       n.glow = glow;
     }
+    this._forward = new THREE.Vector3();
     this.t = 0;
     this.respawn();
   }
@@ -81,17 +82,35 @@ export class Glowworm extends Entity {
   }
   onRespawn() { this.respawn(); }
 
-  get radius() { return this.state === 'wait' ? 4 : 3 + 10 * this.energy; }
+  sleep(immediate = false) {
+    this.state = immediate ? 'sleep' : 'sleeping'; this.sleepT = immediate ? 0 : 1.2;
+    if (immediate) { this.obj.visible = false; this.visible = false; this.light.intensity = 0; }
+  }
+  wake(s = this.player.body.s ?? 0) {
+    this.respawn();
+    let nest = this.nests[0]; for (const n of this.nests) if (n.d <= s) nest = n;
+    if (nest) this.pos.copy(nest.pos); this.pos.y += 1.9;
+    this.obj.visible = true; this.visible = true;
+  }
+  get radius() { return this.zoneRadius ?? (this.state === 'wait' ? 4 : 3 + 10 * this.energy); }
 
   update(dt) {
+    if (this.state === 'sleep') return;
+    if (this.state === 'sleeping') {
+      this.sleepT = Math.max(0, this.sleepT - dt); this.pos.y += dt * 3;
+      this.light.intensity *= Math.max(0, 1 - dt * 5); this.halo.material.opacity = this.sleepT / 1.2;
+      this.obj.position.copy(this.pos); if (!this.sleepT) this.sleep(true); return;
+    }
+    this.halo.material.opacity = 1;
     this.t += dt;
     const p = this.player;
     const ps = p.body.s ?? 0;
     if (this.state === 'follow') {
       if (!p.dead) this.energy = Math.max(0, this.energy - dt / LIFE);
       // hover over Nobu's shoulder, lagging a little
-      const f = this.track.tangent(ps, new THREE.Vector3());
-      const tx = p.pos.x - f.z * 0.7 - f.x * 0.4, tz = p.pos.z + f.x * 0.7 - f.z * 0.4, ty = p.pos.y + 2.0 + Math.sin(this.t * 3) * 0.15;
+      const f = this.track.tangent(ps, this._forward);
+      const side = this.track.mirror ? -1 : 1;
+      const tx = p.pos.x - f.z * 0.7 * side - f.x * 0.4, tz = p.pos.z + f.x * 0.7 * side - f.z * 0.4, ty = p.pos.y + 2.0 + Math.sin(this.t * 3) * 0.15;
       this.pos.set(damp(this.pos.x, tx, 6, dt), damp(this.pos.y, ty, 6, dt), damp(this.pos.z, tz, 6, dt));
       // refuel at nests
       for (const n of this.nests) {
@@ -105,7 +124,7 @@ export class Glowworm extends Entity {
       if (this.energy <= 0) {
         // out of glow: fly to the next nest ahead and wait there
         this.target = (this.nests.find((n) => n.d > ps + 3) || this.nests[this.nests.length - 1]).pos;
-        this.from = this.pos.clone();
+        (this.from ||= new THREE.Vector3()).copy(this.pos);
         this.state = 'fly';
         this.flyT = 0;
         audio.play('fade');

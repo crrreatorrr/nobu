@@ -1,5 +1,7 @@
 # Rewards, DDA and mastery: implementation spec
 
+H12 provenance: imported from `claude/clever-goodall-8221xu` at `fb95a0a8072ebd02202e4b3d045e4e609b335829` (the 43-part expansion bundle). Sections 10.2–10.5 below record measured corrections and the pending cap decision. Other sections remain the source specification.
+
 Status: **spec only.** It adds implementation detail to sections 3, 4.3, 4.5 and 4.6 of
 `docs/gameplay-expansion-plan.md`. It doesn't change any decision there. Where the plan left something
 open, the choice made here is listed in section 18.
@@ -807,86 +809,77 @@ export function goodBoyPercent(save, reg) {
 
 ### 10.2 Measuring today's maximum (procedure)
 
-Add `T.budget()` to `src/dev.js`. It runs on the current stage after `startLevel`:
+`T.budget()` runs on a fresh ordinary stage after `T.go(id)`. It uses
+`measureTicketBudget(stage, tickets, declared.arena)` and reports discrepancies with the static
+`BUDGET` declaration. Arena counts are independently measured by the real-builder test. Trial,
+remix, rush, boss and development-strip contexts are excluded.
 
-```js
-budget() {
-  const s = game.session, E = s.stage.entities;
-  const field = s.tickets.list.length;
-  const packs = E.filter((e) => e instanceof Backpack && e.countable).reduce((n, b) => n + (b.kind === 'zipped' ? 8 : b.authoredTickets ?? 5), 0);
-  const jackpots = E.filter((e) => e.jackpot).reduce((n, e) => n + e.jackpot, 0);
-  const bark = E.filter((e) => e.prize === 'tickets').reduce((n, e) => n + e.tickets, 0);
-  const mystery = E.filter((e) => e.kind === 'mystery').length * 9;
-  const raw = field + packs + jackpots + bark + mystery;
-  return { field, packs, jackpots, bark, mystery, raw, wholeMax: Math.floor(raw / 3) + COCONUT_CAP_PER_CLEAR };
-}
-```
+The original sample counter omitted trampoline Tickets and non-Ticket-prize Bark Rocks, counted
+Mystery's inherited pack payload twice, and always added coconuts. The implemented counter corrects
+those omissions. It counts every authored paying pack, including non-countable packs and the Treat
+Tray's synchronously built contents. Default Zipped pays eight **total**, not eight plus two. Custom authored values below three still have a three-raw maximum through the three-hit payout floor. Random plain
+packs use five, authored packs use `authoredTickets`; Mystery is excluded from both pack subtotals
+and contributes nine raw per slot. Trampolines use `ticketsMax`, every Bark Rock pays its declared
+Tickets, and Good Boy/red/blue jackpots count once. Coconut's shared 15-whole allowance applies only
+when an actual roller exists. Ordinary stage and arena raw are added **before** rounding down.
 
-- `Backpack` needs `this.authoredTickets = tickets ?? null` in its constructor. `null` means it rolls
-  `randInt(1, 5)`; the budget uses the worst case of 5.
-- Run it on L1, L2, L3, ride and cave, and write the numbers into the table below as the measured
-  baseline. That is the "measure L1 first and log it" step from plan 3.10.
+### 10.3 Measured layout-1 baseline
 
-### 10.3 Static first estimate (to be replaced by the measurement)
+Measured from actual level and arena builders at `aa226096ec1382687a86c9eb6d24ad41f817acd9`
+(H06, H00–H04b merged), with rendering-only assets/decor mocked. Both minimum and maximum random
+rolls give the same conservative declared upper bound. Tests run authoring, entities, track and
+collision setup unchanged; this is an economic upper bound, not a recorded perfect playthrough.
 
-A rough count of the `k.tix`, `k.tixArc` and `k.tixRing` arguments and the backpack calls in
-`src/levels/level1.js`:
+| Stage | Field | Plain max | Zipped total | Jackpots | All Bark Rocks | Trampolines | Arena raw | Raw total | Coconut whole | Whole max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| L1 | 112 | 150 | 16 | 27 | 10 | 10 | 7 | 332 | 15 | **125** |
+| L2 | 90 | 90 | 0 | 15 | 15 | 0 | 7 | 217 | 0 | **72** |
+| L3 | 52 | 60 | 8 | 12 | 10 | 0 | 7 | 149 | 0 | **49** |
+| Roomba Rush | 55 | 35 | 8 | 0 | 0 | 0 | 0 | 98 | 0 | **32** |
+| Glowworm Grotto | 39 | 55 | 16 | 0 | 15 | 0 | 0 | 125 | 0 | **41** |
 
-| L1 source | Raw (max) |
-| --- | --- |
-| Static tickets (lines, arcs, rings, tray) | ~120 |
-| ~30 backpacks × 5 (worst case; the mean is 3) | ~150 |
-| 2 Zipped Backpacks × 8 | 16 |
-| Good Boy jackpot 12 + red path jackpot 15 | 27 |
-| **Raw total** | **~313** → ~104 whole |
-| Coconut cap | +15 whole |
-| **Whole max per clear** | **~119** |
-
-A typical full clear (mean backpack rolls, no jackpots) is about `(120 + 90 + 16) / 3 ≈ 75` whole,
-plus coconuts.
+H12 adds two Mystery slots to each of L1–L3: +18 raw each, giving **131 / 78 / 55 / 32 / 41** whole
+maximums. L1's pre-Mystery measured baseline remains the density anchor; the new slots must not
+silently inflate every level's cap. The cap and formula decisions are listed in
+[`h12-review.md`](h12-review.md) and require owner sign-off before merge.
 
 ### 10.4 Caps (proposal; owner signs off, plan risk 5)
 
-- The baseline density is **L1 measured whole max per 100 m of main path**. With the estimate above:
-  `(119 - 15) / 3.13 ≈ 33` whole per 100 m.
-- Cap per level is `ceil(33 × mainPathMetres / 100) + COCONUT_CAP_PER_CLEAR`. The coconut allowance
-  applies only where the level has rollers.
-- Lengths are the planned lengths after all extensions (the levels spec is the source).
-- Layout-1 caps apply only until the extensions ship.
+Measured density is `(125 - 15) / 3.13 = 35.14376997` whole per 100 metres.
+The rewards formula is `ceil(density × mainPathMetres / 100)`, plus 15 **only** for rollers.
 
-  | Level | Main path (m) | Arithmetic | Cap (whole Tickets) |
-  | --- | --- | --- | --- |
-  | L1 Bark Jungle, extended | 540 | ceil(33 × 5.40 = 178.2) + 15 coconuts | **179 + 15 = 194** |
-  | L2 Scratchpost Canyon, extended | 520 | ceil(33 × 5.20 = 171.6) | **172** |
-  | L3 Cone Factory, extended | 420 | ceil(33 × 4.20 = 138.6) | **139** |
-  | Roomba Rush, extended | 470 | ceil(33 × 4.70 = 155.1) | **156** |
-  | Glowworm Grotto, extended | 380 | ceil(33 × 3.80 = 125.4) | **126** |
-  | L4 Laundry Day | 480 | ceil(33 × 4.80 = 158.4) + 15 (rolling oranges) | **159 + 15 = 174** |
-  | L6 Smog Rapids | 450 | ceil(33 × 4.50 = 148.5) | **149** |
-  | L5 Pump & Dump | 460 | ceil(33 × 4.60 = 151.8) | **152** |
-  | *Layout 1 (today):* L1 / L2 / L3 / ride / cave | 313 / 302 / 243 / 312 / 252 | ceil(33 × length / 100) | *104 + 15 / 100 / 81 / 103 / 84* |
+| Level | Layout-1 density cap | Proposed current fixed cap | Future rewards-density cap |
+| --- | ---: | ---: | ---: |
+| L1 | 125 | **131** | 205 |
+| L2 | 107 | **107** | 183 |
+| L3 | 86 | **86** | 148 |
+| Roomba Rush | 110 | **110** | 166 |
+| Glowworm Grotto | 89 | **89** | 134 |
+| L4 (rolling oranges) | — | — | 184 |
+| L6 (no rollers) | — | — | 159 |
+| L5 | — | — | 162 |
 
-- The 33-per-100 m density is the **static estimate** from 10.3. When `T.budget()` gives the measured
-  L1 value, recompute the density as `(L1 whole max − 15) / 3.13` and redo this table with the same
-  formula.
-- If L6 has rollers (rapids debris), it gets the +15 allowance and they use `source: 'coconut'`.
+L1's current proposed cap explicitly adds the six whole Tickets from its two required Mystery
+slots, because density alone gives 125 and would reject H12's actual 131. This is a proposal,
+not implicit approval. Future existing-level values do not replace current caps until their
+individual extensions are reviewed and signed off. The extension spec §1.7 instead proposes
+layout-1 maximum × path ratio, rounded up to five, then three per Mystery slot. These materially
+different options, and L6's separate proposed 60 cap, require an owner choice; see the review.
+Checkpoint snapshots preserve partial Zipped/trampoline payloads so pre-checkpoint drops cannot be paid again after death. No code automatically increases a cap to match content. `LEVEL_END_MAX_AMOUNT = 20` and
+`CARRY_MAX = 100` remain unchanged.
 
-- Add `export const LEVEL_TICKET_CAP = { ... }` to `src/config/tickets.js` with these numbers once
-  they are measured. `level-budget.test.js` (17) checks each level's declared maximum against it.
-- Hub side: `LEVEL_END_MAX_AMOUNT = 20` and chunking (`hubBridge.js` ~451) already handle bigger
-  clears; a 159-Ticket clear is 8 chunks. `CARRY_MAX = 100` is unchanged.
+### 10.5 Static declarations and actual-builder verification
 
-### 10.5 How the test gets each level's maximum without Three.js
+Each level re-exports a frozen `BUDGET` from `src/levels/data/budgets.js`. Pure math imports only
+that data and the Ticket config. Fields `field`, `packs`, `zipped`, `jackpots`, `bark`, `trampoline`
+and `arena` are raw Ticket maxima; `mystery` is a slot count; `coconut` records whether rollers exist.
+`ticketBudget` applies the one shared allowance and rounds stage+arena raw together.
 
-Each level module exports a static `BUDGET` object next to its build function:
-
-```js
-export const BUDGET = { field: 120, packs: 30, packTickets: null, zipped: 2, jackpots: 27, bark: 0, mystery: 2 };
-```
-
-- `level-budget.test.js` imports only these objects. That is fine as long as the level modules keep
-  their Three.js imports lazy; if they don't, move `BUDGET` into the registry.
-- The `T.budget()` dev command checks that `BUDGET` matches the built level and logs any difference.
+`tests/level-budget.test.js` also builds every real stage and arena, measures those actual sources,
+and compares every component with the declaration. It tests minimum/maximum rolled packs, authored
+non-countables, and an injected extra payout that must exceed the immutable cap. A static copy of
+numbers alone cannot make this test pass after authored content changes. `T.budget()` uses the same
+measurement, reports component differences, and includes the independently tested arena raw.
 
 ---
 

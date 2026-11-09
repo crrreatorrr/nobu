@@ -1,9 +1,12 @@
+// Classic regression fixtures; active layout2 migration/upload gating is checked separately.
+vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
+import { createChain } from '../src/game/rewards.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { save } from '../src/core/save.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { Session } from '../src/game/session.js';
@@ -19,6 +22,7 @@ beforeEach(async () => {
 
 function trialSession(seconds) {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   session.level = 1;
   session.levelTickets = 0;
   session.trialT = seconds;
@@ -45,7 +49,7 @@ describe('case 6: trial score and window.__nobu', () => {
       meta: { level: 1, deaths: 0, freezeMs: 0, v: 1 },
     });
     expect(typeof sdk.calls.score[0].meta.build).toBe('string');
-    expect(save.data.trials[1]).toMatchObject({ best: 50, ms: 50000, medal: 'gold', pid: 'player-1' });
+    expect(save.data.trials[1]).toMatchObject({ best: 50, ms: 50000, medal: 'platinum', pid: 'player-1' });
 
     const worse = trialSession(60);
     worse._finishTrial();

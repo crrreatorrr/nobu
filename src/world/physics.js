@@ -18,7 +18,11 @@ export class Solid {
   }
   setCenter(x, y, z, w, h, d) {
     const nx = x - w / 2, ny = y, nz = z - d / 2;
-    this.delta.x += nx - this.min.x; this.delta.y += ny - this.min.y; this.delta.z += nz - this.min.z;
+    // Changing an AABB's width/depth (e.g. a turning drum platform) is not
+    // platform translation. Carry bodies by its horizontal center movement.
+    this.delta.x += x - (this.min.x + this.max.x) / 2;
+    this.delta.y += ny - this.min.y;
+    this.delta.z += z - (this.min.z + this.max.z) / 2;
     this.min.x = nx; this.min.y = ny; this.min.z = nz;
     this.max.x = x + w / 2; this.max.y = y + h; this.max.z = z + d / 2;
   }

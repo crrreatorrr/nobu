@@ -11,28 +11,17 @@ import { NobuPrims } from './nobuPrims.js';
 import { NobuGlb } from './nobuGlb.js';
 import { dressNobuModel, setCollarGlow } from './accessories.js';
 import { makeShadow, placeShadow } from '../entities/fx.js';
-import { rideVacuumMesh } from '../entities/ride.js';
+import { advanceHang } from './hang.js';
+import { stepRide, setPlayerRide } from './rideMotion.js';
+import { applyBossFling } from './bossFling.js';
+import { MOON_JUMP, advanceMoonCharge, cancelMoonCharge } from './moonJump.js';
+import { createGodTally, tickGodTally, countGodHit } from '../game/godTally.js';
+export { MOON_JUMP } from './moonJump.js';
 
-export const TUNING = {
-  RUN: 8.0,
-  ACCEL: 95,
-  DECEL: 75,
-  AIR_ACCEL: 42,
-  GRAVITY: 36,
-  FALL_MULT: 1.4,
-  MAX_FALL: 28,
-  JUMP: 12.6,
-  DOUBLE_JUMP: 11.2,
-  COYOTE: 0.11,
-  BUFFER: 0.13,
-  SLIDE_SPEED: 12.5,
-  SLIDE_TIME: 0.5,
-  SLIDE_JUMP_SPEED: 10.5,
-  BITE_TIME: 0.34,
-  BITE_RANGE: 0.95,
-  FLOP_SPEED: 30,
-  STOMP_BOUNCE: 10.5,
-};
+import { TUNING } from '../config/movement.js';
+export { TUNING } from '../config/movement.js';
+// New reward-move constants; existing shared movement tuning is unchanged.
+export const DUST_DASH = Object.freeze({ speed: 20, time: 0.22, cooldown: 0.8, slideRemaining: 0.15 });
 
 // Mega Bark with nothing equipped. Spell Bark replaces these while the hat is on.
 export const BARK_BASE = {
@@ -82,6 +71,7 @@ export class Player {
     this.modelKind = this.model instanceof NobuGlb ? 'glb' : 'classic';
     dressNobuModel(this.model, this.game?.loadout);
     this._equippedNeck = this.game?.loadout?.cosmeticSlots()?.neck || null;
+    this.game?.applyKennelTint?.(this.model);
   }
 
   attach(scene) {
@@ -90,7 +80,17 @@ export class Player {
   }
 
   reset() {
+    this.moonHold = null;
+    this.earnedBossBarkCool = 0;
+    this.bossFling = null;
     this.mode = 'normal';
+    this.hang = null;
+    this._hangProjection = {};
+    this.trapT = 0; this.trapElapsed = 0;
+    this.conedT = 0;
+    this._clearDustFov();
+    this.dustDashT = 0; this.dustDashCool = 0; this.dustDashUsed = false;
+    this.game.ui?.setConed?.(false);
     this.vel.set(0, 0, 0);
     this.facing = Math.PI;
     this.targetFacing = Math.PI;
@@ -138,6 +138,14 @@ export class Player {
   spawnAt(p, facing = Math.PI) {
     this.reset();
     this.pos.copy(p);
+    // Stage controllers run before Player.update, so refresh path metadata at the spawn itself.
+    const track = this.game.stage?.track;
+    if (track) {
+      const pr = track.project(p.x, p.z, -1, this._spawnProjection ||= {});
+      this.body.s = pr.s; this.body.u = pr.u; this.body.trackHint = pr.i;
+    } else {
+      delete this.body.s; delete this.body.u; delete this.body.trackHint;
+    }
     this.prevY = p.y;
     this.lastSafe = p.clone();
     this.facing = this.targetFacing = facing;
@@ -160,12 +168,14 @@ export class Player {
   // Boss moves, plus Mega Bark from the hat and an air dash from the clown collar. Never writes beaten.
   // The crown's triple jump and wider bite are read straight from gear (maxAirJumps, biteMult).
   get abilities() {
-    const b = save.data.beaten || [];
-    return { glide: !!b[0], zoom: !!b[1], bark: !!b[2] || !!this.gear.spell_bark, airDash: !!this.gear.air_dash };
+    const dustDash = save.beatenOf(4), moonJump = save.beatenOf(5);
+    return { glide: save.beatenOf(1), zoom: save.beatenOf(2), bark: save.beatenOf(3) || !!this.gear.spell_bark,
+      airDash: !!this.gear.air_dash, dustDash, moonJump, dust: dustDash, moon: moonJump };
   }
   // Air jumps per jump: 1 (double jump), +count while the Champion's Crown is on (triple jump).
   // God mode gives 3; the crown does not stack on top of it.
   get maxAirJumps() {
+    if (this.ride?.airJumps !== undefined) return Math.max(0, this.ride.airJumps | 0);
     const extra = Math.max(0, Math.floor(Number(this.gear.extra_air_jumps?.count) || 0));
     const base = 1 + extra;
     return this.god ? Math.max(3, base) : base;
@@ -179,19 +189,24 @@ export class Player {
   }
   get biteRange() { return TUNING.BITE_RANGE * this.biteMult; }
   get forward() { return _fwd.set(Math.sin(this.facing), 0, Math.cos(this.facing)); }
+  get dustDashing() { return this.dustDashT > 0; }
   get grounded() { return this.body.grounded; }
 
   // ---------- main update ----------
   update(dt, stage, camBasis) {
-    if (this.frozen) { this._animate(dt); return; }
+    tickGodTally(this.godTally, dt);
+    this._advanceDustFov(dt);
+    this.dustDashCool = Math.max(0, (this.dustDashCool || 0) - dt);
+    if (this.frozen) { if (this.moonHold) cancelMoonCharge(this); this.dustDashT = 0; this._clearDustFov(); this._animate(dt); return; }
     if (this.mode === 'dead') { this._updateDeath(dt, stage); this._animate(dt); return; }
     if (this.mode === 'victory') { this._animate(dt); this._updateShadow(stage); return; }
 
     const T = TUNING;
     const st = input.state;
     // camera-relative intent
-    let dx = camBasis.right.x * st.x + camBasis.forward.x * st.y;
-    let dz = camBasis.right.z * st.x + camBasis.forward.z * st.y;
+    const forwardInput = st.y * (this.game.camera?.sideAxis ? (this.game.camera.opts?.ignoreDepth ? 0 : 0.5) : 1);
+    let dx = camBasis.right.x * st.x + camBasis.forward.x * forwardInput;
+    let dz = camBasis.right.z * st.x + camBasis.forward.z * forwardInput;
     const len = Math.hypot(dx, dz);
     const mag = Math.min(1, len);
     if (len > 0.001) { dx /= len; dz /= len; }
@@ -203,11 +218,35 @@ export class Player {
     this.coyote = this.body.grounded ? T.COYOTE : Math.max(0, this.coyote - dt);
     this.landT += dt; this.jumpT += dt;
     if (this.flipT >= 0) { this.flipT += dt / 0.42; if (this.flipT >= 1) this.flipT = -1; }
+    if (this.conedT > 0) {
+      this.conedT = Math.max(0, this.conedT - dt);
+      if (!this.conedT) this.clearConed();
+    }
+    if (this.mode === 'trapped') {
+      const canEscape = this.trapElapsed <= 0.3;
+      this.trapElapsed += dt;
+      this.trapT = Math.max(0, this.trapT - dt - (input.pressed('bite') ? 0.25 : 0));
+      if ((canEscape && input.pressed('slide')) || !this.trapT) this.mode = 'normal';
+    }
+
+    if (this.hang) {
+      this.dustDashT = 0; this._clearDustFov();
+      if (advanceHang(this, dt, input.pressed('jump'), T.JUMP)) audio.play('jump');
+      if (stage.track) {
+        const at = stage.track.project(this.pos.x, this.pos.z, this.body.trackHint ?? -1, this._hangProjection);
+        this.body.s = at.s; this.body.u = at.u; this.body.trackHint = at.i;
+      }
+      this._interact(stage);
+      this._animate(dt); this._updateShadow(stage);
+      return;
+    }
 
     const grounded = this.body.grounded;
+    const moonGesture = advanceMoonCharge(this, dt, Math.hypot(st.x, st.y), input);
 
     // ---- actions ----
     this.barkCool = Math.max(0, (this.barkCool || 0) - dt);
+    this.earnedBossBarkCool = Math.max(0, (this.earnedBossBarkCool || 0) - dt);
     this.barkT = (this.barkT ?? 1) + dt;
     if (this.mode === 'normal' && !this.ride) {
       if (input.pressed('bark') && this.abilities.bark && this.barkCool <= 0) this._bark();
@@ -215,11 +254,13 @@ export class Player {
       // LT is also slide. In the air, with a charge, it dashes and does not flop.
       const wantDash = !grounded && input.pressed('dash') && this.abilities.airDash && this.dashCharges > 0;
       if (wantDash) this._startAirDash();
-      if (input.pressed('slide') && !wantDash) {
+      if (input.pressed('slide') && !wantDash && !moonGesture) {
         if (grounded) this._startSlide(mag > 0.2 ? Math.atan2(dx, dz) : this.facing);
         else this._startFlop();
       }
     }
+
+    if (this.mode === 'slide' && input.pressed('bite') && this._startDustDash()) this._advanceDustFov(dt);
 
     // ---- horizontal movement ----
     let rideF = null;
@@ -229,21 +270,10 @@ export class Player {
       this.vel.z = this.dashVZ;
       this.vel.y = 0;
     } else if (this.mode === 'normal' && this.ride && stage.track) {
-      // vacuum ride: it drives itself along the track; left / right steers, jump hops the whole thing
-      const R = this.ride;
-      rideF = stage.track.tangent(this.body.s ?? 0, this._rideF ||= new THREE.Vector3());
-      R.speedK = Math.min(1, (R.speedK ?? 0) + dt / 1.4);
-      const sp = R.speed * R.speedK, steer = st.x;
-      R.sp = sp;
-      const lat = steer * 6.8;
-      this._approach(rideF.x * sp - rideF.z * lat, rideF.z * sp + rideF.x * lat, 70 * dt);
-      this.targetFacing = Math.atan2(rideF.x, rideF.z) - steer * 0.35;
-      this.facing = dampAngle(this.facing, this.targetFacing, 10, dt);
-      this.bank = damp(this.bank || 0, steer * 0.3, 8, dt);
-      for (const b of R.mesh.userData.brushes || []) b.rotation.y += dt * 30;
-      R.whirrT = (R.whirrT ?? 0) - dt;
-      if (grounded && R.whirrT <= 0) { R.whirrT = 0.55; audio.play('whirr'); }
-      if (grounded && Math.random() < 0.18) this.game.fx?.dust(this.pos.x - rideF.x * 0.75, this.pos.y, this.pos.z - rideF.z * 0.75, { count: 1, size: 0.18, color: this._dustColor(), speed: 0.8, life: 0.3, dirX: -rideF.x * 2, dirZ: -rideF.z * 2 });
+      // The ride keeps its original auto-forward controls; raft options are explicit.
+      rideF = stepRide(this, stage, st.x, dt);
+    } else if (this.mode === 'normal' && this.moonHold) {
+      this._approach(0, 0, T.DECEL * dt);
     } else if (this.mode === 'normal') {
       // Zoomies: keep holding slide after a slide to stay at sprint speed
       if (this.zoomArmed && !input.held('slide')) this.zoomArmed = false;
@@ -273,16 +303,27 @@ export class Player {
       dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
       const bankTarget = Math.max(-0.32, Math.min(0.32, -(dYaw / Math.max(dt, 1e-4)) * 0.05 * Math.min(1, hs / T.RUN)));
       this.bank = damp(this.bank || 0, grounded ? bankTarget : bankTarget * 0.4, 10, dt);
+    } else if (this.mode === 'trapped') {
+      this.vel.x = 0; this.vel.z = 0;
     } else if (this.mode === 'slide') {
-      this.slideT += dt;
-      const f = this.forward;
-      const k = this.slideT < 0.28 ? 1 : Math.max(0, 1 - (this.slideT - 0.28) / 0.22);
-      const sp = T.SLIDE_SPEED * k + (mag > 0.1 ? 3 : 0) * (1 - k);
-      // gentle steering
-      if (mag > 0.1) this.facing = dampAngle(this.facing, Math.atan2(dx, dz), 3, dt);
-      this.vel.x = f.x * sp; this.vel.z = f.z * sp;
-      if (this.slideT % 0.05 < dt && grounded) this.game.fx?.dust(this.pos.x - f.x * 0.4, this.pos.y, this.pos.z - f.z * 0.4, { count: 1, size: 0.34, color: this._dustColor(), speed: 1.2, dirX: -f.x * 1.5, dirZ: -f.z * 1.5 });
-      if (this.slideT >= T.SLIDE_TIME || !grounded) this._endSlide();
+      if (this.dustDashing) {
+        // The final partial frame covers only the remaining burst distance.
+        const fraction = Math.min(dt, this.dustDashT) / Math.max(dt, 1e-9);
+        this.vel.x = this.dustVX * fraction; this.vel.z = this.dustVZ * fraction; this.vel.y = 0;
+        this.invulnT = Math.max(this.invulnT, Math.min(dt, this.dustDashT));
+        this.dustTrailT = (this.dustTrailT || 0) - dt;
+        if (this.dustTrailT <= 0) { this.dustTrailT = .04; this.game.fx?.smokeCard?.(this.pos.x, this.pos.y + .35, this.pos.z, { vx: -this.dustVX * .2, vz: -this.dustVZ * .2, size: .3, life: .18, colors: [0x9b9ba3, 0xc1c1c8], grow: .4, alpha: .5 }); }
+      } else {
+        this.slideT += dt;
+        const f = this.forward;
+        const k = this.slideT < 0.28 ? 1 : Math.max(0, 1 - (this.slideT - 0.28) / 0.22);
+        const sp = T.SLIDE_SPEED * k + (mag > 0.1 ? 3 : 0) * (1 - k);
+        // gentle steering
+        if (mag > 0.1) this.facing = dampAngle(this.facing, Math.atan2(dx, dz), 3, dt);
+        this.vel.x = f.x * sp; this.vel.z = f.z * sp;
+        if (this.slideT % 0.05 < dt && grounded) this.game.fx?.dust(this.pos.x - f.x * 0.4, this.pos.y, this.pos.z - f.z * 0.4, { count: 1, size: 0.34, color: this._dustColor(), speed: 1.2, dirX: -f.x * 1.5, dirZ: -f.z * 1.5 });
+        if (this.slideT >= T.SLIDE_TIME || !grounded) this._endSlide();
+      }
     } else if (this.mode === 'flop') {
       this.flopT += dt;
       this.vel.x = 0; this.vel.z = 0;
@@ -299,9 +340,12 @@ export class Player {
     // ---- jumping ----
     if (this.jumpBuffer > 0 && (this.mode === 'normal' || this.mode === 'slide')) {
       if (grounded || this.coyote > 0) {
+        const moon = !!this.moonHold?.charged && input.held('slide');
+        if (this.moonHold) cancelMoonCharge(this);
         const fromSlide = this.mode === 'slide';
         if (fromSlide) this._endSlide(true);
-        this._jump(T.JUMP);
+        this._jump(moon ? MOON_JUMP.speed : T.JUMP);
+        if (moon) { audio.play('boing', .7); audio.play('whoosh'); this.game.fx?.shock(this.pos.x, this.pos.y+.03, this.pos.z, { radius: 2.2, color: 0xffdf7b, life: .5 }); }
         if (fromSlide) {
           const f = this.forward;
           this.vel.x = f.x * T.SLIDE_JUMP_SPEED; this.vel.z = f.z * T.SLIDE_JUMP_SPEED;
@@ -322,7 +366,7 @@ export class Player {
     }
 
     // ---- gravity (with a little hang time at the apex while jump is held) ----
-    if (this.mode !== 'flop' && !(this.airDashT > 0)) {
+    if (this.mode !== 'flop' && !(this.airDashT > 0) && !this.dustDashing) {
       let g = T.GRAVITY * (this.vel.y < 0 ? T.FALL_MULT : 1);
       if (!grounded && input.held('jump') && Math.abs(this.vel.y) < 2.2 && !this.jumpCut) g *= 0.55;
       this.vel.y = Math.max(-T.MAX_FALL, this.vel.y - g * dt);
@@ -343,6 +387,7 @@ export class Player {
       if (this.biteT >= 1) { this.biteT = -1; this.biteCooldown = 0.08; }
     }
 
+    applyBossFling(this, dt);
     // ---- physics (substeps keep thin platforms solid at fall speed) ----
     this.prevY = this.pos.y;
     const steps = Math.max(1, Math.ceil(dt / (1 / 120)));
@@ -350,18 +395,19 @@ export class Player {
     const wasGrounded = this.body.grounded;
     rideGround(this.body);
     // external push (boss wind gusts, suction): moved through collision like normal velocity, cleared each frame
-    const px = this.mode === 'dead' ? 0 : this.pushX || 0, pz = this.mode === 'dead' ? 0 : this.pushZ || 0;
+    const noPush = this.mode === 'dead' || this.mode === 'trapped';
+    const px = noPush ? 0 : this.pushX || 0, pz = noPush ? 0 : this.pushZ || 0;
     this.vel.x += px; this.vel.z += pz;
     const preX = this.pos.x, preZ = this.pos.z;
     for (let i = 0; i < steps; i++) moveBody(stage.world, this.body, h);
     this.vel.x -= px; this.vel.z -= pz;
-    if (rideF && this.ride.sp > 3) {
+    if (rideF && this.ride.sp > 3 && (this.ride.meshKind !== 'raft' || wasGrounded)) {
       // the ride rammed something solid: crash (a mask or god mode just hops it over)
       const moved = (this.pos.x - preX) * rideF.x + (this.pos.z - preZ) * rideF.z;
       this.ride.stuck = moved < this.ride.sp * dt * 0.3 ? (this.ride.stuck || 0) + dt : 0;
       if (this.ride.stuck > 0.1) {
         this.ride.stuck = 0;
-        this.hurt('flat');
+        if (this.ride.meshKind !== 'raft') this.hurt('flat');
         if (this.mode !== 'dead') { this.vel.y = 11; this.body.grounded = false; this.ride.speedK = 0.4; }
       }
     }
@@ -387,13 +433,14 @@ export class Player {
 
     // ---- interactions + hazards ----
     this._interact(stage);
+    if (this.dustDashing) { this.dustDashT = Math.max(0, this.dustDashT - dt); if (this.dustDashT < 1e-9) this.dustDashT = 0; if (!this.dustDashT) this.slideT = T.SLIDE_TIME - DUST_DASH.slideRemaining; }
     // secret warp pits: drop in at just the right spot and get whisked away instead of falling to your doom
     const warp = stage.track && this.mode !== 'dead' && this.pos.y < stage.track.heightAt(this.body.s ?? 0) - 3 && stage.track.secretAt(this.body.s ?? 0, this.body.u ?? 0);
     if (warp && this.game.session?.secretWarp(warp)) { this._animate(dt); return; }
     if (this.pos.y < stage.killYAt(this.pos, this.body) && this.mode !== 'dead') {
       const wy = stage.track?.waterAt(this.body.s ?? 0);
       if (wy != null) { this.game.fx?.splash(this.pos.x, wy, this.pos.z); audio.play('land'); }
-      this.die('fall');
+      this.die(wy != null && stage.waterDeath && !this.god ? stage.waterDeath : 'fall');
     }
 
     this._animate(dt);
@@ -410,7 +457,7 @@ export class Player {
   _jump(v) {
     this.airDashT = 0;
     this._refillAirDash();
-    this.vel.y = v;
+    this.vel.y = v * (this.ride?.hop ?? 1);
     this.jumpBuffer = 0;
     this.coyote = 0;
     this.jumpCut = false;
@@ -423,6 +470,7 @@ export class Player {
 
   // Double jump, and the crown's third jump. Each one spends one of maxAirJumps.
   _airJump() {
+    this.clearConed();
     this.airJumps--;
     this.airDashT = 0;
     this._refillAirDash();
@@ -451,6 +499,7 @@ export class Player {
   }
 
   _startBite() {
+    if (this.conedT > 0) return;
     this.biteT = 0;
     this.bitten = new Set();
     audio.play('bite');
@@ -463,9 +512,15 @@ export class Player {
     this.idleTime = 0;
   }
 
+  _moonCharged() {
+    audio.play('chime');
+    this.game.fx?.shock(this.pos.x, this.pos.y+.03, this.pos.z, { radius: 1.5, color: 0xffdf7b, life: .5 });
+    this.game.fx?.sparkle(this.pos.x, this.pos.y+.5, this.pos.z, { count: 12, color: 0xffdf7b, speed: 2, size: .25 });
+  }
+
   _startSlide(dir) {
     this.mode = 'slide';
-    this.slideT = 0;
+    this.slideT = 0; this.dustDashUsed = false;
     this.facing = this.targetFacing = dir;
     this.body.h = 0.75;
     this.bitten = new Set();
@@ -473,6 +528,7 @@ export class Player {
   }
 
   _endSlide(intoJump = false) {
+    this.dustDashT = 0;
     // stand back up only if there is headroom
     const w = this.game.stage.world;
     const hits = w.query(this.pos.x - 0.3, this.pos.y + 0.76, this.pos.z - 0.3, this.pos.x + 0.3, this.pos.y + 1.3, this.pos.z + 0.3, []);
@@ -485,8 +541,44 @@ export class Player {
     }
   }
 
+  _startDustDash() {
+    if (!this.abilities.dustDash || this.mode !== 'slide' || !this.body.grounded || this.ride || this.slideT >= TUNING.SLIDE_TIME || this.dustDashUsed || this.dustDashCool > 0 || this.conedT > 0) return false;
+    this.dustDashT = DUST_DASH.time; this.dustDashCool = DUST_DASH.cooldown; this.dustDashUsed = true;
+    const f = this.forward; this.dustVX = f.x * DUST_DASH.speed; this.dustVZ = f.z * DUST_DASH.speed;
+    this.vel.set(this.dustVX, 0, this.dustVZ); this.bitten = new Set(); this.biteT = -1;
+    this.invulnT = Math.max(this.invulnT, DUST_DASH.time); this.dustTrailT = 0;
+    audio.play('whoosh', .8); audio.play('slide');
+    this._clearDustFov();
+    const cam = this.game.camera?.cam;
+    if (cam) { this.dustFov = { cam, base: cam.fov, time: .2 }; cam.fov += 4; cam.updateProjectionMatrix(); }
+    return true;
+  }
+
+  _clearDustFov() {
+    const boost = this.dustFov; if (!boost) return;
+    if (Math.abs(boost.cam.fov - boost.base - 4) < 1e-6) { boost.cam.fov = boost.base; boost.cam.updateProjectionMatrix(); }
+    this.dustFov = null;
+  }
+  _advanceDustFov(dt) { if (this.dustFov && (this.dustFov.time -= dt) <= 0) this._clearDustFov(); }
+
+  _dustContact(e) {
+    if (typeof e.onDash === 'function') {
+      // A shape-specific boss may decline a broad AABB contact. Retry it on
+      // later dash frames rather than consuming the hit at the box's corner.
+      if (e.onDash(this) !== false) this.bitten.add(e);
+      return true;
+    }
+    let action;
+    if (e.kind === 'dustwall' && typeof e.contact === 'function') action = e.contact;
+    else if (e.maxHp !== undefined) action = () => {}; // Bosses explicitly opt into onDash.
+    else if (typeof e.flip === 'function' && typeof e.onFlop === 'function') action = e.onFlop;
+    else if (typeof e.onSlide === 'function') action = e.onSlide;
+    if (!action) return false;
+    this.bitten.add(e); action.call(e, this); return true;
+  }
+
   // Mega Bark: a blast of sound in front of Nobu that knocks enemies over, breaks backpacks and cracks Bark Rocks.
-  // Spell Bark widens and lengthens it. Bosses (maxHp) are still skipped. There is no stun state.
+  // Spell Bark widens and lengthens it. Bosses opt in explicitly through acceptsBark; other bosses remain skipped.
   _bark() {
     const spell = this.gear.spell_bark;
     const B = spell || BARK_BASE;
@@ -499,13 +591,24 @@ export class Player {
     fx?.puff(p.x + f.x * 0.9, p.y + 1.0, p.z + f.z * 0.9, { count: 4, size: 0.35, color: spell ? B.color : 0xffffff, speed: 3, up: 0 });
     this.game.camera.shake(0.25, 0.2);
     for (const e of this.game.stage.entities) {
-      if (e.dead || e === this || e.maxHp !== undefined) continue;
+      if (e.dead || e === this || (e.maxHp !== undefined && (e.acceptsBark !== true || spell?.skip_bosses === true))) continue;
       const dx = e.pos.x - p.x, dz = e.pos.z - p.z, d = Math.hypot(dx, dz);
       if (d > B.range_m || d < 0.05 || Math.abs(e.pos.y - p.y) > B.y_tol_m) continue;
       if ((dx * f.x + dz * f.z) / d < B.cone_dot) continue;
       if (e.onBark) { e.onBark(this); continue; }
       if (!e.interactive || e.kind === 'rug' || (e.kind === 'cat' && d < 3.5)) continue;
       e.onExplosion?.({ pos: p });
+    }
+    // A paid replacement cannot remove a mandatory earned move. Only bosses
+    // explicitly providing this callback receive the independently bounded
+    // base bark; the Spell Bark loop above continues to skip every boss.
+    if (spell?.skip_bosses !== true || !save.beatenOf(3) || this.earnedBossBarkCool > 1e-9) return;
+    const base = BARK_BASE;
+    for (const e of this.game.stage.entities) {
+      if (e.dead || e.maxHp === undefined || typeof e.onEarnedBark !== 'function') continue;
+      const dx = e.pos.x-p.x, dz = e.pos.z-p.z, distance = Math.hypot(dx,dz);
+      if (distance < .05 || distance > base.range_m || Math.abs(e.pos.y-p.y)>base.y_tol_m || (dx*f.x+dz*f.z)/distance<base.cone_dot) continue;
+      if (e.onEarnedBark(this) !== false) this.earnedBossBarkCool = base.cooldown_s;
     }
   }
 
@@ -539,6 +642,7 @@ export class Player {
   }
 
   _onLand(solid, impact, wasGrounded) {
+    if (this.mode === 'flop' && this.flopPhase === 'fall') this.clearConed();
     if (!wasGrounded) {
       this.airDashT = 0;
       this._refillAirDash();
@@ -572,7 +676,7 @@ export class Player {
       min: { x: p.x - 0.36, y: p.y, z: p.z - 0.36 },
       max: { x: p.x + 0.36, y: p.y + this.body.h, z: p.z + 0.36 },
     };
-    const biting = this.biteT >= 0.1 && this.biteT <= 0.75;
+    const biting = !(this.conedT > 0) && this.biteT >= 0.1 && this.biteT <= 0.75;
     const f = this.forward;
     const bx = p.x + f.x * 0.75, by = p.y + 0.75, bz = p.z + f.z * 0.75;
     const sliding = this.mode === 'slide' || (!!this.ride && this.mode === 'normal');
@@ -581,6 +685,10 @@ export class Player {
       if (e.dead || !e.interactive || !e.box) continue;
       if (Math.abs(e.pos.z - p.z) > 8) continue;
       const eb = e.box;
+      if (this.dustDashing && !this.bitten.has(e) && overlaps(pbox, eb) && this._dustContact(e)) {
+        if (this.dead) return;
+        continue;
+      }
       if (biting && !this.bitten.has(e) && (sphereBox(bx, by, bz, biteR, eb) || sphereBox(p.x, p.y + 0.7, p.z, 0.75, eb))) {
         this.bitten.add(e);
         e.onBite?.(this);
@@ -603,10 +711,48 @@ export class Player {
   }
 
   // ---------- damage ----------
+  trap(sec) {
+    if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || !(sec > 0)) return false;
+    if (this.moonHold) cancelMoonCharge(this);
+    this.bossFling = null;
+    this.hang = null;
+    this.mode = 'trapped'; this.trapT = sec; this.trapElapsed = 0;
+    this.vel.x = 0; this.vel.z = 0; this.biteT = -1;
+    this.airDashT = 0; this.dustDashT = 0; this.flopPhase = null;
+    this.body.h = 1.3;
+    return true;
+  }
+  cone(sec) {
+    if (this.dead || this.frozen || this.invulnT > 0 || this.invincible || !(sec > 0)) return false;
+    if (this.god) { this._godHit(false); return false; }
+    const s = this.game.session;
+    if (s?.mask > 0) {
+      s.setMask(s.mask - 1); this._reportHurt(); audio.play('maskLost');
+      return true;
+    }
+    this.conedT = sec; this.biteT = -1;
+    this.deathCone.position.set(0, 1.15, 0.12);
+    this.deathCone.visible = true;
+    this.game.ui?.setConed?.(true);
+    return true;
+  }
+  clearConed() {
+    this.conedT = 0;
+    if (this.deathCone && this.deathType !== 'cone') this.deathCone.visible = false;
+    this.game.ui?.setConed?.(false);
+  }
+  _reportHurt() {
+    const s = this.game.session;
+    if (s?.onPlayerHurt) s.onPlayerHurt();
+    else s?.boss?.onPlayerHurt?.();
+  }
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
-    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.god || this.frozen) return false;
+    if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.frozen) return false;
     const s = this.game.session;
+    if (this.god) { this._godHit(!(s?.mask > 0) && !(this.gear.damage_guard && this.guardCharges > 0)); return false; }
+    if (this.moonHold) cancelMoonCharge(this);
+    this.hang = null;
     if (s && s.mask > 0) {
       s.setMask(s.mask - 1);
       this.invulnT = 1.7;
@@ -618,6 +764,7 @@ export class Player {
         this.vel.x = (dx / d) * 6; this.vel.z = (dz / d) * 6;
       }
       if (this.body.grounded) this.vel.y = 6;
+      this._reportHurt();
       return true;
     }
     // Mask first, then the Golden Collar, then death. Pits and crushers call die() and skip this.
@@ -636,6 +783,7 @@ export class Player {
       if (this.body.grounded) this.vel.y = 6;
       this.game.accessories?.flashCollar(false);
       this._paintGear();
+      this._reportHurt();
       return true;
     }
     this.die(type);
@@ -672,6 +820,15 @@ export class Player {
     setCollarGlow(this.model, this.guardCharges > 0);
   }
 
+  // God mode tally for this level (game.js resets it when a level starts)
+  resetGodTally() {
+    this.godTally = createGodTally();
+    this.game.ui?.godTally?.(this.godTally);
+  }
+  _godHit(lethal) {
+    if (countGodHit(this.godTally, { lethal })) this.game.ui?.godTally?.(this.godTally);
+  }
+
   // God mode: fell in a pit -> pop back up onto the last solid footing
   _rescue() {
     const to = this.lastSafe || this.pos;
@@ -690,8 +847,14 @@ export class Player {
   }
 
   die(type = 'angel') {
+    if (this.moonHold) cancelMoonCharge(this);
+    this.bossFling = null;
+    this._clearDustFov(); this.dustDashT = 0;
     if (this.mode === 'dead') return;
-    if (this.god) { if (type === 'fall') this._rescue(); return; }
+    if (this.god) { this._godHit(true); if (type === 'fall') this._rescue(); return; }
+    this.hang = null;
+    this._reportHurt();
+    this.clearConed();
     if (this.mode === 'slide') this.body.h = 1.3;
     this.mode = 'dead';
     this.deathType = type;
@@ -737,14 +900,8 @@ export class Player {
     this.root.rotation.y = this.facing;
   }
 
-  // Vacuum ride (bonus stage): cfg = { speed } or null to get off
-  setRide(cfg) {
-    if (this.ride) { this.root.remove(this.ride.mesh); this.ride = null; }
-    if (!cfg) return;
-    this._rideMesh ||= rideVacuumMesh();
-    this.root.add(this._rideMesh);
-    this.ride = { speed: cfg.speed ?? 10.5, lift: cfg.lift ?? 0.42, mesh: this._rideMesh, speedK: 0 };
-  }
+  // Ride defaults preserve the vacuum; per-span raft metadata is opt-in.
+  setRide(cfg) { setPlayerRide(this, cfg); }
 
   victory() {
     this.mode = 'victory';
@@ -772,6 +929,7 @@ export class Player {
     if (this.ride && this.mode === 'normal') { st.speed = 0; st.idleTime = 0; }
     if (this.frozen && this.mode === 'normal') { st.speed = 0; st.grounded = true; }
     const pose = this.anim.update(dt, st);
+    if (this.moonHold?.time >= MOON_JUMP.tap) { pose.scaleY *= .8; pose.scaleXZ *= 1.1; }
     this.model.apply(pose);
     if (this.mode !== 'dead') {
       this.root.position.copy(this.pos);

@@ -1,6 +1,7 @@
 // All sound is synthesized with the Web Audio API: sound effects + a step sequencer for music.
 import { SONGS } from './songs.js';
 
+const DEFAULT_SOUND = Object.freeze({ volume: 1 });
 const NOTE_INDEX = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 function noteFreq(name) {
   const m = /^([A-G][#b]?)(-?\d)$/.exec(name);
@@ -56,6 +57,11 @@ class AudioEngine {
       this.noise = c.createBuffer(1, len, c.sampleRate);
       const d = this.noise.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      if (this.song) {
+        const s = this.song;
+        s.startTime = s.nextTime = s.transportAnchor = c.currentTime + 0.05;
+        s.transportTime = 0; s.step = 0;
+      }
       this._schedTimer = setInterval(() => this._schedule(), 25);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -118,10 +124,15 @@ class AudioEngine {
   }
 
   // ---------- sound effects ----------
-  play(name, p = 1) {
+  // The prop effects explosion/whirr/roll accept local volume without touching shared gain.
+  play(name, p = 1, { volume = 1 } = DEFAULT_SOUND) {
     if (!this.ctx || this.muted) return;
     const r = (a, b) => a + Math.random() * (b - a);
     switch (name) {
+      case 'splash': this._noise(.45, .22 * volume, 0, 'lowpass', 1600, 180); this._osc('sine', 140 * p, 45 * p, .25, .1 * volume); break;
+      case 'gurgle': this._noise(.3, .14 * volume, 0, 'lowpass', 400 * p, 90 * p); this._osc('sine', 130 * p, 65 * p, .18, .1 * volume, .12); break;
+      case 'paddle': this._noise(.1, .1 * volume, 0, 'bandpass', 550, 200); this._osc('sine', 150 * p, 70 * p, .08, .06 * volume); break;
+      case 'sizzle': this._noise(.22, .12 * volume, 0, 'highpass', 4500); break;
       case 'jump': this._osc('square', 260, 640, 0.14, 0.12); break;
       case 'doubleJump': this._osc('triangle', 520, 1250, 0.16, 0.2); this._osc('sine', 1600, 2400, 0.12, 0.06, 0.04); break;
       case 'land': this._osc('sine', 140, 60, 0.09, 0.25); break;
@@ -133,7 +144,7 @@ class AudioEngine {
       case 'chompHit': this._osc('triangle', 700, 260, 0.12, 0.3); this._noise(0.1, 0.25, 0, 'highpass', 2500); break;
       case 'break':
         this._noise(0.28, 0.55, 0, 'lowpass', 3500, 250, 1);
-        this._osc('sine', 110, 50, 0.18, 0.4);
+        this._osc('sine', 110 * p, 50 * p, 0.18, 0.4);
         this._noise(0.06, 0.3, 0.05, 'bandpass', 2500, 2500, 3);
         break;
       case 'ticket': {
@@ -153,8 +164,8 @@ class AudioEngine {
         this._osc('sawtooth', 600, 300, 0.25, 0.18, 0.02, this.sfxGain, { vibrato: 30, vibDepth: 80 });
         break;
       case 'explosion':
-        this._noise(0.6, 0.8, 0, 'lowpass', 2200, 80, 0.8);
-        this._osc('sine', 90, 30, 0.5, 0.6);
+        this._noise(0.6, 0.8 * volume, 0, 'lowpass', 2200, 80, 0.8);
+        this._osc('sine', 90, 30, 0.5, 0.6 * volume);
         break;
       case 'rugDeath':
         this._osc('sawtooth', 900, 90, 0.55, 0.25, 0, this.sfxGain, { filter: 'lowpass', freq: 2400 });
@@ -193,7 +204,7 @@ class AudioEngine {
         this._osc('sawtooth', 160, 90, 1.0, 0.3, 0, this.sfxGain, { vibrato: 9, vibDepth: 25, filter: 'lowpass', freq: 900 });
         this._noise(0.9, 0.25, 0, 'bandpass', 600, 300, 1);
         break;
-      case 'squash': this._osc('square', 420, 110, 0.12, 0.2); this._osc('sine', 200, 60, 0.12, 0.3); break;
+      case 'squash': this._osc('square', 420 * p, 110 * p, 0.12, 0.2); this._osc('sine', 200 * p, 60 * p, 0.12, 0.3); break;
       case 'knock': this._osc('triangle', 800, 280, 0.12, 0.3); this._noise(0.25, 0.15, 0.03, 'bandpass', 1200, 4000, 1); break;
       case 'hurt': this._osc('square', 500, 180, 0.3, 0.2); break;
       case 'death':
@@ -201,6 +212,10 @@ class AudioEngine {
         break;
       case 'oneUp':
         ['E6', 'G6', 'E7', 'C7', 'D7', 'G7'].forEach((n, i) => this._osc('square', noteFreq(n), noteFreq(n), 0.1, 0.09, i * 0.08));
+        break;
+      case 'stamp':
+        this._osc('sine', 90, 40, 0.22, 0.6);
+        this._noise(0.12, 0.35, 0, 'lowpass', 1200, 200);
         break;
       case 'checkpoint':
         ['G5', 'C6', 'E6', 'G6'].forEach((n, i) => this._osc('triangle', noteFreq(n), noteFreq(n), 0.2, 0.2, i * 0.07));
@@ -215,7 +230,25 @@ class AudioEngine {
       case 'shoot': this._osc('square', 300, 900, 0.1, 0.1); this._noise(0.08, 0.15, 0, 'highpass', 2000); break;
       case 'whoosh': this._noise(0.35, 0.3, 0, 'bandpass', 400, 2400, 1.5); break;
       // boss specials
-      case 'charge': this._osc('sawtooth', 120, 900, 0.7, 0.12, 0, this.sfxGain, { filter: 'lowpass', freq: 1800 }); this._osc('sine', 240, 1800, 0.7, 0.08); break;
+      case 'cageRattle':
+        for (let i = 0; i < 4; i++) {
+          this._osc('square', 1240 * p, 1190 * p, 0.09, 0.07 * volume, i * 0.055);
+          this._noise(0.045, 0.1 * volume, i * 0.055, 'highpass', 3200);
+        }
+        this._osc('triangle', 1860 * p, 1820 * p, 0.3, 0.08 * volume);
+        break;
+      case 'peck':
+        this._osc('square', 1300 * p, 900 * p, 0.025, 0.09 * volume);
+        this._osc('triangle', 420 * p, 140 * p, 0.12, 0.25 * volume, 0.025);
+        this._noise(0.055, 0.16 * volume, 0.025, 'bandpass', 1200, 4000, 1);
+        break;
+      case 'crashSiren':
+        for (let i = 0; i < 4; i++) this._osc('sawtooth', i % 2 ? 440 : 880, i % 2 ? 880 : 440, .22, .09 * volume, i * .22, this.sfxGain, { filter: 'lowpass', freq: 1800 });
+        break;
+      case 'charge': this._osc('sawtooth', 120 * p, 900 * p, 0.7, 0.12, 0, this.sfxGain, { filter: 'lowpass', freq: 1800 }); this._osc('sine', 240 * p, 1800 * p, 0.7, 0.08); break;
+      case 'catnip':
+        ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => this._osc('triangle', noteFreq(n) * p, noteFreq(n) * p, 0.18, 0.12 * volume, i * 0.045));
+        break;
       case 'laser':
         this._osc('sawtooth', 1400, 700, 0.5, 0.12, 0, this.sfxGain, { filter: 'bandpass', freq: 1600, q: 3, vibrato: 30, vibDepth: 120 });
         this._noise(0.5, 0.15, 0, 'highpass', 3000);
@@ -225,22 +258,25 @@ class AudioEngine {
       case 'tick': this._osc('square', 1300, 1300, 0.04, 0.12); break;
       case 'yowl': this._osc('sawtooth', 520, 260, 0.6, 0.18, 0, this.sfxGain, { vibrato: 9, vibDepth: 60, filter: 'lowpass', freq: 2200 }); this._osc('sawtooth', 780, 330, 0.5, 0.1, 0.05); break;
       case 'slash': this._noise(0.18, 0.4, 0, 'highpass', 2500, 6000, 1); this._osc('sawtooth', 900, 300, 0.15, 0.08); break;
-      case 'suck': this._noise(1.4, 0.35, 0, 'bandpass', 1800, 250, 2); this._osc('sine', 300, 90, 1.4, 0.1); break;
+      case 'suck': this._noise(1.4, 0.35, 0, 'bandpass', 1800 * p, 250 * p, 2); this._osc('sine', 300 * p, 90 * p, 1.4, 0.1); break;
       case 'stomp': this._osc('sine', 80, 30, 0.5, 0.8); this._noise(0.4, 0.5, 0, 'lowpass', 900, 60); break;
       case 'paw': this._osc('sine', 72, 36, 0.14, 0.3 * p); this._noise(0.1, 0.16 * p, 0, 'lowpass', 520, 110); break;
       case 'clang': this._osc('square', 1240, 1190, 0.22, 0.1); this._osc('triangle', 1860, 1820, 0.32, 0.09, 0.004); this._noise(0.05, 0.22, 0, 'highpass', 3200); break;
       case 'zip': this._noise(0.17, 0.3, 0, 'bandpass', 2200, 5600, 3); this._osc('square', 900, 1500, 0.12, 0.03); break;
       case 'bonk': this._osc('sine', 560, 170, 0.13, 0.32); this._noise(0.06, 0.22, 0, 'lowpass', 1500, 300); break;
-      case 'whirr': this._noise(0.55, 0.2, 0, 'bandpass', 260, 1900, 2); this._osc('sawtooth', 85, 170, 0.55, 0.05); break;
+      case 'whirr': this._noise(0.55, 0.2 * volume, 0, 'bandpass', 260, 1900, 2); this._osc('sawtooth', 85, 170, 0.55, 0.05 * volume); break;
       case 'chime': this._osc('sine', 1318, 1318, 0.5, 0.13); this._osc('sine', 1760, 1760, 0.6, 0.09, 0.08); this._osc('sine', 2637, 2637, 0.7, 0.05, 0.16); break;
       case 'flipOver': this._osc('triangle', 280, 720, 0.18, 0.18); this._noise(0.08, 0.2, 0, 'lowpass', 900); break;
       case 'fade': this._osc('sine', 880, 330, 0.6, 0.1); this._osc('sine', 660, 250, 0.7, 0.07, 0.1); break;
       case 'menu': this._osc('square', 660, 660, 0.05, 0.08); break;
       case 'select': this._osc('square', 880, 1320, 0.12, 0.12); this._osc('triangle', 1320, 1760, 0.1, 0.1, 0.06); break;
-      case 'blip': this._osc('square', 520 + Math.random() * 120, 520, 0.03, 0.04); break;
+      case 'sniff': this._noise(0.12, 0.2, 0, 'bandpass', 1800, 3200, 4); this._noise(0.12, 0.2, 0.15, 'bandpass', 1800, 3200, 4); break;
+      case 'kennel': ['C5', 'G5', 'C6', 'G6', 'C7'].forEach((n, i) => this._osc('sawtooth', noteFreq(n), noteFreq(n), 0.2, 0.035, i * 0.06)); break;
+      case 'chainUp': this._osc('square', 660 * p, 1320 * p, 0.08, 0.1); this._osc('triangle', 1320 * p, 1980 * p, 0.1, 0.06, 0.04); break;
+      case 'blip': this._osc('square', (520 + Math.random() * 120) * p, 520 * p, 0.03, 0.04); break;
       case 'blipLow': this._osc('sawtooth', 160 + Math.random() * 40, 140, 0.05, 0.06, 0, this.sfxGain, { filter: 'lowpass', freq: 900 }); break;
       case 'switch': this._osc('square', 400, 400, 0.08, 0.15); this._osc('square', 800, 800, 0.15, 0.15, 0.09); break;
-      case 'roll': this._noise(0.6, 0.3, 0, 'bandpass', 300, 1500, 2); break;
+      case 'roll': this._noise(0.6, 0.3 * volume, 0, 'bandpass', 300, 1500, 2); break;
       case 'meow': this._osc('sawtooth', 700, 1100, 0.18, 0.15, 0, this.sfxGain, { filter: 'bandpass', freq: 1400, q: 3 }); this._osc('sawtooth', 1100, 600, 0.3, 0.15, 0.18, this.sfxGain, { filter: 'bandpass', freq: 1200, q: 3 }); break;
       case 'laugh':
         for (let i = 0; i < 5; i++) this._osc('sawtooth', 240 - i * 12, 200 - i * 12, 0.11, 0.15, i * 0.13, this.sfxGain, { filter: 'lowpass', freq: 1100 });
@@ -251,29 +287,66 @@ class AudioEngine {
 
   // ---------- music ----------
   playMusic(name) {
-    if (this.songName === name) return;
+    if (this.songName === name) return this.song?.startTime ?? null;
     this.songName = name;
     const def = SONGS[name];
-    if (!def) { this.song = null; return; }
+    if (!def) { this.song = null; return null; }
+    const startTime = this.now + (this.ctx ? 0.05 : 0);
     this.song = {
       def,
       tracks: def.tracks.map((t) => ({ ...t, steps: parsePattern(t.notes) })),
       drums: def.drums || null,
       step: 0,
-      nextTime: this.ctx ? this.ctx.currentTime + 0.05 : 0,
+      nextTime: startTime,
+      startTime, transportAnchor: startTime, transportTime: 0,
       loop: def.loop !== false,
     };
+    return startTime;
   }
 
   stopMusic() { this.song = null; this.songName = null; }
 
-  setRate(r) { this.rate = r; }
+  // Musical seconds from the first bar, independent of the game's pause/update loop.
+  musicTime(name = this.songName) {
+    const s = this.song;
+    if (!this.ctx || !s || name !== this.songName) return null;
+    return s.transportTime + Math.max(0, this.now - s.transportAnchor) * this.rate;
+  }
+
+  setRate(r) {
+    if (!(r > 0)) throw new Error('Music rate must be positive');
+    if (r === this.rate) return;
+    const time = this.musicTime();
+    const scheduledThrough = this.song ? this.song.nextTime - 60 / this.song.def.bpm / this.rate / 4 : this.now;
+    if (time !== null) {
+      const s = this.song;
+      s.transportTime = time; s.transportAnchor = Math.max(this.now, s.startTime);
+    }
+    this.rate = r;
+    if (time !== null) this._alignMusicStep(scheduledThrough + 1e-6);
+  }
+
+  _alignMusicStep(notBefore = this.now) {
+    const s = this.song, position = this.musicTime();
+    if (!s || position === null) return;
+    const duration = 60 / s.def.bpm / 4;
+    const length = s.tracks[0].steps.length;
+    if (!s.loop && position >= length * duration) { this.stopMusic(); return; }
+    // A rate change leaves the already scheduled lookahead intact. Schedule the
+    // next grid point after that tail, never replaying a queued note.
+    const future = Math.max(0, notBefore - Math.max(this.now, s.startTime)) * this.rate;
+    const index = Math.ceil((position + future) / duration - 1e-9);
+    if (!s.loop && index >= length) { this.stopMusic(); return; }
+    s.step = index % length;
+    s.nextTime = Math.max(this.now, s.startTime) + (index * duration - position) / this.rate;
+  }
 
   _schedule() {
     const c = this.ctx;
     if (!c || !this.song) return;
     const s = this.song;
-    if (s.nextTime < c.currentTime - 0.2) s.nextTime = c.currentTime + 0.02;
+    if (s.nextTime < c.currentTime - 0.2) this._alignMusicStep();
+    if (!this.song) return;
     const stepDur = 60 / (s.def.bpm * this.rate) / 4;
     while (s.nextTime < c.currentTime + 0.12) {
       this._playStep(s, s.step, s.nextTime, stepDur);
@@ -307,6 +380,7 @@ class AudioEngine {
       const ac = (pat) => pat && pat[i % pat.length] === 'X';
       if (at(d.kick) || ac(d.kick)) this._osc('sine', 150, 45, 0.16, ac(d.kick) ? 0.75 : 0.55, w, this.musicGain);
       if (at(d.snare)) { this._noise(0.12, 0.28, w, 'highpass', 1500, null, 0.7, this.musicGain); this._osc('triangle', 220, 160, 0.08, 0.12, w, this.musicGain); }
+      if (at(d.tom)) this._osc('sine', 160, 65, .13, .2, w, this.musicGain);
       if (at(d.hat)) this._noise(0.03, 0.09, w, 'highpass', 7000, null, 1, this.musicGain);
       if (ac(d.hat)) this._noise(0.12, 0.1, w, 'highpass', 6000, null, 1, this.musicGain);
       if (at(d.clank)) { this._osc('square', 1800, 1700, 0.05, 0.05, w, this.musicGain); this._noise(0.05, 0.12, w, 'bandpass', 3500, null, 6, this.musicGain); }

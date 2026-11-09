@@ -4,7 +4,7 @@
 import { createHubSdk, HubEvent, HUB_OUTBOX_DB, TICKETS_PER_VERSE, VERSE_DAILY_CAP } from '@metaverse/hub-sdk';
 import { save } from '../core/save.js';
 import { CARRY_MAX, LEVEL_END_MAX_AMOUNT } from '../config/tickets.js';
-import { TRIAL_BOARD } from '../config/trials.js';
+import { TRIAL_BOARD, trialLayout, trialVariant, canUploadTrial } from '../config/trials.js';
 import { enqueue as enqueueScore, flushQueue as flushScoreQueue, knownBest, retryDelay } from './scoreQueue.js';
 
 const GAME_ID = 'nobu';
@@ -27,10 +27,26 @@ export const MAX_EXCHANGE_TICKETS = VERSE_DAILY_CAP * TICKETS_PER_VERSE;
 const HUB_URL = import.meta.env.VITE_HUB_URL || '/hub/';
 
 // Nakama's client server key. Custom-auth ticket redeem sends it as Basic auth; it is
-// not the runtime HTTP key. Like the hub, only `vite dev` falls back to the compose
-// default. A production build takes VITE_NAKAMA_SERVER_KEY, or every redeem is refused
-// and the game runs without a hub session (no Tickets banked, no Relic sent).
-const NAKAMA_SERVER_KEY = import.meta.env.VITE_NAKAMA_SERVER_KEY || (import.meta.env.DEV ? 'defaultkey' : '');
+// not the runtime HTTP key and not a secret. A production build takes
+// VITE_NAKAMA_SERVER_KEY, or every redeem is refused and the game runs without a hub
+// session (no Tickets banked, no Relic sent, no Relic gear in the wardrobe).
+// `vite dev` falls back to the compose default, like the hub. So does a build served
+// from this machine: the dev hub serves a NOBU build from its public/play/nobu/, and
+// metaverse-hub's server/scripts/dev-env.sh keeps Nakama's stock key for local stacks.
+const LOCAL_SERVER_KEY = 'defaultkey';
+const LOOPBACK_HOST = /^(localhost|[\w-]+\.localhost|127(?:\.\d{1,3}){3}|\[::1\]|::1)$/i;
+
+export function nakamaServerKey({ envKey, dev, hostname } = {}) {
+  if (envKey) return envKey;
+  if (dev) return LOCAL_SERVER_KEY;
+  return LOOPBACK_HOST.test(String(hostname || '')) ? LOCAL_SERVER_KEY : '';
+}
+
+const NAKAMA_SERVER_KEY = nakamaServerKey({
+  envKey: import.meta.env.VITE_NAKAMA_SERVER_KEY,
+  dev: import.meta.env.DEV,
+  hostname: typeof location !== 'undefined' ? location.hostname : '',
+});
 
 // Sent in trial score meta so the board can tell builds apart. Optional at build time.
 const BUILD_ID = import.meta.env.VITE_BUILD_ID || import.meta.env.MODE || 'unknown';
@@ -619,6 +635,14 @@ function txDone(tx, db) {
   });
 }
 
+// The SDK's `hub-outbox` database is shared by every game on the origin. Each row
+// carries the `gameId` of the session that queued it (SDK `sendOnce`), and the keys
+// are bare UUIDs with no game prefix, so `gameId` is the only owner mark. nobu picks
+// and deletes only its own rows. A row without `gameId` is never treated as nobu's.
+function isOwnOutboxRow(row) {
+  return !!row && row.gameId === GAME_ID;
+}
+
 async function firstOutboxKey() {
   try {
     const { db, store, tx } = await openWrites('readonly');
@@ -626,7 +650,7 @@ async function firstOutboxKey() {
       const req = store.getAll();
       req.onsuccess = () => {
         const rows = req.result || [];
-        resolve(rows[0]?.key || null);
+        resolve(rows.find(isOwnOutboxRow)?.key || null);
       };
       req.onerror = () => resolve(null);
     });
@@ -641,7 +665,10 @@ async function forgetOutbox(key) {
   if (!key) return;
   try {
     const { db, store, tx } = await openWrites('readwrite');
-    store.delete(key);
+    const req = store.get(key);
+    req.onsuccess = () => {
+      if (isOwnOutboxRow(req.result)) store.delete(key);
+    };
     await txDone(tx, db);
   } catch {
     /* the row stays queued and the next init tries again */
@@ -772,6 +799,9 @@ class HubBridge {
             continue;
           }
           console.warn('[hub] terminal error, dropping write', info.code, key || '', info.message);
+          // No nobu row to blame: the refused write belongs to another game (all games share
+          // one outbox), and we never touch it. SDK >= 0.6.1 already drops final refusals
+          // itself, so this path should not occur; play offline for this launch.
           if (!key) { this.reach = 'offline'; break; }
           await this._dropKey(key);
           await forgetOutbox(key);
@@ -975,8 +1005,10 @@ class HubBridge {
    */
   submitScore(ms, level, meta = {}) {
     const pid = this.playerId();
-    if (!pid || !Number.isInteger(ms)) return Promise.resolve(false);
-    const queued = enqueueScore(pid, level, ms, { ...meta, level: Number(level), build: BUILD_ID, v: 1 });
+    const variant = trialVariant(level), layout = trialLayout(level);
+    if (!pid || !Number.isInteger(ms) || !canUploadTrial(variant)) return Promise.resolve(false);
+    const queued = enqueueScore(pid, variant, ms, { ...meta, level: layout === 1 ? Number(level) : variant,
+      ...(layout > 1 ? { layout } : {}), build: BUILD_ID, v: layout });
     if (queued) this._scoreDirty = true;
     return this.flushScores().then(() => queued, () => queued);
   }
@@ -984,7 +1016,7 @@ class HubBridge {
   /** Fastest time this player has queued or posted for `level`, or null. */
   knownTrialBest(level) {
     const pid = this.playerId();
-    return pid ? knownBest(pid, level) : null;
+    return pid ? knownBest(pid, trialVariant(level)) : null;
   }
 
   /** Send queued trial scores. Safe to call any time; one run at a time. */
@@ -1030,8 +1062,10 @@ class HubBridge {
    * Cached for a minute.
    * Null when standalone, offline, or when the vendored SDK has no getLeaderboard.
    */
-  async trialTop(level) {
-    const key = String(level);
+  trialTop(level) { return this._trialTopVariant(trialVariant(level)); }
+  trialTopClassic(level) { return this._trialTopVariant(trialVariant(level, 1)); }
+
+  async _trialTopVariant(key) {
     const hit = this._topCache.get(key);
     if (hit && Date.now() - hit.at < TOP_CACHE_MS) return hit.top;
     if (this.reach !== 'ready' || !this.inSession || typeof this._sdk?.getLeaderboard !== 'function') return null;

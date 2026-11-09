@@ -1,10 +1,12 @@
 // Hats and collars parented to Nobu's sockets. Authored in metres at his 1.5 m size.
 // A missing GLB always falls back to these procedural meshes.
-// Neck holds one mesh: Golden Collar or Clown-Nose Collar. Head holds one: Wizard Hat or Champion's Crown.
+// Neck holds one mesh: Golden Collar or Clown-Nose Collar. Head holds one: a Wizard Hat or Champion's Crown.
+// Items pick their model through catalog `cosmetic.mesh` (itemMesh), so Wizard Hat II draws the Wizard Hat.
 // GLBs follow the manifest convention: asset id `model_<item id>`, file `models/<item id>.glb`.
 
 import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
+import { itemMesh } from '../gear/catalog.js';
 
 function cloth(color, emissive) {
   return new THREE.MeshLambertMaterial({ color, emissive });
@@ -183,12 +185,13 @@ export function dressNobuModel(model, loadout) {
   clearGear(model);
   const show = loadout?.cosmeticSlots?.() || {};
   // Head holds one id, so the hat and the crown never show together.
-  if (show.head === 'nobu_wizard_hat' && model.headSocket) {
+  const head = itemMesh(show.head);
+  if (head === 'nobu_wizard_hat' && model.headSocket) {
     attach(model, model.headSocket, takeMesh('nobu_wizard_hat', 0.55, buildWizardHat), {
       lift: model.hatLift ?? 0.2,
       key: 'gearHat',
     });
-  } else if (show.head === 'nobu_champions_crown' && model.headSocket) {
+  } else if (head === 'nobu_champions_crown' && model.headSocket) {
     const glb = Assets.model('model_nobu_champions_crown', CROWN_GLB.height);
     const crown = glb || buildChampionsCrown();
     crown.userData.kind = 'crown';

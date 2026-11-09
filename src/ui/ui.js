@@ -4,14 +4,31 @@ import { Assets } from '../art/assets.js';
 import { input } from '../core/input.js';
 import { audio } from '../audio/audio.js';
 import { save } from '../core/save.js';
-import { SPEAKERS, TUTORIALS, DEATH_CAPTIONS, DEATH_ART } from '../story/script.js';
+import { BONE_TEXT, SPEAKERS, TUTORIALS, DEATH_CAPTIONS, DEATH_ART } from '../story/script.js';
+import { savedBoard } from '../game/bones.js';
+import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
 export class UI {
+  boneBoard(id, { bonus = false, run = null, fresh = [] } = {}) {
+    const saved = savedBoard(save.data, id);
+    const keys = ['golden', 'goodBoy', 'hidden', ...(bonus ? [] : ['snack1', 'snack2', 'snack3'])];
+    const labels = [BONE_TEXT.golden, BONE_TEXT.goodBoy, BONE_TEXT.hidden, ...BONE_TEXT.snack];
+    const has = (b, k) => k.startsWith('snack') ? b?.snack >= Number(k.slice(-1)) : !!b?.[k];
+    return `<div class="bone-board" aria-label="${BONE_TEXT.board}" style="display:flex;justify-content:center;gap:8px;margin:12px 0">${keys.map((k, i) => {
+      const owned = has(saved, k), live = has(run, k), stamp = fresh.indexOf(k);
+      return `<img data-bone="${k}" title="${labels[i]}" alt="${labels[i]}" src="${Assets.url('golden_bone')}" style="width:38px;height:30px;object-fit:contain;opacity:${owned || live ? 1 : 0.18};filter:${owned ? 'none' : live ? 'grayscale(1) brightness(2)' : 'brightness(0)'};${stamp >= 0 ? `animation:bone-stamp .3s ${2 + stamp * 0.4}s both;` : ''}">`;
+    }).join('')}</div>`;
+  }
+
   constructor(root) {
     this.root = root;
+    this.conedVignette = h('div', 'coned-vignette');
+    this.conedVignette.setAttribute('aria-hidden', 'true');
+    this.conedVignette.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none;background:radial-gradient(ellipse,transparent 40%,rgba(130,80,180,.65));';
+    root.appendChild(this.conedVignette);
     // HUD
     this.hud = h('div', 'hud');
     this.slots = {};
@@ -24,6 +41,7 @@ export class UI {
       this.slots[key] = { el: s, v, timer: 0, pinned: false };
     };
     mk('tickets', 'hud-tickets', Assets.url('ticket'));
+    mk('chain', 'hud-chain');
     mk('lives', 'hud-lives', Assets.url('nobu_head'));
     mk('dogs', 'hud-dogs', Assets.url('dog_shiba_free'));
     // mask pips
@@ -35,7 +53,8 @@ export class UI {
     this.hud.appendChild(m);
     this.slots.mask = { el: m, v: null, timer: 0 };
     root.appendChild(this.hud);
-    this.god = h('div', 'god-badge', 'GOD MODE');
+    this.god = h('div', 'god-badge', 'GOD MODE<div class="god-tally"></div>');
+    this.godTallyEl = this.god.querySelector('.god-tally');
     root.appendChild(this.god);
     this.trialEl = h('div', 'trial-timer');
     root.appendChild(this.trialEl);
@@ -79,12 +98,14 @@ export class UI {
 
   // ---------- level loading ----------
   showLoading(kicker, title) {
+    this._loadEpoch = (this._loadEpoch || 0) + 1;
     this.loadEl.querySelector('.ll-kicker').textContent = kicker;
     this.loadEl.querySelector('.ll-title').textContent = title;
     this.loadEl.setAttribute('aria-label', `Loading ${title}`);
     this.loadingProgress(0, '');
     this.loadEl.classList.add('show');
     this.loadShownAt = performance.now();
+    return this._loadEpoch;
   }
   loadingProgress(frac, step) {
     const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
@@ -93,12 +114,21 @@ export class UI {
     if (step != null) this.loadEl.querySelector('.ll-step').textContent = step;
   }
   // Fill the bar, keep the screen up for at least `minMs` so it never just flashes, then fade it out.
-  async hideLoading(minMs = 700) {
+  async hideLoading(minMs = 700, token = this._loadEpoch) {
+    if (token !== this._loadEpoch) return false;
     this.loadingProgress(1, 'Ready!');
     const left = minMs - (performance.now() - this.loadShownAt);
     await new Promise((r) => setTimeout(r, Math.max(250, left)));
+    if (token !== this._loadEpoch) return false;
     this.loadEl.classList.remove('show');
     await new Promise((r) => setTimeout(r, 300));
+    return token === this._loadEpoch;
+  }
+  cancelLoading(token) {
+    if (token == null || token !== this._loadEpoch) return false;
+    this._loadEpoch++;
+    this.loadEl.classList.remove('show');
+    return true;
   }
 
   // ---------- HUD ----------
@@ -117,6 +147,9 @@ export class UI {
     }
   }
   godBadge(on) { this.god.classList.toggle('on', !!on); }
+  // hits and deaths God Mode absorbed this level, or null to hide (outside a level)
+  godTally(t) { this.godTallyEl.textContent = t ? godTallyText(t) : ''; }
+  setConed(on) { this.conedVignette.style.display = on ? 'block' : 'none'; }
   // time trial clock: text, or null to hide; `frozen` tints it icy while a Freeze Pack holds it
   // Called every frame during a trial, so the DOM is touched only when the shown text changes.
   trialTime(text, frozen = false) {
@@ -127,20 +160,27 @@ export class UI {
     if (shown !== this._trialText) { this._trialText = shown; this.trialEl.textContent = shown; }
     if (!!frozen !== this._trialFrozen) { this._trialFrozen = !!frozen; this.trialEl.classList.toggle('frozen', !!frozen); }
   }
-  showHud(t = 3) { for (const s of Object.values(this.slots)) { s.timer = t; s.el.classList.add('show'); } }
-  pinHud(on) { this.hudPinned = on; if (on) this.showHud(999); else for (const s of Object.values(this.slots)) s.timer = 1.5; }
+  chain(n, { ended = false } = {}) {
+    const slot = this.slots.chain;
+    if (n < 2) { slot.timer = 0; slot.el.classList.remove('show'); return; }
+    this.setHud('chain', `x${n}`, { bump: !ended });
+    slot.timer = ended ? 0.6 : Infinity;
+  }
+  showHud(t = 3) { for (const [key, s] of Object.entries(this.slots)) if (key !== 'chain') { s.timer = t; s.el.classList.add('show'); } }
+  pinHud(on) { this.hudPinned = on; if (on) this.showHud(999); else for (const [key, s] of Object.entries(this.slots)) if (key !== 'chain') s.timer = 1.5; }
   hideHud() { for (const s of Object.values(this.slots)) { s.timer = 0; s.el.classList.remove('show'); } }
 
   // ---------- boss bar ----------
-  bossShow(name, portrait) {
+  bossShow(name, portrait, stages = 3) {
+    this.bossStages = stages;
     this.boss.querySelector('img').src = Assets.url(portrait);
     this.boss.querySelector('.bb-name').textContent = name;
     this.bossHp(1, 1);
     this.boss.classList.add('show');
   }
-  bossHp(frac, phase) {
+  bossHp(frac, phase, stages = this.bossStages ?? 3) {
     this.bbFill.style.width = `${Math.max(0, frac) * 100}%`;
-    this.bbPhase.textContent = phase ? `PHASE ${phase}` : '';
+    this.bbPhase.textContent = phase ? `PHASE ${phase}${stages === 4 ? ' ' + '●'.repeat(phase) + '○'.repeat(Math.max(0, stages - phase)) : ''}` : '';
   }
   // special-attack gauge: fills up, flashes when the ultimate is ready
   bossCharge(frac, ready = false) {
@@ -158,6 +198,13 @@ export class UI {
       this.tb.classList.add('show');
     });
   }
+  cancelSay(expectedDialog) {
+    if (!expectedDialog || this.dialog !== expectedDialog) return false;
+    this.dialog = null;
+    this.tb.classList.remove('show');
+    expectedDialog.resolve();
+    return true;
+  }
   get talking() { return !!this.dialog; }
   _nextLine() {
     const d = this.dialog;
@@ -171,7 +218,7 @@ export class UI {
     }
     const [who, text] = d.lines[d.i];
     const sp = SPEAKERS[who] || SPEAKERS.narrator;
-    d.full = text; d.shown = 0; d.t = 0; d.hold = 0.15; d.blip = sp.blip;
+    d.full = input.prompt(text); d.shown = 0; d.t = 0; d.hold = 0.15; d.blip = sp.blip;
     const img = this.tb.querySelector('.tb-portrait');
     if (sp.portrait) { img.src = Assets.url(sp.portrait); img.style.display = ''; } else img.style.display = 'none';
     this.tb.querySelector('.tb-name').textContent = sp.name;
@@ -209,14 +256,14 @@ export class UI {
     save.write();
     this.popup.querySelector('img').src = Assets.url(t.img);
     this.popup.querySelector('.p-title').textContent = t.title;
-    this.popup.querySelector('.p-text').innerHTML = t.text;
+    this.popup.querySelector('.p-text').innerHTML = input.prompt(t.text);
     this.popup.classList.add('show');
     this.popupT = 6;
     audio.play('select');
   }
 
   banner(text, sub = '', dur = 1.8) {
-    this.bannerEl.innerHTML = `${text}${sub ? `<small>${sub}</small>` : ''}`;
+    this.bannerEl.innerHTML = input.prompt(`${text}${sub ? `<small>${sub}</small>` : ''}`);
     this.bannerEl.classList.add('show');
     this.bannerT = dur;
   }
@@ -231,7 +278,7 @@ export class UI {
   // ---------- screens ----------
   setScreen(html, cls = '') {
     this.screen.className = `screen ${cls}`;
-    this.screen.innerHTML = html;
+    this.screen.innerHTML = input.prompt(html); // pad players see pad buttons in control prompts
   }
   clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; }
 
@@ -242,8 +289,8 @@ export class UI {
   }
 
   update(dt) {
-    for (const s of Object.values(this.slots)) {
-      if (this.hudPinned) continue;
+    for (const [key, s] of Object.entries(this.slots)) {
+      if (this.hudPinned && key !== 'chain') continue;
       if (s.timer > 0) { s.timer -= dt; if (s.timer <= 0) s.el.classList.remove('show'); }
     }
     if (this.popupT > 0) { this.popupT -= dt; if (this.popupT <= 0) this.popup.classList.remove('show'); }

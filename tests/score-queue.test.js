@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+// Classic regression fixtures; active layout2 migration/upload gating is checked separately.
+vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hub } from '../src/hub/hubBridge.js';
 import {
   SCORE_QUEUE_KEY,
@@ -112,7 +114,7 @@ describe('score queue', () => {
     expect(enqueue('p', 3, 12000, {})).toBe(true);
     expect(enqueue('p', 2, 1_800_001, {})).toBe(false);
     expect(enqueue('p', 2, 40000.5, {})).toBe(false);
-    expect(enqueue('p', 4, 40000, {})).toBe(false);
+    expect(enqueue('p', 7, 40000, {})).toBe(false);
     expect(enqueue('p', 'ride', 40000, {})).toBe(false);
     expect(enqueue('', 1, 40000, {})).toBe(false);
     expect(pendingRows('p').map((r) => r.ms)).toEqual([12000]);

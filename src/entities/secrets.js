@@ -66,7 +66,7 @@ export class BarkRock extends Entity {
       u.obj.rotation.y = this.obj.rotation.y;
       this.stage.add(u);
     }
-    this.game.tickets.spawnFlying(p.x, p.y + 1.2, p.z, this.tickets);
+    this.game.tickets.spawnFlying(p.x, p.y + 1.2, p.z, this.tickets, 'bark');
     this.game.ui.banner('SECRET!', 'The rock had treasure inside', 1.4);
   }
 }
@@ -82,7 +82,7 @@ function pawTexture(base = '#ffd23f', paw = '#f0a020') {
     g.strokeStyle = '#fff6c8'; g.lineWidth = 8; g.strokeRect(4, 4, 120, 120);
   }));
 }
-export const BONE_COLORS = { red: { base: '#ff5a5a', paw: '#b82020', hex: 0xff4040, name: 'RED' }, blue: { base: '#5ab0ff', paw: '#1a5ab8', hex: 0x3a9aff, name: 'BLUE' } };
+export const BONE_COLORS = { red: { base: '#ff5a5a', paw: '#b82020', hex: 0xff4040, name: 'RED' }, blue: { base: '#5ab0ff', paw: '#1a5ab8', hex: 0x3a9aff, name: 'BLUE' }, green: { base: '#5aff8a', paw: '#1a9a40', hex: 0x3ae070, name: 'GREEN' }, purple: { base: '#bd8aff', paw: '#60309a', hex: 0xa968e8, name: 'PURPLE' }, yellow: { base: '#ffe95a', paw: '#a47812', hex: 0xffd73a, name: 'YELLOW' } };
 export class GoodBoyRoute extends Entity {
   // plats: [{ x, y, z, w, d, yaw }] in world space; top: index of the platform that pays out the jackpot
   // color: a colored-bone path (BONE_COLORS key); unlocked paths rise as soon as Nobu comes near, locked ones
@@ -161,7 +161,7 @@ export class GoodBoyRoute extends Entity {
     const pl = this.player;
     if (!this.paid && last.solid.enabled && pl.body.grounded && pl.body.ground === last.solid) {
       this.paid = true;
-      this.game.tickets.spawnFlying(last.x, last.y + 1, last.z, this.jackpot);
+      this.game.tickets.spawnFlying(last.x, last.y + 1, last.z, this.jackpot, 'jackpot');
       this.fx.sparkle(last.x, last.y + 0.8, last.z, { count: 24, color: 0xffd23f, size: 0.8, speed: 5 });
       audio.play('checkpoint');
     }
@@ -174,6 +174,7 @@ export class FreezePack extends Backpack {
     super(stage, x, y, z, { tickets: 1 });
     this.kind = 'freeze';
     this.secs = secs;
+    this.consumed = false;
     this.countable = false;
     const ice = new THREE.MeshPhongMaterial({ color: 0x8adcff, emissive: 0x1a4a6a, shininess: 110, specular: 0xffffff, transparent: true, opacity: 0.92 });
     this.model.traverse((o) => { if (o.isMesh && o !== this.model.children[1]) o.material = ice; });
@@ -190,10 +191,16 @@ export class FreezePack extends Backpack {
     if (Math.random() < dt * 3) this.fx.sparkle(this.pos.x + rand(-0.5, 0.5), this.pos.y + rand(0.3, 1.1), this.pos.z + rand(-0.5, 0.5), { count: 1, color: 0xbff0ff, size: 0.35, speed: 0.4 });
   }
   break(player, how) {
-    if (this.broken) return;
+    if (this.broken || this.consumed) return;
     super.break(player, how);
+    this.consumed = true;
     this.session.freezeClock?.(this.secs);
     this.fx.sparkle(this.pos.x, this.pos.y + 0.8, this.pos.z, { count: 18, color: 0xbff0ff, size: 0.6, speed: 4 });
+  }
+  restore() {
+    // Time credit belongs to the whole trial attempt, including checkpoint retries.
+    if (this.consumed) { this.broken = true; this.hide(); return; }
+    super.restore();
   }
 }
 

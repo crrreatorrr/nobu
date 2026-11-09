@@ -1,3 +1,16 @@
+import { addMoonReturnExtras, addColoredReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[1]]);
+import { trialLayout } from '../config/trials.js';
+import { POLAROID_SPOTS } from './data/gauntlets.js';
+import { L1_START,L1_MOVES_CLASSIC,L1_MOVES_EXTENDED,L1_SECTIONS_EXTENDED,shiftL1 } from './data/l1-layout2.js';
+import { buildL1Extensions } from './l1Extensions.js';
+import { buildBirdArena } from '../bosses/birdArena.js';
+import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['1'];
 // Level 1: Bark Jungle — a winding, rolling jungle path. Teaches everything, then mixes it up:
 // high-road ledge, lily pads, rope drawbridge, Bone Switch stairs, flipping planks, coconut hill,
 // a belly-flop secret, and a fork before the boss gate.
@@ -5,13 +18,14 @@ import * as THREE from 'three';
 import { makeKit, makeTrack, turtle } from './kit.js';
 import { rand, pick } from '../core/util.js';
 
-export function buildLevel1(game, stage, tickets) {
-  const track = makeTrack(stage, turtle([0, 0, 10], [
-    [20, 0, 0], [24, 32, 0], [22, -8, 0.8], [26, -52, 0], [20, 8, -1.2], [25, 42, 0], [20, 0, 0],
-    [25, -28, 1.5], [22, 22, 0], [25, 35, 3.2], [20, -18, -0.5], [25, -34, 0.4], [30, 26, 0], [24, 0, 0],
-  ]));
+export function buildLevel1(game, stage, tickets, { layout = trialLayout(1), labels = SECTION_TEXT, corrections = layout === 2 } = {}) {
+  const extended = layout === 2;
+  const S = extended ? shiftL1 : d => d;
+  const track = makeTrack(stage, turtle(L1_START, extended ? L1_MOVES_EXTENDED : L1_MOVES_CLASSIC));
   const k = makeKit(game, stage, tickets, track);
-  const END = 322;
+  if (extended) for (const [a,b,key] of L1_SECTIONS_EXTENDED) k.section(a,b,labels[key]);
+  else installSections(k, '1', SECTION_TEXT);
+  const END = extended ? 547 : 322;
 
   // walls: [d, left, right, height]
   k.walls([[-8, 4.3, 4.3, 2.6], [163, 4.3, 4.3, 2.6], [166, 7.7, 4.3, 2.6], [178, 7.7, 4.3, 2.6], [181, 4.3, 4.3, 2.6],
@@ -27,7 +41,7 @@ export function buildLevel1(game, stage, tickets) {
   k.pack(0, 0, 8); k.pack(-1.6, 0, 10); k.pack(1.6, 0, 10);
   k.tix(0, 0, 3.5, 0, 0, 6.5, 3);
   k.tut(13, 'dog');
-  k.dog(3, 0, 17, 'shiba');
+  k.dog(3, 0, 17, 'shiba').dogId = '1:shiba-a';
   k.barkRock(-3.3, 0, 15.5);
   k.tut(19, 'broccoli');
   k.broc(0, 0, 22.5, { range: 2.5 });
@@ -46,6 +60,8 @@ export function buildLevel1(game, stage, tickets) {
   k.broc(-1.0, 0, 52, { axis: 'z', range: 2.5 });
   k.tix(2.9, 1.5, 46.5, 2.9, 1.5, 55.5, 6);
   k.pack(2.9, 1.5, 51);
+  // TODO H30: relocate to the extended Canopy/tray-side branches.
+  if (!extended) k.mystery(2.9, 1.5, 48);
 
   // --- double jump gap ---
   k.tut(53.5, 'doubleJump');
@@ -82,9 +98,11 @@ export function buildLevel1(game, stage, tickets) {
   k.tix(-2.2, 0, 93, -2.2, 0, 100, 4);
   k.tut(101, 'trampoline');
   k.tramp(-2.5, 0, 105);
+  // Permanent step: the ledge remains reachable if the trampoline was bitten first.
+  k.lunch(-2.5, 0, 106.8);
   k.platform(-2.5, 4.4, 110.5, 3, 5.5);
   k.oneUp(-2.5, 4.4, 112.3);
-  k.dog(-2.0, 4.4, 109.0, 'pug');
+  k.dog(-2.0, 4.4, 109.0, 'pug').dogId = '1:pug-a';
   k.pack(-3.4, 4.4, 110.6, 5);
 
   // --- lily pad pond ---
@@ -119,8 +137,10 @@ export function buildLevel1(game, stage, tickets) {
   k.floor(163, 181, { x: -6, w: 3.4 });
   k.boneSwitch(-6.1, 0, 170.5, [[-3.4, 1.5, 172.5, 2.2, 2.2], [-0.9, 3.0, 174.5, 2.2, 2.2], [1.8, 4.5, 176.5, 2.6, 3.2]]);
   k.sphere(1.8, 4.5, 177.2);
+  k.polaroid(...POLAROID_SPOTS.g1, 'g1');
+  if (!extended) k.mystery(-6, 0, 166);
   k.pack(2.9, 4.5, 175.8, 5); k.pack(0.9, 4.5, 177.6, 5);
-  k.dog(-6.3, 0, 175.5, 'dalmatian');
+  k.dog(-6.3, 0, 175.5, 'dalmatian').dogId = '1:dalmatian-a';
   k.drone(0, 0, 179, { range: 2.5, speed: 1.4 });
   k.tut(180.5, 'pill');
   k.pill(1.5, 0, 182, { range: 1.6 });
@@ -137,10 +157,10 @@ export function buildLevel1(game, stage, tickets) {
   // --- coconut hill (climb while coconuts roll down) + belly flop secret ---
   k.floor(201, 224);
   k.floor(224, 228, { x: 1.8, w: 5 });
-  k.floor(228, 240);
+  k.floor(228, 240, extended ? { x:1.9,w:4.8 } : {});
   k.cracked(-2.5, 0, 226, { w: 3.6, d: 4 });
   k.floor(224, 228, { x: -2.5, w: 3.6, y: -4.5, depth: 2 });
-  k.dog(-2.5, -4.5, 225.2, 'shiba');
+  k.dog(-2.5, -4.5, 225.2, 'shiba').dogId = '1:shiba-b';
   k.oneUp(-3.3, -4.5, 227.2);
   k.mushroom(-1.6, -4.5, 227.2, { power: 17 });
   k.tut(222, 'flop');
@@ -149,42 +169,45 @@ export function buildLevel1(game, stage, tickets) {
   k.pack(-2.8, 0, 208); k.pack(2.8, 0, 208);
   k.spiky(-1.5, 0, 217, { range: 1.4 });
   k.broc(1.6, 0, 233, { range: 2 });
-  k.cat(-2.6, 0, 236);
+  k.cat(extended ? .4 : -2.6, 0, 236);
   k.rug(2.5, 0, 237.5);
   k.sphere(2.7, 0, 230);
   k.tix(2.6, 0, 212, 2.6, 0, 222, 5);
 
   // --- last gap + lint roller ---
   k.tixArc(0, 0, 239, 0, 247, 2.4, 6);
-  k.floor(246, 287);
-  k.packs([[2.2, 252], [3.2, 253.6], [2.2, 255.2]]);
+  if (extended) { k.floor(246,252,{x:1.9,w:4.8}); k.floor(324,362); }
+  else k.floor(246,287);
+  k.packs([[2.2,S(252)],[3.2,S(253.6)],[2.2,S(255.2)]]);
   // arrow lunchbox up to a ring of tickets, plain lunchboxes as steps to a perched backpack
-  k.arrowBox(-3, 0, 249.5, 16);
-  k.tixRing(-3, 4.6, 249.8, 1.0, 8);
-  k.lunch(-1.2, 0, 256.5); k.lunch(-2.4, 0, 257.5); k.lunch(-2.4, 1, 257.5);
-  k.zipped(-2.4, 2, 257.5);
-  k.dog(3.3, 0, 257.5, 'corgi');
-  k.tut(259.5, 'lint');
-  k.lint(0, 0, 263);
-  k.pill(-2, 0, 268, { range: 1.5 });
-  k.mushroom(2.5, 0, 274);
-  k.tixRing(2.5, 5.5, 274.5, 1.0, 8);
-  k.tix(-1, 0, 266, -1, 0, 282, 6);
+  k.arrowBox(-3, 0, S(249.5), 16);
+  k.tixRing(-3, 4.6, S(249.8), 1.0, 8);
+  k.lunch(-1.2, 0, S(256.5)); k.lunch(-2.4, 0, S(257.5)); k.lunch(-2.4, 1, S(257.5));
+  k.zipped(-2.4, 2, S(257.5));
+  k.dog(3.3, 0, S(257.5), 'corgi').dogId = '1:corgi-a';
+  k.tut(S(259.5), 'lint');
+  k.lint(0, 0, S(263));
+  k.pill(-2, 0, S(268), { range: 1.5 });
+  k.mushroom(2.5, 0, S(274));
+  k.tixRing(2.5, 5.5, S(274.5), 1.0, 8);
+  k.tix(-1,0,S(266),-1,0,S(282),6);
 
   // --- the fork: low road (left) vs high road (right) ---
-  k.floor(287, 307, { x: -2.7, w: 3.2 });
-  k.floor(287, 292, { x: 2.7, w: 3.2, y: [0, 1.6] });
-  k.floor(292, 302, { x: 2.7, w: 3.2, y: 1.6 });
-  k.floor(302, 307, { x: 2.7, w: 3.2, y: [1.6, 0] });
-  k.floor(307, END);
-  k.broc(-2.7, 0, 293, { axis: 'z', range: 2 });
-  k.broc(-2.7, 0, 300, { range: 0.6 });
-  k.tix(-2.7, 0, 289, -2.7, 0, 305, 7);
-  k.rug(2.7, 1.6, 295);
-  k.sphere(2.7, 1.6, 299);
-  k.pack(2.7, 1.6, 302.5, 5);
-  k.gate(313, 'MECHA BIRD');
-  k.trigger(315, () => game.session.reachBossGate());
+  k.floor(S(287), S(307), { x: -2.7, w: 3.2 });
+  k.floor(S(287), S(292), { x: 2.7, w: 3.2, y: [0, 1.6] });
+  k.floor(S(292), S(302), { x: 2.7, w: 3.2, y: 1.6 });
+  k.floor(S(302), S(307), { x: 2.7, w: 3.2, y: [1.6, 0] });
+  if (extended) { k.floor(437,442); k.floor(533,END); } else k.floor(307,END);
+  k.broc(-2.7, 0, S(293), { axis: 'z', range: 2 });
+  k.broc(-2.7, 0, S(300), { range: 0.6 });
+  k.tix(-2.7,0,S(289),-2.7,0,S(305),7);
+  if (extended) k.cat(2.7,1.6,S(295)); else k.rug(2.7,1.6,295);
+  k.sphere(2.7, 1.6, S(299));
+  k.pack(2.7, 1.6, S(302.5), 5);
+  k.gate(S(313),'MECHA BIRD');
+  k.trigger(extended ? 540 : 315,()=>game.session.reachBossGate());
+  if (extended) buildL1Extensions(k,game,stage,{labels,corrections});
+  if (extended) { addMoonReturnExtras(k,stage,1); addColoredReturnExtras(k,stage,1); }
 
   // --- decor ---
   k.banks(-6, END, (x, y, d) => {
@@ -198,6 +221,9 @@ export function buildLevel1(game, stage, tickets) {
   k.grass(-4, END, { every: 1.1 });
   for (let d = 12; d < END; d += 26) k.bgDog(pick([-1, 1]) * rand(5.4, 6.4), 2.6, d + rand(-4, 4), { height: 1.1 });
 
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  if (!extended) placeHiddenBone(k,game,stage,-2.8,4.4,109);
+
   return {
     spawn: k.W(0, 0, 1),
     facing: track.yaw(1),
@@ -205,8 +231,11 @@ export function buildLevel1(game, stage, tickets) {
   };
 }
 
+export const buildLevel1Layout2 = (game,stage,tickets,options={}) => buildLevel1(game,stage,tickets,{...options,layout:2});
+
 export function buildBoss1Arena(game, stage, tickets) {
   const k = makeKit(game, stage, tickets);
+  const birdArena = buildBirdArena(k, stage);
   stage.block(-12, -6, -12, 12, 0, 12, 'ground');
   for (let i = 0; i < 16; i++) {
     const a = (i / 16) * Math.PI * 2;
@@ -231,6 +260,8 @@ export function buildBoss1Arena(game, stage, tickets) {
   k.sphere(9, 0, -9);
   k.tix(-6, 0, -6, 6, 0, -6, 7);
   return {
+    ...birdArena,
+    fov: 68, // Keep the new high perch tells below the boss HUD.
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
     camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 11.5, z: 16 }, follow: 0.45 },

@@ -6,11 +6,14 @@ import * as THREE from 'three';
 import { Boss, makeMarker, dirTo, rotY, attachGlb, flamePart, spikePart } from './common.js';
 import { autoRig, sstep, chain, segDist, blendPose } from './autorig.js';
 import { Entity } from '../entities/entity.js';
+import { Chaser } from '../entities/chaser.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
 import { textTexture } from '../entities/fx.js';
 import { damp, rand, clamp, pick } from '../core/util.js';
 import { TUNING } from '../player/player.js';
+import { CatPowers } from './catPowers.js';
+import { CAT_STAGE_POWERS } from '../story/script.js';
 
 // rig layout (model units: 4 tall, facing +z). The model is a low crouch: only the paws poke out
 // below the belly (y < 0.7), so legs get small swings and the spine/head/tail carry the acting.
@@ -237,165 +240,14 @@ export class CatRig {
 // Runs along the track behind Nobu (in track distance). Rubber-banded: always looming, never hopeless.
 // Steers with a spring (so it turns into its moves instead of sliding sideways), leans into curves and
 // bounds over pits and logs instead of floating through them.
-const FRONT_PAWS = [[-0.8, 1.9], [0.75, 1.75]], HIND_PAWS = [[-1.05, -0.85], [1.0, -0.95]]; // root-local (x, z)
-const REACH = 2.8, REAR = 1.4; // front paws ahead of / hind paws behind the cat's centre (m)
-export class ChaseCat extends Entity {
-  constructor(stage, track, s) {
-    super(stage, 0, 0, 0);
-    this.track = track;
-    this.s = s;
-    this.u = 0;
-    this.rig = new CatRig(1.3);
-    this.obj.add(this.rig.root);
-    this.alwaysActive = true;
-    this.interactive = false;
-    this.state = 'wait';
-    this.waitT = 99;
-    this.speed = 0;
-    this._g = {};
-    this._v = new THREE.Vector3();
-    this._reset();
-    this._place();
-  }
-  _reset() {
-    this.uv = 0; this.heading = 0; this.lean = 0;
-    this.leap = null; this.landT = 0;
-    this.y = this.track.heightAt(this.s);
-    this.lastStep = this._step();
-  }
-  // paws hit the ground twice a stride: the front pair just after "stretched", the hind pair just after "gathered"
-  _step() { return Math.floor((this.rig.gait - Math.PI / 2) / Math.PI); }
-  _place() {
-    this.track.toWorld(this.s, this.u, 0, this.pos);
-    this.pos.y = this.y;
-    this.obj.position.copy(this.pos);
-    this.rig.root.rotation.y = this.track.yaw(this.s) + this.heading;
-    this.rig.root.rotation.z = this.lean;
-  }
-  begin(s, delay = 1.6) {
-    // never start hovering over a pit
-    while (this._blocked(s) && s > 0) s -= 1;
-    this.s = s;
-    this.u = 0;
-    this.state = 'wait';
-    this.waitT = delay;
-    this.roared = false;
-    this.speed = 2.5;
-    this._reset();
-    this._place();
-  }
-  // no floor under the centre line here, or a raised lip (a log) to hop over
-  _blocked(s) {
-    const g = this.track.groundAt(s, 0, this._g);
-    return !g || g.y > this.track.heightAt(s) + 0.4;
-  }
-  // how far the cat may drift sideways at s and still have all four paws on the floor
-  _lane(s) {
-    let w = 0;
-    for (const sp of this.track.spans) if (!sp.disabled && s >= sp.d0 && s <= sp.d1 && sp.dy === 0) w = Math.max(w, sp.w / 2 - Math.abs(sp.u));
-    return Math.max(0, Math.min(1.8, w - 1.3));
-  }
-  _footfall(paws, loud) {
-    const v = this._v, c = this.player ? Math.max(0, 1 - Math.abs(this.player.body.s - this.s) / 18) : 0;
-    for (const [x, z] of paws) {
-      this.rig.root.localToWorld(v.set(x, 0.05, z));
-      this.fx.dust(v.x, this.y, v.z, { count: 2, size: 0.55, color: 0xf0c890, speed: 1.4, life: 0.5 });
-    }
-    if (loud) {
-      audio.play('paw', 0.4 + c * 0.6);
-      if (c > 0.3) this.game.camera.shake(0.05 + c * 0.07, 0.12);
-    }
-  }
-  update(dt) {
-    const p = this.player;
-    const ps = p.body.s ?? 0;
-    if (this.state === 'wait') {
-      this.waitT -= dt;
-      this.rig.pose(this.waitT < 0.8 ? 'yowl' : 'crouch', dt, 1);
-      if (this.waitT < 0.8 && !this.roared) { this.roared = true; audio.play('yowl'); this.game.camera.shake(0.4, 0.5); }
-      if (this.waitT <= 0) this.state = 'run';
-    } else if (this.state === 'run' || this.state === 'gloat') {
-      const gap = ps - this.s;
-      if (this.state === 'run') {
-        // smooth rubber band: eases toward a speed that rises with the gap (no stepped jumps)
-        const target = gap < 5 ? 6.7 : gap < 9 ? 6.7 + (gap - 5) * 0.375 : Math.min(10.5, 8.2 + (gap - 9) * 0.575);
-        if (!this.leap) this.speed = damp(this.speed, target, 2, dt);
-      } else {
-        this.speed = damp(this.speed, 0, 3.5, dt);
-      }
-      this.s += this.speed * dt;
-      // lateral steering: a critically damped spring toward Nobu's lane, kept on the floor
-      const lane = Math.min(this._lane(this.s + REACH), this._lane(this.s));
-      const tu = this.state === 'run' ? clamp(p.body.u ?? 0, -lane, lane) : this.u;
-      const acc = (tu - this.u) * 5 - this.uv * 4.5;
-      this.uv = clamp(this.uv + acc * dt, -3.5, 3.5);
-      this.u = clamp(this.u + this.uv * dt, -1.8, 1.8);
-      // face the way it is actually moving, and bank into curves and swerves
-      const dy = this.track.yaw(this.s + 1) - this.track.yaw(this.s - 1);
-      const curve = Math.atan2(Math.sin(dy), Math.cos(dy)) / 2; // track turn rate, rad per metre (+ = left)
-      this.heading = damp(this.heading, -Math.atan2(this.uv, Math.max(2, this.speed)), 7, dt);
-      this.lean = damp(this.lean, clamp(-curve * this.speed * this.speed * 0.16 + acc * 0.015, -0.2, 0.2), 5, dt);
-      this.rig.lookYaw = clamp((p.body.u ?? 0) - this.u, -1, 1) * -0.3 - this.heading * 0.5;
-      // pits and logs: bound clean over them, front paws taking off at the lip, hind paws landing past it
-      const ground = this.track.heightAt(this.s);
-      if (!this.leap && this.state === 'run' && this._blocked(this.s + REACH)) {
-        let e = this.s + REACH;
-        while (e < this.s + 40 && this._blocked(e)) e += 0.5;
-        const len = e + REAR - this.s;
-        this.leap = { s0: this.s, s1: e + REAR, y0: this.y, h: clamp(0.6 + len * 0.17, 1.4, 3.6) };
-        this.speed = Math.max(this.speed, 7.5); // a committed pounce, never a slow float
-        this._footfall(HIND_PAWS, true);
-      }
-      if (this.leap) {
-        const L = this.leap, q = clamp((this.s - L.s0) / (L.s1 - L.s0), 0, 1);
-        this.y = L.y0 + (this.track.heightAt(L.s1) - L.y0) * q + 4 * L.h * q * (1 - q);
-        this.rig.pose('leap', dt, q);
-        if (q >= 1) {
-          this.leap = null; this.landT = 0.32; this.y = ground;
-          this._footfall([...FRONT_PAWS, ...HIND_PAWS], true);
-          audio.play('stomp');
-          this.game.camera.shake(0.2, 0.25);
-        }
-      } else {
-        this.y = damp(this.y, ground, 20, dt);
-        if (this.landT > 0) {
-          this.landT -= dt;
-          this.rig.pose('land', dt, Math.max(0, this.landT / 0.32));
-          this.rig.gait += dt * (7.5 + 5.5 * Math.min(this.speed / 8, 1.5)); // keep the stride clock going
-        } else if (this.state === 'gloat' && this.speed < 2.2) {
-          this.rig.pose('sit', dt);
-        } else {
-          this.rig.pose('run', dt, this.speed / 8);
-        }
-        const step = this._step();
-        if (step !== this.lastStep && this.landT <= 0 && this.speed > 2.2) {
-          const front = ((step % 2) + 2) % 2 === 0;
-          this._footfall(front ? FRONT_PAWS : HIND_PAWS, front);
-        }
-        this.lastStep = step;
-      }
-      if (this.state === 'run') {
-        if (gap < 2.4 && !p.dead) {
-          if (p.god) this.s = ps - 2.4; // god mode: it can only breathe down your neck
-          else {
-            p.die('flat');
-            this.state = 'gloat';
-            audio.play('meow');
-          }
-        }
-        if (p.dead && this.state === 'run') this.state = 'gloat';
-      }
-    } else if (this.state === 'stop') {
-      this.rig.pose('idle', dt);
-    }
-    this._place();
-  }
+export class ChaseCat extends Chaser {
+  constructor(stage, track, s) { super(stage, track, s, Infinity, { legacy: true, rig: new CatRig(1.3), speed: 6.7 }); }
 }
 
 // ---------------- Boss ----------------
 export class BigCatBoss extends Boss {
   constructor(stage, x, y, z) {
-    super(stage, x, y, z, { name: 'THE BIG CAT', portrait: 'portrait_cat', hp: 6, phaseHp: 2 });
+    super(stage, x, y, z, { name: 'THE BIG CAT', portrait: 'portrait_cat', key: 'cat' }); // Old hp 6, phaseHp 2.
     this.rig = new CatRig(0.95);
     this.obj.add(this.rig.root);
     this.home = new THREE.Vector3(x, y, z);
@@ -416,11 +268,14 @@ export class BigCatBoss extends Boss {
     this.lastAttack = '';
     this.lastPhase = 1;
     this.stageNames = { 2: 'FERAL', 3: 'NINE LIVES' };
-    this.stagePowers = { 2: 'Double pounce · claw slashes · tail-whip spin', 3: 'Triple pounce · zoomies · everything faster' };
+    this.stagePowers = CAT_STAGE_POWERS;
     this.stageColors = [0, 0, 0xff8a1a, 0xff2a3a];
     this.stageGlow = { 2: 0x140600, 3: 0x2a0404 };
     this.collectMeshes();
     this.setStageLook(1);
+    this.powers = new CatPowers(this);
+    this.CHAINS = { 1: [['cough', 'pounce'], ['yarn', 'pounce']], 2: [['claws', 'pounce'], ['tailspin', 'cough']], 3: [['yarn', 'claws'], ['dot', 'pounce'], ['claws', 'pounce']] };
+    this.attackHistory = [];
   }
 
   // Stage 2 (FERAL): bristling back spikes and bared claws.
@@ -462,17 +317,19 @@ export class BigCatBoss extends Boss {
     this.rig.lookYaw = clamp(d, -0.6, 0.6);
   }
 
+  get sp() { return super.sp * (this.powers?.catnipT > 0 ? 1.25 : 1); }
+  beginPhase() { this.powers.phase(); }
+
   get fwd() { return new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); }
 
   start() { this.active = true; this.setState('stalk'); this.nextAttackAt = 1.4; }
-
-  get sp() { return this.phase === 3 ? 1.45 : this.phase === 2 ? 1.2 : 1; }
 
   ai(dt) {
     const p = this.player;
     const toP = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
     this.vulnerable = false;
-    this.size.h = this.state === 'dizzy' ? 1.8 : 3.0; // lying flat: easy to land on
+    this.size.h = this.state === 'dizzy' ? 1.8 : 3.0; // Lying flat: easy to land on.
+    if (this.powers.update(dt)) return;
     switch (this.state) {
       case 'stalk': {
         this.faceTo(p.pos, dt, 5);
@@ -484,7 +341,7 @@ export class BigCatBoss extends Boss {
         break;
       }
       case 'swipeUp': {
-        const tele = 0.55 / this.sp;
+        const tele = this.tele(0.55 / this.sp);
         this.rig.pose('swipeUp', dt, Math.min(1, this.stateT / tele));
         this.faceTo(p.pos, dt, 8);
         if (this.stateT > tele) { this.setState('swipe'); audio.play('whoosh'); this.swiped = false; }
@@ -500,13 +357,13 @@ export class BigCatBoss extends Boss {
           if (toP < 4.4 && fwd.dot(to) > 0.25 && p.pos.y < this.pos.y + 2.2) p.hurt('angel', this.pos.x, this.pos.z);
           this.fx.puff(this.pos.x + fwd.x * 3, this.pos.y + 0.5, this.pos.z + fwd.z * 3, { count: 6, size: 0.5, color: 0xffffff, speed: 4 });
         }
-        if (this.stateT > 0.7) this.toStalk();
+        if (this.stateT > 0.7) this.finishAttack();
         break;
       }
       case 'cough': {
         this.rig.pose('cough', dt);
         this.faceTo(p.pos, dt, 6);
-        if (this.stateT > 0.75 / this.sp && !this.coughed) {
+        if (this.stateT > this.tele(0.75 / this.sp) && !this.coughed) {
           this.coughed = true;
           const n = this.phase === 1 ? 3 : this.phase === 2 ? 4 : 5;
           const dir = dirTo(this.pos, p.pos);
@@ -514,12 +371,12 @@ export class BigCatBoss extends Boss {
           for (let i = 0; i < n; i++) this.proj.hairball(mouth, rotY(dir, (i - (n - 1) / 2) * 0.32), 6.5 + this.phase * 0.8, this.pos.y);
           audio.play('meow');
         }
-        if (this.stateT > 1.3) this.toStalk();
+        if (this.stateT > 1.3) this.finishAttack();
         break;
       }
       case 'countdown': {
         // the 3-2-1 hiss (echo of the small cat), target ring follows Nobu until the last beat
-        const beat = (this.firstPounce ? 0.95 : 0.55) / this.sp;
+        const beat = this.tele((this.firstPounce ? 0.95 : 0.55) / this.sp);
         const n = 3 - Math.floor(this.stateT / beat);
         // no numbers: the hunting crouch winds up (lower, faster butt wiggle, ears back) until it springs
         if (n !== this.lastN && n > 0) { this.lastN = n; if (n === 3) audio.play('hiss'); }
@@ -532,6 +389,7 @@ export class BigCatBoss extends Boss {
         if (this.stateT >= beat * 3) {
           this.rig.setCount(0);
           this.leapFrom.copy(this.pos);
+          this.powers.startLeap(this.leapFrom, this.target, .75 / this.sp);
           this.setState('leap');
           audio.play('pounce');
         }
@@ -543,6 +401,7 @@ export class BigCatBoss extends Boss {
         this.pos.lerpVectors(this.leapFrom, this.target, k);
         this.pos.y = this.home.y + Math.sin(k * Math.PI) * 5;
         this.rig.pose('leap', dt, k);
+        this.powers.sampleLeap(this.stateT, this.pos, k >= 1);
         if (k >= 1) {
           this.marker.visible = false;
           audio.play('stomp');
@@ -554,7 +413,7 @@ export class BigCatBoss extends Boss {
           if (this.phase >= 2) this.proj.shockwave(this.pos.x, this.pos.y, this.pos.z, 7 + this.phase, 8);
           this.pouncesLeft--;
           this.landT = 0.25;
-          if (hit) { this.toStalk(); audio.play('laugh'); }
+          if (hit) { this.finishAttack(); audio.play('laugh'); }
           else if (this.pouncesLeft > 0) { this.firstPounce = false; this.lastN = 0; this.setState('countdown'); }
           else { this.setState('dizzy'); audio.play('dizzy'); }
         }
@@ -566,8 +425,8 @@ export class BigCatBoss extends Boss {
         this.sinceVuln = 0;
         if (!this.hinted) { this.hinted = true; this.game.ui.banner('DIZZY!', 'Jump on its head or bite it!', 2); }
         if (this.landT > 0) { this.landT -= dt; this.rig.pose('land', dt, 1); } else this.rig.pose('dizzy', dt);
-        const dur = (this.phase === 1 ? 2.8 : this.phase === 2 ? 2.4 : 2.0) + (this.longDizzy ? 1.2 : 0);
-        if (this.stateT > dur) { this.longDizzy = false; this.toStalk(); audio.play('hiss'); }
+        const dur = this.W * (this.powers.catnipT > 0 ? 2 : 1) + (this.longDizzy ? 1.2 : 0) + (this.wallBonus ? .6 : 0); // Old 2.8 / 2.4 / 2.0, plus unchanged ultimate bonus.
+        if (this.stateT > dur) { this.longDizzy = false; this.wallBonus = false; this.finishAttack(); audio.play('hiss'); }
         break;
       }
       case 'angry': {
@@ -583,12 +442,12 @@ export class BigCatBoss extends Boss {
           }
           this.fx.puff(this.pos.x, this.pos.y + 2.4, this.pos.z, { count: 10, size: 0.45, color: 0xf08a2a, speed: 4, up: 3 });
         }
-        if (this.stateT > (this.raging ? 1.2 : 0.8)) { this.raging = false; this.toStalk(); }
+        if (this.stateT > (this.raging ? 1.2 : 0.8)) { this.raging = false; this.finishAttack(); }
         break;
       }
       case 'yarn': {
         // bats a giant ball of yarn across the arena; it rebounds off the walls
-        const wind = 0.75 / this.sp;
+        const wind = this.tele(0.75 / this.sp);
         const k = Math.min(1, this.stateT / (wind + 0.25));
         this.rig.pose('bat', dt, k);
         this.faceTo(p.pos, dt, 6);
@@ -604,16 +463,16 @@ export class BigCatBoss extends Boss {
           }
           this.fx.puff(this.pos.x + this.fwd.x * 2.8, this.pos.y + 0.6, this.pos.z + this.fwd.z * 2.8, { count: 5, size: 0.5, color: 0xffffff, speed: 3 });
         }
-        if (this.stateT > wind + 0.8) this.toStalk();
+        if (this.stateT > wind + (this.chainQ?.length ? 0 : .8)) this.finishAttack();
         break;
       }
       case 'claws': {
         // rears up... and slams down, sending claw slashes skimming along the floor: jump them
-        const rise = 0.7 / this.sp;
+        const rise = this.tele(0.7 / this.sp);
         const volleys = this.phase === 3 ? 2 : 1;
         const cyc = rise + 0.55;
         const idx = Math.floor(this.stateT / cyc), local = this.stateT - idx * cyc;
-        if (idx >= volleys) { this.rig.pose('idle', dt); if (this.stateT > volleys * cyc + 0.3) this.toStalk(); break; }
+        if (idx >= volleys) { this.rig.pose('idle', dt); if (this.stateT > volleys * cyc + (this.chainQ?.length ? 0 : .3)) this.finishAttack(); break; }
         this.faceTo(p.pos, dt, local < rise ? 6 : 0);
         if (local < rise) {
           this.rig.pose('rear', dt, local / rise);
@@ -627,14 +486,14 @@ export class BigCatBoss extends Boss {
             this.fx.ring(this.pos.x + this.fwd.x * 2, this.pos.y, this.pos.z + this.fwd.z * 2, { color: 0xf0d0a0, radius: 1.8, count: 10 });
             const dir = dirTo(this.pos, p.pos);
             const spread = this.phase === 3 ? [-0.5, -0.17, 0.17, 0.5] : [-0.35, 0, 0.35];
-            for (const a of spread) this.proj.clawWave(this.pos.clone().addScaledVector(this.fwd, 2.2), rotY(dir, a + (idx % 2 ? 0.17 : 0)), { speed: 8.5 * this.sp, groundY: this.pos.y });
+            for (const a of spread) this.powers.trail(this.proj.clawWave(this.pos.clone().addScaledVector(this.fwd, 2.2), rotY(dir, a + (idx % 2 ? 0.17 : 0)), { speed: 8.5 * this.sp, groundY: this.pos.y }));
           }
         }
         break;
       }
       case 'tailspin': {
         // crouches, then spins in place with its tail swept out like a whip: jump it
-        const tele = 0.6 / this.sp;
+        const tele = this.tele(0.6 / this.sp);
         const turns = this.phase === 3 ? 3 : 2;
         const w = (this.phase === 3 ? 9 : 7.5);
         const dur = (turns * Math.PI * 2) / w;
@@ -663,7 +522,7 @@ export class BigCatBoss extends Boss {
           }
         } else {
           this.rig.pose('idle', dt);
-          if (this.stateT > tele + dur + 0.6) this.toStalk();
+          if (this.stateT > tele + dur + (this.chainQ?.length ? 0 : .6)) this.finishAttack();
         }
         break;
       }
@@ -672,7 +531,7 @@ export class BigCatBoss extends Boss {
         // every landing throws a shockwave and a ring of hairballs. Ends flat out dizzy (longer than usual).
         if (!this.did) { this.did = true; this.beginUlt(); this.frenzyLeft = this.phase === 3 ? 5 : 4; audio.play('yowl'); }
         if (this.fz === 'charge') {
-          const charge = 1.3;
+          const charge = this.tele(1.3);
           const toC = new THREE.Vector3(-this.pos.x, 0, -this.pos.z);
           if (toC.length() > 0.5) this.pos.addScaledVector(toC.normalize(), Math.min(toC.length(), 6 * dt));
           this.faceTo(p.pos, dt, 6);
@@ -687,13 +546,14 @@ export class BigCatBoss extends Boss {
           this.marker.visible = true;
           this.marker.position.set(this.target.x, this.pos.y + 0.06, this.target.z);
           this.marker.scale.setScalar(1 + Math.sin(this.fzT * 30) * 0.08);
-          if (this.fzT > 0.5 / this.sp) { this.fz = 'leap'; this.fzT = 0; this.leapFrom.copy(this.pos); audio.play('pounce'); }
+          if (this.fzT > this.tele(0.5 / this.sp)) { this.fz = 'leap'; this.fzT = 0; this.leapFrom.copy(this.pos); this.powers.startLeap(this.leapFrom, this.target, .55 / this.sp, 4); audio.play('pounce'); }
         } else if (this.fz === 'leap') {
           this.fzT += dt;
           const k = Math.min(1, this.fzT / (0.55 / this.sp));
           this.pos.lerpVectors(this.leapFrom, this.target, k);
           this.pos.y = this.home.y + Math.sin(k * Math.PI) * 4;
           this.rig.pose('leap', dt, k);
+          this.powers.sampleLeap(this.fzT, this.pos, k >= 1);
           if (k >= 1) {
             this.marker.visible = false;
             audio.play('stomp');
@@ -704,6 +564,8 @@ export class BigCatBoss extends Boss {
             const mouth = this.pos.clone().addScaledVector(this.fwd, 1.8); mouth.y = 1.6;
             const n = 6, off = rand(0, 1);
             for (let i = 0; i < n; i++) this.proj.hairball(mouth, new THREE.Vector3(Math.sin(off + (i / n) * Math.PI * 2), 0, Math.cos(off + (i / n) * Math.PI * 2)), 5.5, this.pos.y);
+            if (this.phase >= 2) this.powers.scratchStar();
+            if (this.phase === 3 && this.frenzyLeft === 1) this.powers.ghost();
             this.frenzyLeft--;
             if (this.frenzyLeft > 0) { this.fz = 'aim'; this.fzT = 0; }
             else { this.endUlt(); this.longDizzy = true; this.landT = 0.3; this.setState('dizzy'); audio.play('dizzy'); }
@@ -722,7 +584,7 @@ export class BigCatBoss extends Boss {
           this.lane.rotation.y = Math.atan2(this.dashTo.x - this.pos.x, this.dashTo.z - this.pos.z);
           this.lane.scale.set(1, 1, len);
           this.lane.material.opacity = 0.25 + Math.sin(this.stateT * 25) * 0.12;
-          if (this.stateT > 0.5 / this.sp) { this.dashState = 'go'; this.stateT = 0; this.dashFrom = this.pos.clone(); audio.play('pounce'); }
+          if (this.stateT > this.tele(0.5 / this.sp)) { this.dashState = 'go'; this.stateT = 0; this.dashFrom = this.pos.clone(); audio.play('pounce'); }
         } else {
           this.lane.visible = false;
           const dir = this.dashTo.clone().sub(this.pos).setY(0);
@@ -759,34 +621,38 @@ export class BigCatBoss extends Boss {
     this.stateT = 0;
   }
 
+  beginAttack(a) {
+    this.sinceVuln++;
+    this.lastAttack = a; this.attackHistory.push(a); this.attackHistory = this.attackHistory.slice(-3);
+    this.shots = 0; this.did = false;
+    if (a === 'dot' || a === 'table') this.powers.begin(a);
+    else if (a === 'pounce') { this.setState('countdown'); this.lastN = 0; this.firstPounce = true; this.pouncesLeft = this.phase; }
+    else if (a === 'cough') { this.setState('cough'); this.coughed = false; }
+    else if (a === 'zoomies') { this.setState('zoomies'); this.dashesLeft = 3; audio.play('yowl'); this._nextDash(); }
+    else this.setState(a);
+  }
   chooseAttack(toP) {
     if (this.ultReady) { this.setState('frenzy'); this.did = false; this.fz = 'charge'; return; }
-    // up close it swipes, but swipes count toward the pounce guarantee: the pounce is the only opening to hurt it
-    if (toP < 4.2 && this.sinceVuln < 2 && Math.random() < 0.5) { this.sinceVuln++; this.setState('swipeUp'); return; }
-    const pool = ['pounce', 'pounce', 'cough', 'yarn'];
-    if (this.phase >= 2) pool.push('claws', 'tailspin', 'pounce');
-    if (this.phase >= 3) pool.push('zoomies', 'claws', 'yarn');
-    let a = this.sinceVuln >= 2 ? (this.phase >= 3 && Math.random() < 0.5 ? 'zoomies' : 'pounce') : pick(pool);
+    if (toP < 4.2 && this.sinceVuln < 2 && Math.random() < .5) { this.beginAttack('swipeUp'); return; }
+    const pool = ['pounce', 'pounce', 'cough', 'yarn', 'dot'];
+    // Stage 1 also throws two-attack combos (it used to be too easy); stage 2 keeps its authored pool.
+    if (this.phase === 1) pool.push('chain');
+    if (this.phase >= 2) pool.push('claws', 'tailspin', 'pounce', 'table');
+    if (this.phase >= 3) pool.push('zoomies', 'claws', 'yarn', 'dot', 'chain');
+    const eligible = pool.filter((a) => a !== 'table' || !this.attackHistory.slice(-2).includes('table'));
+    let a = this.sinceVuln >= 2 ? (this.phase >= 3 && Math.random() < .5 ? 'zoomies' : 'pounce') : pick(eligible);
     if (a === this.lastAttack && a !== 'pounce') a = 'pounce';
-    this.lastAttack = a;
-    this.sinceVuln++;
-    this.shots = 0;
-    this.did = false;
-    if (a === 'pounce') {
-      this.setState('countdown');
-      this.lastN = 0;
-      this.firstPounce = true;
-      this.pouncesLeft = this.phase;
-    } else if (a === 'cough') {
-      this.setState('cough');
-      this.coughed = false;
-    } else if (a === 'zoomies') {
-      this.setState('zoomies');
-      this.dashesLeft = 3;
-      audio.play('yowl');
-      this._nextDash();
-    } else this.setState(a);
+    if (a === 'chain') {
+      const combo = this.pickChain();
+      // Count both attacks, and never use a non-opening combo to evade the
+      // two-attack punish guarantee. The pounce-ended combos remain eligible.
+      if (combo && (combo.at(-1) === 'pounce' || this.sinceVuln + combo.length <= 2) && this.startChain(combo)) return;
+      a = 'pounce';
+    }
+    this.beginAttack(a);
   }
+  finishAttack() { return this.endAttack(); }
+  afterAttack() { this.toStalk(); }
 
   toStalk() { this.cancelUlt(); this.setState('stalk'); this.nextAttackAt = rand(1.1, 1.9); this.rig.setCount(0); this.marker.visible = false; this.lane.visible = false; }
 
@@ -807,6 +673,8 @@ export class BigCatBoss extends Boss {
     if (['countdown', 'stalk', 'leap', 'swipe', 'zoomies', 'tailspin', 'claws', 'yarn', 'frenzy'].includes(this.state)) p.hurt('angel', this.pos.x, this.pos.z);
   }
   onHit() {
+    if (this.phase === 3) this.powers.ghost();
+    this.powers.dot.visible = false; this.wallBonus = false; this.longDizzy = false;
     this.raging = this.phase !== this.lastPhase;
     this.lastPhase = this.phase;
     this.setState('angry');
@@ -816,6 +684,7 @@ export class BigCatBoss extends Boss {
     this.lane.visible = false;
   }
   onResetPhase() {
+    this.powers.reset(); this.beginPhase(); this.wallBonus = false; this.attackHistory = [];
     this.longDizzy = false;
     this.pos.copy(this.home);
     this.rig.setCount(0);
@@ -826,6 +695,7 @@ export class BigCatBoss extends Boss {
     this.setState('stalk');
     this.nextAttackAt = 1.6;
   }
+  damage(p) { const hit = super.damage(p); if (this.defeated) this.powers.reset(); return hit; }
   defeatAnim(dt) {
     this.defT = (this.defT || 0) + dt;
     this.marker.visible = false;

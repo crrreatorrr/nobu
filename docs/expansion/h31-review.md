@@ -1,0 +1,62 @@
+# H31 Scratchpost Canyon activation review
+
+The registry now selects `src/levels/level2Extended.js` by default. L2 has seven stable dogs, the shipped total is40, local trial layout2 is active, and its fixed Ticket cap is183. Public uploads remain gated at HUB_LAYOUT2=1. H22 boss/arena and the old layout1 builder are byte-identical to main.
+
+Source: `claude/clever-goodall-8221xu` extended-levels sections0,1,3,7A.1,7A.5,11.3 and golden-bone-audit; handoff H31 and its index. Current base240ea12 includes H61, H41, extended bonus/L1/L3, H40 and canonical checkpoint help. Foundation commits dcfe79a and66f89df were explicitly released by their owner: configurable segment chase cap/catch distance and actual Session round-return/dog rollback hooks. Story labels/tutorial were supplied serially by the coordinator in04ccd23.
+
+## Layout and runtime
+
+The path runs from32 to551 (519m), END565; the shifted Vacuum Dock is542. Original content passes through one authored-distance shifter. The mushroom landing straddler ends at334 before Forest; the old gap arc stays seven metres long. All68 countables and seven dog positions are exported/wired from data, including stable existing IDs. Detour counts stay off the timed main route.
+
+New sections: Switchbacks, Cardboard Fort, Scratchpost Forest and Yarn Avalanche. The literal chase placements and tail remain a negative test option. The candidate defaults to the safety corrections below. `CanyonChase` opts into rear/height catch checks, accelerated corner arcs (8m/s additional travel, constrained by a3.5m landing lead), Fort swipe hold and competitive-mode DDA exclusion. The generic Chaser retains its original defaults; the existing2400-frame legacy comparison remains passing. The Fort position controller re-arms hold/restart after checkpoint deaths even when one-shot track triggers already fired.
+
+Five existing-placeholder scratching posts topple around their base with at least.8s shadow tells. Toppling posts and rollers apply the ordinary8% DDA slowdown after five checkpoint deaths, excluded from competitive contexts. The two-lane yarn stage alternates one ball per volley; the final three-lane stage fires two and leaves its advertised lane empty. The giant yarn mesh borrows the existing YarnBall texture and its.6m base radius at2x scale (1.2m). Giant yarn uses CoconutRoller's existing15-whole-Ticket shared cap, seeded empty-lane volleys, and curved shadow strips visible1.5s before a volley. Arrow launches preserve power16 and guarantee8m/s horizontal forward velocity. No movement constants, Player, new media or vendor files changed.
+
+Both detours are actual Session bonus rounds, using kept/lost haul snapshots and dog restoration. Raised Cat Flap Alley can return to its entry before the optional Glide gap; a far-end exit returns beside the main-path entry. The Dry Riverbed stays outside the left canyon wall at-7.5/-5: a local per-track wall bound widens only for the actual river Session round, because shared physics otherwise clamps every height to the main canyon. Keep/loss returns reset the cat13m behind with1.6s delay; exit Snacks separately establish the authored checkpoint. Completed loops clear `used` on death so rolled-back countables remain retriable.
+
+The three authored pity spots arm through the canonical Session respawn helper at seven ordinary checkpoint deaths; Switchbacks adds its generic-spec-required spot at SB+35 before the second wall. A spot beyond another ordinary Snacks does not arm from the preceding segment, and competitive contexts exclude this help.
+
+The Dust Wall's ten-pickup later-move reward remains hidden until the actual wall breaks, preventing main-path pickup through the optional alcove. Each pickup keeps `source: 'jackpot'` for H30's shared static Snack-potential/accounting path; a focused declaration regression covers this integration contract.
+
+## Tested corrections
+
+The owner broadly authorized tested design corrections and timer resets during this session; the coordinator relayed this authorization before implementation. The source's narrower prior reservation is therefore satisfied.
+
+| Source | Candidate | Evidence |
+| --- | --- | --- |
+| First wall/Rug SB+22 | SB+12 | Conservative three-bite/travel need1.9675s; source budget2.3083 fails75%; corrected2.8708 passes |
+| Second wall/Rug SB+42 | SB+37 | Need2.08s; source budget2.5792 fails75%; corrected3.0583 passes; exactly25m after first wall |
+| New corgi SB+26 | SB+1 | Clears the long-wall recovery rule and uses the SB+2 checkpoint |
+| Cat SB+50 | SB+.5 | Clears the second wall's25m recovery stretch |
+| Existing shiba authored258.5 |239.5 | Before the final wall, preserving its25m recovery stretch |
+| No extra checkpoint after that dog | Snacks authored241 | Accounts for the dog stop before stack242/wall250 cumulatively; final wall budget2.1375 vs1.435s need |
+| Tail bounce pack x1.2, YA+53 | x0, YA+55 | Actual Player at8m/s launched from YA+48.5 passes over the source pack and lands at516.32. Corrected pack breaks automatically on the first descent in one clean pass |
+| Optional far floor starts144 |154; guide arc also ends154 | The specified136–141 pack ledge otherwise splits the Glide gap into ordinary2m/3m jumps. Actual no-Glide double-jump timing sweep.20–.90s fails the corrected13m gap, while the third held Glide press lands safely before158; Bone155 and all Golden countables remain unchanged |
+| Alley ledge packs at x-.8/+.8 | x.6/+1.8 on the specified right ledge | Both countables sit on the existing pre-Glide ledge rather than floating outside it |
+
+The wall pack count and lateral arrangements, rug gap sides, movement tuning and both arrow positions are preserved. Minimum corrected budget ratio is1.3638 (the unchanged first wall); every required stop fits within75% and every stop over1s has25m before another required stop. Literal negative fixtures retain the failures. This is checkpoint-rollback feasibility; Snacks do not reset the cat on an uninterrupted run. It does not claim a human deathless Golden run.
+
+## Ticket measurement
+
+Actual builder worst-case sources with the unchanged seven-pickup arena: field158, packs196, zipped0, jackpots15, bark15, trampoline0, mystery2, coconuttrue. Raw409 /3 plus the existing15-whole coconut allowance =151 whole. Repeated roller farming stays under the shared category cap. The selected fixed cap is183 TOTAL, including this measured15-whole coconut allowance. H12's future table contains two conflicting forecasts: selected rewards-density ceiling183 for planned520m, calculated as ceil(((125−15)/3.13)×5.20), and extension-ratio forecast131 from the pre-Mystery baseline72. Actual151 does not fit131; the coordinator selected the existing density ceiling183 under the owner's broad tested-cap authorization. This is not the ratio formula, and no extra15 is added to183. The negative test rejects184 without changing the cap.
+
+## Verification so far
+
+`npm ci` passed. Focused tests cover the actual builder, complete countable/dog metadata, cumulative chase model/negative placements, long-stop spacing, old-band constants, actual accelerated arcs/safe landings, DDA, Fort checkpoint behavior, actual Session kept/lost rounds and cat resets, actual World sunken-lane collision, warning timing, seeded volley cap, and actual Player tail input/physics. Latest rebased evidence:71 passing tests across Canyon runtime/audit, existing Chaser/chase and canonical checkpoint-help suites. The Canyon proof uses actual Session deaths6→7, no Ticket/entity growth, actual pity touch/checkpoint, competitive exclusions and ordinary-next-checkpoint bounds. The corrected audit also passes at120Hz and480Hz. `git diff --check` passes.
+
+The bounded real-art browser probe passed on43f929e: seven dogs/68 countables, all canonical section labels, both detour keep/loss returns with the cat13m behind on main-path u0, no raised/sunken catches, the final free-lane shadow/volley, toppling tell and Fort hold/restart. Runtime exceptions: zero. Artifact `/tmp/nobu-h31-browser-results.json`, harness `/tmp/nobu-h31-browser.mjs`. Hub attempt/bank/score boundaries were intercepted; fade timings were suppressed for deterministic transitions. A Forest frame rendered before rendering was suppressed for responsiveness. Chromium exited cleanly and the exclusive GPU reservation was released.
+
+Root review found that the new post entity needed an explicit respawn hook. This is fixed with a real Session.respawn regression restoring authored phase, danger and shadow. The Fort paw swipe also cycles its pose progress instead of holding its final pose. A second review found the uncontrollable entry fade: catches now exclude frozen/busy detour transitions while the cat keeps running. A real Session test holds both fade promises pending and advances the actual cat60 ticks; normal catches re-enable afterwards. The river Shellback also patrols600 actual enemy frames outside a player round and remains on its own sunken lane. An adversarial fixed-player test caught endpoint overshoot in the normal corner advance; the opt-in callback now clips the complete frame advance at the corner endpoint. Actual30/60/120Hz tests prove monotonic cat travel and the complete3.5m landing boundary.
+
+The interim local Pity arming adapter was removed after canonical help merged. Root approved source8602f8d and the recorded boundary fixes. Activation preserves L1/L3 layout2, L4, all Story exports and old Classic records. The targeted activation/save/local-only queue/actual-builder suites pass, including exact registry/builder section parity. Final local checks pass on sourcef82f08a: fresh `npm ci`,87 files/870 tests in one full run, production build, diff check, and absence of all four H05 production dev markers. Root independently approved the activation source. Only PR CI and merge verification remain; the following commit updates evidence only. Unrun manual verification: an unaided one-run Golden Bone, complete live chase, all section11.3 playthrough items, first-time-player discovery, and median8–12-death target. Pure audits and fixture-assisted physics do not establish those results.
+
+
+## Immutable old boss/arena proof
+
+Against base240ea12, these blobs match both the working tree and origin/main exactly:
+
+- `src/bosses/bigCat.js`:820be8f7175e9b3b47e400f7bb9d4cd3e7f9df7b
+- `src/bosses/catArena.js`:4bd8546fbe41aabffe2366bdcd96cd23bba4b034
+- `src/levels/level2.js` (old builder plus arena wrapper):21a8ccc8735aa7d40312e0eea88112bc80e3bbc2
+
+The active builder and registry share `canyonMetadata.js`; the Alley loop's section starts at147, its main-path exit, matching the canonical runtime bounds. Migration retains only the three old rescued-dog IDs from an old3/3 count, preserves an earned Golden Bone, archives a47s layout1 score, records an81.5s layout2 Platinum locally, and produces no v2 score queue entry while the Hub deployment gate remains1.

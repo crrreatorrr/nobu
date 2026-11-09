@@ -2,7 +2,9 @@
 // Nobu never speaks. Everyone else does.
 
 export const SPEAKERS = {
+  queen: { name: 'THE PUMP QUEEN', portrait: 'portrait_queen', blip: 'blip' },
   mask: { name: 'SPROTO MASK', portrait: 'sproto_mask', blip: 'blip' },
+  titan: { name: 'ROOMBA TITAN', portrait: 'portrait_titan', blip: 'blipLow' },
   bird: { name: 'MECHA BIRD', portrait: 'portrait_bird', blip: 'blip' },
   cat: { name: 'THE BIG CAT', portrait: 'portrait_cat', blip: 'blipLow' },
   cone: { name: 'THE EVIL CONE', portrait: 'portrait_cone', blip: 'blipLow' },
@@ -18,6 +20,15 @@ export const INTRO = [
 ];
 
 export const RESCUE = {
+5: [
+  { img: 'story_rescue_3', speaker: '', text: 'The Pump Queen deflates with a long, sad squeak. Her crown rolls across the floor and spins to a stop.' },
+  { img: 'story_rescue_3', speaker: 'THE PUMP QUEEN', text: 'It was supposed to go up... FOREVER...' },
+  { img: 'story_rescue_3', speaker: 'SPROTO MASK', text: 'Nothing goes up forever. Except Nobu. Nobu goes up now.' },
+],
+4: [
+  { img: 'story_rescue_1', speaker: '', text: 'The Roomba Titan sputters, beeps sadly and spits out a mountain of cones. And one soggy map.' },
+  { img: 'story_rescue_1', speaker: 'SPROTO MASK', text: 'The map shows a river of smog running from the House to some kind of... Pipeline. First stop: the rapids.' },
+],
   1: [
     { img: 'story_rescue_1', speaker: '', text: 'The Mecha Bird is scrap! Its cargo cage bursts open and the cones go flying.' },
     { img: 'story_rescue_1', speaker: 'SPROTO MASK', text: 'Look at \'em go! Free tails, free zoomies. Next stop: Scratchpost Canyon.' },
@@ -39,24 +50,61 @@ export const ENDING = [
   { img: 'story_ending', speaker: 'SPROTO MASK', text: '...honestly? Iconic. THE END. (Golden Bones still waiting, if you\'re a completionist.)' },
 ];
 
+export const QUEEN_ENDING = [
+  { img: 'story_ending', speaker: '', text: 'The pipeline falls quiet. Every ticker reads $0.00. Somewhere, a tail starts wagging.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'No more pumps. No more cones. Just one very good dog with a MOON JUMP.' },
+];
+
+export const SECRET_ENDING = [
+  { img: 'story_ending', speaker: '', text: 'Back at the Kennel, the rescued dogs gather beneath the stars. Nobu has brought more than a victory home.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'Look at this pack, Nobu. Every rescue, every adventure... this is what being a good boy was for.' },
+  { img: 'story_ending', speaker: '', text: 'Nobu says nothing. He leaps toward the moon. The whole Kennel joins in the zoomies.' },
+  { img: 'story_ending', speaker: 'SPROTO MASK', text: 'TO THE MOON, GOOD BOYS. THE TRUE END.' },
+];
+
+export const SECRET_ENDING_HINT = (percent) => `GOOD BOY ${percent}% · reach 80% for the true ending`;
+
 export const BOSS_TALK = {
+queen: {
+  intro: [
+    ['queen', 'Well well. The little Akita who keeps crashing my charts.'],
+    ['queen', 'Who do you think pumped the Evil Cone? Me, darling. Every cone on this island is my bag.'],
+    ['queen', 'Now be a good boy and buy the top.'],
+    ['mask', 'She only opens up at the top of a PUMP. Hop the pills to reach her CROWN!'],
+  ],
+  phase2: [['queen', 'Don\'t you feel it, puppy? The FOMO? Come closer...'], ['mask', 'That beam pulls you in! ZOOMIES out, or GLIDE to a candle!']],
+  phase3: [['queen', 'Bubbles never pop, sweetie. Number go up.'], ['mask', 'Pop her bubble with a MEGA BARK, then bite!']],
+  phase4: [['queen', 'Fine! RUG PULL! Everybody out!'], ['mask', 'She\'s walled in! SLIDE, then BITE to DUST DASH through!']],
+  death: [['queen', 'No no no... it\'s just a dip... buy the dip... somebody buy the dip...']],
+},
+titan: {
+  intro: [
+    ['titan', 'BEEP. FOREIGN OBJECT DETECTED. CLASSIFICATION: DOG. CLASSIFICATION: DIRT.'],
+    ['titan', 'The Pump Queen has scheduled a DEEP CLEAN. All collars will be... collected.'],
+    ['mask', 'It\'s too tough to bite! Make it CRASH into a wall, then BELLY FLOP the red button!'],
+  ],
+  phase2: [['titan', 'SUCTION MODE ENGAGED. Resistance is... absorbed.'], ['mask', 'Mega BARK at it while it sucks! It hates that.']],
+  phase3: [['titan', 'WARNING. WARNING. OVERHEAT PROTOCOL. LIGHTS: OFF.'], ['mask', 'It bounces off the walls now! Get it to ram a CAT. Or a fallen table leg!']],
+  death: [['titan', 'Low... battery... please return me to my... dock...']],
+},
   bird: {
     intro: [
       ['bird', 'SQUAWK! A loose Akita? I\'ve got a cone in my cargo bay with your name on it!'],
       ['bird', 'Hold still, mutt. Delivery guaranteed in 30 seconds or your cone is free!'],
       ['mask', 'Wait for it to crash into the ground, then BITE or JUMP on it!'],
     ],
-    phase2: [['bird', 'Lucky dodge! Try my FEATHER MISSILES. Premium shipping!']],
-    phase3: [['bird', 'ENOUGH! Plan C: cones from ABOVE. Look up, doggo!']],
+    phase2: [['bird', 'Lucky dodge! Try my FEATHER MISSILES. Premium shipping!'], ['mask', 'It drops the CAGE where your shadow is. Keep moving! Stuck? Mash BITE!']],
+    phase3: [['bird', 'ENOUGH! Plan C: cones from ABOVE. Look up, doggo!'], ['mask', 'Those drones fly low. Bite one for a Blue Sphere!']],
   },
   cat: {
     intro: [
       ['cat', 'Ohhh, look who ran all this way. You\'re cornered, little puppy.'],
       ['cat', 'The Evil Cone pays me in tuna to put that Akita in a cone. Easiest job ever.'],
       ['mask', 'When it counts 3-2-1, MOVE! If it misses the pounce, jump on its HEAD or bite it!'],
+      ['mask', 'See that red dot? It CANNOT resist it. Lead it into a wall!'],
     ],
-    phase2: [['cat', 'Hsssss! Lucky. Now I pounce TWICE. Cats always land on their feet.']],
-    phase3: [['cat', 'MROWR! No more playing. Nine lives, puppy. How many do YOU have?']],
+    phase2: [['cat', 'Hsssss! Lucky. Now I pounce TWICE. Cats always land on their feet.'], ['cat', 'Oops. Did I knock that off the shelf? I meant to.']],
+    phase3: [['cat', 'MROWR! No more playing. Nine lives, puppy. How many do YOU have?'], ['mask', 'Catnip! Bite it and the cat goes wild: faster, but dizzier!']],
   },
   cone: {
     intro: [
@@ -65,15 +113,31 @@ export const BOSS_TALK = {
       ['cone', 'Now hold still while I put you in a cone. Forever.'],
       ['mask', 'He only opens up for a second after his combos. Be ready, Nobu!'],
       ['mask', 'And watch those pump.fun pills. They pump with every hop, then they DUMP. Pop them early!'],
+      ['mask', 'If he cones you, you can\'t bite! BELLY FLOP or double jump to shake it off.'],
     ],
-    phase2: [['cone', 'Impossible! Fine. FASTER, then. Fresh launches! Pump it, my pills! Seize the Akita!']],
-    phase3: [['cone', 'ENOUGH!!! Every pill to the moon! I will cone you, then the mask, then the MOON!']],
+    phase2: [['cone', 'Impossible! Fine. FASTER, then. Fresh launches! Pump it, my pills! Seize the Akita!'], ['cone', 'Let\'s see how you like a RUG PULL. Mind the floor, mutt.']],
+    phase3: [['cone', 'ENOUGH!!! Every pill to the moon! I will cone you, then the mask, then the MOON!'], ['mask', 'Smog! Get up on the pedestals, and keep hopping!']],
     death: [['cone', 'Wait wait wait... maybe we can just... share the cone?']],
   },
 };
 
 // Mask chatter before each level (tips, jokes, story updates).
 export const LEVEL_INTRO = {
+5: [
+  ['mask', 'The Pump & Dump Pipeline. Green means up, red means down. Just like my portfolio.'],
+  ['mask', 'Watch the arrows: platforms move one beat after they light up. Hop pump pills to make them rise. Don\'t hang around. They DUMP.'],
+  ['mask', 'Whoever pumped the Evil Cone is at the end of this pipe. Let\'s go say hi.'],
+],
+6: [
+  ['mask', 'The Titan\'s dust bag burst and ALL that smog went down the drain. Straight into the river.'],
+  ['mask', 'And the river runs right down to the Pump & Dump Pipeline. Convenient. Suspiciously convenient.'],
+  ['mask', 'Hop in the Owner\'s laundry basket. Steer with LEFT / RIGHT, hop with SPACE. Mind the whirlpools!'],
+],
+4: [
+  ['mask', 'Laundry Day! Everything in here is HUGE. Or we\'re tiny. Let\'s not think about it.'],
+  ['mask', 'Break stuff back to back for a CHOMP CHAIN. Keep it going and I\'ll pop out to help.'],
+  ['mask', 'Clotheslines: BITE to grab on, JUMP to let go. Wheee.'],
+],
   1: [
     ['mask', 'Welcome to Bark Jungle! The Broccoli Heads have coned this whole park.'],
     ['mask', 'Bite with J or SHIFT. Jump with SPACE, then jump again in the air for a double jump.'],
@@ -100,9 +164,21 @@ export const LEVEL_INTRO = {
 
 // Mask chatter after finishing a level (between levels).
 export const BETWEEN = {
+5: [
+  ['mask', 'NEW MOVE: MOON JUMP! Hold SLIDE without moving, then JUMP. To the moon!'],
+  ['mask', 'See those glowing ledges way up high in every level? Moon Ledges. Go see what\'s up there.'],
+],
+6: [
+  ['mask', 'That pipe at the end... it\'s PUMPING the smog in. Someone is buying it up by the barrel.'],
+  ['mask', 'The Pump & Dump Pipeline is open. Whoever runs that place is about to get rugged.'],
+],
+4: [
+  ['mask', 'NEW MOVE: DUST DASH! SLIDE, then BITE mid-slide to burst forward.'],
+  ['mask', 'Grey fuzzy walls? Dash right through them. There were a few of those back in the old levels...'],
+],
   1: [
     ['mask', 'You took that bird\'s rotor trick! NEW MOVE: TAIL GLIDE. Out of jumps? Press SPACE again and HOLD it to helicopter down.'],
-    ['mask', 'Nice! Pro tip: a SLIDE + JUMP goes way farther than a normal jump. Ctrl or K, then SPACE.'],
+    ['mask', 'Pro tip: hold SPACE to jump farther. A SLIDE + JUMP gives a small burst of speed. Ctrl or K, then SPACE.'],
     ['mask', 'Also: break every backpack and free every dog in a level to earn a Golden Bone. Shiny. Very shiny.'],
   ],
   2: [
@@ -118,6 +194,39 @@ export const BETWEEN = {
 };
 
 export const TUTORIALS = {
+  moonJump: { img: 'nobu_head', title: 'NEW MOVE: MOON JUMP!', text: 'Hold SLIDE without moving, then JUMP. To the moon!' },
+  polaroid: {img:'nobu_head',title:'POLAROID',text:"A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip."},
+  raft: { img: 'icon_ride', title: 'LAUNDRY RAFT', text: '◀ ▶ steer, SPACE hops. The river carries you. Ram floating backpacks and buoy dogs!' },
+  outflow: { img: 'icon_ride', title: 'DRAIN PIPES', text: 'Pipes gurgle, then BLAST. They shove you sideways. Listen for the gurgle.' },
+  lock: { img: 'icon_boneswitch', title: 'THE LOCK', text: 'The lock fills up when you drop in! Grab the backpacks, then climb before the water does.' },
+  whirlpool: { img: 'icon_ride', title: 'WHIRLPOOLS', text: 'Foam rings pull you in. Steer away hard, or hop across the edge. Don\'t touch the middle!' },
+  slick: { img: 'icon_ride', title: 'SMOG SLICK', text: 'Purple water is slippery. The raft drifts and won\'t steer. Line up BEFORE you hit it.' },
+  falls: { img: 'icon_ride', title: 'WATERFALL!', text: 'Keep your speed! Bonk a log right before the falls and you won\'t make the jump.' },
+  dustDash: { img: 'nobu_head', title: 'NEW MOVE: DUST DASH!', text: 'While sliding, press BITE to burst forward. Smash those Dust Walls!' },
+
+  crystals: { img: 'nobu_head', title: 'CRYSTAL ECHO', text: 'Bite crystals to light the path. The platforms stay solid when their light fades.' },
+  chase: { img: 'nobu_head', title: 'RUN!', text: 'The camera turns around. Hold DOWN.' },
+  dustbunny: { img: 'mouse', title: 'DUST BUNNY', text: 'Bite it and it splits in two! Stomp or belly flop it to get rid of it for good.' },
+  iron: { img: 'nobu_head', title: 'HOT IRON', text: 'It sweeps the whole board. Ride the steam vents up and let it pass underneath.' },
+  stampede: { img: 'vacuum', title: 'STAMPEDE!', text: 'RUN toward the camera! Hold <span class="key">↓</span> / <span class="key">S</span> and jump the cables!' },
+  boiler: { img: 'nobu_head', title: 'BOILER FLOOD', text: 'Hot water is rising! Keep climbing. Don\'t stop!' },
+  sorting: { img: 'nobu_head', title: 'SORTING BELTS', text: 'Belts go different ways. Switch lanes!' },
+  cutcorner: { img: 'nobu_head', title: 'CUTTING CORNERS', text: 'It cuts corners! Hug the inside of the bend.' },
+  spindrum: { img: 'nobu_head', title: 'SPIN CYCLE', text: 'Ride the platforms around the drum. Hop off when you reach the top!' },
+  zipline: { img: 'nobu_head', title: 'CLOTHESLINE', text: '<span class="key">J</span> BITE near a line to grab it. <span class="key">SPACE</span> to let go. Wheee!' },
+  toaster: { img: 'nobu_head', title: 'TOASTER', text: 'Stand on the toast. When it glows... POP! Hold <span class="key">SPACE</span> for extra height.' },
+  market: { img: 'pill_bot', title: 'MARKET PLATFORMS', text: 'GREEN edge = going UP next beat. RED = going DOWN. Watch the arrows, then jump.' },
+  pipelineshutter: { img: 'nobu_head', title: 'SAFETY SHUTTER', text: 'Land on every glowing paw plate to open the safety shutter.' },
+  rugpull: { img: 'rug', title: 'RUG PULL', text: 'The floor is leaving. Step on it and RUN. Do NOT stop.' },
+  dustwall: { img: 'nobu_head', title: 'DUST WALL', text: 'Come back with a faster move.' },
+  dustwallUnlocked: { img: 'nobu_head', title: 'DUST DASH', text: 'Dust Dash breaks this wall.' },
+  smogvent: { img: 'nobu_head', title: 'SMOG VENT', text: 'Mega Bark clears the smog.' },
+  smogventLocked: { img: 'nobu_head', title: 'SMOG VENT', text: 'A stronger bark could clear this smog.' },
+  zoomiegate: { img: 'nobu_head', title: 'ZOOMIE GATE', text: 'This shutter needs a faster sprint.' },
+  blinkbox: { img: 'backpack', title: 'BLINK BOX', text: "Blue boxes blink on a beat. Listen for the tick, then jump. Don't stand there when it ticks twice!" },
+  fallbox: { img: 'backpack', title: 'FALL BOX', text: 'Cracked boxes drop the moment you land. Keep those paws moving.' },
+  slidebox: { img: 'backpack', title: 'MOVING BOX', text: 'Moving boxes give you a ride. Jump when the gap is short.' },
+  bouncechain: { img: 'backpack', title: 'BOUNCE CHAIN', text: 'Bounce, bounce, bounce! Hold jump to go long.' },
   bite: { img: 'nobu_head', title: 'BITE!', text: 'Press <span class="key">J</span> or <span class="key">SHIFT</span> to bite. Chomp backpacks for Golden Tickets!' },
   jump: { img: 'nobu_title', title: 'JUMP!', text: '<span class="key">SPACE</span> to jump, again in mid-air to double jump. Hold for higher.' },
   dog: { img: 'dog_shiba_coned', title: 'TRAPPED DOG', text: 'Bite or jump near a coned dog to pop the cone off. Free them all!' },
@@ -158,6 +267,8 @@ export const TUTORIALS = {
 };
 
 export const DEATH_CAPTIONS = {
+  splash: ['SPLASH!', 'Basket overboard. Back to the checkpoint.'],
+  whirl: ['WHIRLPOOLED!', 'That was not the spin cycle.'],
   angel: ['PAPER PAWS!', 'NGMI... jk, try again', 'Nobu went to the big dog park in the sky', 'Bonk. Back to the checkpoint.'],
   fall: ['Gravity: still undefeated', 'Should\'ve double jumped, ser', 'Down bad. Literally.'],
   flat: ['FLATTENED', 'Nobu is now a doormat', 'Pancake Akita, extra syrup'],
@@ -166,4 +277,140 @@ export const DEATH_CAPTIONS = {
   puff: ['POOF!', 'Spiky broccoli: do not bite', 'That was NOT on the diet'],
 };
 
-export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'death_angel', flat: 'death_flat', cone: 'death_cone', rug: 'death_rug' };
+export const DEATH_ART = { angel: 'death_angel', fall: 'death_angel', puff: 'death_angel', flat: 'death_flat', cone: 'death_cone', rug: 'death_rug', splash: 'death_splash', whirl: 'death_whirl' };
+export const REWARD_TEXT = {
+  chainSphere: ['CHOMP CHAIN x8!', 'Sproto Mask!'], chainBest: 'NEW BEST CHAIN',
+  backpacks: 'BACKPACKS', dogs: 'DOGS FREED', tickets: 'TICKETS', bestChain: 'BEST CHAIN',
+  continue: 'Press any key', complete: (n) => `LEVEL ${n} COMPLETE!`, bonusComplete: 'BONUS STAGE CLEAR!',
+  hintGolden: ({ dogs, packs, section }) => `Golden Bone: ${[dogs ? `${dogs} ${dogs === 1 ? 'dog' : 'dogs'}` : '', packs ? `${packs} ${packs === 1 ? 'backpack' : 'backpacks'}` : ''].filter(Boolean).join(' and ')} missed${section ? ` near ${section}` : ''}.`,
+  hintGoodBoy: (n) => `Good Boy Bone: ${n} deaths, need 3 or fewer.`,
+  hintGoodBoyGod: 'Good Boy Bone: finish a run without God Mode and with 3 deaths or fewer.',
+  hintGoodBoyGoal: 'Good Boy Bone: finish with 3 deaths or fewer.',
+  hintSnackGoal: (target) => `Snack Bones: collect ${target}% of Tickets for ${target === 80 ? 'gold' : target === 60 ? 'silver' : 'bronze'}.`,
+  hintSnack: (pct, target) => `Snack Bones: ${pct}% of Tickets, ${target}% for ${target === 80 ? 'gold' : target === 60 ? 'silver' : 'bronze'}.`,
+  hintHidden: (section) => `Hidden Bone: somewhere near ${section}.`,
+  hintNewMove: "Hidden Bone: you'll need a new move to reach it.",
+  hintGoldenGoal: 'Golden Bone: break every backpack and free every dog.',
+  hintGoldenMany: (n) => `Golden Bone: ${n} backpacks to go. Try the side paths.`,
+  hintCompleteTrial: 'Board complete! Try the time trial for a Platinum Tag.', hintComplete: 'Board complete! Good boy.',
+};
+// Shared copy for the expansion's authored gameplay props.
+export const PROP_TEXT = { rugPull: 'RUG PULL!', arrows: ['▼', '■', '▲'] };
+
+
+export const MYSTERY_SURPRISE = { title: 'SURPRISE!', sub: 'RUN!' };
+export const TRIAL_TEXT = { classicBest: 'Classic best', classicWorld: 'Classic WR', platinumTag: 'PLATINUM TAG!' };
+export const ENVIRONMENT_TEXT = { rising: "IT'S RISING!" };
+export const BONE_TEXT = {
+  destinations: { red: 'Bark Jungle', blue: 'Scratchpost Canyon', green: 'Pump & Dump Pipeline and Bark Jungle', purple: 'The Cone Factory', yellow: 'Scratchpost Canyon' },
+  golden: 'GOLDEN BONE', goodBoy: 'GOOD BOY BONE', hidden: 'HIDDEN BONE',
+  snack: ['SNACK BONE I', 'SNACK BONE II', 'SNACK BONE III'],
+  hiddenTitle: 'HIDDEN BONE!', hiddenSub: "Shhh... it's a secret",
+  goodBoyPercent: (n) => `GOOD BOY ${n}%`, board: 'BONE BOARD',
+  liveStats: (s, p) => `Breakables ${s.broken}/${s.breakables} · Dogs ${s.dogs}/${s.dogsTotal} · Snacks ${p}%`,
+  deaths: (n) => `${n}/3 deaths`, kennel: (id) => `KENNEL: ${id.toUpperCase()} UNLOCKED!`,
+};
+export const REMIX_TEXT = {
+  banner: { title: 'SMOG REMIX', subtitle: 'Mirrored · no assistance · earn its own Golden Bone' },
+  complete: { title: 'SMOG REMIX CLEAR!', earned: 'REMIX GOLDEN BONE!', missed: 'Every backpack and every dog in one run', already: 'Remix Golden Bone already earned' },
+  toggle: 'SMOG REMIX', locked: 'Beat the Pump Queen to unlock Smog Remixes', controls: 'R: Smog Remix',
+  bone: 'Remix Golden Bone', normal: 'NORMAL',
+};
+export const BOSS_MEDAL_TEXT = { noHit: 'NO-HIT!', speed: 'SPEED MEDAL' };
+export const SECTION_TEXT = {
+  sorting: 'Sorting Belts', packaging: 'Packaging Line', vatOverflow: 'Vat Overflow', maintenanceDucts: 'Maintenance Ducts', overheadRails: 'Overhead Rails',
+  switchbacks: 'Switchbacks', cardboardFort: 'Cardboard Fort', scratchpostForest: 'Scratchpost Forest', yarnAvalanche: 'Yarn Avalanche', catFlapAlley: 'Cat Flap Alley', dryRiverbed: 'Dry Riverbed',
+  start: 'Start', highRoad: 'High Road', clearing: 'Backpack Clearing', treatLedge: 'Treat Ledge',
+  lilyPond: 'Lily Pond', canopy: 'Canopy Walk', boneSwitch: 'Bone Switch', planks: 'Plank Bridge',
+  belly: 'Belly-flop Pocket', lastGap: 'Last Gap', fork: 'The Fork', firstGap: 'First Gap',
+  bluePath: 'Blue Path', crumble: 'Crumbling Bridge', mushroom: 'Mushroom Landing', dock: 'Vacuum Dock',
+  intake: 'Intake Hall', crushers: 'Crusher Alley', rugs: 'Rug Puzzle', hammers: 'Hammer Hall',
+  fan: 'Fan Catwalk', vacuum: 'Vacuum Hall', vat: 'Vat Pit', final: 'Final Stretch',
+  living: 'Living Room', hallway: 'Hallway', toys: 'Toy Piles', firstPit: 'First Pit',
+  coconutRun: 'Coconut Run', sunkenTemple: 'Sunken Temple', burrow: 'The Burrow', waterfallHollow: 'Waterfall Hollow', gateApproach: 'Gate Approach',
+  rafts: 'Underground Rafts', redBone: 'Red Bone', steps: 'Lunchbox Steps', exit: 'Exit', path: 'the path',
+};
+export const BIRD_STAGE_POWERS = { 2: 'Feather volleys · laser eye · cage drop · wind lanes', 3: 'Homing missiles · egg bombs · drone escort · laser combos' };
+
+export const KENNEL_TEXT = {
+  title: 'THE KENNEL', mapDescription: 'Your rescued pack is waiting in the yard.', mapControls: 'SPACE / ENTER enter · ESC title', names: { jukebox: 'JUKEBOX', buddy: 'BUDDY', fur: 'FUR', gallery: 'GALLERY', sniffer: 'SNIFFER', golden: 'GOLDEN KENNEL' },
+  count: (freed, total) => `${freed}/${total} dogs rescued`, needed: (n) => `${n} dogs to go:`, more: (n) => `+${n} more dogs`,
+  badges: 'CHOMP CHAIN BADGES', goldenTitle: 'GOLDEN KENNEL', goldenSpeaker: 'SPROTO MASK',
+  golden: 'Every. Single. Dog. Nobu, the island owes you a lifetime supply of belly rubs.',
+  continue: 'SPACE / ENTER: continue', play: 'SPACE: play · ESC: stop', choose: 'SPACE / ENTER: choose',
+  controls: '◀ ▶ choose · SPACE / ENTER select · L / E bark for Sniffer · ESC back',
+  allFound: 'Every secret in the open levels has been found. Good boy!',
+  labels: { none: 'NONE', cream: 'CREAM', shadow: 'SHADOW', ginger: 'GINGER', chompGold: 'CHOMP GOLD', shiba: 'SHIBA', corgi: 'CORGI', pug: 'PUG', dalmatian: 'DALMATIAN' },
+  secretLine: (level) => [level.hidden && `Hidden Bone near ${level.hidden.section}${level.hidden.move ? ` (needs ${{ dust: 'DUST DASH', moon: 'MOON JUMP', glide: 'TAIL GLIDE', zoom: 'ZOOMIES', bark: 'MEGA BARK' }[level.hidden.move] || level.hidden.move})` : ''}`,
+    ...Object.entries(level.dogs.reduce((sections, dog) => ({ ...sections, [dog.section]: (sections[dog.section] || 0) + 1 }), {})).map(([section, n]) => `${n} ${n === 1 ? 'dog' : 'dogs'} near ${section}`)].filter(Boolean).join(' · '),
+};
+export const CONE_STAGE_POWERS = { 2: 'Floor sweeps · twin lasers · grab · vortex · RUG PULL', 3: 'Shadow clones · SMOG TIDE · combos of three · fastest' };
+export const CAT_STAGE_POWERS = { 2: 'Double pounce · claw scratches · tail-whip · knocks things off the table', 3: 'Triple pounce · zoomies · ghost lives · the edge crumbles' };
+
+export const MASTERY_TEXT = {
+  perfect: 'PERFECT RUN!', perfectSub: 'Every backpack, every dog, no deaths',
+  perfectRain: '...and not a single death! PERFECT RUN', noHit: 'No-Hit', speed: 'Speed',
+  eligibleBest: (time) => `Eligible best ${time}`,
+  bossNames: { bird: 'MECHA BIRD', cat: 'BIG CAT', cone: 'EVIL CONE', titan: 'ROOMBA TITAN', queen: 'PUMP QUEEN' },
+};
+
+export const TITAN_STAGE_POWERS = { 2: 'Suction · Mini-Roombas · rotating rug', 3: 'Reflected charges · falling legs · Lights Out' };
+export const TITAN_FLOP_HINT = 'BELLY FLOP the button!';
+export const BONUS_EXTENSION_TEXT = {
+  ride: { split: 'Living Room Split', ramps: 'Toy Box Ramps', tile: 'Kitchen Tile Slide', door: 'Dog-Door Leap', sofa: 'Sofa Summit' },
+  cave: { river: 'Underground River', mushrooms: 'Mushroom Bounce Cavern', crystals: 'Crystal Echo', hollow: "Lumi's Nest Hollow" },
+};
+export const L4_TEXT = {
+  name: 'Laundry Day', gate: 'ROOMBA TITAN', cerealExitSign: ['DOUBLE', 'JUMP!'],
+  sections: { hallway: 'Hallway', laundry: 'Laundry Room', ironing: 'Ironing Board', kitchen: 'Kitchen Counter', stampede: 'Roomba Stampede', basement: 'Basement Stairs', boiler: 'Boiler Room', topShelf: 'Top Shelf', pantry: 'The Pantry' },
+  chainSign: ['CHOMP', 'CHAIN!'], biteSign: ['BITE', 'FAST'],
+};
+
+export const L5_TEXT = {
+  name: 'Pump & Dump Pipeline', gate: 'THE PUMP QUEEN',
+  sections: { opening: 'Opening Bell', pump: 'Pump Field', smog: 'Smog Wave', trading: 'Trading Floor', chimney: 'Green Candle Chimney', rug: 'The Rug Pull', liquidation: 'Liquidation Line', orderBook: 'The Order Book', coldWallet: 'The Cold Wallet' },
+  signs: { market: ['▲ PUMP', '▼ DUMP'] },
+};
+
+export const CHAPTER2 = [
+  { img: 'story_ch2_1', speaker: '', text: 'Every dog is free. The island naps in the sun. Then one morning, the sky goes... grey again.' },
+  { img: 'story_ch2_1', speaker: 'SPROTO MASK', text: 'Smog?! We popped the Evil Cone! Unless... somebody was PUMPING him the whole time.' },
+  { img: 'story_ch2_2', speaker: '', text: 'Down the hill, the Owner\'s House hums. Something enormous is vacuuming up every popped cone on the island.' },
+  { img: 'story_ch2_2', speaker: 'SPROTO MASK', text: 'Chapter 2, Nobu: The Smog Returns. Stretch those legs. We\'re going to the House.' },
+];
+
+export const MAIN_UNLOCK_TEXT = {
+  4: ['CHAPTER 2', 'LAUNDRY DAY IS OPEN'],
+  6: ['NEW STAGE', 'SMOG RAPIDS'],
+  5: ['NEW STAGE', 'PUMP & DUMP PIPELINE'],
+};
+
+export const QUEEN_STAGE_POWERS = { 2: 'FOMO beam · parachute airdrops · faster candles', 3: 'Bubble shield · candle crash · crumbling ring', 4: 'Liquidation · Dust Dash wake · chains of four' };
+export const QUEEN_TICKER_TEXT = { pump: '▲ PUMP ▲', dump: '▼ DUMP ▼', zero: '$0.00' };
+// H46: gauntlet-only presentation; medals never use a Bone Board.
+export const GAUNTLET_TEXT = {
+  names: { g1: 'Jungle Crates', g2: 'Assembly Rush', g3: 'Hamper Hop' },
+  startSign: ['BOX', 'GAUNTLET'],
+  polaroid: 'POLAROID!', polaroidGrey: 'POLAROID', polaroidFound: 'A Box Gauntlet is on the map.',
+  continue: 'Press any key',
+  title: 'BOX GAUNTLET', clear: 'CLEAR', allBoxes: 'ALL BOXES', flawless: 'FLAWLESS',
+  firstClear: 'First clear: 5 Tickets', localBest: 'LOCAL BEST',
+  deaths: (n) => `Deaths: ${n}`,
+  enter: 'G: Enter gauntlet', grey: 'Reach it without a scratch.',
+  tutorial: "A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip.",
+};
+
+
+export const RUSH_TEXT = {
+  title: 'CONE GAUNTLET', description: 'Five bosses · masks carry · no assistance · unlimited retries',
+  locked: 'Beat the Pump Queen to unlock the Cone Gauntlet', controls: '◀ ▶ choose · SPACE / ENTER play · ESC title',
+  clear: 'BOSS RUSH CLEAR!', noHit: 'NO-HIT CLEAR!', ineligible: 'God Mode · no Rush record',
+  record: 'CLEAR MEDAL', noHitRecord: 'NO-HIT MEDAL', best: 'Best', continue: 'Press any key',
+};
+
+export const L6_TEXT = {
+  name: 'Smog Rapids', goal: 'PIPELINE',
+  sections: { drain: 'Drain Mouth', gutter: 'Gutter Run', lock: 'The Lock', bend: 'Whirlpool Bend', barge: 'Barge Yard', crateDrift: 'Crate Drift', rapids: 'Slick Rapids', floodgate: 'Floodgate Crates', intake: 'Intake Channel', rainGutter: 'Rain Gutter', pumpHouse: 'Pump House' },
+  signs: { raft: ['RAFT', '◀ ▶ STEER'], hop: ['HOP', 'SPACE'], falls: ['FALLS', 'AHEAD'] },
+  unlock: 'The smog\'s heading downstream, Nobu. We follow the river. Smog Rapids is open!',
+};

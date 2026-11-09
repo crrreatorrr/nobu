@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Game } from '../src/game/game.js';
 import { Session } from '../src/game/session.js';
@@ -14,6 +15,7 @@ beforeEach(async () => {
 
 function bareSession(attempt) {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   session.game = {
     ui: { setHud() {}, banner() {}, fade: () => Promise.resolve() },
     player: { spawnAt() {}, ride: null },
@@ -24,6 +26,8 @@ function bareSession(attempt) {
   session.level = 1;
   session.levelTickets = 0;
   session.fieldRaw = 0;
+  session.snack = { raw: 0, potential: 0 };
+  session.freedIds = new Set();
   session.coconutRaw = 0;
   session.attemptId = attempt.id;
   session.attemptDurable = attempt.ok;
@@ -132,7 +136,7 @@ describe('case 1: one attempt produces one earn key', () => {
       stats: { tickets: 25, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 },
     };
     try {
-      Game.prototype.levelCleared.call({ playCutscene() {} }, session);
+      Game.prototype.levelCleared.call({ playCutscene() {}, _unlockMainChapters: Game.prototype._unlockMainChapters }, session);
       await Promise.all(tracker.pending);
       tracker.pending.length = 0;
       session.levelTickets = 40;

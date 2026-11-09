@@ -26,9 +26,13 @@ export class Loadout {
 
   get ranked() { return readNobuOwnership().ranked; }
 
+  // False while this session cannot read Relics (standalone, hub refused, or still
+  // connecting). The wardrobe then says why it has nothing to offer.
+  get linked() { return readNobuOwnership().ready; }
+
   // Ids the wardrobe may offer, including None. Unowned items stay hidden.
   // Order follows the catalog. Neck: None, Golden Collar, Clown-Nose Collar.
-  // Head: None, Wizard Hat, Champion's Crown.
+  // Head: None, Wizard Hat, Wizard Hat II, Champion's Crown.
   options(slot) {
     const own = readNobuOwnership();
     if (!own.ready) return [null];
@@ -91,7 +95,7 @@ export class Loadout {
     return lost;
   }
 
-  // One id per slot. Assigning neck replaces the other collar; assigning head swaps hat and crown.
+  // One id per slot. Assigning neck replaces the other collar; assigning head swaps between the hats and the crown.
   equip(slot, id) {
     if (!SLOTS.includes(slot)) return false;
     const next = id || null;

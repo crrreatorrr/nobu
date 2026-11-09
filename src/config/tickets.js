@@ -12,6 +12,9 @@ export const CARRY_MAX = 100;
 /** Server max_amount for one level_end earnTickets call. Larger earns are chunked. */
 export const LEVEL_END_MAX_AMOUNT = 20;
 
+/** Maximum Mystery payout: three whole Tickets, counted once in level budgets. */
+export const MYSTERY_RAW_MAX = 9;
+
 const SCALE_DENOMINATOR = Math.round(1 / NOBU_TICKET_SCALE);
 
 /** Whole Tickets represented by `raw` unscaled pickups. The remainder stays in `raw`. */
@@ -23,3 +26,17 @@ export function wholeTicketsFromRaw(raw) {
 export function rawTicketsForWhole(whole) {
   return Math.max(0, whole) * SCALE_DENOMINATOR;
 }
+
+/** Fixed authoring ceilings, proposed from the measured layout-1 density.
+ * Owner sign-off is required before H12 merges; see docs/expansion/h12-review.md.
+ * Level 2 is 17 whole Tickets, the total the owner approved. The builder
+ * settles payouts to that ceiling. Never derive a cap from current content:
+ * an over-cap edit must fail. */
+export const LEVEL_TICKET_CAP = Object.freeze({
+  g1: 5, g2: 5, g3: 5,
+  1: 205, 2: 17, 3: 101, ride: 110, cave: 89,
+  4: 184, 6: 159, 5: 162,
+});
+
+// Box Gauntlets: one permanent first-clear reward, already expressed in whole Tickets.
+export const GAUNTLET_FIRST_CLEAR_TICKETS = 5;

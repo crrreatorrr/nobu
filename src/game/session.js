@@ -1,13 +1,17 @@
 // A play session for one level: the path stage, then its boss arena (bonus stages end at a goal instead).
 // Owns checkpoints (with Crash-style rollback on death), lives, tickets, masks, invincibility and stats.
 import * as THREE from 'three';
+import { ddaFor, armCheckpointPity } from './dda.js';
+import { awardGauntlet, GAUNTLET_FIRST_CLEAR_TICKETS } from './gauntletRewards.js';
+import {updateGauntletLook,clearGauntletLook} from '../player/gauntletLook.js';
+import { sessionModes, remixAvailable, remixGateResult, applyRemixResult } from './remix.js';
+import { masteryTrialMedal, trialMastery, mergeTrialMastery, perfectRun } from './mastery.js';
+import { addBuddy } from '../entities/buddy.js';
 import { Stage } from '../world/stage.js';
 import { TicketSystem } from '../entities/tickets.js';
 import { FX } from '../entities/fx.js';
 import { Projectiles } from '../bosses/common.js';
-import { MechaBird } from '../bosses/mechaBird.js';
-import { BigCatBoss } from '../bosses/bigCat.js';
-import { EvilCone } from '../bosses/evilCone.js';
+import { bossDda, bossMedals, newBossRun } from '../bosses/medals.js';
 import { BlueSphere, backpackModel } from '../entities/breakables.js';
 import { Breakable } from '../entities/entity.js';
 import { Enemy } from '../entities/enemies.js';
@@ -15,19 +19,20 @@ import { ConedDog } from '../entities/dogs.js';
 import { CrumblePlatform, CrackedFloor, CoconutRoller } from '../entities/props.js';
 import { FreezePack } from '../entities/secrets.js';
 import { Backpack, ZippedBackpack } from '../entities/breakables.js';
-import { buildLevel1, buildBoss1Arena } from '../levels/level1.js';
-import { buildLevel2, buildBoss2Arena } from '../levels/level2.js';
-import { buildLevel3, buildBoss3Arena } from '../levels/level3.js';
-import { buildBonusRide } from '../levels/bonusRide.js';
-import { buildBonusCave } from '../levels/bonusCave.js';
-import { LEVEL_INTRO, BOSS_TALK } from '../story/script.js';
+import { LEVELS, levelDef, LEVEL_NAMES } from '../levels/registry.js';
+import { preloadVictory } from './victoryPreload.js';
+import { MASTERY_TEXT, LEVEL_INTRO, BOSS_TALK, BOSS_MEDAL_TEXT, SECTION_TEXT } from '../story/script.js';
+import { createChain, refreshChain, chainPitch } from './rewards.js';
+import { hitSessionChain, finishSessionChain, updateSessionChain, removeChainDrops } from './chain.js';
+import { missesBySection, boundedMiss } from './hints.js';
+import { SNACK_EXCLUDED, staticSnackPotential, applyRunResults, boneContext, snackTier } from './bones.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
-import { TRIAL_TARGETS, trialMedal, fmtTime } from '../config/trials.js';
+import { TRIAL_TARGETS, trialMedal, fmtTime, trialLayout, trialVariant } from '../config/trials.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // Let the loading bar paint before the next synchronous build step. rAF stops in a
@@ -40,27 +45,29 @@ const nextFrame = () => new Promise((r) => {
 
 export { TRIAL_TARGETS, trialMedal, fmtTime };
 
-const LEVELS = {
-  1: { build: buildLevel1, arena: buildBoss1Arena, Boss: MechaBird, bossKey: 'bird', theme: 1, bossTheme: 'boss1', name: 'Bark Jungle' },
-  2: { build: buildLevel2, arena: buildBoss2Arena, Boss: BigCatBoss, bossKey: 'cat', theme: 2, bossTheme: 'boss2', name: 'Scratchpost Canyon' },
-  3: { build: buildLevel3, arena: buildBoss3Arena, Boss: EvilCone, bossKey: 'cone', theme: 3, bossTheme: 'boss3', name: 'The Cone Factory' },
-  // bonus stages: no boss, unlocked on the map by beating the boss before them
-  ride: { build: buildBonusRide, theme: 'house', name: 'Roomba Rush', bonus: true },
-  cave: { build: buildBonusCave, theme: 'cave', name: 'Glowworm Grotto', bonus: true },
-};
-export const LEVEL_NAMES = Object.fromEntries(Object.entries(LEVELS).map(([k, v]) => [k, v.name]));
+export { LEVEL_NAMES };
+
+export const isPipelineSession = (session) => Number(session?.level) === 5 && session?.def?.bossKey === 'queen' && !session.rush;
+// Remix is additive: its own settlement/retry machinery remains separate.
+export const ownsAsyncLifecycle = (session) => !!(session?.remix || isPipelineSession(session) ||
+  (session?.def?.goal && !session.def.bonus));
 
 export class Session {
-  constructor(game, level, { trial = false } = {}) {
+  constructor(game, level, options = {}) {
     this.game = game;
     this.level = level;
-    this.def = LEVELS[level];
-    this.trial = trial;      // time trial run: clock, freeze packs, no lives lost, ends at the boss gate
+    this.def = levelDef(level);
+    const modes = sessionModes(options);
+    if (modes.remix && !remixAvailable(save.data, this.def)) throw new Error('Smog Remix is unavailable');
+    Object.assign(this, modes);
     this.trialT = 0;
+    this.gauntletT = 0;
     this.freezeT = 0;
     this.freezeMs = 0;       // clock time held by Freeze Packs this trial (informational, sent as score meta)
     this.deaths = 0;
     this.seq = 0;
+    this.runSeed = (Math.random() * 2 ** 32) >>> 0;
+    this.chain = createChain();
     this.mask = 0;
     this.invincibleT = 0;
     this.phase = 'level';
@@ -73,16 +80,67 @@ export class Session {
     this.lifeLine = Math.floor(Math.max(0, Number(save.data.tickets) || 0) / 100);
     this._lifeLineHold = false;
     this.stats = null;
+    this.snack = { raw: 0, potential: 0 };
+    this.freedIds = new Set();
+    this.hiddenFound = false;
+    this.deathsAtGate = null;
+    this.godUsed = !!save.data.godMode;
     this.deathsAtCp = 0;
     this.busy = false;     // transitions / dialogue
     this.over = false;
+    this.bossRun = null;
+    this.bossClock = 0;
+    this.bossDeaths = {};
+    this.bossStageDeaths = 0;
+    this.bossDdaUsed = false;
+  }
+
+  _lifecycleCurrent(stage = this.stage, epoch = this._lifecycleEpoch || 0) {
+    return !ownsAsyncLifecycle(this) || (!this.disposed && !this.over && this.game.session === this &&
+      (!stage || (this.stage === stage && this.game.stage === stage)) && epoch === (this._lifecycleEpoch || 0));
+  }
+
+  _pipelineCurrent(stage, boss, epoch) {
+    // Reuse Queen's owned transitions for every Remix boss without changing
+    // ordinary Bird/Cat/Cone behavior or their selected retry policy.
+    return (!isPipelineSession(this) && !this.remix) || (this._lifecycleCurrent(stage, epoch) && (!boss || this.boss === boss));
+  }
+
+  _pipelineDelay(ms) {
+    if (!isPipelineSession(this) && !this.remix) return wait(ms);
+    return new Promise(resolve => {
+      this._lifecycleWaiters ||= new Map();
+      const timer = setTimeout(() => { this._lifecycleWaiters.delete(timer); resolve(); }, ms);
+      this._lifecycleWaiters.set(timer, resolve);
+    });
+  }
+
+  _retirePipelineTransitions() {
+    if (!isPipelineSession(this) && !this.remix) return;
+    this._lifecycleEpoch = (this._lifecycleEpoch || 0) + 1;
+    for (const [timer, resolve] of this._lifecycleWaiters || []) { clearTimeout(timer); resolve(); }
+    this._lifecycleWaiters?.clear();
+    // Animation promises otherwise wait forever after their arena stops updating.
+    this.boss?.introResolve?.();
+    if (this.boss) this.boss.introResolve = null;
+    this.boss?.evolving?.resolve?.();
+    if (this.boss) this.boss.evolving = null;
+    const dialog = this._goalIntroDialog;
+    // A newer dialogue may already own UI; settle only our old waiter in that case.
+    if (!this.game.ui.cancelSay?.(dialog)) dialog?.resolve?.();
+    this._goalIntroDialog = null;
   }
 
   nextSeq() { return ++this.seq; }
+  _remixAbandoned() { return this.remix && (this.disposed || this.over || this.game.session !== this); }
+  _retryAbandoned() { return (this.remix || this.def?.gauntlet) && (this.disposed || this.over || this.game.session !== this); }
+  get chainSoundPitch() { return this.phase === 'level' ? chainPitch(this.chain.n) : 1; }
+  chainRefresh() { if (this.phase === 'level') refreshChain(this.chain); }
 
   // ---------- stage setup ----------
   _newStage(themeKey) {
     const g = this.game;
+    this._cancelGoalRain();
     if (this.stage) this.stage.dispose();
     const stage = new Stage(g, themeKey);
     this.stage = stage;
@@ -116,25 +174,36 @@ export class Session {
     g.player.attach(stage.scene);
     g.mask.attach(stage.scene);
     g.player.spawnAt(info.spawn, info.facing);
+    g.applyKennelTint?.(g.player.model, this);
+    updateGauntletLook(g.player,save.data,this);
     g.mask.setLevel(this.mask, this.mask);
     g.mask.snapTo(g.player);
+    stage.defaultCamera = info.camera;
     g.camera.setMode(info.camera.mode, info.camera);
     g.camera.cam.fov = info.fov || 58;
     g.camera.cam.updateProjectionMatrix();
     g.camera.endCinematic();
     g.camera.snap(g.player);
-    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
+    this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
     this.deathsAtCp = 0;
   }
 
   async startLevel() {
     const g = this.game;
     const ui = g.ui;
+    const mainGoal = ownsAsyncLifecycle(this);
+    let stage = this.stage;
+    const epoch = this._lifecycleEpoch || 0;
+    const abandoned = () => mainGoal && !this._lifecycleCurrent(stage, epoch);
+    if (abandoned()) return false;
     this.busy = true;
+    this.loading = true;
     this.phase = 'level';
-    ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
+    const loadToken = ui.showLoading(this.trial ? 'TIME TRIAL' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, this.def.name.toUpperCase());
+    if (mainGoal) this._goalLoadingToken = loadToken;
     ui.loadingProgress(0.05, 'Saving progress...');
     const attempt = await hub.beginAttempt(this.level);
+    if (abandoned()) return false;
     this.attemptId = attempt.id;
     this.attemptDurable = attempt.ok;
     // Never wait on the hub here: a slow or unreachable hub used to leave this
@@ -142,12 +211,20 @@ export class Session {
     hub.startCarry();
     ui.loadingProgress(0.15, `Building ${this.def.name}...`);
     await nextFrame();
-    const stage = this._newStage(this.def.theme);
+    if (abandoned()) return false;
+    stage = this._newStage(this.def.theme);
     const info = this.def.build(g, stage, this.tickets);
+    // The new stage may update during loading; configure its ride before the
+    // first frame so foot detours never observe the previous stage's vacuum.
+    g.player.setRide(info.ride || null);
     stage.finalize();
     this.tickets.finalize();
+    this.snack.potential = staticSnackPotential(this.tickets.list) + stage.entities.filter((e) => e instanceof Backpack && e.countable && e.kind !== 'mystery').reduce((n, e) => n + e.tickets, 0);
+    const dogIds = Object.keys(this.def.dogs || {});
+    stage.entities.filter((e) => e instanceof ConedDog).forEach((e, i) => { if (!e.dogId && dogIds[i]) e.dogId = `${this.level}:${dogIds[i]}`; });
     ui.loadingProgress(0.65, 'Placing Nobu...');
     await nextFrame();
+    if (abandoned()) return false;
     this.info = info;
     this.chase = info.chase || null;
     this._attachActors(info);
@@ -155,25 +232,33 @@ export class Session {
     this.dogsTotal = stage.entities.filter((e) => e instanceof ConedDog).length;
     ui.loadingProgress(0.8, 'Warming up...');
     await this._warmUp();
-    audio.setRate(1);
-    audio.playMusic(stage.theme.music);
+    if (abandoned()) return false;
+    audio.setRate(this.def.gauntlet ? 1.08 : 1);
+    audio.playMusic(stage.gauntletInfo?.music || stage.theme.music);
     ui.fade(0, 0);
-    await ui.hideLoading();
+    await (mainGoal ? ui.hideLoading(700, this._goalLoadingToken) : ui.hideLoading());
+    if (abandoned()) return false;
+    this._goalLoadingToken = null;
     ui.showHud(4);
     this._pushHud();
-    g.player.setRide(info.ride || null);
+    this.buddy = this.def.gauntlet ? null : addBuddy(this, save.data, LEVELS);
     if (this.trial) this._setupTrial();
-    g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
-    if (LEVEL_INTRO[this.level] && !this.trial) {
+    if (!this.remix) g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
+    if (LEVEL_INTRO[this.level] && !this.trial && !this.remix) {
       g.player.frozen = true;
-      await g.ui.say(LEVEL_INTRO[this.level]);
+      const intro = g.ui.say(LEVEL_INTRO[this.level]);
+      if (mainGoal) this._goalIntroDialog = g.ui.dialog;
+      await intro;
+      if (abandoned()) return false;
+      this._goalIntroDialog = null;
       g.player.frozen = false;
     }
     if (this.chase) this._startChase(this.chase.s, 1.8, true);
     if (info.ride) { g.ui.banner('GO!', 'Steer ◀ ▶ · SPACE hops', 1.6); audio.play('whirr'); }
     // newly earned boss moves get a pop-up the first time
     const ab = g.player.abilities;
-    for (const id of ['glide', 'zoom', 'bark']) if (ab[id]) { g.ui.tutorial(id); break; }
+    if (!this.remix) for (const id of ['glide', 'zoom', 'bark']) if (ab[id]) { g.ui.tutorial(id); break; }
+    this.loading = false;
     this.busy = false;
   }
 
@@ -199,28 +284,43 @@ export class Session {
   // ---------- Treat Tray bonus round ----------
   async enterBonusRound(tray) {
     if (this.busy || this.bonusRound) return;
-    const g = this.game, p = g.player, R = tray.round;
+    finishSessionChain(this);
+    const g = this.game, p = g.player, R = tray.round, stage = this.stage;
+    const current = () => !this.disposed && g.session === this && this.stage === stage && g.stage === stage;
+    const rideConfig = R.onFoot && p.ride ? { speed: p.ride.speed, lift: p.ride.lift } : null;
     this.busy = true;
     p.frozen = true;
     audio.play('boing');
     await g.ui.fade(1, 0.25);
-    this.bonusRound = { tray, R, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
+    if (R.onFoot && !current()) return;
+    this.bonusRound = { tray, R, rideConfig, seq: this.nextSeq(), tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
+    if (rideConfig) p.setRide(null);
     p.spawnAt(R.start, R.facing);
     g.camera.snap(p);
     g.mask.snapTo(p);
     await g.ui.fade(0, 0.25);
+    if (R.onFoot && !current()) return;
     g.ui.banner('BONUS ROUND!', 'Fall off and the haul is lost (but not a life)', 2);
     p.frozen = false;
     this.busy = false;
   }
 
   async _leaveBonusRound(kept) {
-    const g = this.game, p = g.player, B = this.bonusRound;
+    const g = this.game, p = g.player, B = this.bonusRound, stage = this.stage;
+    if (!B) return;
+    const current = () => !this.disposed && g.session === this && this.stage === stage && g.stage === stage;
+    if (B.R.onFoot && !current()) return;
+    B.tray?.onRoundLeave?.(kept, B);
+    finishSessionChain(this);
     this.busy = true;
     p.frozen = true;
     if (!kept) {
+      removeChainDrops(this, B.seq);
       // roll back everything grabbed up there
-      for (const e of this.stage.entities) if (e instanceof Breakable && e.broken && e.brokenSeq > B.seq) e.restore();
+      for (const e of this.stage.entities) {
+        if (e instanceof Breakable && e.broken && e.brokenSeq > B.seq) e.restore();
+        else if (e instanceof ConedDog && e.freed && e.seq > B.seq) e.restore();
+      }
       this.tickets.restoreAfter(B.seq);
       const lineBefore = this.lifeLine || 0;
       this.tickets.clearFlying();
@@ -228,17 +328,22 @@ export class Session {
       save.data.tickets = B.tickets;
       this.levelTickets = B.levelTickets;
       this.fieldRaw = B.fieldRaw;
+      this.snack.raw = B.snackRaw;
+      this.freedIds = new Set(B.freedIds);
       this.coconutRaw = B.coconutRaw;
       this._lifeLineHold = true;
       this._pushHud();
     } else B.tray.used = true;
     audio.play(kept ? 'checkpoint' : 'fade');
     await g.ui.fade(1, 0.25);
+    if (B.R.onFoot && !current()) return;
     this.bonusRound = null;
     p.spawnAt(B.R.back, B.R.facing);
+    if (B.rideConfig) p.setRide(B.rideConfig);
     g.camera.snap(p);
     g.mask.snapTo(p);
     await g.ui.fade(0, 0.25);
+    if (B.R.onFoot && !current()) return;
     g.ui.banner(kept ? 'BONUS CLEAR!' : 'BONUS LOST', kept ? 'Haul kept!' : 'Try again, or carry on', 1.6);
     p.frozen = false;
     this.busy = false;
@@ -247,12 +352,13 @@ export class Session {
 
   // ---------- secret warp ----------
   secretWarp(target) {
-    if (this.trial || this.busy || this.phase !== 'level' || !LEVELS[target]) return false;
+    if (this.trial || this.remix || this.busy || this.phase !== 'level' || !levelDef(target)) return false;
     const g = this.game;
     this.busy = true;
     g.player.frozen = true;
     save.data.bonus ||= {};
     save.data.bonus[target] = { ...(save.data.bonus[target] || {}), found: true };
+    save.data.open[target] = true;
     save.write();
     audio.play('whoosh');
     audio.play('oneUp');
@@ -270,78 +376,156 @@ export class Session {
   }
 
   _finishTrial() {
-    const g = this.game, t = this.trialT;
+    const g = this.game, t = this.trialT, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    if (!this._pipelineCurrent(stage, null, epoch)) return;
     this.trialRunning = false;
-    const medal = trialMedal(this.level, t);
-    const ms = Math.round(t * 1000);
-    const d = save.data;
+    const layout = trialLayout(this.level), variant = trialVariant(this.level, layout);
+    const ms = Math.round(t * 1000), d = save.data;
+    const godUsed = this.godUsed || !!d.godMode;
+    this.godUsed = godUsed;
+    const medal = masteryTrialMedal(variant, t, { godUsed });
     d.trials ||= {};
-    const prev = d.trials[this.level];
+    const candidate = d.trials[this.level];
+    const prev = (candidate?.layout ?? 1) === layout ? candidate : null;
     const prevMs = Number.isInteger(prev?.ms) ? prev.ms : Number.isFinite(prev?.best) ? Math.round(prev.best * 1000) : null;
-    const best = prevMs == null || ms < prevMs;
-    const deaths = this.deaths | 0;
-    const freezeMs = Math.round(this.freezeMs || 0);
-    // pid ties the record to the hub player that set it. Standalone and god-mode records have
-    // none, so they are never uploaded later.
-    const pid = d.godMode ? null : hub.playerId();
-    if (best) d.trials[this.level] = { best: t, ms, medal, at: Date.now(), deaths, freezeMs, pid };
+    const deaths = this.deaths | 0, freezeMs = Math.round(this.freezeMs || 0);
+    // God-used belongs to this whole run, even after the toggle is turned off.
+    const pid = godUsed ? null : hub.playerId();
+    const incoming = trialMastery(variant, { best: t, ms, medal, at: Date.now(), deaths, freezeMs, pid, layout, godUsed });
+    const best = !!incoming && (prevMs == null || ms < prevMs);
+    const merged = mergeTrialMastery(variant, prev, incoming);
+    if (merged) d.trials[this.level] = merged;
     save.write();
     hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
-    if (!d.godMode && pid) {
-      // This run counts for this player even when another player holds the local best.
-      // The queue skips anything not faster than what it already queued or the hub holds.
-      // A local best this player set earlier is sent instead, in case its first send was lost.
+    if (incoming && !godUsed && pid) {
+      // A local god/practice best never replaces the integer time this clean run posts.
       const rec = d.trials[this.level];
-      const own = !best && rec && rec.pid === pid && Number.isInteger(rec.ms) && rec.ms <= ms;
+      const own = !best && rec && !rec.godUsed && (rec.layout ?? 1) === layout && rec.pid === pid && Number.isInteger(rec.ms) && rec.ms <= ms;
       if (own) hub.submitScore(rec.ms, this.level, { deaths: rec.deaths | 0, freezeMs: rec.freezeMs | 0 }).catch(() => {});
       else hub.submitScore(ms, this.level, { deaths, freezeMs }).catch(() => {});
     }
     g.ui.trialTime(null);
     g.player.frozen = true;
     audio.play(medal ? 'oneUp' : 'checkpoint');
-    g.ui.fade(1).then(() => g.trialDone(this, t, medal, best));
+    g.ui.fade(1).then(() => { if (this._pipelineCurrent(stage, null, epoch)) g.trialDone(this, t, medal, best); });
   }
 
-  _startChase(s, delay, first) {
+  _startChase(s, delay, first, { banner = true } = {}) {
     this.chase.begin(s, delay);
-    if (first) setTimeout(() => this.game.ui.banner('RUN!', 'Hold ↓ / S toward the camera', 2.2), delay * 1000 - 300);
+    if (first && banner) {
+      const stage = this.stage, epoch = this._lifecycleEpoch || 0;
+      setTimeout(() => { if (this._pipelineCurrent(stage, null, epoch)) this.game.ui.banner('RUN!', 'Hold ↓ / S toward the camera', 2.2); }, delay * 1000 - 300);
+    }
   }
 
   async reachBossGate() {
-    if (this.phase !== 'level' || this.busy) return;
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, null, epoch);
+    if (this.phase !== 'level' || this.busy || !current()) return;
+    if (import.meta.env.DEV) this.game.devTuning?.gate(this);
+    finishSessionChain(this);
     if (this.trial) { this.busy = true; this._finishTrial(); return; }
+    this.deathsAtGate = this.deaths;
     this.busy = true;
     this._recordLevelStats();
+    if (this.remix) this.remixGate = remixGateResult(this.stats, { ...boneContext(this), godUsed: this.godUsed });
     if (this.chase) this.chase.state = 'stop';
     this.game.player.frozen = true;
     await this._missedRain();
-    this.game.ui.fade(1).then(() => this.startBoss());
+    if (!current()) return;
+    await g.ui.fade(1);
+    if (!current()) return;
+    return this.startBoss();
   }
 
-  // End of a bonus stage (no boss): the missed-backpack rain, then the results screen.
+  // Goal stages capture the field before the rain, then show their results.
   async reachGoal() {
-    if (this.phase !== 'level' || this.busy) return;
-    const g = this.game;
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const mainGoal = ownsAsyncLifecycle(this);
+    const abandoned = () => mainGoal && !this._lifecycleCurrent(stage, epoch);
+    if (this.phase !== 'level' || this.busy || abandoned()) return;
+    if (this.def.gauntlet) return this._finishGauntlet();
+    if (import.meta.env.DEV) this.game.devTuning?.gate(this);
+    finishSessionChain(this);
+    if (this.trial) { this.busy = true; this._finishTrial(); return; }
+    this.deathsAtGate = this.deaths;
     this.busy = true;
     this._recordLevelStats();
+    if (this.remix) this.remixGate = remixGateResult(this.stats, { ...boneContext(this), godUsed: this.godUsed });
     g.player.frozen = true;
     audio.play('checkpoint');
     g.ui.banner('STAGE CLEAR!', this.def.name, 1.6);
     await wait(900);
+    if (abandoned()) return;
     await this._missedRain();
+    if (abandoned()) return;
     await g.ui.fade(1);
+    if (abandoned()) return;
     g.player.setRide(null);
-    g.bonusCleared(this);
+    if (this.remix) { this._remixClearReached = { stage, epoch }; this._finishRemix(); }
+    else if (this.def.bonus) g.bonusCleared(this);
+    else g.goalLevelCleared(this);
+  }
+
+  async _finishGauntlet() {
+    if (this.disposed || this.game.session !== this) return { cancelled: true, tickets: 0, medals: [] };
+    this.busy = true;
+    this.game.player.frozen = true;
+    const result = await save.withGauntletEnd(() => {
+      this.godUsed ||= !!save.data.godMode;
+      const broken = this.stage.entities.filter(e => e instanceof Breakable && e.countable && e.broken).length;
+      const result = awardGauntlet(save.data, String(this.level), { broken, total: this.breakablesTotal,
+        deaths: this.deaths, ms: Math.round(this.gauntletT * 1000), godUsed: this.godUsed,
+        trial: this.trial, remix: this.remix, rush: this.rush || this.bossRush,
+        ranked: this.ranked, medal: this.medalMode || this.medalRun, board: this.boardRun });
+      this.stats = { broken, breakables: this.breakablesTotal, deaths: this.deaths,
+        ms: Math.round(this.gauntletT * 1000), tickets: result.tickets };
+      if (result.tickets) {
+        this._gauntletClearRaw = rawTicketsForWhole(result.tickets);
+        // A different tab may have crossed or spent below a life threshold meanwhile.
+        this._setLifeLine(Math.floor(save.data.tickets / 100));
+        this.addTickets(this._gauntletClearRaw, 'gauntlet-first-clear');
+      }
+      return result;
+    }, { shouldCommit: () => !this.disposed && this.game.session === this });
+    if (result.cancelled) return result;
+    // The same level_end bank used by other stages; this amount is already whole Tickets.
+    if (this.attemptDurable && result.claimDurable) hub.bank(this.attemptId, this.levelTickets, true).catch(err => console.warn('[hub] bank failed', err));
+    // A committed claim still settles after leaving, but must never change the new screen.
+    if (this.disposed || this.game.session !== this) return result;
+    this.game.player.frozen = true;
+    audio.setRate(1);
+    audio.play('checkpoint');
+    this.game.gauntletCleared(this, result);
+    return result;
+  }
+
+  _finishRemix() {
+    if (!this.remix || !this.remixGate || !this._remixClearReached || this._remixCompleted || this.over ||
+        !this._lifecycleCurrent(this.stage) ||
+        (this._remixClearReached.stage && !this._lifecycleCurrent(this._remixClearReached.stage, this._remixClearReached.epoch))) return false;
+    this._remixCompleted = true;
+    this.godUsed ||= !!save.data.godMode || !!this.game.player.god;
+    const fresh = applyRemixResult(save.data, this.level, this.remixGate,
+      { ...boneContext(this), godUsed: this.godUsed, completed: true });
+    save.write();
+    hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch(err => console.warn('[hub] bank failed', err));
+    this.game.remixCleared(this, { id: this.def.id, fresh, golden: !!save.data.remix?.[this.level]?.golden });
+    return true;
   }
 
   // Every breakable Nobu skipped drops on his head, one by one, before the level ends.
   async _missedRain() {
-    const g = this.game, p = g.player;
+    const g = this.game, p = g.player, stage = this.stage;
+    const epoch = this._lifecycleEpoch || 0;
+    const abandoned = () => ownsAsyncLifecycle(this) && !this._lifecycleCurrent(stage, epoch);
+    if (abandoned()) return;
     if (!this.breakablesTotal) return;
     const missed = this.stage.entities.filter((e) => e instanceof Breakable && e.countable && !e.broken).length;
     await wait(350);
+    if (abandoned()) return;
     if (!missed) {
-      g.ui.banner('PERFECT!', 'Not a single backpack missed', 1.8);
+      g.ui.banner('PERFECT!', this.stats?.perfectCandidate ? MASTERY_TEXT.perfectRain : 'Not a single backpack missed', 1.8);
       audio.play('oneUp');
       await wait(1500);
       return;
@@ -349,11 +533,20 @@ export class Session {
     const tc = g.camera.basis?.toCamera;
     if (tc !== undefined) p.facing = p.targetFacing = tc;
     g.ui.banner('MISSED!', `0 / ${missed}`, 30);
-    this.rain = { list: [], total: missed, spawned: 0, hit: 0, t: 0.2, gap: Math.max(0.07, Math.min(0.3, 3 / missed)) };
-    await new Promise((resolve) => { this.rain.done = resolve; });
-    this.rain = null;
+    const rain = this.rain = { list: [], total: missed, spawned: 0, hit: 0, t: 0.2, gap: Math.max(0.07, Math.min(0.3, 3 / missed)) };
+    await new Promise((resolve) => { rain.done = resolve; });
+    if (this.rain === rain) this.rain = null;
+    if (abandoned()) return;
     g.ui.banner('MISSED!', `${missed} backpack${missed > 1 ? 's' : ''} left behind`, 1.4);
     await wait(900);
+  }
+
+  _cancelGoalRain() {
+    if (!ownsAsyncLifecycle(this) || !this.rain) return;
+    const rain = this.rain;
+    this.rain = null;
+    for (const drop of rain.list) this.stage?.scene.remove(drop.m);
+    rain.done?.();
   }
 
   _updateRain(dt) {
@@ -389,30 +582,69 @@ export class Session {
     if (R.hit >= R.total) R.done();
   }
 
+  liveStats() {
+    const ents = this.stage.entities;
+    return { level: this.level, broken: ents.filter((e) => e instanceof Breakable && e.countable && e.broken).length, breakables: this.breakablesTotal, dogs: ents.filter((e) => e instanceof ConedDog && e.freed).length, dogsTotal: this.dogsTotal, deathsAtGate: this.deathsAtGate ?? this.deaths, snackRaw: this.snack.raw, snackPotential: this.snack.potential, snackTier: snackTier(this.snack.raw, this.snack.potential), hiddenFound: this.hiddenFound, bestChain: Math.max(this.chain.best, this.chain.n), ...this._missStats() };
+  }
+
+  collectHiddenBone() {
+    const ctx = boneContext(this, this.godUsed || save.data.godMode);
+    if (ctx.trial || ctx.remix || ctx.rush) return false;
+    this.hiddenFound = true;
+    applyRunResults(save.data, this.level, { hidden: true }, { bonus: this.def.bonus });
+    save.write();
+    return true;
+  }
+
+  _missStats() {
+    const stage = this.stage, sections = stage.sections || this.def.sections || [];
+    const project = (x, z) => stage.track?.project(x, z) || { s: NaN };
+    return {
+      sectionMiss: missesBySection(stage.entities.filter((e) => e instanceof Breakable && e.countable && !e.broken), sections, project, SECTION_TEXT.path),
+      missedDogs: missesBySection(stage.entities.filter((e) => e instanceof ConedDog && !e.freed), sections, project, SECTION_TEXT.path),
+    };
+  }
+
   _recordLevelStats() {
     const ents = this.stage.entities;
     this.stats = {
+      ...this.liveStats(),
+      freedIds: [...this.freedIds],
+      godUsed: this.godUsed || !!save.data.godMode,
       tickets: this.levelTickets,
       broken: ents.filter((e) => e instanceof Breakable && e.countable && e.broken).length,
       breakables: this.breakablesTotal,
       dogs: ents.filter((e) => e instanceof ConedDog && e.freed).length,
       dogsTotal: this.dogsTotal,
     };
+    this.stats.perfectCandidate = perfectRun(this.stats, boneContext(this, this.stats.godUsed), this.def);
+    const ctx = boneContext(this);
+    if (!ctx.trial && !ctx.remix && !ctx.rush) {
+      save.data.lastMiss[this.level] = boundedMiss(this.stats.sectionMiss);
+      save.write();
+    }
   }
 
   async startBoss() {
-    const g = this.game;
+    const g = this.game, epoch = this._lifecycleEpoch || 0;
+    let stage = this.stage;
+    const current = () => this._pipelineCurrent(stage, null, epoch);
+    if (!current()) return false;
     this.phase = 'boss';
+    if (isPipelineSession(this) || this.remix) { this.loading = true; this.busy = true; }
     this.tickets.clearFlying?.();
-    g.ui.showLoading('BOSS FIGHT', this.def.name.toUpperCase());
+    const loadToken = g.ui.showLoading('BOSS FIGHT', this.def.name.toUpperCase());
+    if (isPipelineSession(this) || this.remix) this._goalLoadingToken = loadToken;
     g.ui.loadingProgress(0.1, 'Building the arena...');
     await nextFrame();
-    const stage = this._newStage(this.def.bossTheme);
+    if (!current()) return false;
+    stage = this._newStage(this.def.bossTheme);
     const info = this.def.arena(g, stage, this.tickets);
     stage.finalize();
     this.tickets.finalize();
     g.ui.loadingProgress(0.6, 'Waking the boss...');
     await nextFrame();
+    if (!current()) return false;
     // arena pick-ups don't count toward the level reward
     for (const e of stage.entities) if (e instanceof Breakable) e.countable = false;
     this.info = info;
@@ -426,35 +658,56 @@ export class Session {
     g.player.frozen = true;
     g.ui.loadingProgress(0.8, 'Warming up...');
     await this._warmUp();
+    if (!current()) return false;
+    // Actor attachment is complete; the real boss intro now needs stage updates.
+    if (isPipelineSession(this) || this.remix) this.loading = false;
     audio.playMusic('cutscene');
     // intro shot on the boss
     const bp = boss.pos.clone();
     g.camera.cinematic(new THREE.Vector3(bp.x + 3, Math.max(3, bp.y + 1.5), bp.z + 9), new THREE.Vector3(bp.x, bp.y + 1, bp.z), 2.5);
     g.camera.pos.set(bp.x + 6, bp.y + 4, bp.z + 16);
     g.ui.fade(0, 0);
-    await g.ui.hideLoading();
+    await (isPipelineSession(this) || this.remix ? g.ui.hideLoading(700, loadToken) : g.ui.hideLoading());
+    if (!current()) return false;
+    this._goalLoadingToken = null;
     audio.play('bossRoar');
     g.camera.shake(0.4, 0.5);
-    await g.ui.say(BOSS_TALK[this.def.bossKey].intro);
+    await boss.intro?.();
+    if (!current()) return false;
+    const intro = this.remix ? Promise.resolve() : g.ui.say(BOSS_TALK[this.def.bossKey].intro);
+    if (!this.remix && isPipelineSession(this)) this._goalIntroDialog = g.ui.dialog;
+    await intro;
+    if (!current()) return false;
+    this._goalIntroDialog = null;
     g.camera.endCinematic();
     g.player.frozen = false;
-    g.ui.bossShow(boss.name, boss.portrait);
+    g.ui.bossShow(boss.name, boss.portrait, boss.stages);
     g.ui.bossCharge(0, false);
     audio.playMusic(stage.theme.music);
     g.ui.banner('FIGHT!', boss.name, 1.4);
     boss.start();
+    this.bossRun = newBossRun();
+    this.bossClock = 0;
+    this.bossDeaths = {};
+    this.bossStageDeaths = 0;
+    this.bossDdaUsed = false;
     g.camera.opts.focus = boss.pos;
     g.camera.opts.focusWeight = 0.2;
     this.busy = false;
   }
 
   async onBossPhase(boss, phase) {
-    const g = this.game;
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, boss, epoch);
+    if (!current()) return;
     this.busy = true;
     boss.active = false;
     this.projectiles.clear();
     this.bossPhaseCp = phase;
-    await wait(600);
+    this.bossStageDeaths = 0;
+    boss.dda = { tele: 1, window: 0 };
+    await this._pipelineDelay(600);
+    if (!current()) return;
     if (g.player.dead || this.over) { this.busy = false; return; }
     g.player.frozen = true;
     // the boss evolves: camera swings round to watch the transformation
@@ -465,50 +718,119 @@ export class Session {
     const gy = boss.ground ?? bp.y;
     g.camera.cinematic(new THREE.Vector3(bp.x + away.x * 10 + away.z * 3, gy + 4.2, bp.z + away.z * 10 - away.x * 3), new THREE.Vector3(bp.x, Math.max(gy + 1.6, bp.y + 0.6), bp.z), 1.4);
     await boss.evolve(phase);
+    if (!current()) return;
     g.ui.banner(`STAGE ${phase}: ${boss.stageNames[phase]}`, boss.stagePowers[phase], 2.6);
-    await wait(1300);
+    await this._pipelineDelay(1300);
+    if (!current()) return;
     const lines = BOSS_TALK[this.def.bossKey]['phase' + phase];
-    if (lines) await g.ui.say(lines);
+    if (lines && !this.remix) {
+      const dialogue = g.ui.say(lines);
+      if (isPipelineSession(this) || this.remix) this._goalIntroDialog = g.ui.dialog;
+      await dialogue;
+      if (!current()) return;
+      this._goalIntroDialog = null;
+    }
     g.camera.endCinematic();
     g.player.frozen = false;
     g.ui.bossHp(boss.hp / boss.maxHp, phase);
     // a little help: a fresh Blue Sphere each phase
     const sp = this.info.spheres?.[phase - 1];
     if (sp) { const s = new BlueSphere(this.stage, sp.x, sp.y, sp.z); s.countable = false; this.stage.add(s); }
+    // Bird/Cat retry from stage 1, so later stages must restore their own help
+    // when reached again rather than losing it at the earlier restart.
+    this._applyBossDda(phase);
     boss.stateT = 0; // the phase-change reaction (rage/roar) starts now, after the dialogue
     boss.active = true;
     boss.beginPhase?.();
+    // Final stage: begin loading the post-fight screens now, while the fight goes on.
+    if (phase === boss.stages && !this.remix && !this._victoryPreload) this._victoryPreload = preloadVictory(levelDef(this.level)?.id ?? this.level);
     this.busy = false;
   }
 
   onBossDefeated(boss) {
-    const g = this.game;
-    if (this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
+    const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, boss, epoch);
+    if (!current()) return;
+    if (this.remix) this._remixClearReached = { stage, epoch };
+    this._awardBossMedals(boss);
+    if (!this.remix && this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
     this.busy = true;
     this.projectiles.clear();
     g.player.frozen = true;
     g.ui.bossHp(0, 0);
     audio.stopMusic();
     audio.play('bossRoar');
-    if (this.def.bossKey === 'cone') g.ui.say(BOSS_TALK.cone.death);
+    if (!this.remix && this.def.bossKey === 'cone') g.ui.say(BOSS_TALK.cone.death);
+    if (!this.remix && this.def.bossKey === 'queen') { g.ui.say(BOSS_TALK.queen.death); if (isPipelineSession(this) || this.remix) this._goalIntroDialog = g.ui.dialog; }
     setTimeout(() => {
+      if (!current()) return;
       g.ui.bossHide();
       g.player.victory();
       g.camera.cinematic(g.player.pos.clone().add(new THREE.Vector3(0, 2.2, 5.5)), g.player.pos.clone().add(new THREE.Vector3(0, 1, 0)), 2);
       audio.playMusic('complete');
+      this._showBossMedals?.();
     }, 2600);
     setTimeout(() => {
-      g.ui.fade(1).then(() => g.levelCleared(this));
+      if (!current()) return;
+      g.ui.fade(1).then(() => { if (current()) this.remix ? this._finishRemix() : g.levelCleared(this); });
     }, 6200);
   }
 
   // ---------- events from entities ----------
-  onBreak() { this._pushHud(); }
-  onEnemyDefeated() {}
+  _bossContext() {
+    return { god: !!(save.data.godMode || this.game.player?.god), trial: this.trial,
+      remix: !!this.remix, rush: !!this.rush, ranked: !!this.ranked, medal: !!this.medalMode,
+      skipped: !!this.bossSkipped };
+  }
+
+  _applyBossDda(phase, resetMask = false) {
+    this.bossStageDeaths = this.bossDeaths[phase] || 0;
+    const help = bossDda(this.bossStageDeaths, this._bossContext());
+    this.boss.dda = { tele: help.tele, window: help.window };
+    if (resetMask || help.masks) this.setMask(resetMask ? help.masks : Math.max(this.mask, help.masks));
+    if (help.masks) {
+      this.bossDdaUsed = true;
+      if (this.bossRun) this.bossRun.void = true;
+    }
+  }
+
+  onPlayerHurt() {
+    if (this.phase !== 'boss' || !this.boss || this.boss.defeated) return;
+    this.boss.onPlayerHurt();
+    if (this.bossRun) this.bossRun.noHit = false;
+  }
+
+  _awardBossMedals(boss) {
+    if (!this.bossRun || boss !== this.boss) return;
+    const previous = save.data.bossMedals?.[boss.key] || {};
+    this.bossRun.noHit &&= !boss.tookHitThisFight;
+    this.bossRun.void ||= this.bossDdaUsed;
+    const record = bossMedals(boss.key, this.bossRun, previous, this._bossContext());
+    this.newBossMedals = null;
+    if (!record) return;
+    this.newBossMedals = { noHit: record.noHit && !previous.noHit, speed: record.speed && !previous.speed };
+    (save.data.bossMedals ||= {})[boss.key] = record;
+    save.write();
+  }
+
+  _showBossMedals() {
+    const earned = this.newBossMedals;
+    if (!earned || (!earned.noHit && !earned.speed)) return;
+    this.game.ui.banner(earned.noHit ? BOSS_MEDAL_TEXT.noHit : BOSS_MEDAL_TEXT.speed,
+      earned.noHit && earned.speed ? BOSS_MEDAL_TEXT.speed : '', 3);
+  }
+
+  onBreak(entity) { if (!this.def?.gauntlet) hitSessionChain(this, entity); this._pushHud(); }
+  onEnemyDefeated(entity) { if (!this.def?.gauntlet) hitSessionChain(this, entity); }
 
   addTickets(n, source) {
     n = Math.floor(Number(n));
+    if (this.def?.gauntlet) {
+      if (source !== 'gauntlet-first-clear' || n !== this._gauntletClearRaw || n !== rawTicketsForWhole(GAUNTLET_FIRST_CLEAR_TICKETS)) return;
+      this._gauntletClearRaw = 0; // Consume the goal's one-use credit before any feedback.
+    }
     if (!(n > 0)) return;
+    if (this.phase === 'level' && !this.def?.gauntlet && !SNACK_EXCLUDED.has(source)) this.snack.raw += n;
     if (source === 'coconut') {
       const capRaw = rawTicketsForWhole(COCONUT_CAP_PER_CLEAR);
       const room = capRaw - this.coconutRaw;
@@ -576,14 +898,17 @@ export class Session {
     this.game.ui.setHud('mask', n);
   }
 
-  rescueDog() {
+  rescueDog(dog) {
+    if (dog?.dogId) this.freedIds.add(dog.dogId);
     const freed = this.stage.entities.filter((e) => e instanceof ConedDog && e.freed).length;
     this.game.ui.setHud('dogs', `${freed}/${this.dogsTotal}`);
     if (freed === this.dogsTotal && this.dogsTotal > 0) this.game.ui.banner('ALL DOGS FREE!', '', 1.6);
   }
 
   checkpoint(pos, snacks) {
-    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0 };
+    this.chain.sphereGiven = false;
+    this.cp = { pos: pos.clone(), facing: this.game.player.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
+    for (const entity of this.stage.entities) if (entity.kind !== 'mystery') entity.onCheckpoint?.();
     this._lifeLineHold = false;
     this.deathsAtCp = 0;
     this.game.ui.banner('CHECKPOINT!', 'yum', 1.4);
@@ -602,8 +927,19 @@ export class Session {
 
   // ---------- death + respawn ----------
   onPlayerDeath(type) {
-    if (this.dying) return;
+    if (this.dying || this._retryAbandoned() || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    this._retirePipelineTransitions();
+    const stage = this.stage, epoch = this._lifecycleEpoch || 0;
+    const current = () => this._pipelineCurrent(stage, null, epoch) && !this._retryAbandoned() && this.stage === stage;
+    if (import.meta.env.DEV) this.game.devTuning?.death(this, type);
     this.dying = true;
+    this.onPlayerHurt(); // Includes direct pit/crusher deaths which bypass hurt().
+    if (this.phase === 'boss' && this.boss && !this.boss.defeated) {
+      const phase = this.boss.phase;
+      this.bossDeaths[phase] = (this.bossDeaths[phase] || 0) + 1;
+      this.bossStageDeaths = this.bossDeaths[phase];
+    }
+    finishSessionChain(this);
     this.deaths++;
     const g = this.game;
     this.invincibleT = 0;
@@ -613,9 +949,12 @@ export class Session {
     g.mask.setLevel(0, prevMask);
     const wait = type === 'fall' ? 1.0 : 1.5;
     setTimeout(async () => {
+      if (!current()) return;
       g.ui.deathCard(type);
-      await new Promise((r) => setTimeout(r, 1700));
+      await this._pipelineDelay(1700);
+      if (!current()) return;
       await g.ui.fade(1, 0.35);
+      if (!current()) return;
       g.ui.clearScreen();
       if (!this.trial) save.data.lives -= 1; // time trials never cost lives
       if (save.data.lives < 0) {
@@ -625,6 +964,7 @@ export class Session {
         return;
       }
       this.respawn();
+      if (!current()) return;
       this.dying = false;
       g.ui.showHud(2.5);
       await g.ui.fade(0, 0.35);
@@ -632,6 +972,10 @@ export class Session {
   }
 
   respawn() {
+    if (this._retryAbandoned() || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    finishSessionChain(this);
+    this.chain.sphereGiven = false;
+    removeChainDrops(this);
     const g = this.game;
     const cp = this.cp;
     this.deathsAtCp++;
@@ -653,43 +997,69 @@ export class Session {
     save.data.tickets = cp.tickets;
     this.levelTickets = cp.levelTickets;
     this.fieldRaw = cp.fieldRaw || 0;
+    this.snack.raw = cp.snackRaw || 0;
+    this.freedIds = new Set(cp.freedIds);
     this.coconutRaw = cp.coconutRaw || 0;
     this.projectiles.clear();
     g.fx.clear();
     g.player.spawnAt(cp.pos, cp.facing);
     if (g.player.ride) g.player.ride.speedK = 0;
+    this.stage.raftController?.restoreAtCheckpoint(cp.pos);
+    if ((isPipelineSession(this) || this.remix) && this.phase === 'boss') { g.camera.endCinematic(); this.busy = false; }
     g.camera.snap(g.player);
-    // pity mask after a few deaths at the same checkpoint (classic!)
-    this.setMask(this.deathsAtCp >= 3 ? 1 : 0);
+    // Ordinary checkpoint help follows the same ladder and mode exclusions as pity spots.
+    if (this.phase !== 'boss') {
+      this.setMask(ddaFor(this.deathsAtCp, this).masks);
+      armCheckpointPity(this);
+    }
     g.mask.snapTo(g.player);
     this._pushHud();
+    if (this.def?.gauntlet) audio.setRate(1.08);
     if (this.chase && this.stage.track) {
       const pr = this.stage.track.project(cp.pos.x, cp.pos.z);
       this.chase.begin(pr.s - 13, 1.6);
     }
     if (this.phase === 'boss' && this.boss) {
       this.boss.killMinions?.();
-      const phase = this.def.bossKey === 'cone' ? this.bossPhaseCp : 1;
+      const phase = this.boss.phaseCheckpoints === false ? 1 : this.bossPhaseCp;
       this.boss.resetToPhase(phase);
+      this._applyBossDda(phase, true);
       g.ui.bossHp(this.boss.hp / this.boss.maxHp, phase);
       this.boss.active = true;
     }
   }
 
+  // God Mode switched on mid-run (99): the run stays God-assisted even if it is switched off again.
+  markGodUsed() {
+    this.godUsed = true;
+    if (this.phase === 'boss' && this.bossRun) this.bossRun.void = true;
+  }
+
   // ---------- per-frame ----------
   update(dt) {
     const g = this.game;
-    if (!this.stage) return;
+    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    this.godUsed ||= !!save.data.godMode;
+    if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
+    if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
+      this.bossRun.t += dt;
+      this.bossClock = this.bossRun.t;
+      // Enabling God Mode for any part of a fight permanently voids this attempt.
+      if (save.data.godMode || g.player.god) this.bossRun.void = true;
+    }
     if (this.invincibleT > 0) {
       this.invincibleT -= dt;
       if (this.invincibleT <= 0) {
         this.invincibleT = 0;
-        audio.setRate(1);
+        audio.setRate(this.def?.gauntlet ? 1.08 : 1);
         this.setMask(2);
       }
     }
+    updateGauntletLook(g.player,save.data,this,dt);
     this.stage.update(dt, g.player);
     g.player.update(dt, this.stage, g.camera.basis);
+    if (import.meta.env.DEV) g.devTuning?.update(this, dt);
+    updateSessionChain(this, dt);
     if (this.rain) this._updateRain(dt);
     if (this.bonusRound && !this.busy && !g.player.dead && g.player.pos.y < this.bonusRound.R.floorY - 4) this._leaveBonusRound(false);
     if (this.trialRunning && !this.busy && !g.player.frozen && !g.player.dead && !g.ui.talking) {
@@ -722,7 +1092,7 @@ export class Session {
     g.camera.shake(0.45, 0.3);
     g.fx.ring(pos.x, pos.y, pos.z, { color: 0xffffff, radius: 2.4 });
     g.fx.puff(pos.x, pos.y + 0.1, pos.z, { count: 8, size: 0.5, color: 0xf0e8d8, speed: 4 });
-    for (const e of this.stage.entities) {
+    for (const e of [...this.stage.entities]) {
       if (e.dead || !e.onFlop || !e.interactive) continue;
       const dx = e.pos.x - pos.x, dz = e.pos.z - pos.z, dy = e.pos.y - pos.y;
       if (dx * dx + dz * dz < 2.5 * 2.5 && Math.abs(dy) < 1.6) e.onFlop(g.player);
@@ -730,6 +1100,15 @@ export class Session {
   }
 
   dispose() {
+    this.disposed = true;
+    this._retirePipelineTransitions();
+    if (ownsAsyncLifecycle(this)) {
+      this.game.ui.cancelLoading?.(this._goalLoadingToken);
+      this.game.ui.cancelSay?.(this._goalIntroDialog);
+    }
+    this._cancelGoalRain();
+    clearGauntletLook(this.game.player);
+    if (this.def?.gauntlet) audio.setRate(1);
     if (this.stage) this.stage.dispose();
   }
 }

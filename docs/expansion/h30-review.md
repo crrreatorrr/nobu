@@ -1,0 +1,65 @@
+# H30 extended L1 — approved corrections and activation
+
+The owner approved the tested H30 corrections and fixed cap205 on2026-11-04. The owner's subsequent instruction to change the game and reset timers also cleared the board-transition announcement gate, as recorded by the parent. `buildLevel1` follows `trialLayout(1)` and defaults to approved corrections in layout2. Explicit layout1 and `corrections:false` remain regression fixtures. Bird arena source remains byte-identical to merged H21; legacy ChaseCat tuning is unchanged.
+
+## Approved design and placement corrections
+
+| Source recipe | Approved correction | Reason |
+| --- | --- | --- |
+| Five packs side-by-side at d389, x−3.2/−1.6/0/1.6/3.2 | Same five lateral positions at d385/387/389/391/393 respectively; retain stack d409 | One clean forward bite/collision pass; avoid chase wall and long-stop recovery violation |
+| Three Temple blink boxes then two bounce packs without a permanent rest | Add plain permanent Lunchbox `(x0,y0,d524.25)` between blink d523 and d525.5 | Strict tier1 maximum3 timed actions before a permanent rest; raw source fails, candidate passes |
+| Six economic raw pickups over the Temple timing pit | Non-economic guide arcs in the same area | Dedicated Golden/box rule prohibits economic Ticket lines over timing pits |
+| Regular checkpoints184.5→309 and360→457 | Add Snacks `(1.2,0,248)` and `(-2.6,0,416)` | New-section maximum gap becomes63.5m within tier1's70m; preserve original old-road 97.5m gap |
+| Zoomie plate308, shutter311, open2.2s | Keep plate308, move shutter321, open1.2s; shift its three extra Tickets to322..324 | Source3m shortcut opens for ordinary Run; candidate13m requires actual12.4m/s Zoomies instead of8m/s Run within its timer |
+
+Raw placements remain available as regressions. No validator waiver or movement retune is used. Later-move extras remain non-countable and their 28 static raw pickups are excluded only from the Snack denominator, never the Ticket budget. Burrow Hidden Bone collection is locally bound to its own Dust Wall because the source 3m wall can be jumped over; countable content remains first-visit accessible.
+
+## Measured payer totals and cap decision
+
+Measured from real Stage entities and actual TicketSystem rows, including seven reserved arena pickups and the existing 15 whole coconut cap:
+
+| Source | Literal layout2 | Corrected candidate |
+| --- | ---: | ---: |
+| Static raw pickups |213|207|
+| Plain Backpack raw |262|262|
+| Zipped raw |24|24|
+| Good Boy jackpots raw |27|27|
+| Bark Rock raw |10|10|
+| Trampoline raw |10|10|
+| Two Mystery slots raw max |18|18|
+| Arena raw reserve |7|7|
+| Total raw |571|565|
+| Whole before coconut |190|188|
+| Whole maximum including coconut |205|203|
+
+The owner selected fixed cap205, which covers the corrected203whole maximum and the literal205whole maximum. The former cap131 remains an explicit negative guard in tests. The alternate221 formula is retained here as provenance, not the selected policy. Layout2 trial94/120/158/86 activation, Classic migration, metadata and budget declarations are integrated together. Hub uploads stay on layout1 until matching live deployment is explicitly confirmed; this approval does not authorize a deployment.
+
+## Implementation and verification status
+
+The shared Chaser now accepts explicit absolute 9m/s cap and 2m catch distance with old defaults preserved. L1's local adapter uses 6.4m/s close speed, warning camera at 361, activation 363, 1.6s wait 13m behind the checkpoint, chase end 414 and camera restoration 416. Its coconut uses CoconutRoller's actual 0.45m primitive at 5× scale (radius 2.25m), rather than multiplying the generic giant mesh by5 again.
+
+Waterfall Hollow uses the actual Session bonus-round entry/exit snapshot and rollback contract; loss returns to its entry, success to its exit. Its skipped main countables remain on the reversible altar floor; shared validation establishes that narrow contract. Additional real collision tests prove the exit-to-critical floor route, lateral approaches around the Cat/stack, and the guaranteed Bone Switch stairs to the upper dog and Zipped Backpack. No detour-validator bypass has been added locally.
+
+Focused tests cover layout1 preservation, exact 540 trigger / 547 end (539m from spawn), measured225.28m added spline length, nine stable dogs, ungated countables, original-main lighting, strict box raw-fail/candidate-pass proofs, actual forward chase pack collision, supported checkpoint positions, actual local Coconut lifecycle and actual Session raised-round rollback. Actual curved receiver landings and the Burrow mushroom exit using the basic double jump are checked. Browser/manual checks and final integrated suite remain pending. No full first-time playthrough, natural Golden clear or final trial timing is claimed.
+
+The Zoomie timer proposal concerns opening and crossing its authored side lane. The source floor remains open around the narrow shutter; no enclosure or absolute collection lock for its extra Tickets is claimed or added.
+
+## Review fixes and assisted browser evidence
+
+The authored boss-gate trigger is540, visual gate538 and END547. With spawn1, the trial path is539m; the earlier shorthand “gate539” confused path distance with the trigger coordinate. No owner design change is needed for this arithmetic correction.
+
+Independent review found a retry lock after a successful Hollow visit followed by death before checkpoint509. Local `onRespawn` now preserves the shared detour reset and clears `used`: restored dogs/Mystery/1UP can be revisited. An actual Session success→respawn at checkpoint457→reentry regression passes.
+
+Assisted Chromium checks on gameplay commit4ad1ff4 passed: camera warning/activation/deferred restoration,13m pursuer head start and1.6s delay,2.25m coconut radius, visible grey/caged Burrow reward rejecting collection before the real save-backed Dust unlock, actual Dust contact opening it, Hollow loss/keep returns and successful-visit→death→reward restoration→reentry. No page errors or external writes occurred. Evidence: `/tmp/nobu-h30-browser-results.json`. Chromium and its local Vite server were closed after the bounded run. Screenshots of Canopy, Burrow, Hollow and Temple were inspected; they show the new areas and player framing. The first harness run had two bookkeeping/setup errors, corrected before the passing recheck.
+
+These checks use assisted placement and direct real runtime APIs. They do not constitute a full input recording, natural first-visit Golden clear, calibrated death-rate test, or verified trial medal times. Those manual checks remain unrun.
+
+The trench-wall calls were corrected for StaticPlatform's top-height API: top0/depth4.5, so the authored4.5m walls stand above the floor instead of being buried beneath it. The source's6m narrow rotated solids produce oversized axis-aligned collision boxes and block the curved trench near d229.48. The corrected candidate fits the same228..258 corridor with1m pieces, retaining widths0.6/0.5 and top/depth/extents. The literal long-box collision remains a negative regression; the same corridor with short boxes permits falling through the opened old pocket, walking into the Burrow and using the mushroom plus basic double jump onto the right lane. This is an equivalent collision fit, not a new corridor or owner design choice.
+
+Activation follow-up: rebased onto main1635ac8 before canonical selection. Subsequent root configuration and bonus-stage integration require final current-main tests/build/CI; prior614-test and browser evidence remains explicitly tied to its recorded source commits.
+
+## Final H33-main integration verification
+
+Rebased onto H33 main86a2f645c23882757c6fa248007c8046cd03474c, preserving bonus builders/metadata, Titan/Dust Dash and mastery. Approved shared activation selects L1 layout2, cap205, exact measured budget and nine stable dog identities; current shipped total is25 and current base points50. Historical17-dog fixtures remain explicit and the synthetic complete fixture remains54. HUB_LAYOUT1 remains1.
+
+`npm ci` passed. On frozen runtime4b4a567 / fixture headf8625d6, all760tests across74files passed and the production build passed with142modules (the existing size notice remains). Vitest emitted one exchange-worker shutdown timeout but exited0 with every test passing; an isolated exchange rerun passed8/8 without the shutdown warning. The new raised Mystery tests retain Classic placement checks separately and prove actual seeded Cat escape within its3s fuse from both current optional raised slots. No further production edits occurred during verification.

@@ -1,15 +1,38 @@
+import { addMoonReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[3]]);
+import { trialLayout } from '../config/trials.js';
+import { POLAROID_SPOTS } from './data/gauntlets.js';
+import { L3_MOVES, L3_MOVES_V2, L3_LAYOUT2_INFO, L3_SECTIONS } from './data/l3-layout.js';
+import { shiftedFactoryKit, addFactoryExtension } from './level3Extension.js';
+import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['3'];
 // Level 3: the Cone Factory — a short, hard, twisting route through the factory. Every enemy and breakable type,
 // conveyors, crushers, swinging cone hammers, an updraft fan, a Bone Switch bridge and a belly-flop secret.
 import * as THREE from 'three';
 import { makeKit, makeTrack, turtle } from './kit.js';
 import { rand, pick } from '../core/util.js';
+import { buildConeArena } from '../bosses/coneArena.js';
 
-export function buildLevel3(game, stage, tickets) {
-  const track = makeTrack(stage, turtle([0, 0, 10], [
-    [22, 0, 0], [22, 38, 0], [24, 0, 0], [22, -48, 0], [22, 0, 1.2], [24, 40, 0], [20, 0, 0], [22, -42, -1.2],
-    [22, 0, 0], [22, 34, 1], [22, 0, 0], [24, -30, 0], [24, 0, 0],
-  ]));
-  const k = makeKit(game, stage, tickets, track);
+export function buildLevel3(game, stage, tickets, { layout = trialLayout(3) } = {}) {
+  return buildFactory(game, stage, tickets, layout === 2);
+}
+
+// Explicit layout-2 entry point for geometry and feasibility checks.
+export function buildLevel3Layout2(game, stage, tickets) {
+  return buildFactory(game, stage, tickets, true);
+}
+export { L3_LAYOUT2_INFO };
+
+function buildFactory(game, stage, tickets, extended = false) {
+  const track = makeTrack(stage, turtle([0, 0, 10], extended ? L3_MOVES_V2 : L3_MOVES));
+  const rawKit = makeKit(game, stage, tickets, track);
+  const k = extended ? shiftedFactoryKit(rawKit) : rawKit;
+  if (extended) for (const [d0,d1,key] of L3_SECTIONS) rawKit.section(d0,d1,SECTION_TEXT[key]);
+  else installSections(k, '3', SECTION_TEXT);
   const END = 252;
   const H = 3.4;
   k.walls([[-8, 4.3, 4.3, H], [47, 4.3, 4.3, H], [48.5, 2.1, 2.1, H], [65.5, 2.1, 2.1, H], [67, 4.3, 4.3, H],
@@ -20,6 +43,8 @@ export function buildLevel3(game, stage, tickets) {
 
   // --- intake hall ---
   F(-8, 22);
+  // TODO H32: relocate into the extended factory side paths.
+  k.mystery(-3.1, 0, 15);
   k.packs([[-2.6, 6], [2.6, 6]]);
   k.tut(8, 'vacuum');
   k.vacuum(0, 0, 12, { range: 3, speed: 4 });
@@ -42,8 +67,9 @@ export function buildLevel3(game, stage, tickets) {
   k.crusher(0, 0, 56, { w: 4, d: 2.4, phase: 0.9 });
   k.crusher(0, 0, 61, { w: 4, d: 2.4, phase: 1.8 });
   k.tix(0, 0, 49.5, 0, 0, 63, 7);
-  k.dog(-3.2, 0, 68, 'pug');
+  k.dog(-3.2, 0, 68, 'pug').dogId = '3:pug-a';
   k.lunch(-2.8, 0, 65.5);
+  k.polaroid(...POLAROID_SPOTS.g2, 'g2');
   k.snacks(1.5, 0, 69.5);
 
   // --- troopers, drones and the rug/cat puzzle ---
@@ -58,7 +84,7 @@ export function buildLevel3(game, stage, tickets) {
   k.packs([[0.4, 92.6], [1.9, 93.5]]);
   k.sphere(-2.9, 0, 95.5);
   k.knight(-0.5, 0, 96.5, { range: 0 });
-  k.dog(2.9, 0, 96.5, 'dalmatian');
+  k.dog(2.9, 0, 96.5, 'dalmatian').dogId = '3:dalmatian-a';
   k.tix(2.8, 0, 72, 2.8, 0, 84, 5);
 
   // --- crumbling catwalk ---
@@ -87,14 +113,14 @@ export function buildLevel3(game, stage, tickets) {
   k.fan(-2.6, 0, 150, { height: 7 });
   k.platform(-2.6, 5.4, 155.5, 3, 5.5);
   k.oneUp(-2.6, 5.4, 157.4);
-  k.dog(-2.1, 5.4, 154.2, 'corgi');
+  k.dog(-2.1, 5.4, 154.2, 'corgi').dogId = '3:corgi-a';
   k.pack(-3.5, 5.4, 155.8, 5);
   k.colorBone(-1.7, 5.4, 156.6, 'blue');
   k.barkRock(2.9, 0, 152);
   k.vacuum(0.8, 0, 160, { range: 2.6, speed: 5 });
   k.spiky(1.8, 0, 163.5, { range: 0 });
   k.vacuum(0.8, 0, 166.5, { range: 2.6, speed: 5 });
-  k.dog(3.3, 0, 169.5, 'shiba');
+  k.dog(3.3, 0, 169.5, 'shiba').dogId = '3:shiba-a';
   k.shellback(-1.2, 0, 170, { range: 1.4 });
 
   // --- second crusher pair + lint roller ---
@@ -114,6 +140,7 @@ export function buildLevel3(game, stage, tickets) {
 
   // --- final stretch + belly flop secret ---
   F(206, 218);
+  k.mystery(-3.2, 0, 209);
   F(218, 222, { x: 1.8, w: 5 });
   F(222, END);
   k.cracked(-2.5, 0, 220, { w: 3.6, d: 4 });
@@ -121,7 +148,7 @@ export function buildLevel3(game, stage, tickets) {
   k.oneUp(-3.1, -4.5, 219);
   k.mushroom(-1.9, -4.5, 221.2, { power: 17 });
   k.tixRing(-2.5, -4.5, 220, 1.0, 6);
-  k.dog(-3, 0, 212, 'dalmatian');
+  k.dog(-3, 0, 212, 'dalmatian').dogId = '3:dalmatian-b';
   k.goodBoy(204, [[3.3, 1.2, 207.5, 1.4, 1.8], [3.3, 2.4, 210.3, 1.4, 1.8], [3.3, 3.6, 214.5, 1.8, 3.6]]);
   k.snacks(1.5, 0, 214.5);
   k.pill(0, 0, 226, { range: 2 });
@@ -133,16 +160,23 @@ export function buildLevel3(game, stage, tickets) {
   k.gate(243, 'THE EVIL CONE', 0x8a1a3a);
   k.trigger(245, () => game.session.reachBossGate());
 
+  if (extended) addFactoryExtension(rawKit, game, stage, tickets, track);
+  if (extended) { addMoonReturnExtras(rawKit,stage,3); }
+
   // --- decor ---
-  k.banks(-6, END, (x, y, d) => {
+  const decorEnd = extended ? 427 : END;
+  k.banks(-6, decorEnd, (x, y, d) => {
     const r = Math.random();
     if (r < 0.32) k.pipe(x, y, d, rand(4, 9));
     else if (r < 0.55) k.vat(x, y, d, rand(1.2, 1.8));
     else if (r < 0.66) k.vent(x, y, d);
     else k.cones(x, y, d, Math.floor(rand(2, 5)));
   }, { every: 4.5 });
-  k.edges(-4, END, (x, y, d) => k.cones(x, y, d, Math.floor(rand(1, 3))), { every: 6 });
-  for (let d = 4; d < END; d += 12) k.bgDog(pick([-1, 1]) * rand(5.6, 6.6), H, d, { height: 1.0, cage: true });
+  k.edges(-4, decorEnd, (x, y, d) => k.cones(x, y, d, Math.floor(rand(1, 3))), { every: 6 });
+  for (let d = 4; d < decorEnd; d += 12) k.bgDog(pick([-1, 1]) * rand(5.6, 6.6), H, d, { height: 1.0, cage: true });
+
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  placeHiddenBone(k, game, stage, -2.4, 0, 68);
 
   return {
     spawn: k.W(0, 0, 1),
@@ -153,7 +187,7 @@ export function buildLevel3(game, stage, tickets) {
 
 export function buildBoss3Arena(game, stage, tickets) {
   const k = makeKit(game, stage, tickets);
-  stage.block(-13, -6, -13, 13, 0, 13, 'ground');
+  const pieces = buildConeArena(stage);
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     const r = 20;
@@ -165,6 +199,7 @@ export function buildBoss3Arena(game, stage, tickets) {
   for (const [x, z] of [[-14, -14], [14, -14], [-14, 14], [14, 14]]) stage.block(x - 1, -6, z - 1, x + 1, 9, z + 1, 'wall', { solid: false });
   k.tix(-6, 0, -9, 6, 0, -9, 7);
   return {
+    ...pieces,
     spawn: new THREE.Vector3(0, 0, 9),
     facing: Math.PI,
     camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 12.5, z: 16.5 }, follow: 0.45 },

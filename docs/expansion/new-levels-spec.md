@@ -1,3 +1,5 @@
+> Source imported from `crrreatorrr/nobu` commit `fb95a0a8072ebd02202e4b3d045e4e609b335829`, `docs/expansion/new-levels-spec.md` (verified SHA-256 `1a364587058460a9882a0e97b39805d79a3d97543cf71fffc9ef47375af4e137`). H40 records approved corrections in§3.7a/3.8 and the measured tally in§3.12; other sections retain the verified source wording and may describe future work.
+
 # New levels spec: kit helpers, Level 4 (Laundry Day) and Level 5 (Pump & Dump Pipeline)
 
 Status: **spec only.** No game code has changed. This file adds implementation detail to
@@ -950,7 +952,7 @@ A dark descent, with the green bone and the two alcoves.
   k.fallBox(-0.6, 1.0, 355.0);
   k.slideBox(0, 1.0, 358.4, { axis: 'x', range: 1.6, speed: 1.5 });
   k.blinkBox(-1.0, 1.4, 361.8, { on: 1.0, off: 1.0, phase: 1.1, group: 'cereal' });
-  for (const [x, y, d] of [[-1.2, 0, 348.2], [1.0, 0.6, 351.6], [-0.6, 1.0, 355.0], [0, 1.0, 358.4], [-1.0, 1.4, 361.8]]) k.tix(x, y + 0.6, d, x, y + 0.6, d, 1);
+  for (const [x, y, d] of [[-1.2, 0, 348.2], [1.0, 0.6, 351.6], [-0.6, 1.0, 355.0], [0, 1.0, 358.4], [-1.0, 1.4, 361.8]]) k.guideArc(x, y + 0.6, d, x, d, 0, 1);
   F(365, 404);
   k.shellback(0, 0, 368, { range: 1.6 });
   k.dustBunny(-1.6, 0, 372, { range: 1.6 }); k.dustBunny(1.6, 0, 373, { range: 1.6 });   // harder pass: a pair
@@ -967,7 +969,7 @@ A dark descent, with the green bone and the two alcoves.
   k.barkRock(4.8, 0, 384, { prize: 'tickets', tickets: 15 });
   k.dog(5.4, 0, 387.5, 'corgi');                                   // dog 5
   k.sphere(0, 0, 394);
-  k.tix(0, 0, 359, 0, 0, 369, 5);
+  k.guideArc(0, 0, 359, 0, 369, 1, 5);
   k.tix(0, 0, 378, 0, 0, 392, 5);
 ```
 
@@ -975,6 +977,27 @@ A dark descent, with the green bone and the two alcoves.
 - **The right alcove is 2.2 m wide** (x 3.9–6.1, wall at 6.1). The Bark Rock covers x 3.75–5.85, which
   leaves 0.25 m, too narrow for Nobu (body width about 0.7 m). Check this in play. If he squeezes past,
   move the rock to x 5.0.
+
+### 3.7a Approved implementation correction: sealed Cereal lane
+
+The owner requires timing boxes and authorized the necessary tested local geometry.
+The five boxes retain their original coordinates. `buildCerealLane(stage,track)`
+adds a visible cutaway cabinet, tiled collision surfaces, cross-baffles at the
+landing corridors, and an upper end closure that blocks approaching over the roof
+from the6m green-bone shelf. Its exit threshold atd364.3 is2.8m above the final
+BlinkBox's standing surface, with1.5m of headroom. Use the existing Double Jump to
+reach it; the Story-owned DOUBLE/JUMP sign marks this launch. The floor and dog
+behind it remain in place. No movement ability is disabled.
+
+The cabinet replaces the complete Glide bypass; it adds no countable or economic
+source. The live route and trial timing, a twelve-frame starting window, paid-move
+bypass searches, high-shelf approach and safe roof return are checked in
+`tests/cereal-lane.test.js`. See `h40-review.md` for final evidence and manual limits.
+
+The owner also approved three Boiler corrections below: pity409→407.5 on existing
+ground; the first final arrow at438.2 becomes a permanent Lunchbox rest; and the
+last FallBox warning increases0.35→0.40s. These correct actual support and tier4
+rest/warning failures while leaving movement tuning unchanged.
 
 ### 3.8 Section 7 (new, hardest): Boiler Room (d 400–470), Box Gauntlet G2
 
@@ -992,21 +1015,22 @@ climb with no other route, under a rising flood of hot water. It ends with a lon
   k.camZone(408, 448, 'rise', { dist: 9.5, height: 2.2, lookUp: 3.0 });
   // the flood: starts when you enter at 408, rises 0.6 m/s from -3 to +8, drains once you pass 457
   k.rising(408, 457, { y0: -3, y1: 8, rate: 0.6, trigger: 'enter' });
-  k.pitySnacks(0, 0, 409);                                         // gauntlet start
+  k.pitySnacks(0, 0, 407.5);                                         // gauntlet start
   k.arrowChain([[0, 0, 410.5], [0, 4.2, 415.0], [0, 8.0, 419.5]], { power: 16 });   // up the boiler pipes
   k.platform(2.6, 4.6, 415.5, 1.8, 1.8); k.dog(2.6, 4.6, 415.5, 'shiba');      // dog 7: a side pipe off chain box 2
   k.blinkBox(0, 8.4, 423.0, { on: 1.0, off: 0.9, group: 'boil' });
   k.slideBox(0, 8.4, 426.5, { axis: 'x', range: 1.6, speed: 1.7 });
   k.fallBox(0, 8.8, 430.0, { delay: 0.4 });
   k.bounceChain([[0, 8.6, 432.8], [0, 10.4, 435.6]]);              // 2 backpacks: each bounce breaks one
-  k.arrowChain([[0, 11.0, 438.2], [0, 12.6, 441.0]], { power: 16 });
+  k.lunch(0, 11.0, 438.2); // approved permanent rest
+  k.arrowChain([[0, 12.6, 441.0]], { power: 16 });
   k.blinkBox(1.0, 12.6, 444.4, { on: 1.0, off: 0.9, phase: 1.0, group: 'boil' });
-  k.fallBox(-0.6, 12.6, 447.8, { delay: 0.35 });
+  k.fallBox(-0.6, 12.6, 447.8, { delay: 0.40 });
   k.zipline(0, 14.2, 449.5, 0, 1.4, 459.5);                        // the long line down to the gate floor
   F(457.5, 492);
-  k.tixArc(0, 0.5, 410.5, 0, 415, 4.5, 4);
-  k.tixArc(0, 4.2, 415, 0, 419.5, 4.5, 4);
-  k.tix(0, 8.8, 423, 0, 9.2, 430, 4);
+  k.guideArc(0, 0.5, 410.5, 0, 415, 4.5, 4);
+  k.guideArc(0, 4.2, 415, 0, 419.5, 4.5, 4);
+  k.guideArc(0, 8.8, 423, 0, 430, 0.4, 4);
   k.tix(0, 12.45, 451, 0, -0.15, 458.5, 5);
   k.packs([[-2.4, 464], [2.4, 466]]);
   k.gate(476, 'ROOMBA TITAN', 0x3a3d44);
@@ -1144,30 +1168,46 @@ function buildPantry(kd) {
 
 ### 3.12 Level 4 tally
 
-| | Main path | Detour A | Detour B | Total |
-| --- | --- | --- | --- | --- |
-| Backpacks (plain) | 31 | 2 | 4 | 37 |
-| Zipped / Mystery | 0 / 2 | 1 / 0 | 1 / 1 | 2 / 3 |
-| Blue Sphere / 1UP / Snacks | 3 / 0 / 6 | 0 / 1 / 1 | 0 / 1 / 0 | 3 / 2 / 7 |
-| Cat / Rug | 1 / 2 | 0 | 1 / 0 | 2 / 2 |
-| **Countable breakables** | **45** | **5** | **8** | **58** |
-| Dogs | 6 (1–5, 7) | 1 (dog 6) | 0 | **7** |
-| Raw line tickets | 103 | 18 | 12 | **133** |
-| Pack tickets (about 3 each; Zipped 8 / 6) | ~93 | ~14 | ~18 | ~125 |
-| Jackpots | Good Boy 15, Bark Rock 15, colored path none | | | 30 |
-| Checkpoints | 5 Snacks (48.5, 181, 248, 333, 403) + 8 pity spots | 1 | 0 | |
+Recounted from the actual H40 builder (`src/levels/level4.js`) and its entities. The
+original recipe's guide Tickets over timing pits are non-paying `guideArc` markers,
+following `box-gauntlets-spec.md` Golden Bone rule9. Cookie Jar contents remain in
+the main-path column. The unshipped builder's optional Boiler rest/tell corrections
+are pending owner approval; they do not change this economic tally.
 
-- Max checkpoint spacing on the main path is now 132.5 m (d 48.5 → 181), past the tier 4 guide of 95 m on
-  purpose (harder pass, 3.0a). Every other gap is within 95 m.
-- **The tally rows above are from before the harder pass and the gauntlets.** Main path changes: −3 crumble
-  ticket lines become 5 box tickets (+2 raw); +2 backpacks from the Boiler bounce chain; −2 packs on the
-  dropped valve platform; −1 Snacks. Countable main-path breakables stay at **45**. Re-count from the level
-  file when it is written.
-- The Cookie Jar round's 5 backpacks and 9 tickets are in the main-path column. Its Snacks-less
-  platforms follow the Treat Tray rules.
-- **For the rewards spec:** the maximum raw pickups in one clear is about 133 + 125 + 30 + the Cookie
-  Jar's 9, about **297 raw**, about **99 whole Tickets** before the coconut cap. Oranges add up to 15
-  whole (`COCONUT_CAP_PER_CLEAR`). `rewards-spec.md` sets the cap.
+| Source | Main path | Detour A | Detour B | Total |
+| --- | --- | --- | --- | --- |
+| Ordinary Backpacks (including5Cookie Jar packs) |33|2|3|38|
+| Bounce-chain Backpacks (1raw each) |2|0|0|2|
+| Zipped Backpacks / Mystery Backpacks |0/2|1/0|1/1|2/3|
+| Blue Sphere / authored1UP / Snacks |3/0/5|0/1/1|0/1/0|3/2/6|
+| Cat / Rug |1/2|0/0|1/0|2/2|
+| **Countable breakables** |**48**|**5**|**7**|**60**|
+| Dogs |6|1|0|**7**|
+| Authored static raw Tickets |91|18|12|**121**|
+| Worst-case ordinary/bounce pack raw Tickets |167|10|15|**192**|
+| Zipped raw Tickets |0|8|6|**14**|
+| Worst-case Mystery raw Tickets |18|0|9|**27**|
+| Good Boy jackpot / Bark Rock raw Tickets |15/15|0/0|0/0|**30**|
+| Authored checkpoint Snacks |5|1|0|**6**|
+| Pity spots |8|0|0|**8**|
+
+- Main checkpoint distances remain48.5,181,248,333,403. The132.5m gap is the explicit
+  harder-pass exception in3.0a; all other main gaps are within95m. Top Shelf adds its
+  own checkpoint at146.6(relative+9.5m). Pity spots are not ordinary checkpoints.
+- The Good Boy Route additionally spawns its non-countable1UP when claimed; that
+  runtime reward does not add a Golden Bone requirement or Ticket payout.
+- Field sources total384raw before the arena. H41 reserves at most7arena raw
+  pickups, giving391raw, or130whole from the shared raw remainder. Oranges use the
+  separate existing15whole Coconut allowance, so the measured maximum is**145whole**.
+- The approved fixed Level4cap remains**184whole**, independently declared in
+  `config/tickets.js`. An added121raw payer makes the measured maximum185whole and
+  must fail the guard; the cap never grows to match an edit.
+- This is a worst-case source measurement, independent of random pack rolls. The
+  literal recipe before replacing pit guide Tickets measures143field raw and
+ 152whole including the same arena reserve and Coconut allowance.
+- The owner approved the Boiler rest/warning corrections and pity relocation409→407.5,
+  and required the sealed Cereal lane in3.7a. Simulations do not establish manual
+  Golden Bone completion or first-time playtest acceptance.
 
 ---
 

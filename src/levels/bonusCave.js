@@ -1,3 +1,14 @@
+import { addMoonReturnExtras } from './moonReturnRoutes.js';
+import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
+export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES['cave']]);
+import { BONUS_BUDGETS_V2, CAVE_SPLICES, CAVE_MOVES_V2, shiftedBonusKit, CAVE_NESTS_V2 } from './data/bonus-layout2.js';
+import { buildCaveExtension } from './bonusExtension.js';
+import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['cave'];
+export const BUDGET_V2 = BONUS_BUDGETS_V2.cave;
 // Bonus stage: Glowworm Grotto. Pitch dark; Lumi the glowworm lights a circle around Nobu and fades over
 // time. When the glow runs out Lumi waits at the next glow nest, a faint beacon in the dark.
 // Shellbacks, Lid Knights, steel lunchbox stepping stones, arrow launches and crumbling ledges.
@@ -6,11 +17,16 @@ import { makeKit, makeTrack, turtle } from './kit.js';
 import { Glowworm } from '../entities/glowworm.js';
 import { rand, pick } from '../core/util.js';
 
-export function buildBonusCave(game, stage, tickets) {
-  const track = makeTrack(stage, turtle([0, 0, 0], [
+export const buildBonusCave = (game, stage, tickets) => buildLayout(game, stage, tickets, false);
+export const buildBonusCaveCandidate = (game, stage, tickets, options = {}) => buildLayout(game, stage, tickets, true, options);
+
+function buildLayout(game, stage, tickets, candidate, options = {}) {
+  const track = makeTrack(stage, turtle([0, 0, 0], candidate ? CAVE_MOVES_V2 : [
     [36, 0, 0], [30, -16, -1], [30, 20, 0.6], [30, -12, -0.8], [30, 16, 0], [30, -20, 1], [30, 12, 0], [30, 0, -0.6], [24, 0, 0],
   ]));
-  const k = makeKit(game, stage, tickets, track);
+  const raw = makeKit(game, stage, tickets, track);
+  const k = candidate ? shiftedBonusKit(raw, CAVE_SPLICES) : raw;
+  installSections(k, 'cave', SECTION_TEXT);
   const END = 252;
   const HALF = 4.3, W = HALF * 2;
   const F = (a, b, o = {}) => k.floor(a, b, { w: W, ...o });
@@ -31,7 +47,7 @@ export function buildBonusCave(game, stage, tickets) {
   k.knight(0, 0, 50, { range: 2.2 });
   k.barkRock(3, 0, 88, { prize: 'tickets', tickets: 15 });
   k.pack(-2.8, 0, 54);
-  k.dog(-3, 0, 58, 'pug');
+  k.dog(-3, 0, 58, 'pug').dogId = 'cave:pug-a';
   // crumbling ledges and a steel step over the first pit
   k.crumble(-1.2, 0, 65, { w: 2.6, d: 2.6 });
   k.crumble(1.2, 0, 68.5, { w: 2.6, d: 2.6 });
@@ -56,7 +72,7 @@ export function buildBonusCave(game, stage, tickets) {
   k.arrowBox(-2.6, 0, 158, 16);
   k.tixRing(-2.6, 4.2, 158, 1.1, 8);
   k.colorBone(-2.6, 3.2, 158, 'red');
-  k.dog(3, 0, 164, 'shiba');
+  k.dog(3, 0, 164, 'shiba').dogId = 'cave:shiba-a';
   k.drone(0, 1.2, 172, { range: 2.8 });
   // lunchbox stepping stones over a pit
   F(195, END + 1);
@@ -74,6 +90,9 @@ export function buildBonusCave(game, stage, tickets) {
   k.gate(243, 'EXIT', 0x3ec46d);
   k.trigger(245, () => game.session.reachGoal());
 
+  if (candidate) buildCaveExtension(raw, game, stage, options);
+  if (candidate) { addMoonReturnExtras(raw,stage,'cave'); }
+
   // ---- decor: glowing crystals and stalagmites ----
   const crystalMats = [0x7af0ff, 0xb08aff, 0x8affc8].map((c) => new THREE.MeshBasicMaterial({ color: c }));
   const crystal = (p, s) => {
@@ -88,14 +107,22 @@ export function buildBonusCave(game, stage, tickets) {
     g.position.copy(p);
     stage.scene.add(g);
   };
-  k.banks(4, END, (x, y, d) => {
-    if (Math.random() < 0.45) crystal(k.W(x, y, d), rand(1, 1.8));
-    else k.rock(x, y, d, rand(0.9, 1.8), 0x3a2e4a, { strata: true });
+  raw.banks(4, candidate ? 380 : END, (x, y, d) => {
+    if (Math.random() < 0.45) crystal(raw.W(x, y, d), rand(1, 1.8));
+    else raw.rock(x, y, d, rand(0.9, 1.8), 0x3a2e4a, { strata: true });
   }, { every: 6 });
-  k.edges(4, END, (x, y, d) => (Math.random() < 0.4 ? crystal(k.W(x, y, d), 0.6) : k.rock(x, y, d, rand(0.3, 0.6), 0x2e2440)), { every: 5 });
+  raw.edges(4, candidate ? 380 : END, (x, y, d) => (Math.random() < 0.4 ? crystal(raw.W(x, y, d), 0.6) : raw.rock(x, y, d, rand(0.3, 0.6), 0x2e2440)), { every: 5 });
 
-  const worm = new Glowworm(stage, track, [2, 60, 118, 176, 226]);
+  const worm = new Glowworm(stage, track, candidate ? CAVE_NESTS_V2 : [2, 60, 118, 176, 226]);
+  if (candidate) {
+    const hollow = worm.nests.find(n => n.d === 271);
+    hollow.pos.copy(raw.W(-2.4, -4.5, 271));
+    hollow.glow.parent.position.copy(hollow.pos);
+  }
   stage.add(worm);
+
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  if (!candidate) placeHiddenBone(k, game, stage, -2.2, 0, 58);
 
   return {
     spawn: k.W(0, 0, 3),

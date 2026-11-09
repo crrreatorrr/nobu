@@ -1,8 +1,15 @@
+import { placeHiddenBone } from '../entities/hiddenBone.js';
+import { installSections } from './sections.js';
+import { SECTION_TEXT } from '../story/script.js';
+import { LEVEL_BUDGETS } from './data/budgets.js';
+export const BUDGET = LEVEL_BUDGETS['2'];
 // Level 2: Scratchpost Canyon — the Big Cat chase along a winding canyon. Camera faces Nobu.
 // Pits, logs, backpack walls, rugs, yarn, a crumbling bridge, a curving plank bridge and a mushroom launch.
 import * as THREE from 'three';
+import { CatArena } from '../bosses/catArena.js';
 import { makeKit, makeTrack, turtle } from './kit.js';
 import { ChaseCat } from '../bosses/bigCat.js';
+import { L2_CHASE_BREAKABLES, L2_CHASE } from './data/l2-chase.js';
 import { rand, pick } from '../core/util.js';
 
 export function buildLevel2(game, stage, tickets) {
@@ -10,6 +17,7 @@ export function buildLevel2(game, stage, tickets) {
     [50, 0, 0], [30, 18, 0], [30, -22, -1], [30, 14, 0], [30, -18, 0.8], [30, 22, 0], [30, -14, -0.8], [30, 10, 0], [30, -18, 0], [30, 0, 0], [24, 0, 0],
   ]));
   const k = makeKit(game, stage, tickets, track);
+  installSections(k, '2', SECTION_TEXT);
   // track d=0 is 30m into the curve; content below is authored from d=30 onward
   const O = 30;
   const D = (d) => d + O;
@@ -20,41 +28,35 @@ export function buildLevel2(game, stage, tickets) {
   k.backstop(0);
   k.backstop(END);
   const log = (d) => k.log(D(d), { w: W });
-  const packWall = (d, gap = false) => { for (const x of [-3.6, -1.8, 0, 1.8, 3.6]) if (!(gap && x === 0)) k.pack(x, 0, D(d)); };
   const F = (a, b, o = {}) => k.floor(D(a), D(b), { w: W, ...o });
 
   F(-30, 36);
   k.tix(0, 0, D(4), 0, 0, D(14), 5);
   log(18);
   k.tix(-2.5, 0, D(21), -2.5, 0, D(26), 3);
-  packWall(29);
   k.tixArc(0, 0, D(34.5), 0, D(41.5), 2.2, 5);
   F(40, 64);
   k.tut(D(44), 'mouse');
   k.mouse(0, 0, D(48), { range: 3.4, speed: 4 });
-  k.rug(-2.9, 0, D(56)); k.rug(2.9, 0, D(56));
   k.tix(0, 0, D(51), 0, 0, D(60), 5);
-  k.dog(-3.6, 0, D(60.5), 'corgi');
+  k.dog(-3.6, 0, D(60.5), 'corgi').dogId = '2:corgi-a';
   k.tixArc(0, 0, D(62.5), 0, D(70.5), 2.6, 6);
   F(69, 120);
+
   k.tut(D(76), 'yarn');
   k.yarn(0, 0, D(80), { range: 3.2, speed: 4.4 });
   log(88);
   k.tix(2.5, 0, D(90), 2.5, 0, D(94), 3);
-  k.snacks(0, 0, D(97));
-  k.cat(2.9, 0, D(108));
   k.barkRock(-3.3, 0, D(100), { prize: 'tickets', tickets: 15 });
   k.tix(-2.6, 0, D(103), -2.6, 0, D(112), 5);
-  packWall(114, true);
   k.pill(0, 0, D(118), { range: 2.8 });
   k.tixArc(0, 0, D(119), 0, D(127), 3.6, 7);
   F(126, 160);
-  k.sphere(0, 0, D(130));
   // blue bone path (the blue bone is up on the fan catwalk in the Cone Factory)
   k.colorPath('blue', [[3.4, 1.4, D(132), 1.6, 1.8], [3.4, 2.8, D(135), 1.6, 1.8], [3.2, 4.2, D(138.5), 2.2, 3]], { jackpot: 15 });
   k.mouse(0, 0, D(138), { range: 3.4, speed: 5 });
-  k.dog(3.6, 0, D(146), 'pug');
-  k.rug(0, 0, D(152)); k.rug(-3, 0, D(152));
+  k.dog(3.6, 0, D(146), 'pug').dogId = '2:pug-a';
+
   k.tix(2.8, 0, D(148), 2.8, 0, D(156), 5);
 
   // crumbling bridge: don't stop running!
@@ -63,7 +65,6 @@ export function buildLevel2(game, stage, tickets) {
   k.crumble(-0.5, 0, D(167.6), { w: 3.2, d: 2.8 });
   for (const [x, d] of [[-1.5, 161.6], [1, 164.6], [-0.5, 167.6]]) k.tix(x, 0.2, D(d), x, 0.2, D(d), 1);
   F(169.5, 200);
-  k.snacks(0, 0, D(173));
   k.yarn(-2.5, 0, D(181), { range: 3.2, speed: 5 });
   k.yarn(2.5, 0, D(189), { range: 3.2, speed: 5 });
   k.tix(0, 0, D(176), 0, 0, D(192), 7);
@@ -76,18 +77,21 @@ export function buildLevel2(game, stage, tickets) {
   k.warp(D(222.5), D(227.5), -4.6, -2.3, 'cave');
   k.tixArc(0, 2, D(221), 0, D(229), 3.5, 7);
   F(228, 262);
-  k.dog(-3.6, 0, D(236), 'shiba');
+  k.dog(-3.6, 0, D(236), 'shiba').dogId = '2:shiba-a';
   k.pill(0, 0, D(242), { range: 3 });
-  k.stack(-3.6, 0, D(246), 2);
-  packWall(250);
   log(256);
   k.tixArc(0, 0, D(261), 0, D(268), 2.6, 6);
   F(267, 316);
   k.mouse(0, 0, D(275), { range: 3.4, speed: 5.5 });
   k.tix(0, 0, D(279), 0, 0, D(296), 8);
-  k.packs([[-2.8, D(284)], [2.8, D(288)]]);
-  k.zipped(-3, 0, D(270));
-  k.vacSwitch(0, 0, D(293));
+  // Side slots share the existing right-wall bite; no extra chase stop.
+  // TODO H31: relocate to the extended Cardboard Fort side paths.
+  k.mystery(3.5, 0, D(28));
+  k.mystery(3.5, 0, D(113));
+  for (const { kind, x, y, d, height } of L2_CHASE_BREAKABLES) {
+    if (kind === 'stack') k.stack(x, y, D(d), height);
+    else k[kind](x, y, D(d));
+  }
   k.trigger(D(302), () => game.session.reachBossGate());
 
   // decor
@@ -101,9 +105,12 @@ export function buildLevel2(game, stage, tickets) {
   k.grass(4, END, { color: 0xc8a050, every: 1.8, size: 0.85 });
   for (let d = D(15); d < END; d += 34) k.bgDog(pick([-1, 1]) * rand(6, 7), 3.2, d, { height: 1.1 });
 
-  const cat = new ChaseCat(stage, track, D(-13));
+  const cat = new ChaseCat(stage, track, D(L2_CHASE.catStart));
   stage.add(cat);
   stage.chaseCat = cat;
+
+  // TODO H30–H33: move this temporary secret to the authored extension alcove.
+  placeHiddenBone(k, game, stage, -2.8, 0, D(60.5));
 
   return {
     spawn: k.W(0, 0, D(2)),
@@ -116,7 +123,10 @@ export function buildLevel2(game, stage, tickets) {
 
 export function buildBoss2Arena(game, stage, tickets) {
   const k = makeKit(game, stage, tickets);
-  stage.block(-12.5, -6, -12.5, 12.5, 0, 12.5, 'ground');
+  stage.block(-10.5, -6, -10.5, 10.5, 0, 10.5, 'ground');
+  stage.killY = -6;
+  const catArena = stage.add(new CatArena(stage));
+  stage.catArena = catArena;
   stage.block(-17, -6, -17, -12.5, 4, 17, 'ground');
   stage.block(12.5, -6, -17, 17, 4, 17, 'ground');
   stage.block(-12.5, -6, -17, 12.5, 4, -12.5, 'ground');
@@ -134,6 +144,8 @@ export function buildBoss2Arena(game, stage, tickets) {
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
     camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 12, z: 15.5 }, follow: 0.45 },
-    spheres: [new THREE.Vector3(9, 0, 9), new THREE.Vector3(-9, 0, -9)],
+    ledges: catArena.ledges,
+    catArena,
+    spheres: [new THREE.Vector3(9, 0, 9), new THREE.Vector3(-9, 0, -9), new THREE.Vector3(0, 0, 9)],
   };
 }

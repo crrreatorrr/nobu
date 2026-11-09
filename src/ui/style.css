@@ -198,6 +198,22 @@ html, body {
 
 /* ---------- Level select map ---------- */
 .map-bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.map-layout { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; box-sizing: border-box; }
+.map-scroll { position: relative; flex: 1; min-height: min(240px, 35vh); overflow: auto; pointer-events: auto; touch-action: pan-x pan-y; }
+.map-surface { position: relative; width: 100%; min-width: 1080px; height: 100%; min-height: 680px; }
+.map-island { position: absolute; inset: 100px 70px 20px; }
+.map-island .map-bg { background-size: 100% 100%; }
+.map-island .map-node .nobu-marker { top: 8px; left: 50%; margin-left: -20px; width: 40px; animation: none; pointer-events: none; z-index: 1; }
+.map-island .map-node.sel .dot { font-size: 0; }
+/* The new summit pin sits above the Factory: keep its caption above its dot. */
+.map-island .map-node[data-level="5"] { padding-bottom: 32px; }
+.map-island .map-node[data-level="5"] .label { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); margin-top: 0; }
+.map-details { flex: 0 1 auto; max-height: 42vh; overflow: auto; pointer-events: auto; }
+.map-details:empty { display: none; }
+.map-details .map-panel { position: relative; bottom: auto; left: auto; transform: none; min-width: 0; width: min(100%, 760px); margin: 0 auto; padding: 12px 18px; box-sizing: border-box; }
+.map-details .hint { font-size: clamp(16px, 2vw, 20px); }
+.map-details .sub-title { font-size: clamp(24px, 3vw, 34px); }
+.chapter-map-paths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .map-node { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; }
 .map-node .dot { width: 64px; height: 64px; border-radius: 50%; background: var(--gold); border: 5px solid var(--ink); box-shadow: 0 5px 0 var(--ink); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 34px; color: var(--ink); }
 .map-node.locked .dot { background: #6b5a7a; }
@@ -235,6 +251,7 @@ html, body {
   min-width: min(460px, 46vw);
 }
 .wardrobe-ranked { margin: 8px 0 4px; color: var(--gold); font-size: 18px; font-weight: 800; text-align: center; }
+.wardrobe-offline { margin: 8px auto 4px; max-width: 420px; opacity: 0.8; font-size: 16px; font-weight: 700; text-align: center; }
 .ward-row { margin-top: 12px; opacity: 0.72; }
 .ward-row.sel { opacity: 1; }
 .ward-slot { font-size: 16px; font-weight: 800; letter-spacing: 1px; opacity: 0.8; }
@@ -317,6 +334,9 @@ html, body {
   -webkit-text-stroke: 1.5px var(--ink); text-shadow: 0 0 10px rgba(255, 214, 90, 0.85);
   pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 5;
 }
+.god-badge { text-align: center; }
+.god-tally { font-size: 15px; letter-spacing: 1px; -webkit-text-stroke: 1px var(--ink); }
+.god-tally:empty { display: none; }
 .god-badge.on { opacity: 1; animation: god-pulse 1.6s ease-in-out infinite; }
 @keyframes god-pulse { 50% { text-shadow: 0 0 18px rgba(255, 214, 90, 1); } }
 
@@ -333,3 +353,24 @@ html, body {
 .trial-timer.on { display: block; }
 .trial-timer.frozen { color: #bff0ff; }
 .map-node .medal { position: absolute; top: -40px; right: -26px; font-size: 30px; filter: drop-shadow(0 3px 0 var(--ink)); }
+
+@keyframes bone-stamp {
+  0% { opacity: 0; transform: scale(2); }
+  60% { opacity: 1; transform: scale(1); }
+  80% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+/* Reward feedback uses the existing HUD and board art. */
+.hud-chain { top: 98px; left: 48px; font-size: 34px; transform: translate(-180%, 0); color: #7fd4ff; }
+.tally-stats { max-width: 55vw; }
+.tally-stats .stat-row { font-size: clamp(22px, 3.4vw, 40px); }
+.tally-stats .stat-row img { width: 52px; height: 52px; }
+.tally-hint { min-height: 2.5em; max-width: 42vw; }
+.tally-record { color: var(--gold); animation: tally-record .55s infinite alternate; }
+@keyframes tally-record { to { opacity: .45; } }
+@keyframes tally-shake { 0%,100% { transform: translateX(0); } 25%,75% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+
+/* A saved Perfect Run is a cosmetic map stamp, independent of trial tags. */
+.perfect-paw { position: absolute; right: -9px; top: -14px; font-size: 24px; filter: drop-shadow(0 1px 2px #000); }
+.perfect-stamp.show { animation: bone-stamp .3s both; color: #fff1a8; }

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
 import { input } from '../core/input.js';
+import { HINTS } from '../core/prompts.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { UI } from '../ui/ui.js';
@@ -12,23 +13,66 @@ import { dressNobuModel, setCollarGlow } from '../player/accessories.js';
 import { Loadout } from '../gear/loadout.js';
 import { VISIBLE_SLOTS, SLOT_LABEL, itemById } from '../gear/catalog.js';
 import { SprotoMask, maskMesh } from '../entities/mask.js';
-import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime } from './session.js';
-import { INTRO, RESCUE, ENDING, BETWEEN } from '../story/script.js';
+import { RushSession } from './rushSession.js';
+import { rushAvailable } from './rushArenas.js';
+import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime, ownsAsyncLifecycle, isPipelineSession } from './session.js';
+import { trialLayout, trialVariant } from '../config/trials.js';
+import { remixAvailable, sessionModes } from './remix.js';
+import { REMIX_TEXT } from '../story/script.js';
+import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
+import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
+import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
+import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RESCUE, ENDING, BETWEEN, TRIAL_TEXT, CHAPTER2, MAIN_UNLOCK_TEXT, QUEEN_ENDING, SECRET_ENDING, SECRET_ENDING_HINT, GAUNTLET_TEXT } from '../story/script.js';
 import { damp } from '../core/util.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
 
-const MAP_NODES = { 1: { x: 24, y: 70 }, ride: { x: 34, y: 55 }, 2: { x: 50, y: 50 }, cave: { x: 66, y: 62 }, 3: { x: 77, y: 27 } };
-// walk order on the map; bonus stages sit between the main levels
-const MAP_ORDER = [1, 'ride', 2, 'cave', 3];
-const BONUS_AFTER = { ride: 0, cave: 1 }; // unlocked by beating that boss (beaten[] index)
-const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉' };
+import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
+import { bankChain } from './rewards.js';
+import { nextGoal, savedGoalStats } from './hints.js';
+import { openCompleteTally, advanceCompleteTally } from './completeTally.js';
+import { noticeKennelMilestones, goodBoyPercent, secretEndingUnlocked, kennelUnlocks, totalDogs } from './progress.js';
+
+import { Kennel } from './kennel.js';
+import { kennelStatus, missingSecrets, selectedTint } from './kennelData.js';
+import { bankPerfect } from './mastery.js';
+import { trialTargetLine, eligibleTrialLine, bossMedalPanel, perfectPaw } from './masteryView.js';
+import { applyFurTint } from '../player/furTint.js';
+
+const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
 function esc(text) {
   return String(text).replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
 }
-function mapOpen(n) {
+
+const hostGauntlet = (host) => Object.values(LEVELS).find((def) => def.gauntlet && def.host === host);
+const retiresOnLeave = (session) => !!(session?.rush || session?.def?.gauntlet || ownsAsyncLifecycle(session));
+const pipelineCurrent = (game, session, stage = session.stage, epoch = session._lifecycleEpoch || 0) =>
+  !isPipelineSession(session) || (!session.disposed && !session.over && game.session === session &&
+    game.stage === stage && session.stage === stage && epoch === (session._lifecycleEpoch || 0));
+const gauntletMedals = (row = {}) => ['clear', 'allBoxes', 'flawless'].map((key) =>
+  `<span data-gauntlet-medal="${key}" title="${esc(GAUNTLET_TEXT[key])}">${row[key] ? '●' : '○'}</span>`).join(' ');
+
+function goalHint(game, id, stats = null) {
+  const def = levelDef(id), data = save.data;
+  return nextGoal(savedBoard(data, id), stats || savedGoalStats(data, id, def), {
+    hidden: def.hidden, bonus: def.bonus, trialAvailable: !!def.trial, god: !!(data.godMode || stats?.godUsed || (stats && String(game.session?.level) === String(id) && game.session.godUsed)),
+    sniffer: kennelUnlocks(data, totalDogs(LEVELS)).includes('sniffer'),
+  }, game.player?.abilities || {}, REWARD_TEXT).text;
+}
+
+function bankBoneResults(session, st) {
+  const ctx = boneContext(session, st.godUsed || session.godUsed || save.data.godMode);
+  if (ctx.trial || ctx.remix || ctx.rush) return [];
   const d = save.data;
-  if (n in BONUS_AFTER) return !!d.beaten[BONUS_AFTER[n]] || !!d.bonus?.[n]?.found || !!d.bonus?.[n]?.beaten;
-  return n <= d.unlocked;
+  st.chainRecord = bankChain(d, session.level, st, ctx);
+  const fresh = applyRunResults(d, session.level, runBones(st, ctx), { bonus: (session.def || levelDef(session.level)).bonus });
+  for (const id of st.freedIds || []) {
+    const localId = id.startsWith(`${session.level}:`) ? id.slice(String(session.level).length + 1) : id;
+    if (Object.hasOwn((session.def || levelDef(session.level)).dogs || {}, localId)) d.dogsFreed[`${session.level}:${localId}`] = true;
+  }
+  if (Object.keys(d.dogsFreed).length) d.open.kennel = true;
+  st.perfectFresh = !(session.def || levelDef(session.level)).bonus && bankPerfect(d, session.level, st.perfectCandidate === true, ctx);
+  st.kennelFresh = noticeKennelMilestones(d, LEVELS);
+  return fresh;
 }
 
 export class Game {
@@ -67,6 +111,7 @@ export class Game {
     this.camera.cam.aspect = w / h;
     this.camera.cam.updateProjectionMatrix();
     if (this.titleCam) { this.titleCam.aspect = w / h; this.titleCam.updateProjectionMatrix(); }
+    if (this.kennel?.yard.camera) { this.kennel.yard.camera.aspect = w / h; this.kennel.yard.camera.updateProjectionMatrix(); }
   }
 
   async boot() {
@@ -105,12 +150,26 @@ export class Game {
     if (input.anyPressed()) audio.unlock();
     try {
       this.update(dt);
+      if (input.deviceSwitched()) this.refreshPrompts();
     } catch (e) {
       console.error(e);
     }
     this.ui.update(dt);
     this.render();
     if (!manual) requestAnimationFrame((t) => this.loop(t));
+  }
+
+  // Redraw the open menu so its control prompts match the device just used (keyboard or pad).
+  refreshPrompts() {
+    if (this.state === 'map') this._drawMap();
+    else if (this.state === 'pause') { if (this.pauseExitSel != null) this._drawPauseExit(); else this._drawPause(); }
+    else if (this.state === 'wardrobe') this._drawWardrobe();
+    else if (this.state === 'kennel' && !this.kennel?.disposed) this.kennel?.draw();
+    else if (this.state === 'cutscene') { const skip = this.ui.screen?.querySelector?.('.cut-skip'); if (skip) skip.innerHTML = input.prompt(HINTS.cutscene); }
+    else if (this.state === 'title' && !this.titleMenu) {
+      const footer = this.ui.screen?.querySelector?.('.title-footer');
+      if (footer) footer.innerHTML = input.prompt(HINTS.title);
+    }
   }
 
   update(dt) {
@@ -121,6 +180,7 @@ export class Game {
       case 'play': this.updatePlay(dt); break;
       case 'pause': this.updatePause(dt); break;
       case 'wardrobe': this.updateWardrobe(dt); break;
+      case 'kennel': this.kennel.update(dt, input); break;
       case 'complete': this.updateComplete(dt); break;
       case 'gameover': this.updateGameOver(dt); break;
       case 'credits': this.updateCredits(dt); break;
@@ -131,6 +191,8 @@ export class Game {
   render() {
     if (this.state === 'title' || this.state === 'credits' || this.state === 'wardrobe') {
       this.renderer.render(this.titleScene, this.titleCam);
+    } else if (this.state === 'kennel') {
+      this.renderer.render(this.kennel.yard.scene, this.kennel.yard.camera);
     } else if ((this.state === 'play' || this.state === 'pause') && this.session?.stage) {
       this.renderer.render(this.session.stage.scene, this.camera.cam);
     } else {
@@ -168,7 +230,7 @@ export class Game {
   }
 
   _dressTitleNobuGear() {
-    if (this.titleNobu) dressNobuModel(this.titleNobu, this.loadout);
+    if (this.titleNobu) { dressNobuModel(this.titleNobu, this.loadout); this.applyKennelTint(this.titleNobu, {}); }
   }
 
   _applyHubGear() {
@@ -191,11 +253,31 @@ export class Game {
     this._dressTitleNobuGear();
   }
 
+  applyKennelTint(model = this.player?.model, context = this.session || {}) {
+    applyFurTint(model, selectedTint(save.data, LEVELS, context));
+  }
+
+  openKennel(mode = null) {
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if (!isOpen('kennel', save.data)) return false;
+    this.kennel?.dispose();
+    this.session?.dispose(); this.session = null; this.ui.godTally?.(null);
+    this.ui.trialTime(null); this.ui.hideHud(); this.ui.bossHide(); this.ui.clearScreen();
+    this.state = 'kennel';
+    this.kennel = new Kennel(this, KENNEL_TEXT);
+    if (mode === 'sniffer' && this.kennel.mode !== 'golden' && this.kennel.status.unlocks.includes('sniffer')) { this.kennel.mode = 'sniffer'; audio.play('sniff'); this.kennel.draw(); }
+    this.ui.fade(0);
+    return true;
+  }
+
   toTitle() {
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
-    this.session = null;
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
+    this.session = null; this.ui.godTally?.(null);
     this._refreshTitleNobu();
+    this.applyKennelTint(this.titleNobu, {});
     this.titleScene.background = Assets.tex('bg_title');
     this.titleMenu = null;
     this.ui.hideHud();
@@ -203,7 +285,7 @@ export class Game {
     this.ui.setScreen(`
       <img class="title-logo" src="${Assets.url('logo')}">
       <div class="press-start">PRESS START</div>
-      <div class="title-footer">Arrows/WASD move · Space jump · J/Shift bite · K/Ctrl slide &amp; belly flop · Esc pause · Gamepad supported</div>`);
+      <div class="title-footer">${HINTS.title}</div>`);
     this.ui.fade(0);
     audio.playMusic('title');
   }
@@ -224,13 +306,13 @@ export class Game {
     const items = this._titleItems();
     this.titleSel = Math.min(this.titleSel, items.length - 1);
     const html = items.map((it, i) => `<div class="menu-item ${i === this.titleSel ? 'sel' : ''}">${it.label}</div>`).join('');
-    this.ui.setScreen(`<img class="title-logo" src="${Assets.url('logo')}"><div class="title-menu"><div class="menu">${html}</div></div>`);
+    this.ui.setScreen(`<img class="title-logo" src="${Assets.url('logo')}"><div class="title-menu"><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(save.data, LEVELS).total)}</div><div class="menu">${html}</div></div>`);
   }
 
   updateTitle(dt) {
     // Nobu idles on the title screen: the animator cycles through his silly idles
     this.titleIdle += dt;
-    const pose = this.titleAnim.update(dt, { mode: 'normal', speed: 0, vy: 0, grounded: true, biteT: -1, flipT: -1, landT: 1, jumpT: 1, idleTime: this.titleIdle, flopPhase: null });
+    const pose = this.titleAnim.update(dt, { mode: save.data.kennel.goldenSeen ? 'victory' : 'normal', speed: 0, vy: 0, grounded: true, biteT: -1, flipT: -1, landT: 1, jumpT: 1, idleTime: this.titleIdle, flopPhase: null });
     this.titleNobu.apply(pose);
     this.titleMask.position.y = 1.55 + Math.sin(this.titleIdle * 2) * 0.1;
     this.titleMask.rotation.y = Math.sin(this.titleIdle * 1.3) * 0.3;
@@ -266,9 +348,7 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawTitleMenu();
       } else if (it.id === 'god') {
-        save.data.godMode = !save.data.godMode;
-        save.write();
-        this.ui.godBadge(save.data.godMode);
+        this.toggleGod();
         this._drawTitleMenu();
       } else if (it.id === 'pixel') {
         save.data.pixelated = !save.data.pixelated;
@@ -278,14 +358,16 @@ export class Game {
       } else if (it.id === 'hub') {
         this.exitToHub();
       }
+      return; // pad Start is confirm as well as pause: it must not also leave the menu
     }
     if (input.pressed('pause') || input.pressed('back')) { this.titleMenu = null; this.toTitle(); }
   }
 
   // ---------------- cutscenes (comic panels) ----------------
-  playCutscene(panels, onDone, music = 'cutscene') {
+  playCutscene(panels, onDone, music = 'cutscene', isCurrent = null) {
+    if (isCurrent && !isCurrent()) return;
     this.state = 'cutscene';
-    this.cut = { panels, i: -1, onDone, t: 0 };
+    this.cut = { panels, i: -1, onDone, t: 0, isCurrent };
     this.ui.hideHud();
     audio.playMusic(music);
     this.ui.fade(0);
@@ -294,6 +376,8 @@ export class Game {
 
   _nextPanel() {
     const c = this.cut;
+    if (!c || (c.isCurrent && !c.isCurrent())) return;
+    const current = () => this.cut === c && (!c.isCurrent || c.isCurrent());
     c.i++;
     c.t = 0;
     if (c.i >= c.panels.length) { const done = c.onDone; this.cut = null; this.ui.clearScreen(); done(); return; }
@@ -301,8 +385,8 @@ export class Game {
     const prev = c.i > 0 ? c.panels[c.i - 1].img : null;
     const caption = `${p.speaker ? `<span class="speaker">${p.speaker}</span>` : ''}${p.text}`;
     if (prev !== p.img || !this.ui.screen.querySelector('.cut-panel')) {
-      this.ui.setScreen(`<div class="cut-panel" style="background-image:url('${Assets.url(p.img)}')"></div><div class="cut-caption">${caption}</div><div class="cut-skip">Any key: next · Esc: skip</div>`, 'dim');
-      requestAnimationFrame(() => this.ui.screen.querySelector('.cut-panel')?.classList.add('show'));
+      this.ui.setScreen(`<div class="cut-panel" style="background-image:url('${Assets.url(p.img)}')"></div><div class="cut-caption">${caption}</div><div class="cut-skip">${HINTS.cutscene}</div>`, 'dim');
+      requestAnimationFrame(() => { if (current()) this.ui.screen.querySelector('.cut-panel')?.classList.add('show'); });
       audio.play('whoosh');
     } else {
       this.ui.screen.querySelector('.cut-caption').innerHTML = caption;
@@ -310,12 +394,12 @@ export class Game {
     // typewriter-lite: reveal caption
     const capEl = this.ui.screen.querySelector('.cut-caption');
     capEl.style.opacity = 0;
-    requestAnimationFrame(() => { capEl.style.transition = 'opacity 0.3s'; capEl.style.opacity = 1; });
+    requestAnimationFrame(() => { if (current()) { capEl.style.transition = 'opacity 0.3s'; capEl.style.opacity = 1; } });
     if (p.speaker) audio.play(p.speaker.includes('CONE') ? 'blipLow' : 'blip');
   }
 
   updateCutscene(dt) {
-    if (!this.cut) return;
+    if (!this.cut || (this.cut.isCurrent && !this.cut.isCurrent())) return;
     this.cut.t += dt;
     if (input.pressed('pause') && this.cut.t > 0.2) {
       const done = this.cut.onDone; this.cut = null; this.ui.clearScreen(); done(); return;
@@ -324,72 +408,139 @@ export class Game {
   }
 
   // ---------------- level select map ----------------
+  _trySecretEnding(next, isCurrent = null) {
+    if ((isCurrent && !isCurrent()) || !levelDef(5)?.shipped || save.data.secretSeen || !secretEndingUnlocked(save.data, LEVELS)) return false;
+    this.playCutscene(SECRET_ENDING, () => {
+      if (isCurrent && !isCurrent()) return;
+      save.data.secretSeen = true;
+      save.write();
+      next();
+    }, 'victory', isCurrent);
+    return true;
+  }
+
+  _unlockMainChapters() {
+    const fresh = unlockFollowingMain(save.data, LEVELS);
+    this._pendingMainUnlocks = [...new Set([...(this._pendingMainUnlocks || []), ...fresh])];
+    if (fresh.length) save.write();
+  }
+
   toMap(sel = 1) {
+    const fromRemix = !!this.session?.remix;
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
+    this.session = null; this.ui.godTally?.(null);
+    sel = levelDef(sel)?.gauntlet ? levelDef(sel).host : sel;
+    if (!fromRemix) this._unlockMainChapters();
+    if (!fromRemix && levelDef(4)?.shipped && save.data.finished && !save.data.seenCh2) {
+      this.playCutscene(CHAPTER2, () => { save.data.seenCh2 = true; save.write(); this.toMap(4); });
+      return;
+    }
+    if (!fromRemix && this._trySecretEnding(() => this.toMap(sel))) return;
     this.exchangeOpen = false;
     this.ui.trialTime(null);
     this.state = 'map';
     this.session = null;
-    this.mapSel = mapOpen(sel) ? sel : Math.max(1, Math.min(typeof sel === 'number' ? sel : 1, save.data.unlocked));
+    this.mapSel = isOpen(sel, save.data) ? sel : Math.max(1, Math.min(typeof sel === 'number' ? sel : 1, save.data.unlocked));
     this.ui.hideHud();
     this.ui.bossHide();
     audio.playMusic('map');
-    this._drawMap();
+    this._drawMap(this._pendingMainUnlocks || []);
+    const unlocked = this._pendingMainUnlocks?.pop();
+    this._pendingMainUnlocks = [];
+    if (MAIN_UNLOCK_TEXT[unlocked]) { audio.play('chime'); this.ui.banner?.(...MAIN_UNLOCK_TEXT[unlocked], 2.5); }
     this.ui.fade(0);
   }
 
-  _drawMap() {
+  _drawMap(fresh = []) {
     const d = save.data;
+    const available = remixAvailable(d, levelDef(this.mapSel));
+    if (!available) this.mapRemix = false;
     let nodes = '';
     for (const n of MAP_ORDER) {
-      const p = MAP_NODES[n];
-      const bonus = n in BONUS_AFTER;
-      const locked = !mapOpen(n);
-      const beaten = bonus ? !!d.bonus?.[n]?.beaten : d.beaten[n - 1];
-      nodes += `<div class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
-        ${!beaten && !bonus ? '<div class="cone-cloud"></div>' : ''}
-        ${!bonus && d.bones[n - 1] ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
-        ${!bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
+      const p = levelDef(n).mapPos;
+      const bonus = levelDef(n).bonus, meta = !!levelDef(n).meta;
+      const locked = !isOpen(n, d);
+      const beaten = levelDef(n).rush ? !!d.rush?.clear : bonus ? !!d.bonus?.[n]?.beaten : save.beatenOf(n);
+      const gauntlet = hostGauntlet(n);
+      nodes += `<div data-level="${n}" class="map-node ${bonus ? 'bonus' : ''} ${locked ? 'locked' : ''} ${beaten ? 'beaten' : ''} ${n === this.mapSel ? 'sel' : ''}" style="left:${p.x}%;top:${p.y}%">
+        ${!beaten && !bonus && !meta ? '<div class="cone-cloud"></div>' : ''}
+        ${!bonus && (this.mapRemix ? d.remix?.[n]?.golden : save.boneOf(n)) ? `<img class="bone" src="${Assets.url('golden_bone')}">` : ''}
+        ${!this.mapRemix && !meta && !bonus ? perfectPaw(!!d.perfect?.[n], MASTERY_TEXT) : ''}
+        ${!this.mapRemix && gauntlet && isOpen(gauntlet.id, d) ? `<span data-gauntlet-pin="${gauntlet.id}" title="${esc(gauntlet.name)}">📷</span>` : ''}
+        ${!this.mapRemix && !bonus && d.trials?.[n]?.medal ? `<div class="medal">${MEDAL[d.trials[n].medal]}</div>` : ''}
         ${n === this.mapSel ? `<img class="nobu-marker" src="${Assets.url('nobu_head')}">` : ''}
-        <div class="dot">${locked ? '🔒' : bonus ? '★' : n}</div>
+        <div class="dot">${locked ? '🔒' : meta ? '🐾' : bonus ? '★' : n}</div>
         <div class="label">${bonus && locked ? 'BONUS' : LEVEL_NAMES[n]}</div></div>`;
     }
     const lv = this.mapSel;
-    const bonusSel = lv in BONUS_AFTER;
-    const head = bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
-    const status = bonusSel
-      ? (d.bonus?.[lv]?.beaten ? `Cleared! Best tickets: ${d.bonus[lv].best}` : lv === 'ride' ? 'A runaway robot vacuum is loose in the house. Ride it!' : 'Pitch dark. Stay close to Lumi the glowworm.')
-      : d.beaten[lv - 1] ? `Cleared! Dogs best: ${d.bestDogs[lv - 1]} · ${d.bones[lv - 1] ? 'Golden Bone earned' : 'Golden Bone: break everything + free every dog'}` : 'The cone smog still hangs over this place...';
-    const tr = !bonusSel && d.beaten[lv - 1]
-      ? `<div class="hint" style="margin-top:4px">T / Y: TIME TRIAL · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[lv][0])}`}</div>`
+    const bonusSel = levelDef(lv).bonus, metaSel = !!levelDef(lv).meta;
+    const rushSel = !!levelDef(lv).rush;
+    const head = rushSel ? RUSH_TEXT.title : metaSel ? KENNEL_TEXT.title : bonusSel ? `BONUS: ${LEVEL_NAMES[lv].toUpperCase()}` : `LEVEL ${lv}: ${LEVEL_NAMES[lv].toUpperCase()}`;
+    const rushStatus = [isOpen(lv, d) ? RUSH_TEXT.description : RUSH_TEXT.locked,
+      d.rush?.clear ? RUSH_TEXT.record : '', d.rush?.noHit ? RUSH_TEXT.noHitRecord : '',
+      d.rush?.bestMs ? `${RUSH_TEXT.best} ${fmtTime(d.rush.bestMs / 1000)}` : ''].filter(Boolean).join(' · ');
+    const status = esc(this.mapRemix ? REMIX_TEXT.complete.missed : rushSel ? rushStatus : metaSel ? KENNEL_TEXT.mapDescription : goalHint(this, lv));
+    const sniffer = !this.mapRemix && !metaSel && kennelStatus(d, LEVELS).unlocks.includes('sniffer') ? missingSecrets(d, LEVELS).find((def) => String(def.id) === String(lv)) : null;
+    const snifferLine = sniffer ? `<div class="hint">${esc(KENNEL_TEXT.secretLine(sniffer))}</div>` : '';
+    const tr = !this.mapRemix && !!levelDef(lv).trial && save.beatenOf(lv)
+      ? `<div class="hint" style="margin-top:4px">${HINTS.trial} · ${d.trials?.[lv] ? `best ${fmtTime(d.trials[lv].best)} ${MEDAL[d.trials[lv].medal] || ''}` : `gold under ${fmtTime(TRIAL_TARGETS[trialVariant(lv)][0])}`}</div>`
       : '';
-    const world = !bonusSel && d.beaten[lv - 1] ? this._worldLine(lv) : '';
+    const targets = !this.mapRemix && !metaSel && levelDef(lv).trial && save.beatenOf(lv) ? `<div class="hint">${trialTargetLine(trialVariant(lv), d.trials?.[lv])}</div>` : '';
+    const eligible = !this.mapRemix && !metaSel && levelDef(lv).trial && d.trials?.[lv] ? eligibleTrialLine(d.trials[lv], MASTERY_TEXT) : '';
+    const bossList = this.mapRemix || metaSel ? '' : bossMedalPanel(d, LEVELS, lv, MASTERY_TEXT);
+    const gauntlet = hostGauntlet(lv), gauntletRow = gauntlet && d.gauntlets?.[gauntlet.id];
+    const gauntletLine = !this.mapRemix && gauntlet && isOpen(gauntlet.id, d)
+      ? `<div class="hint" data-gauntlet-entry="${gauntlet.id}">📷 ${esc(gauntlet.name.toUpperCase())} · ${esc(GAUNTLET_TEXT.enter)}<br>${gauntletMedals(gauntletRow)}${gauntletRow?.bestMs ? ` · ${esc(GAUNTLET_TEXT.localBest)} ${fmtTime(gauntletRow.bestMs / 1000)}` : ''}</div>` : '';
+    const world = !this.mapRemix && !!levelDef(lv).trial && save.beatenOf(lv) ? this._worldLine(lv) : '';
     const total = save.totalTrialMs();
-    const totalNote = total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
+    const totalNote = !this.mapRemix && total != null ? `<div class="hint">Trials total ${fmtTime(total / 1000)}</div>` : '';
     const pendingNote = hub.view().pending ? `<div class="hint">Exchange pending</div>` : '';
-    const info = `<div class="map-panel"><div class="sub-title">${head}</div>
-      <div class="hint">${status}</div>${tr}${world}${totalNote}
-      <div class="hint" style="margin-top:6px">◀ ▶ choose · SPACE / ENTER play · I / LB wardrobe · X exchange · H exit to hub · ESC title</div>
+    const secretHint = !this.mapRemix && levelDef(5)?.shipped && d.beaten?.[5] && !d.secretSeen
+      ? `<div class="hint">${esc(SECRET_ENDING_HINT(goodBoyPercent(d, LEVELS).total))}</div>` : '';
+    const remixLine = available ? `<div class="hint">${esc(REMIX_TEXT.controls)} · ${esc(this.mapRemix ? REMIX_TEXT.toggle : REMIX_TEXT.normal)}</div>` : !bonusSel && !metaSel ? `<div class="hint">${esc(REMIX_TEXT.locked)}</div>` : '';
+    const board = this.mapRemix ? `<div class="hint">${d.remix?.[lv]?.golden ? '🦴' : '○'} ${esc(REMIX_TEXT.bone)}</div>` : metaSel ? '' : this.ui.boneBoard(lv, { bonus: bonusSel });
+    const info = `<div class="map-panel"><div class="sub-title">${head}</div><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(d, LEVELS).total)}</div>${board}${remixLine}
+      <div class="hint">${status}</div>${secretHint}${snifferLine}${tr}${targets}${eligible ? `<div class="hint">${esc(eligible)}</div>` : ''}${bossList}${gauntletLine}${world}${totalNote}
+      <div class="hint" style="margin-top:6px">${metaSel ? esc(rushSel ? RUSH_TEXT.controls : KENNEL_TEXT.mapControls) : HINTS.map}</div>
       <div class="hint">Lives ${d.lives} · Tickets ${d.tickets}</div>${pendingNote}</div>`;
     const exchange = this.exchangeOpen ? this._exchangeHtml() : '';
-    this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${nodes}${this.exchangeOpen ? '' : info}${exchange}`);
+    this.ui.setScreen(`<div class="map-layout"><div class="map-scroll"><div class="map-surface"><div class="map-island"><div class="map-bg" style="background-image:url('${Assets.url('level_map')}')"></div>${chapterMapMarkup(chapterMapPaths(d,LEVELS,fresh))}${nodes}</div></div></div><div class="map-details">${this.exchangeOpen ? '' : info}</div></div>${exchange}`);
+    // Scroll only the map viewport: scrollIntoView also moves overflow-hidden
+    // UI ancestors and can pull the controls (and hidden popups) into view.
+    const viewport = this.ui.screen?.querySelector?.('.map-scroll');
+    const selected = this.ui.screen?.querySelector?.('.map-node.sel');
+    if (viewport && selected) {
+      const bounds = viewport.getBoundingClientRect(), node = selected.getBoundingClientRect();
+      viewport.scrollLeft += node.left + node.width / 2 - bounds.left - viewport.clientWidth / 2;
+      viewport.scrollTop += node.top + node.height / 2 - 30 - bounds.top - viewport.clientHeight / 2;
+    }
   }
 
   // Hub board line for the selected level, fetched at most once a minute per level. Empty when
   // standalone, offline, or when the vendored SDK cannot read boards.
   _worldLine(lv) {
     this._tops ||= {};
-    const slot = this._tops[lv];
+    const key = trialVariant(lv), archived = trialLayout(lv) > 1;
+    const slot = this._tops[key];
     if (!slot || (!slot.loading && Date.now() - slot.at > 60_000)) {
-      this._tops[lv] = { ...(slot || {}), loading: true, at: Date.now() };
-      hub.trialTop(lv).then((top) => {
-        this._tops[lv] = { top, loading: false, at: Date.now() };
-        if (top && this.state === 'map' && this.mapSel === lv && !this.exchangeOpen) this._drawMap();
-      }, () => { this._tops[lv] = { top: null, loading: false, at: Date.now() }; });
+      this._tops[key] = { ...(slot || {}), loading: true, at: Date.now() };
+      Promise.all([hub.trialTop(lv), archived ? hub.trialTopClassic(lv) : null]).then(([top, classic]) => {
+        this._tops[key] = { top, classic, loading: false, at: Date.now() };
+        if ((top || classic) && this.state === 'map' && this.mapSel === lv && !this.exchangeOpen) this._drawMap();
+      }, () => { this._tops[key] = { top: null, classic: null, loading: false, at: Date.now() }; });
     }
-    const top = this._tops[lv]?.top;
-    if (!top) return '';
-    const me = top.me ? ` · you #${top.me.rank} ${fmtTime(top.me.value / 1000)}` : '';
-    return `<div class="hint">WORLD top ${fmtTime(top.value / 1000)}${me}</div>`;
+    const top = this._tops[key]?.top;
+    const me = top?.me ? ` · you #${top.me.rank} ${fmtTime(top.me.value / 1000)}` : '';
+    let html = top ? `<div class="hint">WORLD top ${fmtTime(top.value / 1000)}${me}</div>` : '';
+    const best = save.data.trialsClassic?.[lv], classic = this._tops[key]?.classic;
+    if (archived && (best || classic)) {
+      const parts = [];
+      if (best) parts.push(`${TRIAL_TEXT.classicBest} ${fmtTime(best.best)}`);
+      if (classic) parts.push(`${TRIAL_TEXT.classicWorld} ${fmtTime(classic.value / 1000)}`);
+      html += `<div class="hint">${parts.join(' · ')}</div>`;
+    }
+    return html;
   }
 
   _exchangeHtml() {
@@ -423,7 +574,7 @@ export class Game {
       ${cap}
       <div class="menu-item ${can ? 'sel' : 'disabled'}">EXCHANGE</div>
       ${status ? `<div class="hint">${status}</div>` : ''}
-      <div class="hint">${locked ? 'ESC close' : '◀ ▶ amount · ENTER exchange · ESC close'}</div>
+      <div class="hint">${locked ? HINTS.exchangeLocked : HINTS.exchange}</div>
     </div>`;
   }
 
@@ -488,6 +639,11 @@ export class Game {
   }
 
   exitToHub() {
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if (retiresOnLeave(this.session)) {
+      if (!this.session.disposed) this.session.dispose();
+      this.session = null;
+    }
     this.hubExit = true;
     hub.exit('exit_to_hub');
   }
@@ -496,35 +652,71 @@ export class Game {
     if (this.exchangeOpen) { this.updateExchange(); return; }
     if (input.pressed('wardrobe')) { audio.play('select'); this.openWardrobe('map'); return; }
     const d = save.data;
-    const open = MAP_ORDER.filter(mapOpen);
+    if (input.pressed('remix') && remixAvailable(d, levelDef(this.mapSel))) {
+      this.mapRemix = !this.mapRemix; audio.play('menu'); this._drawMap(); return;
+    }
+    const open = MAP_ORDER.filter((n) => isOpen(n, d));
     const i = open.indexOf(this.mapSel);
     if (input.pressed('right') || input.pressed('up')) { if (i < open.length - 1) { this.mapSel = open[i + 1]; audio.play('menu'); this._drawMap(); } }
     if (input.pressed('left') || input.pressed('down')) { if (i > 0) { this.mapSel = open[i - 1]; audio.play('menu'); this._drawMap(); } }
     if (input.pressed('exchange')) { audio.play('select'); this.openExchange(); return; }
     if (input.pressed('hub')) { audio.play('select'); this.exitToHub(); return; }
-    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); this.startLevel(this.mapSel); }
-    else if (input.pressed('trial') && !(this.mapSel in BONUS_AFTER) && d.beaten[this.mapSel - 1]) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
+    if (input.pressed('sniffer') && kennelStatus(d, LEVELS).unlocks.includes('sniffer')) { this.openKennel('sniffer'); return; }
+    if (input.pressed('gauntlet')) {
+      const def = hostGauntlet(this.mapSel);
+      if (!this.mapRemix && def && isOpen(def.id, d)) { audio.play('select'); this.startLevel(def.id); }
+      return; // RB also maps to bite: consume it before ordinary-level confirmation.
+    }
+    if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta && !levelDef(this.mapSel).rush) this.openKennel(); else this.startLevel(this.mapSel, { remix: !!this.mapRemix }); return; }
+    else if (!this.mapRemix && input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
     if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
   }
 
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
+    sessionModes(opts);
+    if (opts.remix && !remixAvailable(save.data, levelDef(n))) return false;
+    if (n === 'rush' && !rushAvailable(save.data)) return false;
+    if (levelDef(n)?.meta && n !== 'rush') return this.openKennel();
+    if (levelDef(n)?.gauntlet && !isOpen(n, save.data)) return;
+    if (levelDef(n)?.gauntlet) opts = { ...opts, trial: false };
+    const epoch = this._launchEpoch = (this._launchEpoch || 0) + 1;
+    if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
     await this.ui.fade(1);
+    if (epoch !== this._launchEpoch) return false;
     this.ui.clearScreen();
     this.ui.trialTime(null);
-    save.data.lastLevel = n;
-    if (save.data.lives < 0) save.data.lives = START_LIVES;
-    save.write();
+    if (n !== 'rush') {
+      if (!levelDef(n)?.gauntlet) save.data.lastLevel = n;
+      if (save.data.lives < 0) save.data.lives = START_LIVES;
+      save.write();
+    }
     this.state = 'play';
-    this.session = new Session(this, n, opts);
+    const session = this.session = n === 'rush' ? new RushSession(this) : new Session(this, n, opts);
+    this.player?.resetGodTally?.();
     this.flyingMasks.length = 0;
-    await this.session.startLevel();
+    await session.startLevel();
+    if (epoch !== this._launchEpoch || this.session !== session || session.disposed) return false;
+    if (opts.remix && this.state === 'play') this.ui.banner(REMIX_TEXT.banner.title, REMIX_TEXT.banner.subtitle, 2.2);
+  }
+
+  // Title-menu toggle, and 99 during play. Turning it on marks the current run as God-assisted
+  // right away; turning it off later does not clear that.
+  toggleGod() {
+    save.data.godMode = !save.data.godMode;
+    save.write();
+    this.ui.godBadge(save.data.godMode);
+    if (save.data.godMode) this.session?.markGodUsed?.();
+    return save.data.godMode;
   }
 
   updatePlay(dt) {
     const s = this.session;
     if (!s) return;
-    if (input.pressed('pause') && !this.ui.talking && !s.dying) { this.openPause(); return; }
+    if (input.pressed('god')) { this.toggleGod(); audio.play('select'); }
+    // Start pauses; so does losing the pad mid-level, so Nobu never runs on without the player.
+    if ((input.pressed('pause') || input.padLost()) && !this.ui.talking && !s.dying) { this.openPause(); return; }
+    if (this.camera) this.camera.peekInput = input.look; // right stick: camera peek (see GameCamera._applyPeek)
     s.update(dt);
     this._updateFlyingMasks(dt);
   }
@@ -564,6 +756,7 @@ export class Game {
   openPause() {
     this.state = 'pause';
     this.pauseSel = 0;
+    this.pauseExitSel = null;
     this.ui.pinHud(true);
     audio.play('menu');
     this._drawPause();
@@ -582,16 +775,47 @@ export class Game {
     ];
   }
 
+  /** Leaving mid-level asks first: KEEP PLAYING (the default) resumes, EXIT TO HUB leaves. */
+  _pauseExitItems() {
+    return [
+      { id: 'stay', label: 'KEEP PLAYING' },
+      { id: 'leave', label: 'EXIT TO HUB' },
+    ];
+  }
+
+  _drawPauseExit() {
+    const items = this._pauseExitItems();
+    this.ui.setScreen(`<div class="big-title">EXIT TO HUB?</div><div class="hint">This level ends here. Tickets from it are not banked.</div><div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseExitSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
+      <div class="hint" style="margin-top:20px">${HINTS.pauseExit}</div>`, 'dim');
+  }
+
+  updatePauseExit() {
+    const items = this._pauseExitItems();
+    if (input.pressed('up') || input.pressed('down')) { this.pauseExitSel = 1 - this.pauseExitSel; audio.play('menu'); this._drawPauseExit(); }
+    if (input.pressed('pause') || input.pressed('back')) { this.pauseExitSel = null; audio.play('menu'); this._drawPause(); return; }
+    if (input.confirmPressed() || input.pressed('bite')) {
+      const id = items[this.pauseExitSel].id;
+      this.pauseExitSel = null;
+      if (id === 'leave') this.exitToHub();
+      else this.closePause();
+    }
+  }
+
   _drawPause() {
     const items = this._pauseItems();
     const s = this.session;
-    const stats = s?.phase === 'level' && s.stage
-      ? `<div class="hint">Dogs freed ${s.stage.entities.filter((e) => e.freed).length}/${s.dogsTotal} · Breakables ${s.stage.entities.filter((e) => e.countable && e.broken).length}/${s.breakablesTotal}</div>` : '';
+    const live = s?.stage && s.phase === 'level' ? s.liveStats() : s?.stats;
+    const pct = live?.snackPotential ? Math.floor(live.snackRaw / live.snackPotential * 100) : 0;
+    const board = s?.def?.gauntlet ? '' : s?.remix ? `<div class="sub-title">${esc(REMIX_TEXT.toggle)}</div>` : live ? this.ui.boneBoard(s.level, { bonus: s.def.bonus, run: runBones(live, boneContext(s, s.godUsed || save.data.godMode)) }) : '';
+    const stats = s?.def?.gauntlet
+      ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
+      : live ? `${board}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(s.remix ? REMIX_TEXT.complete.missed : goalHint(this, s.level, live))}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
-      <div class="hint" style="margin-top:20px">◀ ▶ adjust · ESC resume</div>`, 'dim');
+      <div class="hint" style="margin-top:20px">${HINTS.pause}</div>`, 'dim');
   }
 
   updatePause() {
+    if (this.pauseExitSel != null) { this.updatePauseExit(); return; }
     const items = this._pauseItems();
     const it = items[this.pauseSel];
     if (input.pressed('up')) { this.pauseSel = (this.pauseSel + items.length - 1) % items.length; audio.play('menu'); this._drawPause(); }
@@ -605,7 +829,7 @@ export class Game {
       save.write();
       this._drawPause();
     }
-    if (input.pressed('pause')) { this.closePause(); return; }
+    if (input.pressed('pause') || input.pressed('back')) { this.closePause(); return; }
     if (input.confirmPressed() || input.pressed('bite')) {
       if (it.id === 'resume') this.closePause();
       else if (it.id === 'wardrobe') this.openWardrobe('pause');
@@ -615,11 +839,14 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawPause();
       } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
-      else if (it.id === 'hub') { this.exitToHub(); }
+      else if (it.id === 'hub') { this.pauseExitSel = 0; audio.play('menu'); this._drawPauseExit(); }
       else if (it.id === 'quit') {
         this.ui.pinHud(false);
-        save.write();
-        this.ui.fade(1).then(() => this.toMap(this.session.level));
+        const session = this.session, level = session.level;
+        const epoch = this._launchEpoch;
+        if (!session.rush) save.write();
+        if (retiresOnLeave(session) && !session.disposed) session.dispose();
+        this.ui.fade(1).then(() => { if (this._launchEpoch === epoch && this.session === session) this.toMap(level); });
       }
     }
   }
@@ -660,9 +887,15 @@ export class Game {
         ${fx ? `<div class="ward-fx ${ranked ? 'off' : ''}">${esc(fx)}</div>` : ''}
       </div>`;
     }).join('');
-    const banner = ranked ? '<div class="wardrobe-ranked">RANKED · gear is cosmetic only</div>' : '';
+    let banner = ranked ? '<div class="wardrobe-ranked">RANKED · gear is cosmetic only</div>' : '';
+    if (!this.loadout.linked) {
+      const note = hub.reach === 'pending'
+        ? 'Connecting to the hub…'
+        : 'No hub connection, so Relic gear is unavailable. Enter NOBU through the hub portal.';
+      banner += `<div class="wardrobe-offline">${esc(note)}</div>`;
+    }
     this.ui.setScreen(`<div class="wardrobe-panel"><div class="sub-title">WARDROBE</div>${banner}${rows}
-      <div class="hint" style="margin-top:14px">↑↓ slot · ←→ item · ENTER close</div></div>`, 'dim');
+      <div class="hint" style="margin-top:14px">${HINTS.wardrobe}</div></div>`, 'dim');
   }
 
   _cycleWardrobe(dir) {
@@ -712,24 +945,58 @@ export class Game {
   }
 
   // ---------------- level complete ----------------
+  remixCleared(session, result) {
+    if (this.session !== session || session.disposed) return false;
+    this.state = 'complete'; this.completeMode = 'remix';
+    this.tally = null; this.tallyStats = null; this.completeT = 0;
+    this.completeMinT = 2.3; this.completeNext = { n: session.level, bonus: true };
+    this.ui.hideHud(); this.ui.bossHide(); audio.playMusic('complete');
+    const text = result.fresh ? REMIX_TEXT.complete.earned : result.golden ? REMIX_TEXT.complete.already : REMIX_TEXT.complete.missed;
+    this.ui.setScreen(`<div class="big-title">${esc(REMIX_TEXT.complete.title)}</div><div class="sub-title">${esc(session.def.name)}</div><div class="big-title">${result.golden ? '🦴' : '○'}</div><div class="hint">${esc(text)}</div>`, 'dim');
+    this.ui.fade(0);
+    return true;
+  }
+
   levelCleared(session) {
-    const n = session.level;
+    const stage = session.stage, epoch = session._lifecycleEpoch || 0;
+    const current = () => pipelineCurrent(this, session, stage, epoch);
+    if (!current()) return false;
+    if (session.remix) return session._finishRemix();
+    const n = levelDef(session.level).id;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
     const d = save.data;
-    const bone = st.breakables > 0 && st.broken >= st.breakables && st.dogs >= st.dogsTotal;
-    d.beaten[n - 1] = true;
+    const fresh = bankBoneResults(session, st);
+    save.setBeaten(n);
     d.unlocked = Math.max(d.unlocked, Math.min(3, n + 1));
-    d.bestDogs[n - 1] = Math.max(d.bestDogs[n - 1], st.dogs);
-    if (bone) d.bones[n - 1] = true;
+    for (let id = 1; id <= d.unlocked; id++) d.open[id] = true;
+    if (n === 1) d.open.ride = true;
+    if (n === 2) d.open.cave = true;
+    this._unlockMainChapters();
+    save.setBestDogs(n, st.dogs);
+    st.goldenEarned = save.boneOf(n);
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
     // rescue scene first, then the results screen
-    this.playCutscene(RESCUE[n], () => this._showComplete(n, st, bone), 'victory');
+    this.playCutscene(RESCUE[n], () => { if (current()) this._showComplete(n, st, fresh); }, 'victory', isPipelineSession(session) ? current : null);
+  }
+
+  goalLevelCleared(session) {
+    if (session.def?.goal && !session.def.bonus &&
+      (session.disposed || this.session !== session || this.stage !== session.stage)) return false;
+    if (session.remix) return session._finishRemix();
+    const n = session.level, st = session.stats;
+    save.setBeaten(n); save.setBestDogs(n, st.dogs);
+    this._unlockMainChapters();
+    const fresh = bankBoneResults(session, st);
+    save.write();
+    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    this._showComplete(n, st, fresh);
   }
 
   // Colored bone found: it opens a path in an earlier level.
   collectBone(color) {
-    const where = { red: 'Bark Jungle', blue: 'Scratchpost Canyon' };
+    if (this.session?.remix) return false;
+    const where = BONE_TEXT.destinations;
     save.data.colorBones ||= {};
     const fresh = !save.data.colorBones[color];
     save.data.colorBones[color] = true;
@@ -740,77 +1007,119 @@ export class Game {
 
   // Time trial finished at the boss gate: time, dog tag, personal best.
   trialDone(session, t, medal, best) {
+    if (!pipelineCurrent(this, session)) return false;
     const n = session.level;
-    const [g, s, b] = TRIAL_TARGETS[n];
+    const targets = trialTargetLine(trialVariant(n), ['gold', 'platinum'].includes(medal) ? { medal } : save.data.trials?.[n]);
+    const eligible = eligibleTrialLine(save.data.trials?.[n], MASTERY_TEXT);
     this.state = 'complete';
+    this.completeMode = 'trial';
+    this.tally = null; this.tallyStats = null;
     this.completeT = 0;
     this.completeNext = { n, bonus: true };
+    this.completeMinT = 2.3;
     audio.playMusic('complete');
-    const names = { gold: 'GOLD TAG!', silver: 'SILVER TAG!', bronze: 'BRONZE TAG!' };
+    const names = { gold: 'GOLD TAG!', silver: 'SILVER TAG!', bronze: 'BRONZE TAG!', platinum: TRIAL_TEXT.platinumTag };
     this.ui.setScreen(`
       <div class="big-title" style="margin-bottom:1vh">TIME TRIAL</div>
       <div class="sub-title">${LEVEL_NAMES[n].toUpperCase()}</div>
       <div class="big-title" style="font-size:72px;margin:2vh 0">${fmtTime(t)}</div>
       <div class="sub-title">${medal ? `${MEDAL[medal]} ${names[medal]}` : 'No tag this time'}${best ? ' · NEW BEST!' : ''}</div>
-      <div class="hint" style="margin-top:2vh">🥇 ${fmtTime(g)} · 🥈 ${fmtTime(s)} · 🥉 ${fmtTime(b)}</div>
+      <div class="hint" style="margin-top:2vh">${targets}${eligible ? `<div>${esc(eligible)}</div>` : ''}</div>
       <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
     this.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #23599a, #05183a)';
     this.ui.fade(0);
   }
 
   // Bonus stage finished (no boss, no cutscene): record it and show the results.
+  gauntletCleared(session, result) {
+    this.state = 'complete';
+    this.completeMode = 'gauntlet';
+    this.tally = null; this.tallyStats = null;
+    this.completeT = 0; this.completeMinT = 2.3;
+    this.completeNext = { n: session.def.host, bonus: true };
+    const row = result.record || save.data.gauntlets?.[session.level] || {}, st = session.stats;
+    audio.setRate(1); audio.playMusic('complete');
+    this.ui.hideHud(); this.ui.bossHide();
+    this.ui.setScreen(`<div class="big-title">${GAUNTLET_TEXT.title}</div>
+      <div class="sub-title">${esc(session.def.name.toUpperCase())}</div>
+      <div class="big-title" style="font-size:52px;margin:2vh 0">${gauntletMedals(row)}</div>
+      <div class="hint">${GAUNTLET_TEXT.clear} · ${GAUNTLET_TEXT.allBoxes} · ${GAUNTLET_TEXT.flawless}</div>
+      <div class="hint">${st.broken} / ${st.breakables} · ${GAUNTLET_TEXT.deaths(st.deaths)} · ${fmtTime(st.ms / 1000)}</div>
+      ${row.bestMs ? `<div class="hint">${GAUNTLET_TEXT.localBest} ${fmtTime(row.bestMs / 1000)}</div>` : ''}
+      ${result.tickets ? `<div class="hint">${GAUNTLET_TEXT.firstClear}</div>` : ''}
+      <div class="hint" style="margin-top:3vh">${GAUNTLET_TEXT.continue}</div>`, 'dim');
+    this.ui.fade(0);
+  }
+
   bonusCleared(session) {
     const n = session.level;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
     const d = save.data;
+    const fresh = bankBoneResults(session, st);
+    save.setBestDogs(n, st.dogs);
     d.bonus ||= {};
     d.bonus[n] = { beaten: true, best: Math.max(d.bonus[n]?.best || 0, st.tickets) };
+    d.open[n] = true;
     save.write();
     hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
-    this._showComplete(n, st, false, true);
+    this._showComplete(n, st, fresh, true);
   }
 
-  _showComplete(n, st, bone, bonus = false) {
+  _showComplete(n, st, fresh = [], bonus = false) {
+    openCompleteTally(this, n, st, fresh, bonus, {
+      board: this.ui.boneBoard(n, { bonus }), hint: goalHint(this, n, st),
+      milestones: (st.kennelFresh || []).map((id) => ({ id, text: BONE_TEXT.kennel(id) })),
+    });
+  }
+
+  rushCompleted(session, result) {
+    if (this.session !== session) return;
+    this.ui.trialTime(null);
+    this.ui.hideHud();
+    this.ui.bossHide();
     this.state = 'complete';
+    this.completeMode = 'rush';
     this.completeT = 0;
-    this.completeNext = { n, bonus };
+    this.completeMinT = 2.3;
+    this.completeNext = { n: 'rush', bonus: true };
     audio.playMusic('complete');
-    const row = (img, label, val, cls = '') => `<div class="stat-row ${cls}"><img src="${Assets.url(img)}"><span>${label}</span><span class="val">${val}</span></div>`;
-    this.ui.setScreen(`
-      <div class="big-title" style="margin-bottom:2vh">${bonus ? 'BONUS STAGE CLEAR!' : `LEVEL ${n} COMPLETE!`}</div>
-      <div class="complete-wrap">
-        <img class="complete-nobu" src="${Assets.url('nobu_complete')}">
-        <div class="stats">
-          ${row('ticket', 'TICKETS', st.tickets)}
-          ${row(Assets.has('backpack_icon') ? 'backpack_icon' : 'backpack', 'BREAKABLES', `${st.broken}/${st.breakables}`, st.broken >= st.breakables ? '' : 'miss')}
-          ${row('dog_corgi_free', 'DOGS FREED', `${st.dogs}/${st.dogsTotal}`, st.dogs >= st.dogsTotal ? '' : 'miss')}
-          ${bonus ? '' : row('golden_bone', 'GOLDEN BONE', bone ? 'EARNED!' : 'not yet', bone ? 'reward' : 'miss')}
-        </div>
-      </div>
-      <div class="hint" style="margin-top:3vh">Press any key</div>`, 'dim');
-    this.ui.screen.style.background = 'radial-gradient(circle at 50% 40%, #5a2399, #1a0530)';
-    const rows = [...this.ui.screen.querySelectorAll('.stat-row')];
-    rows.forEach((r, i) => setTimeout(() => { r.classList.add('show'); audio.play(i === 3 && bone ? 'oneUp' : 'ticket'); }, 500 + i * 450));
+    const medal = result.eligible ? (result.noHit ? RUSH_TEXT.noHit : RUSH_TEXT.record) : RUSH_TEXT.ineligible;
+    this.ui.setScreen(`<div class="big-title">${RUSH_TEXT.clear}</div><div class="big-title">${fmtTime(result.ms / 1000)}</div><div class="sub-title">${medal}</div><div class="hint">${RUSH_TEXT.continue}</div>`, 'dim');
     this.ui.fade(0);
   }
 
   async updateComplete(dt) {
-    this.completeT += dt;
-    if (this.completeT > 2.3 && input.anyPressed() && this.completeNext) {
+    const session = this.session, stage = session?.stage, epoch = session?._lifecycleEpoch || 0;
+    const current = () => !session || pipelineCurrent(this, session, stage, epoch);
+    const pressed = input.anyPressed();
+    let ready;
+    if (this.completeMode === 'tally') ready = advanceCompleteTally(this, dt, pressed);
+    else { this.completeT += dt; ready = this.completeT > (this.completeMinT || 2.3) && pressed; }
+    if (ready && this.completeNext) {
       const { n, bonus } = this.completeNext;
       this.completeNext = null;
       audio.play('select');
       if (bonus) { this.ui.screen.style.background = ''; this.toMap(n); return; }
       this.ui.screen.style.background = '';
       this.ui.setScreen(`<div class="map-bg" style="background-image:url('${Assets.url('level_map')}');filter:brightness(0.5)"></div>`);
-      await this.ui.say(BETWEEN[n]);
-      if (n === 3) this.playCutscene(ENDING, () => this.toCredits(), 'victory');
-      else this.toMap(n + 1);
+      const dialogue = this.ui.say(BETWEEN[n] || []);
+      if (isPipelineSession(session)) session._goalIntroDialog = this.ui.dialog;
+      await dialogue;
+      if (!current()) return;
+      if (isPipelineSession(session)) session._goalIntroDialog = null;
+      if (n === 5 && levelDef(5)?.shipped) {
+        if (!this._trySecretEnding(() => { if (current()) this.toCredits(); }, current)) this.playCutscene(QUEEN_ENDING, () => { if (current()) this.toCredits(); }, 'victory', current);
+        return;
+      }
+      // Keep the original chapter's credits, followed by CHAPTER2 on the next map visit.
+      if (n === 3 || isFinalStoryLevel(n, LEVELS)) this.playCutscene(ENDING, () => this.toCredits(), 'victory');
+      else this.toMap(nextMainLevel(n, LEVELS) ?? n);
     }
   }
 
   // ---------------- game over ----------------
   gameOver(session) {
+    if (session.def?.gauntlet) audio.setRate(1);
     this.state = 'gameover';
     this.goSel = 0;
     this.goT = 0;
@@ -834,7 +1143,7 @@ export class Game {
       const lvl = this.session?.level || save.data.lastLevel || 1;
       save.data.lives = START_LIVES;
       save.write();
-      if (this.goSel === 0) this.startLevel(lvl);
+      if (this.goSel === 0) this.startLevel(lvl, { remix: !!this.session?.remix });
       else this.toTitle();
     }
   }
@@ -851,7 +1160,7 @@ export class Game {
     this.ui.setScreen(`<div style="position:absolute;top:6vh;width:100%;text-align:center"><div class="big-title">THE END</div>
       <div class="credits" style="margin:2vh auto 0">Nobu saved every dog on the island.<br>
       Art generated with Higgsfield · Code in Three.js · All sound synthesized live<br>
-      Thanks for playing! Golden Bones: ${save.data.bones.filter(Boolean).length}/3</div></div>
+      Thanks for playing! ${BONE_TEXT.goodBoyPercent(goodBoyPercent(save.data, LEVELS).total)}</div></div>
       <div class="press-start" style="bottom:6vh">PRESS ANY KEY</div>`);
     this.ui.fade(0);
   }

@@ -49,7 +49,12 @@ export function resetWorld() {
   save.data.godMode = false;
   save.data.trials = {};
   save.data.bonus = {};
-  save.data.bestDogs = [0, 0, 0];
+  save.data.bestDogs = {};
+  save.data.trialsClassic = {};
+  save.data.bossMedals = {};
+  save.data.perfect = {};
+  save.data.rush = { clear: false, noHit: false, bestMs: null };
+  save.data.gauntlets = {};
   // reset() keeps trial bests on purpose, so clear them on disk too.
   save.write({ merge: false });
   resetHub(hub);

@@ -26,9 +26,10 @@ function dogVisual(breed, freed, height) {
 }
 
 export class ConedDog extends Entity {
-  constructor(stage, x, y, z, { breed = pick(BREEDS), height = 1.25 } = {}) {
+  constructor(stage, x, y, z, { breed = pick(BREEDS), height = 1.25, id } = {}) {
     super(stage, x, y, z);
     this.breed = breed;
+    if (id) this.dogId = String(id).includes(':') ? String(id) : `${stage.game.session.level}:${id}`;
     this.h = height;
     this.body = new THREE.Group();
     this.obj.add(this.body);

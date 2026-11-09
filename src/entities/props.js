@@ -1,3 +1,4 @@
+import { onCatStageDispose } from '../bosses/catResources.js';
 // Level props and interactive mechanics.
 // Platforms: static, moving, crumbling, sinking lily pads, flipping planks, cracked floors (belly flop to break).
 // Interactions: Bone Switch (builds a ghost bridge), Rope drawbridge (bite the rope), bounce mushrooms,
@@ -5,6 +6,8 @@
 // Decor (palms, bushes, rocks, pipes...) lives in world/decor.js.
 import * as THREE from 'three';
 import { Entity } from './entity.js';
+import { updraft } from './updraft.js';
+export { updraft } from './updraft.js';
 import { Solid } from '../world/physics.js';
 import { Assets } from '../art/assets.js';
 import { toon } from '../player/nobuPrims.js';
@@ -495,12 +498,7 @@ export class UpdraftFan extends Entity {
     this.t += dt;
     this.blades.rotation.y += dt * 18;
     const p = this.player;
-    const dx = p.pos.x - this.pos.x, dz = p.pos.z - this.pos.z;
-    if (!p.dead && dx * dx + dz * dz < 1.2 && p.pos.y > this.pos.y + 0.3 && p.pos.y < this.pos.y + this.height) {
-      p.vel.y = Math.min(11, p.vel.y + this.power * dt * 2);
-      p.body.grounded = false;
-      p.canDouble = true;
-    }
+    updraft(p, dt, this.pos, this.height, this.power);
     if (Math.random() < dt * 16) {
       const a = rand(0, Math.PI * 2), r = rand(0, 0.85);
       this.fx.smokeCard(this.pos.x + Math.cos(a) * r, this.pos.y + 0.6, this.pos.z + Math.sin(a) * r, {
@@ -629,15 +627,22 @@ export class Crusher extends Entity {
 
 // Rolls coconuts down the track toward Nobu (jump them or bite them).
 export class CoconutRoller extends Entity {
-  constructor(stage, track, d, { every = 2.2, speed = 7, lanes = [-2, 0, 2], until = d - 30 } = {}) {
+  constructor(stage, track, d, { every = 2.2, speed = 7, lanes = [-2, 0, 2], until = d - 30, mesh = 'coconut', reward = true } = {}) {
     const p = track.toWorld(d, 0, 0);
     super(stage, p.x, p.y, p.z);
     this.track = track; this.d = d; this.every = every; this.speed = speed; this.lanes = lanes; this.until = until;
+    this.reward = reward !== false; this.meshKind = mesh; this.barrelSeq = 0;
     this.balls = [];
     this.timer = 0.5;
     this.obj = new THREE.Group();
-    this.geo = new THREE.SphereGeometry(0.45, 10, 8);
-    this.mat = toon(0x6a4020);
+    this.geo = mesh === 'barrel' ? new THREE.CylinderGeometry(0.5, 0.5, 0.9, 12) : new THREE.SphereGeometry(0.45, 10, 8);
+    this.mat = toon(mesh === 'barrel' ? 0x7a4a24 : 0x6a4020);
+    if (mesh === 'barrel') {
+      this.bandGeo = new THREE.CylinderGeometry(0.515, 0.515, 0.08, 12);
+      this.bandMat = toon(0x302820);
+      this.geo.userData.shared = this.bandGeo.userData.shared = true;
+      onCatStageDispose(stage, () => this.dispose());
+    }
     this.interactive = false;
   }
   update(dt) {
@@ -647,13 +652,17 @@ export class CoconutRoller extends Entity {
     this.timer -= dt;
     const session = this.game.session;
     const spawnCap = rawTicketsForWhole(COCONUT_CAP_PER_CLEAR);
-    if (active && this.timer <= 0 && session && session.coconutSpawned < spawnCap) {
+    if (active && this.timer <= 0 && session && (!this.reward || session.coconutSpawned < spawnCap)) {
       this.timer = this.every;
-      const m = new THREE.Mesh(this.geo, this.mat);
-      m.castShadow = true;
+      let m = new THREE.Mesh(this.geo, this.mat);
+      if (this.meshKind === 'barrel') {
+        const body = m; m = new THREE.Group(); m.add(body); body.rotation.z = Math.PI / 2;
+        for (const x of [-0.3, 0.3]) { const band = new THREE.Mesh(this.bandGeo, this.bandMat); band.rotation.z = Math.PI / 2; band.position.x = x; m.add(band); }
+        m.traverse(o => { if(o.isMesh)o.castShadow = true; });
+      } else m.castShadow = true;
       this.stage.scene.add(m);
-      const id = ++session.coconutSeq;
-      session.coconutSpawned++;
+      const id = this.reward ? ++session.coconutSeq : `barrel:${++this.barrelSeq}`;
+      if (this.reward) session.coconutSpawned++;
       this.balls.push({ id, m, s: this.d, u: pick(this.lanes), alive: true });
     } else if (active && this.timer <= 0) this.timer = this.every;
     for (let i = this.balls.length - 1; i >= 0; i--) {
@@ -666,7 +675,9 @@ export class CoconutRoller extends Entity {
       b.m.rotation.x -= (this.speed * dt) / 0.45;
       const d = b.m.position.distanceTo(pl.pos.clone().setY(pl.pos.y + 0.5));
       if (b.alive && !pl.dead && d < 0.9) {
-        if (pl.biteT >= 0.1 && pl.biteT <= 0.75) {
+        if (!this.reward) {
+          pl.hurt(pl.ride ? 'splash' : 'flat', b.m.position.x, b.m.position.z);
+        } else if (pl.biteT >= 0.1 && pl.biteT <= 0.75) {
           b.alive = false;
           audio.play('chompHit');
           this.fx.burst(b.m.position.x, b.m.position.y, b.m.position.z, { count: 10, colors: [0x6a4020, 0xffffff], size: 0.15 });
@@ -689,6 +700,11 @@ export class CoconutRoller extends Entity {
     }
   }
   reset() { for (const b of this.balls) this.stage.scene.remove(b.m); this.balls.length = 0; this.timer = 1.5; }
+  dispose() {
+    if (this.meshKind !== 'barrel' || this.disposed) return;
+    this.disposed = true; this.reset();
+    for (const r of [this.geo, this.mat, this.bandGeo, this.bandMat]) r?.dispose();
+  }
 }
 
 // Conveyor belt visual: a scrolling strip along the track over a conveyor span.

@@ -23,8 +23,18 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 //   af71e57e79fd86f577d6cb47b53af4ccde4471bac2a79e1bbc52fcc3afb939a4
 // 0.5.0 / hub 441b7c4 (realtime, ScoreResult, getLeaderboard):
 //   7d994bb3744c3d2f59e3bfa6e235b728554b7644a4f4b521b9fb7fd1033b7b76
-// 0.5.0 / hub 1c8b72e (early match data kept for the new match handle).
-const CONTENT_MANIFEST_SHA256 = '1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b';
+// 0.5.0 / hub 1c8b72e (early match data kept for the new match handle):
+//   1098c5d324331d84e17e6301b601814fd6f3d34ac44580dd7d73419033a1d82b
+// 0.6.0 / hub ee187cf (sproto-arcade, breakwater_coin, optional loadSave/writeSave).
+// 0.6.0 / hub main 93e4894 (Classic/layout2 trial variants; generated vendor workflow).
+//   18018817130d23586ba30db373fafb6244ff730d663588a2ce94f50426bfbf1a
+// 0.6.1 / exact merged hub main b8636ee7b222cc39f2a4e18b1ce944276299e52d
+// (expanded trial variants and terminal outbox refusals; supported helper output):
+//   98b625bac349f83e5afe75491c14d0fe70e8ac63206b8beaafba51d210b6a372
+// 0.6.3 / exact merged hub main 5cc4e4809180f5bc0b016301d9222c26a80e6d4c
+// (hub #90; classic-script IIFE, global HubSDK). File sha256 of dist/hub-sdk.iife.js:
+const CONTENT_MANIFEST_SHA256 = '3813f4566254eff06733e0f5f156052116fa3aad6d4fd36b259b86f00da65dd5';
+const IIFE_SHA256 = '4ceb36321fc09820c4ef6292b8bd31ebaa198f0a9b90d38bcbd458505222df76';
 
 function listFiles(dir) {
   const out = [];
@@ -71,9 +81,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.5.0', () => {
+  it('package.json is SDK 0.6.3', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.5.0');
+    expect(pkg.version).toBe('0.6.3');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -94,6 +104,23 @@ describe('vendored hub SDK', () => {
     expect(nakama).toContain('Authorization: `Basic ${btoa(`${serverKey}:`)}`');
   });
 
+  it('pins generated provenance and has no source maps or mapping URLs', () => {
+    const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
+    expect(note).toContain('- branch: main\n- sha: 5cc4e48\n- package: packages/hub-sdk @ 0.6.3');
+    expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
+    const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
+    const iife = fs.readFileSync(iifePath);
+    expect(createHash('sha256').update(iife).digest('hex')).toBe(IIFE_SHA256);
+    expect(iife.toString('utf8')).toContain('global HubSDK');
+    const pin = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/SOURCE.pin.json'), 'utf8'));
+    expect(pin).toMatchObject({ version: '0.6.3', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
+    const files = listFiles(path.resolve('vendor/hub-sdk'));
+    expect(files.some(file => file.endsWith('.map'))).toBe(false);
+    for (const file of files) expect(fs.readFileSync(file, 'utf8')).not.toContain('sourceMappingURL=');
+    const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
+    expect(types).toContain('granted_items?: string[];');
+  });
+
   // The trial board (CONTRACT C9/C13): unranked sessions post, and the answer comes back.
   it('submitScore posts from unranked sessions and returns the ScoreResult; getLeaderboard exists', () => {
     const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
@@ -107,23 +134,30 @@ describe('vendored hub SDK', () => {
   });
 
   // live.js asRelics() keeps only ids isRelicId() accepts. Without the Belt here,
-  // profile.get would drop it and the Champion's Crown would never unlock. Hub main
-  // ships it (b065668), so the vendor tree carries no local patch.
-  it('accepts tidebreaker_belt as a relic id from upstream', async () => {
+  // profile.get would drop it and the Champion's Crown would never unlock; the same
+  // goes for breakwater_coin (0.6.0) and Wizard Hat II. Hub ships both, so the vendor
+  // tree carries no local patch.
+  it('accepts tidebreaker_belt and breakwater_coin as relic ids from upstream', async () => {
     const types = await import('../vendor/hub-sdk/dist/types.js');
-    expect(types.RELIC_IDS).toEqual(['hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt']);
+    expect(types.RELIC_IDS).toEqual([
+      'hpos10i_core', 'genesis_shard', 'cones_tip', 'tinubu_crown', 'tidebreaker_belt', 'breakwater_coin',
+    ]);
     expect(types.isRelicId('tidebreaker_belt')).toBe(true);
+    expect(types.isRelicId('breakwater_coin')).toBe(true);
     expect(types.isRelicId('not_a_relic')).toBe(false);
-    expect(types.GAME_IDS).toEqual(['hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter']);
+    expect(types.GAME_IDS).toEqual([
+      'hpos10i', 'nobu', 'peoples-bitcoin', 'sproto', 'sproto-fighter', 'sproto-arcade',
+      'sproto-shooter', 'sproto-coop-battle',
+    ]);
     const live = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/live.js'), 'utf8');
     expect(live).toContain("value.filter((item) => typeof item === 'string' && isRelicId(item))");
     const dts = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
-    expect(dts).toContain('"tinubu_crown", "tidebreaker_belt"]');
+    expect(dts).toContain('"tinubu_crown", "tidebreaker_belt", "breakwater_coin"]');
     const vendorNote = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
     expect(vendorNote).not.toContain('## Local patch');
   });
 
-  it('content manifest matches SDK 0.5.0 after maps and sourceMappingURL are removed', () => {
+  it('content manifest matches SDK 0.6.3 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);

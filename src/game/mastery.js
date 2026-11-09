@@ -1,0 +1,78 @@
+import { TRIAL_TARGETS, TRIAL_FLOOR_MS, TRIAL_CEIL_MS } from '../config/trials.js';
+import { BOSS_SPEED_MS } from '../bosses/medals.js';
+
+import { PLATINUM_LAYOUT1 } from '../config/masteryTargets.js';
+export { PLATINUM_LAYOUT1 };
+export function masteryTargets(variant, table = TRIAL_TARGETS) {
+  const row = table[variant];
+  return row ? [row[0], row[1], row[2], row[3] ?? PLATINUM_LAYOUT1[variant]] : null;
+}
+const validRecordMs = (variant, ms) => Number.isInteger(ms) && ms >= TRIAL_FLOOR_MS[variant];
+const validMs = (variant, ms) => validRecordMs(variant, ms) && ms <= TRIAL_CEIL_MS;
+const minMs = (a, b) => a == null ? b : b == null ? a : Math.min(a, b);
+export const platinumEligible = (ctx = {}) => !(ctx.god || ctx.godUsed || ctx.remix || ctx.rush || ctx.dda || ctx.ddaUsed);
+export function masteryTrialMedal(variant, seconds, ctx = {}, table = TRIAL_TARGETS) {
+  const targets = masteryTargets(variant, table);
+  if (!targets || !Number.isFinite(seconds)) return null;
+  const ms = Math.round(seconds * 1000);
+  if (!validMs(variant, ms)) return null;
+  const [gold, silver, bronze, platinum] = targets.map((t) => t == null ? null : Math.round(t * 1000));
+  return platinum != null && ms <= platinum && platinumEligible(ctx) ? 'platinum'
+    : ms <= gold ? 'gold' : ms <= silver ? 'silver' : ms <= bronze ? 'bronze' : null;
+}
+
+// God-used belongs to the fastest record, not the tab's current toggle. A slower
+// clean run can still earn its own tag without discarding a faster practice time.
+export function trialMastery(variant, record, table = TRIAL_TARGETS) {
+  const layout = Number(/v(\d+)$/.exec(String(variant))?.[1] || 1);
+  if (!record || (record.layout ?? 1) !== layout || !validRecordMs(variant, record.ms)) return null;
+  const godUsed = record.godUsed === true;
+  const ownEligible = !godUsed ? record.ms : null;
+  const savedEligible = validRecordMs(variant, record.bestEligibleMs) && record.bestEligibleMs >= record.ms ? record.bestEligibleMs : null;
+  const bestEligibleMs = minMs(ownEligible, savedEligible);
+  let medal = masteryTrialMedal(variant, record.ms / 1000, { godUsed }, table);
+  const platinum = masteryTargets(variant, table)?.[3];
+  if (platinum != null && bestEligibleMs != null && bestEligibleMs <= Math.round(platinum * 1000)) medal = 'platinum';
+  return { ...record, godUsed, bestEligibleMs, medal };
+}
+export function mergeTrialMastery(variant, mine, incoming, table = TRIAL_TARGETS) {
+  let a = trialMastery(variant, mine, table), b = trialMastery(variant, incoming, table);
+  if (!a) return b;
+  if (!b) return a;
+  // An older tab may strip the new eligibility fields from the very same run.
+  // Positive timestamp + matching payload identifies that copy; it is not a
+  // new clean equal-time run. Stronger recorded god evidence wins this case.
+  const sameRun = a.ms === b.ms && (a.layout ?? 1) === (b.layout ?? 1) &&
+    Number.isFinite(a.at) && a.at > 0 && a.at === b.at && (a.pid ?? null) === (b.pid ?? null) &&
+    (a.deaths ?? 0) === (b.deaths ?? 0) && (a.freezeMs ?? 0) === (b.freezeMs ?? 0);
+  if (sameRun && (a.godUsed || b.godUsed)) {
+    const preserve = (record) => trialMastery(variant, { ...record, godUsed: true,
+      bestEligibleMs: record.bestEligibleMs === record.ms ? null : record.bestEligibleMs }, table);
+    a = preserve(a); b = preserve(b);
+  }
+  // A clean equal-time record wins the tie, preserving its matching pid/metadata.
+  const winner = b.ms < a.ms || (b.ms === a.ms && a.godUsed && !b.godUsed) ? b : a;
+  return trialMastery(variant, { ...winner, bestEligibleMs: minMs(a.bestEligibleMs, b.bestEligibleMs) }, table);
+}
+export const platinumHintVisible = (record) => ['gold', 'platinum'].includes(record?.medal);
+
+export function perfectRun(stats, ctx = {}, def = {}) {
+  if (!def.shipped || def.bonus || def.meta || !/^[1-6]$/.test(String(def.id)) ||
+      ctx.trial || ctx.remix || ctx.rush || ctx.god || ctx.godUsed || stats?.godUsed) return false;
+  // Hidden/Snack bones are optional secrets, not the Perfect Run condition.
+  return Number.isFinite(stats?.breakables) && stats.breakables > 0 && stats.broken >= stats.breakables &&
+    Number.isFinite(stats.dogsTotal) && stats.dogsTotal >= 0 && stats.dogs >= stats.dogsTotal && stats.deathsAtGate === 0;
+}
+export function bankPerfect(data, id, candidate, ctx = {}) {
+  if (!/^[1-6]$/.test(String(id)) || !candidate || ctx.trial || ctx.remix || ctx.rush || ctx.god || ctx.godUsed) return false;
+  data.perfect ||= {};
+  const fresh = !data.perfect[id]; data.perfect[id] = true;
+  return fresh;
+}
+export function bossMedalRows(data, registry) {
+  return Object.values(registry.LEVELS || registry).filter((def) => def.shipped && !def.meta && def.bossKey && data.beaten?.[def.id]).map((def) => {
+    const saved = data.bossMedals?.[def.bossKey] || {};
+    return { level: def.id, key: def.bossKey, clear: saved.clear === true, noHit: saved.noHit === true,
+      speed: saved.speed === true, bestMs: saved.bestMs > 0 ? saved.bestMs : null, targetMs: BOSS_SPEED_MS[def.bossKey] };
+  });
+}

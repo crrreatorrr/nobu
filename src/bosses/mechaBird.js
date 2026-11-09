@@ -5,6 +5,8 @@
 // The GLB is auto-rigged: real wing flaps (with a lagging wingtip), head tracking, tail and a swinging cage.
 import * as THREE from 'three';
 import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart } from './common.js';
+import { BIRD_STAGE_POWERS } from '../story/script.js';
+import { BirdEscort, BirdEggCraters, BIRD_PERCHES, moveBirdCage } from './birdArena.js';
 import { autoRig, sstep, blendPose } from './autorig.js';
 import { toon } from '../player/nobuPrims.js';
 import { audio } from '../audio/audio.js';
@@ -48,7 +50,7 @@ function weigh(x, y, z) {
 
 export class MechaBird extends Boss {
   constructor(stage, x, y, z) {
-    super(stage, x, y, z, { name: 'MECHA BIRD', portrait: 'portrait_bird', hp: 6, phaseHp: 2 });
+    super(stage, x, y, z, { name: 'MECHA BIRD', portrait: 'portrait_bird', key: 'bird' }); // Old hp 6, phaseHp 2.
     this.buildModel();
     this.setBox(2.8, 2.0, 2.8, -1.0);
     this.marker = makeMarker(1.7);
@@ -68,7 +70,10 @@ export class MechaBird extends Boss {
     this.roll = 0; this.pitch = 0;
     this.lastPhase = 1;
     this.stageNames = { 2: 'OVERCLOCKED', 3: 'HYPER MECHA' };
-    this.stagePowers = { 2: 'Feather volleys · laser eye · faster dives', 3: 'Homing missiles · egg bombs · double laser sweeps' };
+    this.stagePowers = BIRD_STAGE_POWERS;
+    this.CHAINS = { 1: [['volley','aim'],['volley','gust']], 3: [['laser','volley'],['cage','aim']] };
+    this.drones = []; this.droneSphereGiven = false;
+    this.eggCraters = new BirdEggCraters(this.proj);
     this.stageColors = [0, 0, 0xff7a1a, 0x3ad8ff];
     this.stageGlow = { 2: 0x120500, 3: 0x00121c };
     this.collectMeshes();
@@ -79,7 +84,9 @@ export class MechaBird extends Boss {
   // Stage 3 (HYPER MECHA): steel wing blades, a plasma afterburner and a spinning halo.
   makeStageParts() {
     const B = this.bones;
-    if (!B) return {};
+    if (!B) {
+      return {3:this.fbWings.map((wing,i)=>{const clamp=new THREE.Mesh(new THREE.BoxGeometry(.32,.3,.45),toon(0x939aaa));clamp.position.set(i?-.45:.45,-.4,0);wing.add(clamp);return clamp;})};
+    }
     const k = 1.05; // mesh units per model unit (height 4.2 / 4)
     const V = (x, y, z) => new THREE.Vector3(x * k, y * k, z * k);
     const steel = new THREE.MeshPhongMaterial({ color: 0xd8dde8, specular: 0xffffff, shininess: 90 });
@@ -90,6 +97,7 @@ export class MechaBird extends Boss {
       add('head', glowPart(0xff3030, 0.6), two).position.copy(V(sx * 0.2, 0.22, 0.5));
       const jet = add(sx < 0 ? 'wingL' : 'wingR', flamePart(0xff8a2a, 0.45, 1.1), two);
       jet.position.copy(V(sx * 0.45, -0.25, -0.1)); jet.rotation.x = Math.PI;
+      const clampPart=add(sx < 0 ? 'wingL' : 'wingR',new THREE.Mesh(new THREE.BoxGeometry(.32,.3,.45),steel),three);clampPart.position.copy(V(sx*.45,-.4,0));
       const blade = add(sx < 0 ? 'wingL2' : 'wingR2', new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.32), steel), three);
       blade.position.copy(V(sx * 0.95, 0.02, -0.22)); blade.rotation.y = sx * 0.12;
       const edge = add(sx < 0 ? 'wingL2' : 'wingR2', new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.05), new THREE.MeshBasicMaterial({ color: 0x7af0ff })), three);
@@ -208,28 +216,61 @@ export class MechaBird extends Boss {
 
   // ---------- fight ----------
   start() {
-    this.active = true;
+    this.active = true;this.beginPhase();
     this.nextAction();
   }
 
+  beginPhase() {
+    this.game.session.info?.windLanes?.setPhase(this.phase,this);
+  }
+  afterAttack() { this.nextAction(); }
+  beginAttack(state) {
+    this.fbHead.rotation.x=0;this.setState(state);this.beam.hide();this.marker.visible=false;this.shots=0;this.did=false;
+    if(state==='aim') {this.target.set(this.P.x,0,this.P.z);this.marker.visible=true;audio.play('bossRoar');}
+    if(state==='perch') {
+      const perches=this.game.session.info?.perches || BIRD_PERCHES.map(p=>new THREE.Vector3(...p));
+      this.perchPoint=perches.reduce((a,b)=>this.pos.distanceToSquared(a)<this.pos.distanceToSquared(b)?a:b).clone();
+      this.perchLanded=false;this.peckT=0;this.peckDir=null;
+    }
+    if(state==='cage') {
+      this.cageDrop=this.proj.cage(this.P.x,this.P.z,{delay:this.tele(.9)+.35,trap:1.2,duration:4});
+      this.cageDrop.onLand=()=>audio.play('cageRattle');
+      audio.play('whirr');
+    }
+    if(state==='escort') {
+      this.killMinions();
+      this.drones=[-1,1].map(side=>this.stage.add(new BirdEscort(this,side)));audio.play('bossRoar');
+    }
+  }
   nextAction() {
     if (!this.plan.length) {
-      if (this.phase === 1) this.plan = ['circle', 'aim', 'circle', 'gust', 'aim'];
-      else if (this.phase === 2) this.plan = ['circle', 'volley', 'laser', 'circle', 'volley', 'tired', 'aim'];
-      else this.plan = ['circle', 'missiles', 'aim', 'eggs', 'laser', 'volley', 'aim', 'gust', 'bomb', 'aim'];
+      if(this.phase===1)this.plan=['circle','volley','aim','chain','perch','aim','volley','gust','aim'];
+      else if(this.phase===2)this.plan=['circle','volley','laser','circle','cage','aim','perch','volley','tired','aim'];
+      else this.plan=['escort','circle','missiles','aim','eggs','chain','aim','gust','cage','perch','bomb','aim'];
     }
-    // SPECIAL gauge full: unleash the ultimate before anything else
-    if (this.state !== 'ultimate') this.cancelUlt();
-    if (this.ultReady) this.plan.unshift('ultimate');
-    this.setState(this.plan.shift());
-    this.beam.hide();
-    this.shots = 0;
-    this.did = false;
-    if (this.state === 'aim') { this.marker.visible = true; audio.play('bossRoar'); }
+    if(this.state!=='ultimate')this.cancelUlt();
+    if(this.ultReady)this.plan.unshift('ultimate');
+    const state=this.plan.shift();
+    if(state==='chain') {if(!this.startChain(this.pickChain()))this.nextAction();return;}
+    if(state==='escort' && this.drones.filter(d=>d.alive && !d.dead).length===2){this.nextAction();return;}
+    this.beginAttack(state);
+  }
+  killMinions() {
+    const old=this.drones || [];
+    for(const d of old){d.dead=true;d.obj.removeFromParent();}
+    this.stage.entities=this.stage.entities.filter(e=>!old.includes(e));
+    this.drones=[];
+  }
+  fireEscort() {
+    for(const d of this.drones)if(d.alive && !d.dead){
+      const target=this.P.clone().add(new THREE.Vector3(0,.65,0));
+      this.proj.feather(d.pos.clone(),target.sub(d.pos).normalize(),9);
+    }
   }
 
   ai(dt) {
-    const sp = this.phase === 3 ? 1.4 : this.phase === 2 ? 1.2 : 1;
+    const sp = this.sp;
+    this.eggCraters.update(dt);
     const p = this.player;
     this.stars.visible = false;
     this.vulnerable = false;
@@ -267,7 +308,7 @@ export class MechaBird extends Boss {
       case 'aim': {
         this.setFlap(14, 0.4, 0.15);
         // marker tracks Nobu, then locks
-        const lockAt = (this.phase === 1 ? 1.1 : 0.85);
+        const lockAt = this.tele(this.phase === 1 ? 1.1 : .85);
         if (this.stateT < lockAt - 0.3) this.target.set(this.P.x, 0, this.P.z);
         this.marker.position.set(this.target.x, 0.06, this.target.z);
         this.marker.scale.setScalar(1 + Math.sin(this.stateT * 18) * 0.08);
@@ -280,7 +321,7 @@ export class MechaBird extends Boss {
         const k = Math.min(1, this.stateT / lockAt);
         this.animate(dt, { pitch: -0.45 * k, tail: [0.5 * k, 0, 0] });
         if (this.stateT > lockAt) {
-          this.setState('dive');
+          this.setState('dive');this.fireEscort();
           this.diveFrom = this.pos.clone();
           audio.play('whoosh');
         }
@@ -322,7 +363,7 @@ export class MechaBird extends Boss {
         // the cage flops out behind, rattling on the grass
         this.animate(dt, { pitch: 0.7 + tug * 0.06, roll: Math.sin(this.stateT * 20) * 0.05, tail: [0.4, Math.sin(this.stateT * 16) * 0.5, 0], head: [0.4 + Math.max(0, tug) * 0.1, 0, 0], cage: [0.65 + Math.sin(this.stateT * 9) * 0.04, 0, Math.sin(this.stateT * 13) * 0.05] });
         if (tug > 0.95 && Math.random() < 0.3) this.fx.dust(this.pos.x, 0, this.pos.z, { count: 2, size: 0.3, color: 0xd8c8a8 });
-        const dur = this.phase === 3 ? 2.2 : this.phase === 2 ? 2.4 : 2.7;
+        const dur = this.W; // Old stuck windows 2.7 / 2.4 / 2.2.
         if (this.stateT > dur) this.recover();
         break;
       }
@@ -341,7 +382,7 @@ export class MechaBird extends Boss {
           this.animate(dt, { pitch: 0.25, head: [0.55 + nod, Math.sin(this.stateT * 1.7) * 0.3, 0], tail: [0.25, 0, 0], wingL2: [0, 0.2, 0.4], wingR2: [0, -0.2, -0.4], cage: [1.15, 0, 0] });
           if (Math.random() < dt * 6) this.fx.steam(this.pos.x + rand(-1.4, 1.4), this.pos.y + 1.2, this.pos.z + rand(-0.3, 0.3), { color: 0x5a5060, size: 0.3, alpha: 0.8, up: 1.4 });
         }
-        if (this.stateT > 2.9) this.recover();
+        if (this.stateT > .6 + this.W - .1) this.recover();
         break;
       }
       case 'recover': {
@@ -358,7 +399,7 @@ export class MechaBird extends Boss {
         this.pos.z = damp(this.pos.z, Math.cos(edgeA) * 10, 3, dt);
         this.pos.y = damp(this.pos.y, 3.4, 3, dt);
         this.faceTo(this.P, dt, 8);
-        const charge = 0.65 / sp;
+        const charge = this.tele(.65 / sp);
         const fired = this.shots > 0;
         const k = fired ? Math.max(0, 1 - (this.stateT - charge) * 4) : Math.min(1, this.stateT / charge);
         // wings cock back while charging, then whip forward on release
@@ -375,7 +416,7 @@ export class MechaBird extends Boss {
           }
           audio.play('shoot');
         }
-        if (this.stateT > charge + 0.8) this.nextAction();
+        if (this.stateT > charge + (this.chainQ?.length ? 0 : .8)) this.endAttack();
         break;
       }
       case 'gust': {
@@ -386,7 +427,7 @@ export class MechaBird extends Boss {
         this.pos.z = damp(this.pos.z, Math.cos(edgeA) * 10.5, 3, dt);
         this.pos.y = damp(this.pos.y, 3.2, 3, dt);
         this.faceTo(ORIGIN, dt, 5);
-        const wind = 0.8, dur = 2.8;
+        const wind = this.tele(.8), dur = 2.8;
         if (this.stateT < wind) {
           // rear up, wings raised to the sky
           this.setFlap(2, 0.1, 0.9);
@@ -402,7 +443,7 @@ export class MechaBird extends Boss {
           // fades out near the arena edge: a shove, never a cheap ring-out
           const edge = clamp((11.2 - Math.max(Math.abs(p.pos.x), Math.abs(p.pos.z))) / 3, 0, 1);
           const f = (2.2 + beat * 3.4) * (this.phase === 3 ? 1.15 : 1) * edge;
-          if (p.body.grounded || p.pos.y < 3) { p.pushX = dir.x * f; p.pushZ = dir.z * f; }
+          if (p.body.grounded || p.pos.y < 3) { p.pushX = (p.pushX || 0) + dir.x * f; p.pushZ = (p.pushZ || 0) + dir.z * f; }
           if (this.stateT > wind + 1.4 && this.shots === 2) { this.shots = 3; audio.play('gust'); }
           // wind streaks across the arena
           if (Math.random() < dt * 40) {
@@ -414,18 +455,18 @@ export class MechaBird extends Boss {
         } else {
           this.setFlap(9, 0.55);
           this.animate(dt);
-          if (this.stateT > wind + dur + 0.4) this.nextAction();
+          if (this.stateT > wind + dur + (this.chainQ?.length ? 0 : .4)) this.endAttack();
         }
         break;
       }
       case 'laser': {
         // hover at the edge, visor beam sweeps a line of fire across the floor: jump it!
-        const aimT = 0.75 / sp, sweepT = 1.7 / sp;
+        const aimT = this.tele(.75 / sp), sweepT = 1.7 / sp;
         if (!this.did) {
           this.did = true;
           const edgeA = Math.atan2(this.pos.x, this.pos.z);
           this.perch = new THREE.Vector3(Math.sin(edgeA) * 10, 4.2, Math.cos(edgeA) * 10);
-          this.sweeps = this.phase === 3 ? 2 : 1;
+          this.sweeps = this.phase === 3 ? 2 : 1;this.firingSnd=-1;
           this._aimLaser();
           audio.play('charge');
         }
@@ -439,7 +480,7 @@ export class MechaBird extends Boss {
         if (n >= this.sweeps) {
           this.beam.hide();
           this.animate(dt);
-          if (tt > this.sweeps * cyc + 0.4) this.nextAction();
+          if (tt > this.sweeps * cyc + (this.chainQ?.length ? 0 : .4)) this.endAttack();
           break;
         }
         if (n !== this.sweepIdx) { this.sweepIdx = n; if (n > 0) { this._aimLaser(true); audio.play('charge'); } }
@@ -450,7 +491,7 @@ export class MechaBird extends Boss {
         this.animate(dt, { head: [0.5, 0, 0], pitch: 0.1 });
         this.beam.set(from, spot, firing, tt);
         if (firing) {
-          if (!this.firingSnd || this.firingSnd !== n) { this.firingSnd = n; audio.play('laser'); }
+          if (this.firingSnd !== n) { this.firingSnd = n; audio.play('laser'); }
           if (Math.random() < dt * 50) this.fx.sparkle(spot.x, 0.15, spot.z, { count: 1, color: 0xffa060, size: 0.5, speed: 3, up: 3 });
           if (Math.random() < dt * 25) this.fx.smokeCard(spot.x, 0.1, spot.z, { vy: 1.2, size: 0.25, life: 0.8, colors: [0x5a4a50, 0x8a8090], grow: 1.5, g: -0.5, alpha: 0.7 });
           if (!p.dead && this.beam.hits(p)) p.hurt('angel', spot.x, spot.z);
@@ -464,7 +505,7 @@ export class MechaBird extends Boss {
         this.faceTo(this.P, dt, 6);
         this.animate(dt, { pitch: -0.15 });
         const n = 3, every = 0.45 / sp;
-        if (this.stateT > 0.6 + this.shots * every && this.shots < n) {
+        if (this.stateT > this.tele(.6) + this.shots * every && this.shots < n) {
           const side = this.shots % 2 ? 1 : -1;
           const yaw = this.rig.rotation.y;
           const from = this.pos.clone().add(new THREE.Vector3(Math.cos(yaw) * side * 1.5, 0.6, -Math.sin(yaw) * side * 1.5));
@@ -473,7 +514,7 @@ export class MechaBird extends Boss {
           this.fx.flash(from.x, from.y, from.z, { size: 1, color: 0xffb060 });
           this.shots++;
         }
-        if (this.stateT > 0.6 + n * every + 0.8) this.nextAction();
+        if (this.stateT > this.tele(.6) + n * every + .8) this.endAttack();
         break;
       }
       case 'eggs': {
@@ -486,58 +527,84 @@ export class MechaBird extends Boss {
         this.faceTo(this.P, dt, 5);
         this.animate(dt, { tail: [0.6, 0, 0] });
         const n = 4, every = 0.7 / sp;
-        if (this.stateT > 0.5 + this.shots * every && this.shots < n) {
+        if (this.stateT > this.tele(.5) + this.shots * every && this.shots < n) {
           this.shots++;
           const v = new THREE.Vector3(rand(-2, 2), 2, rand(-2, 2));
-          this.proj.eggBomb(this.pos.clone().add(new THREE.Vector3(0, -1.2, 0)), v, { groundY: 0, fuse: 2.3 / Math.sqrt(sp), radius: 2.2 });
+          this.eggCraters.watch(this.proj.eggBomb(this.pos.clone().add(new THREE.Vector3(0, -1.2, 0)), v, { groundY: 0, fuse: 2.3 / Math.sqrt(sp), radius: 2.2 }));
           audio.play('boing');
         }
-        if (this.stateT > 0.5 + n * every + 0.5) this.nextAction();
+        if (this.stateT > this.tele(.5) + n * every + .5) this.endAttack();
+        break;
+      }
+      case 'perch': {
+        const destination=this.perchPoint,delta=_spot.copy(destination).sub(this.pos),distance=delta.length();
+        if(!this.perchLanded){
+          this.setFlap(12,.5);this.faceTo(destination,dt);this.animate(dt);
+          if(distance>16*sp*dt){this.pos.addScaledVector(delta.normalize(),16*sp*dt);break;}
+          this.pos.copy(destination);this.perchLanded=true;
+        }
+        if(!this.peckDir){this.peckDir=dirTo(destination,this.P);this.peckT=0;}
+        this.peckT+=dt;const tell=this.tele(.5),k=Math.min(1,this.peckT/tell);
+        this.setFlap(2,.08,-.1);this.faceTo(_spot.copy(destination).add(this.peckDir),dt,12);
+        this.animate(dt,{head:[-.6*k,0,0],pitch:-.12*k});if(!this.bones)this.fbHead.rotation.x=-.6*k;
+        if(this.peckT>=tell){
+          this.proj.coconut(new THREE.Vector3(destination.x,0,destination.z),this.peckDir,{speed:6*sp});audio.play('peck');
+          this.shots++;this.peckDir=null;if(this.shots>=this.phase+2)this.endAttack();
+        }
+        break;
+      }
+      case 'cage': {
+        const tell=this.tele(.9),drop=this.cageDrop;
+        this.setFlap(11,.4);this.pos.y=damp(this.pos.y,6,5,dt);
+        if(this.stateT<tell)moveBirdCage(drop,this.P.x,this.P.z);
+        else if(!this.did){this.did=true;audio.play('beep');}
+        this.pos.x=damp(this.pos.x,drop.mesh.position.x,4,dt);this.pos.z=damp(this.pos.z,drop.mesh.position.z,4,dt);
+        this.faceTo(this.P,dt);this.animate(dt,{cage:[Math.sin(this.stateT*20)*.7,0,Math.sin(this.stateT*16)*.6]});
+        // Full maximum trap lifetime precedes the next attack's complete tell.
+        if(this.stateT>=tell+.35+1.2)this.endAttack();
+        break;
+      }
+      case 'escort': {
+        this.setFlap(12,.4);this.faceTo(this.P,dt);this.animate(dt);
+        for(const d of this.drones)d.visible=d.obj.visible=Math.floor(this.stateT*16)%2===0;
+        if(this.stateT>=this.tele(.6)){for(const d of this.drones)d.visible=d.obj.visible=true;this.endAttack();}
         break;
       }
       case 'ultimate': {
-        // SKY FALL: overdrive above the middle of the arena, then waves of falling cones and feather rings,
-        // finished with a dive at Nobu (which leaves it stuck: the payoff for surviving)
-        const charge = 1.5;
-        const waves = this.phase === 3 ? 4 : 3, every = 1.15 / sp;
-        if (!this.ultStarted) { this.ultStarted = true; this.beginUlt(); audio.play('bossRoar'); this.game.camera.shake(0.4, 0.6); }
-        this.pos.x = damp(this.pos.x, 0, 3, dt); this.pos.z = damp(this.pos.z, 0, 3, dt);
-        this.pos.y = damp(this.pos.y, 8.5 + Math.sin(this.stateT * 2) * 0.3, 3, dt);
-        this.faceTo(this.P, dt, 4);
-        if (this.stateT < charge) {
-          this.setFlap(18, 0.25, 0.75);
-          this.animate(dt, { pitch: -0.3, head: [-0.55, 0, 0], tail: [0.6, 0, 0] });
-          this.powerUp(dt, this.stateT / charge, 0xffa040, 0.6, 0);
-          break;
+        const charge=this.tele(1.5),waves=this.phase===3?4:3,every=1.15/sp;
+        if(!this.ultStarted){this.ultStarted=true;this.ultNext=0;this.ultLaserStart=null;this.ultLaserDone=false;this.ultRockets=0;this.ultLastWave=null;this.beginUlt();audio.play('bossRoar');this.game.camera.shake(.4,.6);}
+        this.pos.x=damp(this.pos.x,0,3,dt);this.pos.z=damp(this.pos.z,0,3,dt);this.pos.y=damp(this.pos.y,8.5+Math.sin(this.stateT*2)*.3,3,dt);
+        this.faceTo(this.P,dt,4);
+        if(this.stateT<charge){this.setFlap(18,.25,.75);this.animate(dt,{pitch:-.3,head:[-.55,0,0],tail:[.6,0,0]});this.powerUp(dt,this.stateT/charge,0xffa040,.6,0);break;}
+        if(!this.glowCleared){this.glowCleared=true;this.clearGlow();this.fx.flash(this.pos.x,this.pos.y+.5,this.pos.z,{size:6,color:0xffc070,life:.35});audio.play('explosion');}
+        this.setFlap(12,.6,.2);this.animate(dt);const local=this.stateT-charge;
+        // Stage two inserts a full warned sweep before the second wave.
+        if(this.phase===2 && this.shots===1 && !this.ultLaserDone){
+          if(this.ultLaserStart===null){this.ultLaserStart=local;this._aimLaser();audio.play('charge');}
+          const elapsed=local-this.ultLaserStart,aim=this.tele(.75/sp),sweep=1.7/sp;
+          const firing=elapsed>=aim,k=Math.max(0,Math.min(1,(elapsed-aim)/sweep));
+          const spot=_spot.lerpVectors(this.laserA,this.laserB,k);this.beam.set(this.headPos(_from),spot,firing,elapsed);
+          if(firing && !this.ultLaserSound){this.ultLaserSound=true;audio.play('laser');}
+          if(firing && !p.dead && this.beam.hits(p))p.hurt('angel',spot.x,spot.z);
+          if(elapsed<aim+sweep)break;
+          this.ultLaserDone=true;this.beam.hide();this.ultNext=local+every;
         }
-        if (!this.glowCleared) { this.glowCleared = true; this.clearGlow(); this.fx.flash(this.pos.x, this.pos.y + 0.5, this.pos.z, { size: 6, color: 0xffc070, life: 0.35 }); audio.play('explosion'); }
-        this.setFlap(12, 0.6, 0.2);
-        this.animate(dt);
-        const local = this.stateT - charge;
-        if (local > this.shots * every && this.shots < waves) {
-          this.shots++;
-          // ring of feathers at jumping height, rotated each wave
-          const n = 16;
-          for (let i = 0; i < n; i++) {
-            const a = (i / n) * Math.PI * 2 + this.shots * 0.2;
-            const from = this.pos.clone(); from.y = 1.05;
-            this.proj.feather(from, new THREE.Vector3(Math.sin(a), 0, Math.cos(a)), 8 * sp);
-          }
-          // ring of cones around Nobu (gaps between them) plus one on his head
-          const c = this.P;
-          const k = 6, r = 3.6, off = rand(0, Math.PI);
-          for (let i = 0; i < k; i++) {
-            const a = off + (i / k) * Math.PI * 2;
-            this.proj.dropCone(clamp(c.x + Math.cos(a) * r, -ARENA, ARENA), 0, clamp(c.z + Math.sin(a) * r, -ARENA, ARENA), 1.1 / sp, 1.3);
-          }
-          this.proj.dropCone(clamp(c.x, -ARENA, ARENA), 0, clamp(c.z, -ARENA, ARENA), 1.1 / sp, 1.3);
-          audio.play('shoot');
+        if(this.shots<waves && local>=this.ultNext){
+          this.shots++;this.ultNext=local+every;this.ultLastWave=local;
+          for(let i=0;i<16;i++){const a=i/16*Math.PI*2+this.shots*.2;const from=this.pos.clone();from.y=1.05;this.proj.feather(from,new THREE.Vector3(Math.sin(a),0,Math.cos(a)),8*sp);}
+          const c=this.P,off=rand(0,Math.PI);
+          for(let i=0;i<6;i++){const a=off+i/6*Math.PI*2;this.proj.dropCone(clamp(c.x+Math.cos(a)*3.6,-ARENA,ARENA),0,clamp(c.z+Math.sin(a)*3.6,-ARENA,ARENA),this.tele(1.1/sp),1.3);}
+          this.proj.dropCone(clamp(c.x,-ARENA,ARENA),0,clamp(c.z,-ARENA,ARENA),this.tele(1.1/sp),1.3);audio.play('shoot');
         }
-        if (local > waves * every + 0.6) {
-          this.endUlt();
-          this.ultStarted = false; this.glowCleared = false;
-          this.plan.unshift('aim');
-          this.nextAction();
+        if(this.shots===waves){
+          const since=local-this.ultLastWave;
+          if(this.phase===3){
+            if(this.ultRockets<2 && since>=this.tele(.6)+this.ultRockets*.45/sp){
+              const side=this.ultRockets++?1:-1;this.proj.missile(this.pos.clone().add(new THREE.Vector3(side*1.5,.6,0)),new THREE.Vector3(side*.6,.8,0),{speed:6.2*sp,turn:2.15});audio.play('shoot');
+            }
+            if(this.ultRockets<2 || since<this.tele(.6)+2*.45/sp+.6)break;
+          } else if(since<every+.6)break;
+          this.endUlt();this.ultStarted=false;this.glowCleared=false;this.ultLaserSound=false;this.plan.unshift('aim');this.nextAction();
         }
         break;
       }
@@ -552,13 +619,13 @@ export class MechaBird extends Boss {
         this.animate(dt);
         const every = 0.55 / sp;
         const n = 6;
-        if (this.stateT > 0.6 + this.shots * every && this.shots < n) {
+        if (this.stateT > this.tele(.6) + this.shots * every && this.shots < n) {
           this.shots++;
           const tx = clamp(p.pos.x + lead.x, -ARENA, ARENA), tz = clamp(p.pos.z + lead.z, -ARENA, ARENA);
-          this.proj.dropCone(tx, 0, tz, 0.95 / sp, 1.4);
+          this.proj.dropCone(tx, 0, tz, this.tele(.95 / sp), 1.4);
           audio.play('shoot');
         }
-        if (this.stateT > 0.6 + n * every + 0.6) this.nextAction();
+        if (this.stateT > this.tele(.6) + n * every + .6) this.endAttack();
         break;
       }
     }
@@ -579,6 +646,7 @@ export class MechaBird extends Boss {
 
   onHit() {
     audio.play('bossRoar');
+    this.marker.visible=false;if(this.cageDrop)this.cageDrop.marker.visible=false;
     this.beam.hide();
     this.plan = [];
     if (this.phase !== this.lastPhase) { this.lastPhase = this.phase; this.setState('rage'); this.did = false; }
@@ -592,7 +660,10 @@ export class MechaBird extends Boss {
 
   onResetPhase() {
     this.plan = [];
-    this.ultStarted = false; this.glowCleared = false;
+    this.killMinions();this.droneSphereGiven=false;this.proj.clear();this.beginPhase();
+    this.stage.entities=this.stage.entities.filter(e=>{if(!e.birdDroneDrop)return true;e.dead=true;e.obj.removeFromParent();e.shadow?.material?.dispose();return false;});
+    this.cageDrop=null;
+    this.ultStarted = false; this.glowCleared = false;this.ultLaserSound=false;
     this.marker.visible = false;
     this.beam.hide();
     this.pos.copy(this.home);

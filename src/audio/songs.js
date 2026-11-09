@@ -4,6 +4,153 @@
 const bars = (...b) => b.join(' ');
 
 export const SONGS = {
+  // Queen: four bars of proclamation, then four of collapse, in E-flat minor.
+  boss5: {
+    bpm: 132,
+    tracks: [
+      { wave: 'triangle', vol: .21, gate: .98, attack: .08, notes: bars(
+        'Eb3+Gb3+Bb3 - - - - - - - Eb3+Gb3+Bb3 - - - - - - -',
+        'B2+Eb3+Gb3 - - - - - - - B2+Eb3+Gb3 - - - - - - -',
+        'Ab2+B2+Eb3 - - - - - - - Gb2+Bb2+Db3 - - - - - - -',
+        'Bb2+D3+F3 - - - - - - - Bb2+D3+Ab3 - - - - - - -',
+        'Eb3+Gb3+Bb3 - - - - - - - Db3+F3+Ab3 - - - - - - -',
+        'B2+Eb3+Gb3 - - - - - - - Ab2+B2+Eb3 - - - - - - -',
+        'Bb2+D3+F3 - - - - - - - Bb2+D3+Ab3 - - - - - - -',
+        'Eb3+Gb3+Bb3 - - - - - - - Eb3+Gb3+Bb3 - - - - - - -') },
+      { wave: 'square', vol: .075, gate: .62, notes: bars(
+        'Eb5 - Bb5 - Gb5 - Eb5 - Bb5 - - - Gb5 - - -',
+        'B5 - Bb5 - Gb5 - Eb5 - Gb5 - - - Bb5 - - -',
+        'Ab5 - Eb5 - B4 - Ab4 - Gb5 - Db5 - Bb4 - Gb4 -',
+        'Bb4 - D5 - F5 - Ab5 - Bb5 - - - D6 - - -',
+        'Eb6 - Bb5 - Gb5 - Eb5 - Db6 - Ab5 - F5 - Db5 -',
+        'B5 - Gb5 - Eb5 - B4 - Ab5 - Eb5 - B4 - Ab4 -',
+        'Bb4 - D5 - F5 - Ab5 - Bb5 - D6 - F6 - D6 -',
+        'Eb6 - - - Bb5 - Gb5 - Eb5 - - - - - . .') },
+    ],
+    drums: { kick: 'X...x...X...x...', snare: '....x.......x.xx', hat: 'x.x.x.x.x.x.xxx.' },
+  },
+  // Level 5: eight bars of E-minor ticker trance, locked to MarketClock.
+  level5: {
+    bpm: 128,
+    tracks: [
+      { wave: 'triangle', vol: .085, gate: .6, notes: bars(
+        'E3 G3 B3 E4 E3 G3 B3 E4 E3 G3 B3 E4 E3 G3 B3 E4',
+        'C3 E3 G3 C4 C3 E3 G3 C4 C3 E3 G3 C4 C3 E3 G3 C4',
+        'G2 B2 D3 G3 G2 B2 D3 G3 G2 B2 D3 G3 G2 B2 D3 G3',
+        'D3 F#3 A3 D4 D3 F#3 A3 D4 D3 F#3 A3 D4 D3 F#3 A3 D4',
+        'E3 B3 E4 G4 E3 B3 E4 G4 E3 B3 E4 G4 E3 B3 E4 G4',
+        'C3 G3 C4 E4 C3 G3 C4 E4 C3 G3 C4 E4 C3 G3 C4 E4',
+        'A2 E3 A3 C4 A2 E3 A3 C4 A2 E3 A3 C4 A2 E3 A3 C4',
+        'B2 F#3 B3 D4 B2 F#3 B3 D4 B2 F#3 B3 D4 B2 F#3 B3 D4') },
+      { wave: 'square', vol: .045, gate: .9, attack: .015, notes: bars(
+        ...Array(4).fill('. . . . . . . . . . . . . . . .'),
+        'E5 - - - - - - - B4 - - - - - - -',
+        'G5 - - - - - - - E5 - - - - - - -',
+        'A5 - - - - - - - F#5 - - - - - - -',
+        'B5 - - - - - - - E5 - - - - - - -') },
+      { wave: 'sine', vol: .16, gate: .95, attack: .02, notes: bars(
+        'E2 - - - - - - - - - - - - - - -',
+        'C2 - - - - - - - - - - - - - - -',
+        'G1 - - - - - - - - - - - - - - -',
+        'D2 - - - - - - - - - - - - - - -',
+        'E2 - - - - - - - - - - - - - - -',
+        'C2 - - - - - - - - - - - - - - -',
+        'A1 - - - - - - - - - - - - - - -',
+        'B1 - - - - - - - - - - - - - - -') },
+      { wave: 'triangle', vol: .055, gate: .55, pluck: .06, notes: bars(
+        'E4 G4 B4 E5 . . . . E4 G4 B4 E5 . . . .',
+        'C4 E4 G4 C5 . . . . C4 E4 G4 C5 . . . .',
+        'G3 B3 D4 G4 . . . . G3 B3 D4 G4 . . . .',
+        'D4 F#4 A4 D5 . . . . D4 F#4 A4 D5 . . . .',
+        'E4 G4 B4 E5 . . . . E4 G4 B4 E5 . . . .',
+        'C4 E4 G4 C5 . . . . C4 E4 G4 C5 . . . .',
+        'A3 C4 E4 A4 . . . . A3 C4 E4 A4 . . . .',
+        'B3 D4 F#4 B4 . . . . B3 D4 F#4 B4 . . . .') },
+    ],
+    // Procedural placeholders: existing snare supplies the clap backbeat;
+    // accented hats use the sequencer's longer, open noise envelope.
+    drums: { kick: 'x...x...x...x...'.repeat(8), snare: '....x.......x...'.repeat(8), hat: '..X...X...X...X.'.repeat(8) },
+  },
+  // Eight bars of D-minor surf/shanty motion; the last bar has a tom fill.
+  level6: {
+    bpm: 136,
+    tracks: [
+      { wave: 'square', vol: .085, gate: .65, slide: 1.025, notes: bars(
+        'D5 . F5 . A5 - F5 . D5 . F5 . A5 . C6 .',
+        'Bb5 - A5 . F5 . D5 . C5 . D5 . F5 - - .',
+        'G5 . Bb5 . D6 - Bb5 . G5 . F5 . E5 . D5 .',
+        'A4 . C#5 . E5 . G5 . A5 - - . E5 . C#5 .',
+        'D5 . F5 . A5 . D6 . C6 - A5 . F5 . D5 .',
+        'Bb5 . D6 . F6 - D6 . C6 . Bb5 . A5 . F5 .',
+        'G5 . Bb5 . D6 . C6 . A5 . G5 . F5 . E5 .',
+        'A5 . C#6 . E6 - C#6 . D6 - A5 . D5 - - .') },
+      { wave: 'triangle', vol: .23, gate: .6, notes: bars(
+        '. D2 . A2 . D3 . F3 . D2 . A2 . C3 . A2',
+        '. Bb1 . F2 . Bb2 . D3 . C2 . G2 . C3 . E3',
+        '. G1 . D2 . G2 . Bb2 . G1 . D2 . F2 . D2',
+        '. A1 . E2 . A2 . C#3 . A1 . G2 . E2 . C#2',
+        '. D2 . A2 . D3 . F3 . D2 . A2 . C3 . A2',
+        '. Bb1 . F2 . Bb2 . D3 . C2 . G2 . C3 . E3',
+        '. G1 . D2 . G2 . Bb2 . A1 . E2 . G2 . C#3',
+        '. A1 . E2 . A2 . C#3 . D2 . A2 . F2 . D2') },
+    ],
+    drums: { kick: 'X.......X.......'.repeat(8), snare: '....x.......x...'.repeat(8), hat: 'x.x.x.x.x.x.x.x.'.repeat(8), tom: '.'.repeat(112) + '........x.x.x.xx' },
+  },
+  // Titan: eight bars in D minor; motor-like square ostinato and sliding whirr.
+  boss4: {
+    bpm: 140,
+    tracks: [
+      { wave: 'square', vol: .11, gate: .48, filter: 'lowpass', cutoff: 850, notes: bars(
+        'D2 D3 A2 D3 D2 D3 F2 A2 D2 D3 A2 D3 C3 A2 F2 E2',
+        'D2 D3 A2 D3 D2 D3 F2 A2 C3 C3 G2 C3 A2 A2 E2 A2',
+        'Bb1 Bb2 F2 Bb2 Bb1 Bb2 D2 F2 C2 C3 G2 C3 C2 C3 E2 G2',
+        'A1 A2 E2 A2 A1 A2 C#2 E2 A1 A2 E2 A2 C#3 A2 E2 C#2',
+        'G1 G2 D2 G2 G1 G2 Bb1 D2 G1 G2 D2 G2 F2 D2 Bb1 A1',
+        'D2 D3 A2 D3 D2 D3 F2 A2 D2 D3 A2 D3 F3 E3 D3 A2',
+        'Bb1 Bb2 F2 Bb2 Bb1 Bb2 D2 F2 C2 C3 G2 C3 C2 C3 E2 G2',
+        'A1 A2 E2 A2 A1 A2 C#2 E2 A2 A2 E3 C#3 D3 A2 F2 D2') },
+      { wave: 'sawtooth', vol: .055, gate: .94, slide: 1.06, vibrato: 9, vibDepth: 9, filter: 'lowpass', cutoff: 1600, notes: bars(
+        'D4 - - - A4 - - - F4 - E4 - D4 - - -',
+        'F4 - - - A4 - C5 - Bb4 - A4 - G4 - E4 -',
+        'Bb4 - - - F4 - D4 - C5 - - - G4 - E4 -',
+        'A4 - - - E4 - C#4 - D4 - - - - - . .',
+        'G4 - Bb4 - D5 - - - C5 - Bb4 - A4 - G4 -',
+        'F4 - A4 - D5 - - - E5 - D5 - C5 - A4 -',
+        'Bb4 - F4 - D4 - - - C5 - G4 - E4 - - -',
+        'A4 - C#5 - E5 - - - D5 - A4 - F4 - D4 -') },
+    ],
+    drums: { kick: 'X..xX..xX..xX.x.', snare: '....x.......x.xx', hat: 'x.xxx.xxx.xxx.xx', clank: '..x.......x.....' },
+  },
+  level4: {
+    bpm: 112,
+    tracks: [
+      { wave: 'square', vol: 0.08, gate: 0.45, notes: bars(
+        'Bb5 . D6 . F6 . D6 . C6 . Bb5 . A5 . F5 .',
+        '. . F5 . G5 . A5 . Bb5 - . . F5 . . .',
+        'G5 . Bb5 . D6 . F6 . Eb6 . D6 . C6 . Bb5 .',
+        '. . A5 . C6 . Eb6 . D6 . C6 . Bb5 - . .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . . . . . . . . . . .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . . . . . . . . . . .') },
+      { wave: 'triangle', vol: 0.2, gate: 0.7, notes: bars(
+        'Bb1 . F2 . Bb2 . A2 . G2 . F2 . D2 . A1 .',
+        'Bb1 . D2 . F2 . G2 . Bb2 . G2 . F2 . D2 .',
+        'Eb2 . Bb1 . Eb2 . G2 . C2 . G2 . Bb2 . B1 .',
+        'C2 . G2 . Bb2 . A2 . F2 . C2 . Eb2 . E2 .',
+        'Bb1 . . . F2 . . . Bb1 . . . A1 . . .',
+        'Eb2 . . . Bb1 . . . Gb2 . . . F2 . . .',
+        'C2 . . . G2 . . . Bb1 . . . B1 . . .',
+        'F2 . . . Eb2 . . . D2 . C2 . Bb1 . . .') },
+      { wave: 'triangle', vol: 0.055, pluck: 0.1, notes: bars(
+        '. . . . . . Bb3+D4+F4+G4 . . . . . . . Bb3+D4+F4+G4 .',
+        '. . . . . . Eb3+G3+Bb3+D4 . . . . . . . Eb3+G3+Bb3+D4 .',
+        '. . . . . . C3+Eb3+G3+Bb3 . . . . . . . C3+Eb3+G3+Bb3 .',
+        '. . . . . . F3+A3+C4+Eb4 . . . . . . . F3+A3+C4+Eb4 .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . . . . . . . . . . .',
+        '. . . . . . . . . . . . . . . .', '. . . . . . Eb3+Gb3+Bb3 . . . . . . . . .') },
+    ],
+    drums: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.',
+      shaker: bars(...Array(4).fill('................'), ...Array(4).fill('xxxxxxxxxxxxxxxx')).replaceAll(' ', '') },
+  },
   // Bouncy, island-y title theme (F major)
   title: {
     bpm: 118,

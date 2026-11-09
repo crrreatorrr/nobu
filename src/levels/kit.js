@@ -1,6 +1,7 @@
 // Authoring helpers. Levels are written in track coordinates:
 //   d = distance along the winding path, x = lateral offset (+ = right), y = height above the path.
 import * as THREE from 'three';
+import { installBoxHelpers } from './boxKit.js';
 import { Backpack, BlueSphere, OneUp, Trampoline, Snacks, Cat, Rug, LintRoller, ZippedBackpack, VacuumSwitch, Lunchbox } from '../entities/breakables.js';
 import { Broccoli, Squirrel, ConeDrone, Vacuum, Mouse, YarnBall, PillBot, LidKnight, Shellback } from '../entities/enemies.js';
 import { FloorCable, ToyPile, FurnitureLeg } from '../entities/ride.js';
@@ -12,8 +13,13 @@ import {
   UpdraftFan, SwingHammer, Crusher, CoconutRoller, conveyorStrip, sign, bossGate, logMesh,
 } from '../entities/props.js';
 import { palm, bush, fern, flowers, tuft, rock, fencePost, scratchPost, yarnPile, pipe, vat, vent, coneStack } from '../world/decor.js';
+import { SpinDrum, Toaster, RugPull, Zipline } from '../entities/props2.js';
+import { MarketClock, MarketPlatform, MarketTicker } from '../entities/market.js';
 import { Track, turtle } from '../world/track.js';
 import { rand, pick } from '../core/util.js';
+import { addGatedHelpers } from './gatedKit.js';
+import { installEnvironmentKit } from './environmentKit.js';
+import { installPolaroidHelper } from '../entities/polaroid.js';
 
 export { turtle };
 
@@ -22,9 +28,12 @@ export function makeKit(game, stage, tickets, track = null) {
   const popup = (id) => () => game.ui.tutorial(id);
   const v = new THREE.Vector3();
   // world position for (x, y, d); y is relative to the path height
-  const W = (x, y, d) => (track ? track.toWorld(d, x, y, new THREE.Vector3()) : new THREE.Vector3(x, y, -d));
+  const W = (x, y, d) => (track ? (track.authorToWorld || track.toWorld).call(track, d, x, y, new THREE.Vector3()) : new THREE.Vector3(x, y, -d));
   const yawAt = (d) => (track ? track.yaw(d) : Math.PI);
-  const rightAt = (d) => (track ? track.right(d, new THREE.Vector3()) : new THREE.Vector3(1, 0, 0));
+  const rightAt = (d) => (track ? (track.authorRight || track.right).call(track, d, new THREE.Vector3()) : new THREE.Vector3(1, 0, 0));
+  const authorU = (u) => track?.authorU ? track.authorU(u) : u;
+  const authorConveyor = (push) => track?.mirror && push ? { ...push, x: authorU(push.x ?? 0) } : push;
+  const offsetYaw = (angle) => track?.authorYawOffset ? track.authorYawOffset(angle) : angle;
   const fwdAt = (d) => (track ? track.tangent(d, new THREE.Vector3()) : new THREE.Vector3(0, 0, -1));
   // translate authoring options (axis: 'x' lateral / 'z' along the path) into world vectors
   const dirOpts = (d, o = {}) => ({ ...o, dirV: o.axis === 'z' ? fwdAt(d) : rightAt(d) });
@@ -35,17 +44,33 @@ export function makeKit(game, stage, tickets, track = null) {
     W, yawAt, rightAt, fwdAt, track,
     // ---- path geometry ----
     floor(d0, d1, { x = 0, w = 8.6, y = 0, style = 'ground', depth = 7, conveyor, visible = true, slippery } = {}) {
-      return track.ground(d0, d1, { u: x, w, dy: y, style, depth, conveyor, visible, slippery });
+      return track.ground(d0, d1, { u: authorU(x), w, dy: y, style, depth, conveyor: authorConveyor(conveyor), visible, slippery });
     },
     // wall profile keyframes: k.walls([[d, left, right, h], ...])
-    walls(keys) { for (const [d, l, r = l, h = 2.6] of keys) track.wall(d, l, r, h); },
+    walls(keys) { for (const [d, l, r = l, h = 2.6] of keys) track.wall(d, track.mirror ? r : l, track.mirror ? l : r, h); },
     log(d, { h = 0.8, w = 8.6, x = 0 } = {}) {
-      track.ground(d, d + 0.9, { u: x, w, dy: h, visible: false });
+      track.ground(d, d + 0.9, { u: authorU(x), w, dy: h, visible: false });
       logMesh(stage, W(x, 0, d + 0.45), yawAt(d), w);
       tickets && k.tix(x, h + 0.3, d - 0.6, x, h + 0.3, d + 1.5, 2);
     },
-    backstop(d) { track.ground(d, d + 1.2, { w: 20, dy: 8, style: 'ground', depth: 9 }); },
+    backstop(d) {
+      const span = track.ground(d, d + 1.2, { w: 20, dy: 8, style: 'ground', depth: 9 });
+      span.cameraBackstop = true;
+      return span;
+    },
     platform(x, y, d, w = 2.4, dd = 2.4, h = 0.5) { return add(new StaticPlatform(stage, ...W(x, y, d).toArray(), { w, d: dd, h, yaw: yawAt(d) })); },
+    spinDrum(d, o = {}) { return add(new SpinDrum(stage, track, d, o)); },
+    zipline(x0, y0, d0, x1, y1, d1, o = {}) { return add(new Zipline(stage, W(x0, y0, d0), W(x1, y1, d1), o)); },
+    toaster(x, y, d, o = {}) { return at(Toaster, x, y, d, { ...o, yaw: yawAt(d) }); },
+    rugPull(d0, d1, o = {}) { return add(new RugPull(stage, track, d0, d1, o)); },
+    market(x, y, d, o = {}) {
+      if (!stage.marketClock) stage.marketClock = add(new MarketClock(stage));
+      return at(MarketPlatform, x, y, d, { ...o, yaw: yawAt(d), clock: stage.marketClock });
+    },
+    ticker(x, y, d, o = {}) {
+      if (!stage.marketClock) stage.marketClock = add(new MarketClock(stage));
+      return faced(at(MarketTicker, x, y, d, { ...o, clock: stage.marketClock }), d);
+    },
     // ---- breakables ----
     pack(x, y, d, n) { const p = W(x, y, d); return faced(add(new Backpack(stage, p.x, p.y, p.z, { tickets: n })), d); },
     packs(list, y = 0) { list.forEach(([x, d]) => k.pack(x, y, d)); },
@@ -55,7 +80,7 @@ export function makeKit(game, stage, tickets, track = null) {
     tramp: (x, y, d, o) => at(Trampoline, x, y, d, o),
     snacks: (x, y, d) => faced(at(Snacks, x, y, d), d),
     cat: (x, y, d) => faced(at(Cat, x, y, d), d),
-    rug(x, y, d, rot = 0) { const p = W(x, y, d); return add(new Rug(stage, p.x, p.y, p.z, { rot: rot + yawAt(d) })); },
+    rug(x, y, d, rot = 0) { const p = W(x, y, d); return add(new Rug(stage, p.x, p.y, p.z, { rot: offsetYaw(rot) + yawAt(d) })); },
     lint: (x, y, d) => faced(at(LintRoller, x, y, d), d),
     zipped(x, y, d, n) { const p = W(x, y, d); return faced(add(new ZippedBackpack(stage, p.x, p.y, p.z, { tickets: n })), d); },
     vacSwitch: (x, y, d) => faced(at(VacuumSwitch, x, y, d), d),
@@ -79,7 +104,7 @@ export function makeKit(game, stage, tickets, track = null) {
     toys(x, y, d, w) { const p = W(x, y, d); return add(new ToyPile(stage, p.x, p.y, p.z, { w, yaw: yawAt(d) })); },
     leg(x, y, d, o) { const p = W(x, y, d); return add(new FurnitureLeg(stage, p.x, p.y, p.z, o)); },
     // ---- dogs ----
-    dog: (x, y, d, breed) => faced(at(ConedDog, x, y, d, { breed }), d),
+    dog: (x, y, d, breed, { id } = {}) => faced(at(ConedDog, x, y, d, { breed, id }), d),
     bgDog(x, y, d, o) { const p = W(x, y, d); return backgroundDog(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) + Math.PI + rand(-0.4, 0.4) }); },
     // ---- tickets ----
     tix(x0, y0, d0, x1, y1, d1, n) {
@@ -107,11 +132,11 @@ export function makeKit(game, stage, tickets, track = null) {
     cracked(x, y, d, o = {}) { const p = W(x, y, d); return add(new CrackedFloor(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) })); },
     mushroom: (x, y, d, o) => at(BouncePad, x, y, d, o),
     fan: (x, y, d, o) => at(UpdraftFan, x, y, d, o),
-    hammer(x, y, d, o = {}) { const p = W(x, y, d); return add(new SwingHammer(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) + Math.PI / 2 })); },
+    hammer(x, y, d, o = {}) { const p = W(x, y, d); return add(new SwingHammer(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) + offsetYaw(Math.PI / 2) })); },
     crusher(x, y, d, o = {}) { const p = W(x, y, d); return add(new Crusher(stage, p.x, p.y, p.z, { ...o, yaw: yawAt(d) })); },
-    coconuts(d, o) { return add(new CoconutRoller(stage, track, d, o)); },
+    coconuts(d, o = {}) { return add(new CoconutRoller(stage, track, d, track?.mirror ? { ...o, lanes: (o.lanes ?? [-2,0,2]).map(authorU) } : o)); },
     belt(d0, d1, push, { w = 8.6, x = 0 } = {}) {
-      const sp = track.ground(d0, d1, { u: x, w, conveyor: push, style: 'platform' });
+      const sp = track.ground(d0, d1, { u: authorU(x), w, conveyor: authorConveyor(push), style: 'platform' });
       conveyorStrip(stage, track, sp);
       return sp;
     },
@@ -123,7 +148,7 @@ export function makeKit(game, stage, tickets, track = null) {
     },
     // Drawbridge over [d0, d1]; the rope post stands at (postX, d0 - 1.5)
     ropeBridge(d0, d1, { w = 3.2, x = 0, postX = 3 } = {}) {
-      const span = track.ground(d0, d1, { u: x, w, visible: false });
+      const span = track.ground(d0, d1, { u: authorU(x), w, visible: false });
       const p = W(postX, 0, d0 - 1.5);
       return add(new RopeBridge(stage, p.x, p.y, p.z, { span, track, d0, d1, yaw: yawAt(d0) }));
     },
@@ -162,13 +187,14 @@ export function makeKit(game, stage, tickets, track = null) {
     },
     // secret warp pit: falling in between d0..d1 at lateral x0..x1 sends Nobu to `target` (with a faint glitter)
     warp(d0, d1, x0, x1, target) {
-      track.secret(d0, d1, x0, x1, target);
+      const a = authorU(x0), b = authorU(x1);
+      track.secret(d0, d1, Math.min(a, b), Math.max(a, b), target);
       const p = W((x0 + x1) / 2, -2.5, (d0 + d1) / 2);
       add(new WarpSparkle(stage, p.x, p.y, p.z));
     },
     trigger(d, fn) { track.trigger(d, fn); },
     tut(d, id) { track.trigger(d, popup(id)); },
-    sign(x, y, d, lines, o = {}) { const p = W(x, y, d); return sign(stage, p.x, p.y, p.z, lines, { ...o, yaw: yawAt(d) + Math.PI + (o.rot || 0) }); },
+    sign(x, y, d, lines, o = {}) { const p = W(x, y, d); return sign(stage, p.x, p.y, p.z, lines, { ...o, yaw: yawAt(d) + Math.PI + offsetYaw(o.rot || 0) }); },
     gate(d, label, color) { const p = W(0, 0, d); return bossGate(stage, p.x, p.y, p.z, label, color, yawAt(d) + Math.PI); },
     water(d0, d1, { w = 8.6, y = -1.2, color = 0x3aa8d8 } = {}) {
       track.waterZone(d0, d1, y);
@@ -208,7 +234,7 @@ export function makeKit(game, stage, tickets, track = null) {
     // grass along both wall feet and scattered over the banks
     grass(d0, d1, { color = 0x52b844, every = 1.3, bank = true, size = 1 } = {}) {
       for (let d = d0; d < d1; d += every * rand(0.6, 1.4)) {
-        const w = track.wallAt(d);
+        const w = (track.authorWallAt || track.wallAt).call(track, d);
         const g = track.groundAt(d, 0);
         if (!w) continue;
         if (g) {
@@ -231,7 +257,7 @@ export function makeKit(game, stage, tickets, track = null) {
     // scatter decor on the banks above the walls
     banks(d0, d1, fn, { every = 5, out = [1.2, 3, 5.5] } = {}) {
       for (let d = d0; d < d1; d += every * rand(0.7, 1.3)) {
-        const w = track.wallAt(d);
+        const w = (track.authorWallAt || track.wallAt).call(track, d);
         if (!w) continue;
         for (const sx of [-1, 1]) {
           const half = sx < 0 ? w.left : w.right;
@@ -242,7 +268,7 @@ export function makeKit(game, stage, tickets, track = null) {
     // path-side foliage at the foot of the walls
     edges(d0, d1, fn, { every = 3.5 } = {}) {
       for (let d = d0; d < d1; d += every * rand(0.6, 1.4)) {
-        const w = track.wallAt(d);
+        const w = (track.authorWallAt || track.wallAt).call(track, d);
         const g = track.groundAt(d, 0);
         if (!w || !g) continue;
         const sx = Math.random() < 0.5 ? -1 : 1;
@@ -251,11 +277,14 @@ export function makeKit(game, stage, tickets, track = null) {
       }
     },
   };
-  return k;
+  addGatedHelpers(k, game, stage, track);
+  installBoxHelpers(k, game, stage);
+  installPolaroidHelper(k, stage);
+  return installEnvironmentKit(k, game, stage, tickets, track, waterMaterial);
 }
 
-export function makeTrack(stage, points) {
-  const t = new Track(points);
+export function makeTrack(stage, points, { mirror = !!stage.game?.session?.remix } = {}) {
+  const t = new Track(points, { mirror });
   stage.setTrack(t);
   return t;
 }

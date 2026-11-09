@@ -5,7 +5,7 @@
 // PUMP.FUN minions launched in every phase (they pump up with each hop, then dump: explode),
 // and the rechargeable ultimate SHAME SUPERNOVA (spinning floor-laser spokes + cone rain).
 import * as THREE from 'three';
-import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart } from './common.js';
+import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart, pullToward } from './common.js';
 import { autoRig, sstep, chain, blendPose } from './autorig.js';
 import { Broccoli, PumpPill } from '../entities/enemies.js';
 import { toon } from '../player/nobuPrims.js';
@@ -13,8 +13,18 @@ import { audio } from '../audio/audio.js';
 import { Assets } from '../art/assets.js';
 import { damp, rand, pick, clamp } from '../core/util.js';
 import { TUNING } from '../player/player.js';
+import { RUG_PATTERNS } from './coneArena.js';
+import { CONE_STAGE_POWERS } from '../story/script.js';
 
 const ARENA_R = 12.5;
+export const CONE_PLANS = Object.freeze({
+  1: ['summon','barrage','chain','shame','spiral','overheat','drops','chain','barrage','overheat'],
+  2: ['summon','sweep','lasers','overheat','rugpull','grab','chain','vortex','shame','spiral','shock','overheat'],
+  3: ['summon','clones','tide','spiral','chain','overheat','lasers','grab','sweep','rugpull','overheat','drops','chain','barrage','grab','overheat'],
+});
+export const CONE_CHAINS = Object.freeze({ 1: [['barrage','shock'],['drops','spiral']],
+  2: [['barrage','shame'],['shock','rugpull']],
+  3: [['vortex','grab','spiral'],['sweep','lasers'],['barrage','shame']] });
 
 // rig layout (model units: 4 tall, facing +z). The cone's axis leans a little toward +x.
 const CJ = {
@@ -48,7 +58,7 @@ function weighCone(x, y, z) {
 
 export class EvilCone extends Boss {
   constructor(stage, x, y, z) {
-    super(stage, x, y, z, { name: 'THE EVIL CONE', portrait: 'portrait_cone', hp: 9, phaseHp: 3 });
+    super(stage, x, y, z, { name: 'THE EVIL CONE', portrait: 'portrait_cone', key: 'cone' }); // Old hp 9, phaseHp 3.
     this.buildModel();
     this.setBox(2.6, 2.8, 2.6, -1.4);
     this.home = new THREE.Vector3(0, 3.2, -6);
@@ -64,9 +74,17 @@ export class EvilCone extends Boss {
     this.yaw = 0;
     this.lastPhase = 1;
     this.stageNames = { 2: 'CRACKED', 3: 'SUPERNOVA' };
-    this.stagePowers = { 2: 'Floor sweeps · twin lasers · grab · vortex', 3: 'Shadow clones · every attack · fastest' };
+    this.stagePowers = CONE_STAGE_POWERS;
     this.stageColors = [0, 0, 0xb040ff, 0xff2a6a];
     this.stageGlow = { 2: 0x14042a, 3: 0x2a0414 };
+    this.arena = stage.coneArena;
+    this.CHAINS = CONE_CHAINS;
+    this.shameTip = new THREE.Mesh(new THREE.ConeGeometry(.22,.5,12),new THREE.MeshBasicMaterial({color:0xffffff}));
+    this.shameTip.position.set(0,1.8,.7); this.shameTip.visible = false; this.coneBody.add(this.shameTip);
+    this._shot = new THREE.Vector3(); this._aim = new THREE.Vector3();
+    this._velocity = new THREE.Vector3();
+    this._spokeCenter = new THREE.Vector3(); this._spokeRelative = new THREE.Vector3();
+    this._spokeStart = new THREE.Vector3(); this._spokeEnd = new THREE.Vector3();
     this.collectMeshes();
     this.setStageLook(1);
   }
@@ -75,11 +93,18 @@ export class EvilCone extends Boss {
   // Stage 3 (SUPERNOVA): a crown of flames and three mini cones orbiting it.
   makeStageParts() {
     const B = this.bones;
-    if (!B) return {};
+    const stripes = new THREE.Group();
+    const rug = new THREE.MeshBasicMaterial({ map: Assets.tex('rug'), color: 0xbe8ad8, side: THREE.DoubleSide });
+    for (const y of [-.4,0,.4]) {
+      const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.6,.18),rug);
+      stripe.position.set(0,y,-1.3); stripes.add(stripe);
+    }
+    this.coneBody.add(stripes);
+    if (!B) return { 2: [stripes] };
     const up = CJ.upper;
     const at = (x, y, z) => new THREE.Vector3(x - up[0], y - up[1], z - up[2]); // model coords -> 'upper' bone space
     const spikeM = new THREE.MeshPhongMaterial({ color: 0x8a5ad0, emissive: 0x2a0a50, shininess: 80 });
-    const two = [], three = [];
+    const two = [stripes], three = [];
     const add = (bone, o, list) => { B[bone].add(o); list.push(o); return o; };
     const cx = 0.1, cz = 0.15, rimY = 3.55, R = 1.25;
     for (let i = 0; i < 12; i++) {
@@ -160,12 +185,21 @@ export class EvilCone extends Boss {
     }
   }
 
-  get sp() { return [1, 1, 1.25, 1.5][this.phase]; }
-
   idleAnim(dt) {
     this.anim(dt);
     this.pos.y = this.home.y + Math.sin(this.stateT * 1.6) * 0.25;
     this.faceTo(this.player.pos, dt, 3);
+  }
+
+  stageAura(dt) {
+    super.stageAura(dt);
+    if (this.stageLook < 3 || this.defeated) return;
+    this.rimTrailT = (this.rimTrailT || 0)-dt;
+    if (this.rimTrailT <= 0) {
+      this.rimTrailT = .12; const a = rand(0,Math.PI*2);
+      this.fx.smokeCard(this.pos.x+Math.cos(a)*1.4,this.pos.y+1.3,this.pos.z+Math.sin(a)*1.4,
+        {vx:0,vy:.35,vz:0,size:.5,life:1.4,colors:[0x9d65b7,0x503060],grow:.7,g:0,drag:.98,alpha:.4,fadeAt:.3});
+    }
   }
 
   faceTo(p, dt, k = 6) {
@@ -178,7 +212,7 @@ export class EvilCone extends Boss {
   anim(dt, pose = null) {
     this.animT = (this.animT || 0) + dt;
     const t = this.animT;
-    const v = this.pos.clone().sub(this.prevPos).divideScalar(Math.max(dt, 1e-4));
+    const v = this._velocity.copy(this.pos).sub(this.prevPos).divideScalar(Math.max(dt, 1e-4));
     this.prevPos.copy(this.pos);
     const fwd = v.x * Math.sin(this.yaw) + v.z * Math.cos(this.yaw);
     const side = v.x * Math.cos(this.yaw) - v.z * Math.sin(this.yaw);
@@ -210,7 +244,7 @@ export class EvilCone extends Boss {
 
   // world position of an eye (side -1 / 1) for the eye lasers
   eyePos(side, out) {
-    if (!this.bones) return out.copy(this.pos).add(new THREE.Vector3(side * 0.4, 0.5, 0));
+    if (!this.bones) { out.copy(this.pos); out.x += side*.4; out.y += .5; return out; }
     const b = this.bones.upper;
     b.updateWorldMatrix(true, false);
     const ax = 0.05 + 2.05 * 0.11;
@@ -220,6 +254,7 @@ export class EvilCone extends Boss {
   start() { this.active = true; this.beginPhase(); }
 
   beginPhase() {
+    this.arena?.setPhase(this.phase,true);
     // a phase change queues the rage roar (it plays once the phase dialogue is over)
     if (this.pendingRage) { this.pendingRage = false; this.plan = []; this.hideBeams(); this.sweep.visible = false; this.setState('rage'); this.did = false; return; }
     this.plan = [];
@@ -233,18 +268,19 @@ export class EvilCone extends Boss {
   }
 
   nextAction() {
-    if (!this.plan.length) {
-      this.plan = this.phase === 1
-        ? ['summon', 'barrage', 'shock', 'spiral', 'overheat', 'drops', 'barrage', 'overheat']
-        : this.phase === 2
-          ? ['summon', 'sweep', 'lasers', 'overheat', 'grab', 'vortex', 'spiral', 'shock', 'overheat']
-          : ['summon', 'clones', 'spiral', 'lasers', 'grab', 'vortex', 'sweep', 'overheat', 'drops', 'barrage', 'grab', 'overheat'];
-    }
+    if (!this.plan.length) this.plan = CONE_PLANS[this.phase].slice();
     if (this.state !== 'ultimate') this.cancelUlt();
-    if (this.ultReady) this.plan.unshift('ultimate');
+    if (this.ultReady) { this.beginAttack('ultimate'); return; }
     const s = this.plan.shift();
+    if (s === 'chain') { if (this.startChain(this.pickChain())) return; this.nextAction(); return; }
+    this.beginAttack(s);
+  }
+
+  beginAttack(s) {
     this.setState(s);
     this.hideBeams();
+    this.shameTip.visible = false;
+    this.grabT = this._aim.copy(this.player.pos).clone();
     this.shots = 0;
     this.did = false;
     this.slammed = false;
@@ -288,7 +324,7 @@ export class EvilCone extends Boss {
       }
       case 'barrage': {
         this.faceTo(p.pos, dt, 8);
-        const charge = 0.6 / sp;
+        const charge = this.tele(0.6 / sp);
         const waves = this.phase === 3 ? 2 : 1;
         const k = Math.min(1, this.stateT / charge);
         const recoil = this.shots > 0 && this.stateT < charge + this.shots * 0.55 - 0.35;
@@ -307,14 +343,14 @@ export class EvilCone extends Boss {
           audio.play('shoot');
           audio.play('laugh');
         }
-        if (this.stateT > charge + waves * 0.55 + 0.5) this.toHover(0.5);
+        if (this.stateT > charge + waves * 0.55 + (this.chained ? 0 : .5)) this.toHover(0.5);
         break;
       }
       case 'spiral': {
         // spins on the spot spraying cones in rotating spiral arms: weave through the gaps
         this.pos.x = damp(this.pos.x, 0, 2, dt); this.pos.z = damp(this.pos.z, -1, 2, dt);
         this.pos.y = damp(this.pos.y, this.home.y + 0.3, 3, dt);
-        const wind = 0.7, dur = 2.6;
+        const wind = this.tele(0.7), dur = 2.6;
         if (this.stateT < wind) {
           this.faceTo(p.pos, dt, 5);
           this.anim(dt, { armL: [0, 0, -0.5], armR: [0, 0, 0.9], squash: -0.15 * (this.stateT / wind) });
@@ -340,22 +376,22 @@ export class EvilCone extends Boss {
         } else {
           this.faceTo(p.pos, dt, 5);
           this.anim(dt);
-          if (this.stateT > wind + dur + 0.4) this.toHover(0.5);
+          if (this.stateT > wind + dur + (this.chained ? 0 : .4)) this.toHover(0.5);
         }
         break;
       }
       case 'shock': {
         const slams = this.phase === 3 ? 3 : 1;
-        const cycle = 1.0 / sp;
+        const wind = this.tele(.55 / sp), cycle = wind + .45 / sp;
         const c = (this.stateT % cycle) / cycle;
         const top = ground + 1.45;
-        const rising = c < 0.55;
+        const rising = this.stateT % cycle < wind;
         if (rising) this.pos.y = damp(this.pos.y, top + 3.2, 6, dt);
         else this.pos.y = Math.max(top, this.pos.y - 30 * dt);
         const idx = Math.floor(this.stateT / cycle);
         const landed = this.pos.y <= top + 0.01;
         this.anim(dt, { squash: rising ? 0.2 : landed ? -0.3 : 0.1, armL: [0, 0, rising ? -0.8 : 0.6], armR: [0, 0, rising ? 1.1 : -0.4], snap: !rising });
-        if (c > 0.6 && landed && this.shots <= idx) {
+        if (this.stateT % cycle > wind + .05 / sp && landed && this.shots <= idx) {
           this.shots = idx + 1;
           this.proj.shockwave(this.pos.x, ground, this.pos.z, 7.5 * sp, ARENA_R + 2);
           this.game.camera.shake(0.5, 0.3);
@@ -375,16 +411,16 @@ export class EvilCone extends Boss {
           this.shots++;
           const lead = p.vel.clone().multiplyScalar(0.35);
           const tx = clamp(p.pos.x + lead.x, -ARENA_R + 1, ARENA_R - 1), tz = clamp(p.pos.z + lead.z, -ARENA_R + 1, ARENA_R - 1);
-          this.proj.dropCone(tx, ground, tz, 0.9 / sp, 1.4);
+          this.proj.dropCone(tx, ground, tz, this.tele(0.9 / sp), 1.4);
           audio.play('shoot');
         }
         if (this.stateT > 0.4 + n * every + 0.5) this.toHover(0.4);
         break;
       }
       case 'summon': {
-        const k = Math.min(1, this.stateT);
+        const tell = this.tele(.8), k = Math.min(1, this.stateT / tell);
         this.anim(dt, { armL: [0, 0, -1.0 * k], armR: [0, 0, 1.3 * k], foreL: [0, 0, -0.5 * k], foreR: [0, 0, 0.5 * k], upper: [-0.2 * k, 0, Math.sin(this.stateT * 30) * 0.04 * k] });
-        if (this.stateT > 0.8 && !this.did) {
+        if (this.stateT > tell && !this.did) {
           this.did = true;
           audio.play('laugh');
           // pump.fun launches (more every phase) + a broccoli bodyguard from phase 2
@@ -398,14 +434,14 @@ export class EvilCone extends Boss {
             this.fx.puff(x, ground + 0.3, z, { count: 8, size: 0.6, color: 0xd8c8ff, speed: 3 });
           }
         }
-        if (this.stateT > 1.4) this.toHover(0.4);
+        if (this.stateT > tell + .6) this.toHover(0.4);
         break;
       }
       case 'sweep': {
         // descend, telegraph, then spin cone-chain arms around at ankle height: JUMP!
         this.pos.y = damp(this.pos.y, ground + 1.9, 5, dt);
         this.pos.x = damp(this.pos.x, 0, 3, dt); this.pos.z = damp(this.pos.z, 0, 3, dt);
-        const tele = 0.9;
+        const tele = this.tele(0.9);
         this.sweep.visible = true;
         this.sweep.position.set(this.pos.x, ground + 0.45, this.pos.z);
         this.bars[1].visible = this.phase === 3;
@@ -436,7 +472,7 @@ export class EvilCone extends Boss {
       }
       case 'lasers': {
         // eyes lock on, then two burning laser spots chase Nobu across the floor: keep moving, jump them
-        const aim = 0.8, dur = 3.2;
+        const aim = this.tele(0.8), dur = 3.2;
         this.pos.y = damp(this.pos.y, this.home.y + 0.8, 3, dt);
         this.faceTo(this.laserC || p.pos, dt, 6);
         if (!this.did) {
@@ -472,7 +508,7 @@ export class EvilCone extends Boss {
       }
       case 'vortex': {
         // tips its open mouth at Nobu and SUCKS: run away or get pulled into the cone
-        const tele = 0.6, dur = 2.8;
+        const tele = this.tele(0.6), dur = 2.8;
         this.pos.y = damp(this.pos.y, ground + 2.3, 4, dt);
         this.faceTo(p.pos, dt, 5);
         const k = Math.min(1, this.stateT / tele);
@@ -481,17 +517,7 @@ export class EvilCone extends Boss {
         if (this.stateT > tele && this.stateT < tele + dur) {
           if (this.shots === 0) { this.shots = 1; audio.play('suck'); }
           if (this.stateT > tele + 1.4 && this.shots === 1) { this.shots = 2; audio.play('suck'); }
-          const to = dirTo(p.pos, this.pos);
-          const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
-          const f = (2.6 + this.phase * 0.5) * clamp(1.4 - d / 14, 0.4, 1.2);
-          p.pushX = to.x * f; p.pushZ = to.z * f;
-          // debris and air streaming into the mouth
-          if (Math.random() < dt * 45) {
-            const a = rand(0, Math.PI * 2), r = rand(3, 9);
-            const sx = this.pos.x + Math.cos(a) * r, sz = this.pos.z + Math.sin(a) * r, sy = ground + rand(0.2, 2.5);
-            const life = 0.5;
-            this.fx.smokeCard(sx, sy, sz, { vx: (this.pos.x - sx) / life, vy: (this.pos.y - sy) / life, vz: (this.pos.z - sz) / life, size: 0.18, life, colors: [0xe8d8ff], grow: -0.5, g: 0, drag: 1, alpha: 0.5, fadeAt: 0.6 });
-          }
+          const d = pullToward(this,2.6+this.phase*.5,dt);
           if (!p.dead && d < 2.2 && p.pos.y - ground < 3) p.hurt('cone', this.pos.x, this.pos.z);
         } else if (this.stateT >= tele + dur && !this.did) {
           // spit out a fan of cones on the way back up
@@ -500,12 +526,12 @@ export class EvilCone extends Boss {
           for (let i = 0; i < 5; i++) { const from = this.pos.clone(); from.y = ground + 1.05; this.proj.cone(from, rotY(dir, (i - 2) * 0.25), 9 * sp); }
           audio.play('shoot');
         }
-        if (this.stateT > tele + dur + 0.5) this.toHover(0.5);
+        if (this.stateT > tele + dur + (this.chained ? 0 : .5)) this.toHover(0.5);
         break;
       }
       case 'grab': {
         // flip upside down and slam over Nobu like a cup
-        const track = (this.phase === 2 ? 1.25 : 1.0);
+        const track = this.tele(this.phase === 2 ? 1.25 : 1.0);
         const lock = 0.35;
         if (this.stateT < track + lock) {
           this.coneBody.rotation.x = damp(this.coneBody.rotation.x, Math.PI, 6, dt);
@@ -531,6 +557,7 @@ export class EvilCone extends Boss {
           this.coneBody.rotation.z = Math.sin(this.stuckT * 25) * 0.06;
           this.anim(dt, { squash: -0.15, armL: [0, 0, Math.sin(this.stuckT * 18) * 0.5], armR: [0, 0, -Math.sin(this.stuckT * 18) * 0.5] });
           if (this.stuckT > (this.grabHit ? 0.5 : 1.3 / Math.sqrt(sp))) {
+            this.vulnerable = false; this.stars.visible = false;
             this.coneBody.rotation.set(0, 0, 0);
             this.slammed = false; this.grabHit = false;
             this.proj.shockwave(this.pos.x, ground, this.pos.z, 8 * sp, 9);
@@ -542,7 +569,7 @@ export class EvilCone extends Boss {
       case 'clones': {
         // phase 3: two ghost clones appear; all three flip and track, then slam one after another
         if (!this.did) { this.did = true; this._spawnDecoys(); audio.play('laugh'); }
-        const track = 1.1, gap = 0.3;
+        const track = this.tele(1.1), gap = 0.3;
         const tgt = (i) => {
           const c = new THREE.Vector3(clamp(p.pos.x, -ARENA_R + 1, ARENA_R - 1), 0, clamp(p.pos.z, -ARENA_R + 1, ARENA_R - 1));
           if (i === 0) return c;
@@ -592,6 +619,7 @@ export class EvilCone extends Boss {
         this.anim(dt, { armL: [0, 0, -1.2], armR: [0, 0, 1.4] });
         if (this.stateT > track + gap * 2 + 0.6) this._removeDecoys(true);
         if (this.slammed && this.stuckT > (this.grabHit ? 0.6 : 1.4)) {
+          this.vulnerable = false; this.stars.visible = false;
           this._removeDecoys(true);
           this.coneBody.rotation.set(0, 0, 0);
           this.slammed = false; this.grabHit = false;
@@ -599,9 +627,48 @@ export class EvilCone extends Boss {
         }
         break;
       }
+      case 'shame': {
+        const tell = this.tele(.8), n = this.phase === 3 ? 2 : 1;
+        this.faceTo(p.pos,dt,6);
+        this.anim(dt,{ upper:[.25,0,0],armL:[0,.5,-.3],armR:[0,-.5,.5] });
+        this.shameTip.visible = this.shots < n;
+        this.shameTip.scale.setScalar(.8+Math.sin(this.stateT*18)*.12);
+        if (!this.did) { this.did = true; audio.play('charge',1.3); }
+        if (this.shots < n && this.stateT >= tell+this.shots*.6) {
+          this.shots++;
+          this._shot.copy(this.pos); this._shot.y = ground+1.05;
+          this.proj.slowHomer(this._shot,{dir:dirTo(this.pos,p.pos)}); audio.play('shoot');
+        }
+        if (this.stateT > tell+(n-1)*.6+(this.chained ? 0 : .45)) this.toHover(.4);
+        break;
+      }
+      case 'rugpull': {
+        const tell = this.tele(.9);
+        this.faceTo(p.pos,dt,4); this.anim(dt,{armL:[0,0,-.8],armR:[0,0,1.1]});
+        if (!this.did) {
+          const pattern = RUG_PATTERNS[(this.rugIndex || 0)%RUG_PATTERNS.length];
+          if (!this.arena || this.arena.startRug(pattern,p,tell,this.phase)) {
+            this.did = true; this.rugIndex = (this.rugIndex || 0)+1; audio.play('zip');
+          }
+        }
+        if (this.did && this.stateT > tell+2.4 && !this.arena?.tiles.busy) this.toHover(.5);
+        break;
+      }
+      case 'tide': {
+        const tell = this.tele(1.2);
+        this.pos.x = damp(this.pos.x,0,5,dt); this.pos.z = damp(this.pos.z,0,5,dt);
+        this.pos.y = damp(this.pos.y,ground+5.2,5,dt);
+        this.faceTo(p.pos,dt,4); this.anim(dt,{upper:[-.2,0,0],armL:[0,0,-1],armR:[0,0,1.3]});
+        if (!this.did && (!this.arena || this.arena.startSmog({tell,duration:4,aimTime:this.tele(.8),eye:this.eyePos(1,this._shot)}))) {
+          this.did = true; audio.play('suck',.7);
+        }
+        if (this.arena) this.arena.eye.copy(this.eyePos(1,this._shot));
+        if (this.did && this.stateT > tell+4) { this.arena?.stopSmog(); this.toHover(.5); }
+        break;
+      }
       case 'overheat': {
         // drops, tips over, steams: SHORT vulnerability window (longer after the ultimate)
-        const win = (this.phase === 1 ? 1.8 : this.phase === 2 ? 1.4 : 1.1) + (this.longHeat ? 1.0 : 0);
+        const win = this.W + (this.longHeat ? 1.0 : 0); // Old 1.8 / 1.4 / 1.1, plus unchanged ultimate bonus.
         if (this.stateT < 0.45) {
           this.pos.y = damp(this.pos.y, ground + 1.0, 10, dt);
           this.coneBody.rotation.z = damp(this.coneBody.rotation.z, 1.25, 10, dt);
@@ -627,9 +694,12 @@ export class EvilCone extends Boss {
       case 'ultimate': {
         // SHAME SUPERNOVA: powers up over the middle, then laser spokes spin across the floor while cones rain.
         // Jump every spoke. When it's over it overheats for longer than usual.
-        const charge = 1.7;
+        const charge = this.tele(1.7);
         const dur = this.phase === 3 ? 6 : 5;
-        if (!this.ultStarted) { this.ultStarted = true; this.beginUlt(); audio.play('bossRoar'); audio.play('laugh'); this.game.camera.shake(0.5, 0.8); }
+        if (!this.ultStarted) {
+          this.ultStarted = true; this.beginUlt(); audio.play('bossRoar'); audio.play('laugh'); this.game.camera.shake(0.5, 0.8);
+          if (this.phase === 3) this.arena?.startSmog({tell:charge,duration:dur,ultimate:true,eye:this.pos});
+        }
         this.pos.x = damp(this.pos.x, 0, 3, dt); this.pos.z = damp(this.pos.z, 0, 3, dt);
         if (this.stateT < charge) {
           const k = this.stateT / charge;
@@ -643,28 +713,37 @@ export class EvilCone extends Boss {
         const local = this.stateT - charge;
         const n = this.phase === 1 ? 3 : 4;
         const w = [0, 0.95, 1.15, 1.35][this.phase];
-        this.ultA = (this.ultA || 0) + w * dt;
+        this.ultA = (this.ultA || 0) + w * (this.phase === 2 && local >= dur/2 ? -1 : 1) * dt;
         this.yaw = this.ultA;
         this.rig.rotation.y = this.yaw;
         this.anim(dt, { armL: [0, 0, 0.7], armR: [0, 0, -0.5], cape: [-1.1, 0, 0], squash: Math.sin(this.stateT * 30) * 0.03 });
-        const c = new THREE.Vector3(this.pos.x, ground + 0.45, this.pos.z);
-        const rel = new THREE.Vector3(p.pos.x - c.x, 0, p.pos.z - c.z);
+        const c = this._spokeCenter.set(this.pos.x, ground + (this.phase === 3 ? 1.65 : .45), this.pos.z);
+        const rel = this._spokeRelative.set(p.pos.x - c.x, 0, p.pos.z - c.z);
         const pr = rel.length(), pa = Math.atan2(rel.x, rel.z);
+        let onPedestal = false;
+        if (this.phase === 3 && this.arena) for (const ped of this.arena.pedestals) if (Math.abs(p.pos.x-ped.pos.x)<=1.6 && Math.abs(p.pos.z-ped.pos.z)<=1.6) onPedestal = true;
         for (let i = 0; i < 4; i++) {
           if (i >= n) { this.beams[i].hide(); continue; }
           const a = this.ultA + (i / n) * Math.PI * 2;
-          const end = c.clone().add(new THREE.Vector3(Math.sin(a) * 12, 0, Math.cos(a) * 12));
-          this.beams[i].set(c, end, true, this.stateT);
+          const length = this.phase === 3 ? 6.6 : 12;
+          const end = this._spokeEnd.set(c.x+Math.sin(a)*length,c.y,c.z+Math.cos(a)*length);
+          const start = this.phase === 3 ? 2.4 : 0;
+          const from = this._spokeStart.set(c.x+Math.sin(a)*start,c.y,c.z+Math.cos(a)*start);
+          this.beams[i].set(from, end, true, this.stateT);
           const da = Math.atan2(Math.sin(pa - a), Math.cos(pa - a));
-          if (!p.dead && Math.cos(da) > 0 && pr > 1.2 && Math.abs(Math.sin(da)) * pr < 0.45 && p.pos.y - ground < 0.95) p.hurt('angel', c.x, c.z);
+          const inSpoke = this.phase === 3 ? onPedestal && pr > 2.4 && pr < 6.6 && p.pos.y-ground < 2.15 : pr > 1.2 && p.pos.y-ground < .95;
+          if (!p.dead && Math.cos(da) > 0 && inSpoke && Math.abs(Math.sin(da)) * pr < 0.45) p.hurt('angel', c.x, c.z);
           if (Math.random() < dt * 12) { const r = rand(2, 12); this.fx.sparkle(c.x + Math.sin(a) * r, ground + 0.2, c.z + Math.cos(a) * r, { count: 1, color: 0xff60c0, size: 0.45, speed: 2, up: 2 }); }
         }
         if (this.phase >= 2 && local > this.shots * 0.9 && local < dur - 0.8) {
           this.shots++;
-          this.proj.dropCone(clamp(p.pos.x + rand(-2, 2), -ARENA_R + 1, ARENA_R - 1), ground, clamp(p.pos.z + rand(-2, 2), -ARENA_R + 1, ARENA_R - 1), 1.0, 1.3);
+          const target = this.phase === 3 ? this.arena?.nearest(p.pos,true) : null;
+          this.proj.dropCone(clamp((target?.pos.x ?? p.pos.x)+rand(target ? -.6 : -2,target ? .6 : 2),-ARENA_R+1,ARENA_R-1),
+            target?.top ?? ground,clamp((target?.pos.z ?? p.pos.z)+rand(target ? -.6 : -2,target ? .6 : 2),-ARENA_R+1,ARENA_R-1),this.tele(1),1.3);
         }
         if (local > dur) {
           this.hideBeams();
+          this.arena?.stopSmog();
           this.endUlt();
           this.ultStarted = false; this.glowCleared = false;
           this.longHeat = true;
@@ -759,9 +838,15 @@ export class EvilCone extends Boss {
     this.decoys = [];
   }
 
-  toHover(t = 1) { this.setState('hover'); this.hoverFor = t; this.coneBody.rotation.set(0, 0, 0); this.marker.visible = false; this.hideBeams(); }
+  toHover(t = 1) {
+    this.coneBody.rotation.set(0,0,0); this.marker.visible = false; this.hideBeams(); this.shameTip.visible = false;
+    this.hoverFor = t;
+    this.endAttack();
+  }
+  afterAttack() { this.setState('hover'); }
 
   onHit() {
+    this.clearChain();
     audio.play('bossRoar');
     this.coneBody.rotation.set(0, 0, 0);
     this.sweep.visible = false;
@@ -799,6 +884,7 @@ export class EvilCone extends Boss {
   }
 
   defeatAnim(dt) {
+    if (!this.arenaDefeated) { this.arenaDefeated = true; this.arena?.reset(); this.shameTip.visible = false; }
     this.defT = (this.defT || 0) + dt;
     const t = this.defT;
     this.sweep.visible = false;

@@ -1,3 +1,4 @@
+import { createChain } from '../src/game/rewards.js';
 import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -38,6 +39,7 @@ afterEach(() => {
 
 function playSession() {
   const session = Object.create(Session.prototype);
+  session.chain = createChain();
   session.game = {
     ui: { setHud() {}, banner() {}, fade: () => Promise.resolve(), trialTime() {} },
     player: { spawnAt() {}, ride: null, frozen: false, pos: new THREE.Vector3(), victory() {} },
@@ -51,6 +53,8 @@ function playSession() {
   session.level = 1;
   session.levelTickets = 0;
   session.fieldRaw = 0;
+  session.snack = { raw: 0, potential: 0 };
+  session.freedIds = new Set();
   session.coconutRaw = 0;
   session.coconutSpawned = 0;
   session.coconutSeq = 0;
@@ -215,11 +219,15 @@ describe('local-only tickets', () => {
     save.data.tickets = amount;
     const game = Object.create(Game.prototype);
     game.session = session;
-    game.pauseSel = 6;
+    game.pauseSel = game._pauseItems().findIndex((i) => i.id === 'hub');
     game.ui = { pinHud() {}, fade: () => Promise.resolve(), setScreen() {} };
     game._drawPause = () => {};
     game.toMap = () => {};
     press('confirm');
+    game.updatePause();
+    // EXIT TO HUB asks first mid-level; confirm leaving.
+    expect(sdk.calls.earn).toHaveLength(0);
+    game.pauseExitSel = 1;
     game.updatePause();
     await expectStillLocal(amount);
   });
@@ -373,11 +381,15 @@ describe('local-only tickets', () => {
     save.data.tickets = amount;
     const game = Object.create(Game.prototype);
     game.session = quit;
-    game.pauseSel = 6;
+    game.pauseSel = game._pauseItems().findIndex((i) => i.id === 'hub');
     game.ui = { pinHud() {}, fade: () => Promise.resolve(), setScreen() {} };
     game._drawPause = () => {};
     game.toMap = () => {};
     press('confirm');
+    game.updatePause();
+    // EXIT TO HUB asks first mid-level; confirm leaving.
+    expect(sdk.calls.earn).toHaveLength(0);
+    game.pauseExitSel = 1;
     game.updatePause();
     expect(sdk.calls.earn).toHaveLength(0);
     resetHub(hub);

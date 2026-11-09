@@ -3,8 +3,35 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Assets } from '../art/assets.js';
 import { World, Solid } from './physics.js';
+import { advanceBeatClocks } from '../entities/boxes.js';
 
 export const THEMES = {
+  5: {
+    name: 'Pump & Dump Pipeline', ground: 'tex_l5_ground', wall: 'tex_l5_wall', platform: 'tex_l5_platform',
+    sky: 'bg_level5', fog: 0x160a24, fogNear: 30, fogFar: 95, hemiSky: 0x8affc8, hemiGround: 0x2a0830,
+    sun: 0xffd0f0, sunI: 1.3, hemiI: 1.2, rimI: .5, dust: 0xc8ffd8, music: 'level5', bpm: 128,
+  },
+  boss5: {
+    name: 'The Candle Chart', ground: 'tex_l3_ground', wall: 'tex_l3_wall', platform: 'tex_l3_platform',
+    sky: 'bg_boss5', fog: 0x1a0828, fogNear: 40, fogFar: 120, hemiSky: 0xffa0d0, hemiGround: 0x062014, sun: 0xc8ffd8, sunI: 1.3, hemiI: 1.2,
+    dust: 0xc8ffd8, music: 'boss5',
+  },
+  river: {
+    name: 'Smog Rapids', sky: 'bg_level6', fog: 0x8fa89a, fogNear: 38, fogFar: 110,
+    hemiSky: 0xd0e4d8, hemiGround: 0x4a5a3a, sun: 0xf0e8c8, sunI: 1.35, hemiI: 1.15,
+    ground: 'tex_l1_ground', wall: 'tex_l1_wall', platform: 'tex_l3_platform',
+    tint: { ground: 0x9a9a7a }, dust: 0x9a8aa8, music: 'level6',
+  },
+  boss4: {
+    name: 'Titan Living Room', ground: 'tex_house_ground', wall: 'tex_house_wall', platform: 'tex_house_platform',
+    sky: 'bg_boss4', fog: 0xd8b890, fogNear: 45, fogFar: 125, hemiSky: 0xfff0d8, hemiGround: 0x8a5a32, sun: 0xffe0b0, sunI: 1.3, hemiI: 1.1,
+    dust: 0xf2e6d0, music: 'boss4',
+  },
+  4: {
+    name: 'Laundry Day', ground: 'tex_house_ground', wall: 'tex_house_wall', platform: 'tex_house_platform',
+    sky: 'bg_level4', fog: 0xf0d6ae, fogNear: 45, fogFar: 125, hemiSky: 0xfff0d8, hemiGround: 0x8a5a32, sun: 0xffe0b0, sunI: 1.45, hemiI: 1.25,
+    dust: 0xf2e6d0, music: 'level4', bpm: 112,
+  },
   1: {
     name: 'Bark Jungle', ground: 'tex_l1_ground', wall: 'tex_l1_wall', platform: 'tex_l1_platform',
     sky: 'bg_level1', fog: 0xa8dcff, fogNear: 45, fogFar: 120, hemiSky: 0xd8f0ff, hemiGround: 0x5a7a3a, sun: 0xfff1d0, sunI: 1.5, hemiI: 1.25,
@@ -52,6 +79,13 @@ export class Stage {
   constructor(game, themeKey) {
     this.game = game;
     this.theme = THEMES[themeKey];
+    this.remix = !!game.session?.remix && game.session.phase !== 'boss';
+    if (this.remix) {
+      const original = this.theme;
+      this.theme = { ...original, tint: original.tint && { ...original.tint },
+        fog: new THREE.Color(original.fog).lerp(new THREE.Color(0x62516c), .6).getHex(),
+        fogNear: original.fogNear * .85, fogFar: original.fogFar * .9 };
+    }
     this.themeKey = themeKey;
     this.scene = new THREE.Scene();
     this.world = new World();
@@ -63,6 +97,7 @@ export class Stage {
     this.killY = -14;
     this.spawn = new THREE.Vector3(0, 0, 0);
     this.cameraMode = 'behind';
+    this.defaultCamera = null;
     this.time = 0;
     this.activeRange = 75;
     this.track = null;
@@ -89,6 +124,7 @@ export class Stage {
     this.scene.background = new THREE.Color(t.fog);
     this.scene.fog = new THREE.Fog(t.fog, t.fogNear, t.fogFar);
     const hemi = new THREE.HemisphereLight(t.hemiSky, t.hemiGround, t.hemiI);
+    this.hemi = hemi;
     this.scene.add(hemi);
     const sun = new THREE.DirectionalLight(t.sun, t.sunI);
     sun.position.set(-0.5, 1, 0.6);
@@ -104,6 +140,7 @@ export class Stage {
     // soft rim light from behind so characters pop off the background
     const rim = new THREE.DirectionalLight(0xbfd8ff, t.rimI ?? 0.45);
     rim.position.set(0.4, 0.6, -1);
+    this.rim = rim;
     this.scene.add(rim);
 
     // Panoramic sky: cylinder with the generated backdrop mirrored twice around.
@@ -238,8 +275,8 @@ export class Stage {
 
     const texFor = { ground: t.ground, wall: t.wall, platform: t.platform };
     if (this.track) {
-      const mk = (id) => new THREE.MeshLambertMaterial({ map: Assets.tiled(id), vertexColors: true, side: THREE.DoubleSide });
-      this.track.buildMeshes(this, { ground: mk(t.ground), wall: mk(t.wall), platform: mk(t.platform) });
+      const mk = (id, key) => new THREE.MeshLambertMaterial({ map: Assets.tiled(id), color: t.tint?.[key] ?? 0xffffff, vertexColors: true, side: THREE.DoubleSide });
+      this.track.buildMeshes(this, { ground: mk(t.ground, 'ground'), wall: mk(t.wall, 'wall'), platform: mk(t.platform, 'platform') });
     }
     for (const [key, B] of Object.entries(buckets)) {
       const g = new THREE.BufferGeometry();
@@ -249,7 +286,7 @@ export class Stage {
       g.setAttribute('color', new THREE.Float32BufferAttribute(B.col, 3));
       g.setIndex(B.idx);
       g.computeBoundingSphere();
-      const mtl = new THREE.MeshLambertMaterial({ map: Assets.tiled(texFor[key]), vertexColors: true });
+      const mtl = new THREE.MeshLambertMaterial({ map: Assets.tiled(texFor[key]), color: t.tint?.[key] ?? 0xffffff, vertexColors: true });
       const m = new THREE.Mesh(g, mtl);
       m.receiveShadow = true;
       m.castShadow = true;
@@ -272,6 +309,7 @@ export class Stage {
     this.time += dt;
     this.wind.value = this.time;
     this.world.beginFrame();
+    advanceBeatClocks(this, dt);
     if (player) {
       // keep the shadow frustum centred on Nobu
       const p = player.pos;
@@ -300,7 +338,12 @@ export class Stage {
     const k = String(this.themeKey);
     const p = player.pos;
     const x = p.x + (Math.random() - 0.5) * 22, z = p.z + (Math.random() - 0.5) * 22, y = p.y + 0.5 + Math.random() * 4;
-    if (k === '1' || k === 'boss1') fx.sparkle(x, y, z, { count: 1, color: Math.random() < 0.5 ? 0xfff6a0 : 0xffb0e0, size: 0.18, speed: 0.4, up: 0.3, life: 2.5 });
+    if (k === 'river') {
+      const forward = this.track?.tangent(player.body?.s ?? 0) ?? new THREE.Vector3(0, 0, -1);
+      forward.y = 0; forward.normalize();
+      fx.smokeCard(x, y, z, { vx: forward.x * .4, vz: forward.z * .4, vy: .04, size: .16 * 1.4, colors: [0x9a8aa8], life: 2.5, g: 0, drag: 1, grow: 0, alpha: .45 });
+    }
+    else if (k === '1' || k === 'boss1') fx.sparkle(x, y, z, { count: 1, color: Math.random() < 0.5 ? 0xfff6a0 : 0xffb0e0, size: 0.18, speed: 0.4, up: 0.3, life: 2.5 });
     else if (k === '2' || k === 'boss2') fx.sparkle(x, y, z, { count: 1, color: 0xffd8a0, size: 0.14, speed: 0.8, up: 0.1, life: 2 });
     else fx.sparkle(x, p.y + Math.random() * 1.5, z, { count: 1, color: Math.random() < 0.5 ? 0xff9a4a : 0xb070ff, size: 0.16, speed: 0.3, up: 1.5, life: 1.6 });
   }
@@ -323,7 +366,7 @@ export class Stage {
       } else if (e.kind === 'bubble') {
         const a = Math.random() * Math.PI * 2, r = Math.random() * (o.r ?? 0.8);
         fx.smokeCard(e.x + Math.cos(a) * r, e.y, e.z + Math.sin(a) * r, {
-          vy: 0.5 + Math.random() * 0.6, size: 0.1 + Math.random() * 0.1, life: 0.55, colors: [0xc8ff9a, 0x9aff7a], grow: 0.6, g: 0, drag: 0.98, alpha: 0.95, fadeAt: 0.7, spin: 0,
+          vy: 0.5 + Math.random() * 0.6, size: 0.1 + Math.random() * 0.1, life: 0.55, colors: o.color ? [o.color] : [0xc8ff9a, 0x9aff7a], grow: 0.6, g: 0, drag: 0.98, alpha: 0.95, fadeAt: 0.7, spin: 0,
         });
       }
     }

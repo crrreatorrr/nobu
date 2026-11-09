@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+// Classic regression fixtures; active layout2 migration/upload gating is checked separately.
+vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CORRUPT_KEY, SAVE_KEY, save } from '../src/core/save.js';
 import { resetWorld } from './helpers.js';
 
@@ -19,16 +21,16 @@ describe('save: trial scores', () => {
   it('sanitizes bad nested values on load', () => {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       v: 2,
-      trials: { 1: { best: 'fast' }, 2: { ms: 900 }, 3: null, 4: { best: 50 }, ride: { best: 40 } },
+      trials: { 1: { best: 'fast' }, 2: { ms: 900 }, 3: null, 99: { best: 50 }, ride: { best: 40 } },
       bestDogs: 'lots',
       bonus: [1, 2],
       beaten: [true],
     }));
     save.load();
     expect(save.data.trials).toEqual({});
-    expect(save.data.bestDogs).toEqual([0, 0, 0]);
+    expect(save.data.bestDogs).toEqual({});
     expect(save.data.bonus).toEqual({});
-    expect(save.data.beaten).toEqual([true, false, false]);
+    expect(save.data.beaten).toEqual({ '1': true });
   });
 
   it('copies an unreadable save aside before starting fresh', () => {
@@ -41,7 +43,7 @@ describe('save: trial scores', () => {
 
   it('a second tab cannot overwrite a faster time or a bigger best', () => {
     save.data.trials = { 1: { best: 50, ms: 50000, medal: 'gold', pid: null } };
-    save.data.bestDogs = [3, 0, 0];
+    save.data.bestDogs = { '1': 3 };
     save.data.bonus = { ride: { beaten: true, best: 20 } };
     save.write();
 
@@ -49,7 +51,7 @@ describe('save: trial scores', () => {
     const other = disk();
     other.trials[1] = { best: 44, ms: 44000, medal: 'gold', pid: 'p' };
     other.trials[2] = { best: 60, ms: 60000, medal: 'silver', pid: 'p' };
-    other.bestDogs = [1, 5, 0];
+    other.bestDogs = { '1': 1, '2': 5 };
     other.bonus = { ride: { beaten: true, best: 35 }, cave: { found: true } };
     localStorage.setItem(SAVE_KEY, JSON.stringify(other));
 
@@ -59,7 +61,7 @@ describe('save: trial scores', () => {
     const now = disk();
     expect(now.trials[1].ms).toBe(44000);
     expect(now.trials[2].ms).toBe(60000);
-    expect(now.bestDogs).toEqual([3, 5, 0]);
+    expect(now.bestDogs).toEqual({ '1': 3, '2': 5 });
     expect(now.bonus.ride.best).toBe(35);
     expect(now.bonus.cave.found).toBe(true);
     expect(now.lives).toBe(2);
@@ -70,20 +72,22 @@ describe('save: trial scores', () => {
   it('reset() starts a new game but keeps trial bests', () => {
     save.data.trials = { 2: { best: 58, ms: 58000, medal: 'silver', pid: 'p' } };
     save.data.unlocked = 3;
-    save.data.bestDogs = [4, 4, 4];
+    save.data.bestDogs = { '1': 4, '2': 4, '3': 4 };
     save.write();
     save.reset();
     expect(save.data.unlocked).toBe(1);
-    expect(save.data.bestDogs).toEqual([0, 0, 0]);
+    expect(save.data.bestDogs).toEqual({});
     expect(save.data.trials[2].ms).toBe(58000);
     expect(disk().trials[2].ms).toBe(58000);
-    expect(disk().bestDogs).toEqual([0, 0, 0]);
+    expect(disk().bestDogs).toEqual({});
   });
 
-  it('totalTrialMs() sums the three bests once all exist', () => {
+  it('totalTrialMs() sums all six bests once all exist', () => {
     save.data.trials = { 1: { ms: 50000 }, 2: { ms: 60000 } };
     expect(save.totalTrialMs()).toBe(null);
     save.data.trials[3] = { ms: 40500 };
-    expect(save.totalTrialMs()).toBe(150500);
+    expect(save.totalTrialMs()).toBe(null);
+    save.data.trials[4] = { ms: 90000 };save.data.trials[6] = { ms: 60000 };save.data.trials[5] = { ms: 95000 };
+    expect(save.totalTrialMs()).toBe(395500);
   });
 });

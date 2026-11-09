@@ -1,12 +1,31 @@
 // NOBU Relic items. Gameplay's equip spec (EQ §1.1) is the source for these numbers.
 // Cone's Tip is earned in this game, so it has no NOBU item.
 // Neck holds one id. The cycle is None, Golden Collar, then Clown-Nose Collar.
-// Head holds one id too: None, Wizard Hat, then Champion's Crown. Never both.
+// Head holds one id too: None, Wizard Hat, Wizard Hat II, then Champion's Crown. Only one at a time.
+// Wizard Hat II is a second copy of the Wizard Hat for the Breakwater Coin (Sproto Arcade):
+// same Spell Bark, same mesh. `cosmetic.mesh` names the model to draw, so both ids show one hat.
 // An item has either one `effect` or a list of `effects`; itemEffects() reads both.
 
 export const SLOTS = ['head', 'neck', 'back', 'body'];
 export const VISIBLE_SLOTS = ['head', 'neck'];
 export const SLOT_LABEL = { head: 'HEAD', neck: 'NECK', back: 'BACK', body: 'BODY' };
+
+// Shared by both Wizard Hats so their Spell Bark cannot drift apart.
+const SPELL_BARK = Object.freeze({
+  id: 'spell_bark',
+  params: Object.freeze({
+    range_m: 9,
+    cone_dot: 0.4,
+    cooldown_s: 0.7,
+    y_tol_m: 2.5,
+    rings: 4,
+    ring_step_m: 2.2,
+    color: 0xa66bff,
+    skip_bosses: true,
+    unlock_mega_bark: true,
+  }),
+});
+const SPELL_BARK_BLURB = 'Spell Bark: longer, wider, faster. Bosses are still skipped.';
 
 export const NOBU_ITEMS = [
   {
@@ -15,21 +34,19 @@ export const NOBU_ITEMS = [
     slot: 'head',
     name: 'Wizard Hat',
     relic: 'tinubu_crown',
-    blurb: 'Spell Bark: longer, wider, faster. Bosses are still skipped.',
-    effect: {
-      id: 'spell_bark',
-      params: {
-        range_m: 9,
-        cone_dot: 0.4,
-        cooldown_s: 0.7,
-        y_tol_m: 2.5,
-        rings: 4,
-        ring_step_m: 2.2,
-        color: 0xa66bff,
-        skip_bosses: true,
-        unlock_mega_bark: true,
-      },
-    },
+    blurb: SPELL_BARK_BLURB,
+    effect: SPELL_BARK,
+    cosmetic: { mesh: 'nobu_wizard_hat', fallback: 'procedural' },
+  },
+  {
+    id: 'nobu_wizard_hat_2',
+    game: 'nobu',
+    slot: 'head',
+    name: 'Wizard Hat II',
+    relic: 'breakwater_coin',
+    blurb: SPELL_BARK_BLURB,
+    effect: SPELL_BARK,
+    // No model of its own: draws the Wizard Hat (GLB model_nobu_wizard_hat, else procedural).
     cosmetic: { mesh: 'nobu_wizard_hat', fallback: 'procedural' },
   },
   {
@@ -85,6 +102,12 @@ export const NOBU_ITEMS = [
 export function itemById(id) {
   if (!id) return null;
   return NOBU_ITEMS.find((item) => item.id === id) || null;
+}
+
+// The model an item draws. Wizard Hat II reuses the Wizard Hat's, so this is not always the id.
+export function itemMesh(id) {
+  const def = itemById(id);
+  return def ? def.cosmetic?.mesh || def.id : null;
 }
 
 // Every { id, params } an item grants while equipped.
