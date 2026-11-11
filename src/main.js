@@ -2,6 +2,7 @@ import { Game } from './game/game.js';
 import { audio } from './audio/audio.js';
 import { crashGuard } from './core/crashGuard.js';
 import { CrashPanel } from './ui/crashPanel.js';
+import { installGameFeedback } from './hub/feedback.js';
 
 // Crash safety net: uncaught errors and rejections feed the crash guard; when it halts the game
 // (a streak of failing frames, or a failed boot) the "Something broke" panel offers a reload.
@@ -18,6 +19,8 @@ crashGuard.onHalt((info) => {
 });
 
 const game = new Game(document.getElementById('game'), document.getElementById('ui'));
+// N twice, or SEND FEEDBACK in the pause menu: the hub SDK's feedback window (src/hub/feedback.js).
+try { game.feedback = installGameFeedback(game); } catch (err) { console.warn('[feedback] not installed', err); }
 if (import.meta.env.DEV) {
   window.__nobu = game;
   import('./dev.js').then((m) => m.installDevTools(game));

@@ -31,6 +31,7 @@ whether on-screen prompts show keys or buttons.
 | Menus: move, confirm, back | Arrows or W/S, Enter or Space, Esc (Backspace) | D-pad or left stick, A, B |
 | Map: play the selected stage | Space / Enter | A |
 | God Mode on/off during play | 9 9 (twice quickly) | — |
+| Send feedback (hub players; the game freezes while the window is open) | N N (twice quickly) · Pause: SEND FEEDBACK | Pause: SEND FEEDBACK |
 | Map: time trial on a beaten level | T | Y |
 | Map: Box Gauntlet on its unlocked host level | G | RB |
 | Map: toggle Smog Remix after the Queen | R | RT |
@@ -256,7 +257,8 @@ src/
   bosses/              Mecha Bird, Big Cat (+ chase), Evil Cone, Roomba Titan, Pump Queen, shared boss tech
   art/procedural.js    code-drawn textures for the bonus stages and the newer tutorial icons
   gear/                hub Relic items: catalog, ownership (from hub init), local loadout
-  hub/                 hubBridge.js (SDK wrapper, Ticket outbox), scoreQueue.js (offline trial score queue)
+  hub/                 hubBridge.js (SDK wrapper, Ticket outbox), scoreQueue.js (offline trial score queue),
+                       feedback.js (adapter for the hub SDK's feedback window: N twice)
   config/              tickets.js (Ticket tuning), trials.js (trial board, bounds, medal targets)
   ui/                  HUD, text boxes, pop-ups, menus (DOM)
   audio/               Web Audio synth: every sound effect and all music

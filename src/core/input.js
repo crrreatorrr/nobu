@@ -136,6 +136,8 @@ class Input {
     if (this.lastDevice !== 'pad') return kb;
     return pad === undefined ? padPrompt(kb) : pad;
   }
+  // Forget every held key and queued press (the feedback window swallows the keyups).
+  releaseAll() { this.codes.clear(); this._recompute(); this._god9 = null; this.clear(); }
   clear() { this._pressed = new Set(); this._anyPressed = false; this.pressedQ.clear(); this.anyKeyQ = false; this._padLost = false; }
 }
 
