@@ -36,9 +36,14 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 //   3813f4566254eff06733e0f5f156052116fa3aad6d4fd36b259b86f00da65dd5
 //   iife 4ceb36321fc09820c4ef6292b8bd31ebaa198f0a9b90d38bcbd458505222df76
 // 0.6.4 / exact merged hub main 2a82e9ec5986fc6eac10d90d4b121dfcb408e9e9
-// (hub #117; marina_anchor and dragon_scale). File sha256 of dist/hub-sdk.iife.js:
-const CONTENT_MANIFEST_SHA256 = 'd4da695e6fda1b575ac41ef308d5ef4a862b9d0cdc68b5064385590b6adf9818';
-const IIFE_SHA256 = 'e7626595184dc132e72ffd707c87149b266c7b3933d40670e55eb2fb0a64eda6';
+// (hub #117; marina_anchor and dragon_scale):
+//   d4da695e6fda1b575ac41ef308d5ef4a862b9d0cdc68b5064385590b6adf9818
+//   iife e7626595184dc132e72ffd707c87149b266c7b3933d40670e55eb2fb0a64eda6
+// 0.7.0 / hub branch claude/festive-ptolemy-4mg8oe at b9ac308, not merged to hub main yet
+// (in-game feedback window: installFeedback, feedbackAccess, submitFeedback). Re-vendor from
+// hub main once that branch merges. File sha256 of dist/hub-sdk.iife.js:
+const CONTENT_MANIFEST_SHA256 = '05c5a9b2de11d00d921df6c3eb7a2948b1af06d862f0031eeea1baed34a1c476';
+const IIFE_SHA256 = '092603b61a3511fbbcaa3b674b16f02b24d581752e1fa1dc69eeb577bc5ae5e8';
 
 function listFiles(dir) {
   const out = [];
@@ -85,9 +90,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.6.4', () => {
+  it('package.json is SDK 0.7.0', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.6.4');
+    expect(pkg.version).toBe('0.7.0');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -110,14 +115,14 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: main\n- sha: 2a82e9e\n- package: packages/hub-sdk @ 0.6.4');
+    expect(note).toContain('- branch: claude/festive-ptolemy-4mg8oe\n- sha: b9ac308\n- package: packages/hub-sdk @ 0.7.0');
     expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
     const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
     const iife = fs.readFileSync(iifePath);
     expect(createHash('sha256').update(iife).digest('hex')).toBe(IIFE_SHA256);
     expect(iife.toString('utf8')).toContain('global HubSDK');
     const pin = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/SOURCE.pin.json'), 'utf8'));
-    expect(pin).toMatchObject({ version: '0.6.4', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
+    expect(pin).toMatchObject({ version: '0.7.0', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
     const files = listFiles(path.resolve('vendor/hub-sdk'));
     expect(files.some(file => file.endsWith('.map'))).toBe(false);
     for (const file of files) expect(fs.readFileSync(file, 'utf8')).not.toContain('sourceMappingURL=');
@@ -168,7 +173,19 @@ describe('vendored hub SDK', () => {
     expect(vendorNote).not.toContain('## Local patch');
   });
 
-  it('content manifest matches SDK 0.6.4 after maps and sourceMappingURL are removed', () => {
+  // 0.7.0: the feedback window and its two optional HubSdk calls (src/hub/feedback.js uses them).
+  it('exports the feedback window and the optional feedback calls', async () => {
+    const feedback = await import('../vendor/hub-sdk/dist/feedback.js');
+    expect(typeof feedback.installFeedback).toBe('function');
+    expect(typeof feedback.feedbackTransportFromSdk).toBe('function');
+    const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.js'), 'utf8');
+    expect(index).toContain('installFeedback');
+    const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
+    expect(types).toContain('feedbackAccess?(');
+    expect(types).toContain('submitFeedback?(');
+  });
+
+  it('content manifest matches SDK 0.7.0 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);

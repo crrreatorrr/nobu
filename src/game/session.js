@@ -243,6 +243,7 @@ export class Session {
     this._pushHud();
     this.buddy = this.def.gauntlet ? null : addBuddy(this, save.data, LEVELS);
     if (this.trial) this._setupTrial();
+    g.feedback?.breadcrumb('level_start', { level: String(this.level), mode: this.trial ? 'trial' : this.remix ? 'remix' : 'story' });
     if (!this.remix) g.ui.banner(this.def.name.toUpperCase(), this.trial ? 'TIME TRIAL · break ice packs to freeze the clock' : this.def.bonus ? 'BONUS STAGE' : `LEVEL ${this.level}`, 2.2);
     if (LEVEL_INTRO[this.level] && !this.trial && !this.remix) {
       g.player.frozen = true;
@@ -378,6 +379,7 @@ export class Session {
   _finishTrial() {
     const g = this.game, t = this.trialT, stage = this.stage, epoch = this._lifecycleEpoch || 0;
     if (!this._pipelineCurrent(stage, null, epoch)) return;
+    g.feedback?.breadcrumb('trial_finish', { level: String(this.level), seconds: Math.round(t * 100) / 100 });
     this.trialRunning = false;
     const layout = trialLayout(this.level), variant = trialVariant(this.level, layout);
     const ms = Math.round(t * 1000), d = save.data;
@@ -653,6 +655,7 @@ export class Session {
     const boss = new this.def.Boss(stage, 0, 0, -6);
     stage.add(boss);
     this.boss = boss;
+    g.feedback?.breadcrumb('boss_start', { level: String(this.level), boss: boss.key || this.def.bossKey || '' });
     this.bossPhaseCp = 1;
     this._attachActors(info);
     g.player.frozen = true;
@@ -700,6 +703,7 @@ export class Session {
     const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
     const current = () => this._pipelineCurrent(stage, boss, epoch);
     if (!current()) return;
+    g.feedback?.breadcrumb('boss_phase', { level: String(this.level), phase });
     this.busy = true;
     boss.active = false;
     this.projectiles.clear();
@@ -751,6 +755,7 @@ export class Session {
     const g = this.game, stage = this.stage, epoch = this._lifecycleEpoch || 0;
     const current = () => this._pipelineCurrent(stage, boss, epoch);
     if (!current()) return;
+    g.feedback?.breadcrumb('boss_defeated', { level: String(this.level), deaths: this.deaths });
     if (this.remix) this._remixClearReached = { stage, epoch };
     this._awardBossMedals(boss);
     if (!this.remix && this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
@@ -911,6 +916,7 @@ export class Session {
     for (const entity of this.stage.entities) if (entity.kind !== 'mystery') entity.onCheckpoint?.();
     this._lifeLineHold = false;
     this.deathsAtCp = 0;
+    this.game.feedback?.breadcrumb('checkpoint', { x: Math.round(pos.x), y: Math.round(pos.y), z: Math.round(pos.z) });
     this.game.ui.banner('CHECKPOINT!', 'yum', 1.4);
     // Golden Collar refills here. Pits never come through this path.
     this.game.player?.rechargeGuard?.();
@@ -942,6 +948,7 @@ export class Session {
     finishSessionChain(this);
     this.deaths++;
     const g = this.game;
+    g.feedback?.breadcrumb('death', { type: String(type ?? ''), phase: this.phase, x: Math.round(g.player?.pos?.x ?? 0), y: Math.round(g.player?.pos?.y ?? 0), z: Math.round(g.player?.pos?.z ?? 0) });
     this.invincibleT = 0;
     audio.setRate(1);
     const prevMask = this.mask;

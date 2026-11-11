@@ -1,5 +1,16 @@
 import { defineConfig, loadEnv } from 'vite';
 import fs from 'node:fs';
+import { execSync } from 'node:child_process';
+
+// Shown in feedback notes (src/hub/feedback.js): package.json version plus the short commit.
+function buildVersion() {
+  const { version } = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+  let sha = (process.env.GITHUB_SHA || '').slice(0, 7);
+  if (!sha) {
+    try { sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { sha = ''; }
+  }
+  return `${version}+${sha || 'dev'}`;
+}
 
 // Dev-only helper: POST a canvas data URL to /__shot to save a screenshot for playtesting.
 const devShot = {
@@ -32,6 +43,7 @@ function viteBase(command, mode) {
 export default defineConfig(({ command, mode }) => ({
   base: viteBase(command, mode),
   plugins: [devShot],
+  define: { __NOBU_VERSION__: JSON.stringify(buildVersion()) },
   server: {
     // Same-origin /v2 in dev. Production Caddy proxies Nakama; serverUrl stays ''.
     proxy: {
