@@ -40,3 +40,7 @@ export const BOSS = {
 
 export const FLOOR = { teleSec: 0.40, windowSec: 0.90 };
 export const ULT_CHARGE = [0, 26, 20, 15, 12]; // 1-based; the Queen has a fourth stage.
+
+// Death to respawn, in milliseconds. The card can be skipped with Jump, Bite or Confirm once it has
+// been up for cardSkipAfter. The trial clock is stopped for all of it.
+export const DEATH_FLOW = Object.freeze({ waitFall: 600, waitOther: 900, card: 900, cardSkipAfter: 250, fade: 200 });

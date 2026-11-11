@@ -29,6 +29,7 @@ import { SNACK_EXCLUDED, staticSnackPotential, applyRunResults, boneContext, sna
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
+import { DEATH_FLOW } from '../config/difficulty.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
@@ -113,6 +114,30 @@ export class Session {
       const timer = setTimeout(() => { this._lifecycleWaiters.delete(timer); resolve(); }, ms);
       this._lifecycleWaiters.set(timer, resolve);
     });
+  }
+
+  // The death card: resolves on its timer, or early when update() sees a skip press after skipAfterMs.
+  // Owned sessions register it with the lifecycle waiters, so retiring the session still releases it.
+  _deathCardDelay(ms, skipAfterMs) {
+    return new Promise(resolve => {
+      const owned = isPipelineSession(this) || this.remix;
+      const card = { t: 0, skipAfterMs, done: () => {
+        clearTimeout(timer);
+        this._lifecycleWaiters?.delete(timer);
+        if (this._deathCard === card) this._deathCard = null;
+        resolve();
+      } };
+      const timer = setTimeout(card.done, ms);
+      if (owned) (this._lifecycleWaiters ||= new Map()).set(timer, card.done);
+      this._deathCard = card;
+    });
+  }
+
+  _updateDeathCard(dt) {
+    const card = this._deathCard;
+    if (!card) return;
+    card.t += dt * 1000;
+    if (card.t >= card.skipAfterMs && (input.pressed('jump') || input.pressed('bite') || input.pressed('confirm'))) card.done();
   }
 
   _retirePipelineTransitions() {
@@ -947,13 +972,14 @@ export class Session {
     const prevMask = this.mask;
     this.mask = 0;
     g.mask.setLevel(0, prevMask);
-    const wait = type === 'fall' ? 1.0 : 1.5;
+    g.ui.clearTutorialQueue?.(); // waiting tutorials come back at their triggers; they are not marked seen
+    const waitMs = type === 'fall' ? DEATH_FLOW.waitFall : DEATH_FLOW.waitOther;
     setTimeout(async () => {
       if (!current()) return;
       g.ui.deathCard(type);
-      await this._pipelineDelay(1700);
+      await this._deathCardDelay(DEATH_FLOW.card, DEATH_FLOW.cardSkipAfter);
       if (!current()) return;
-      await g.ui.fade(1, 0.35);
+      await g.ui.fade(1, DEATH_FLOW.fade / 1000);
       if (!current()) return;
       g.ui.clearScreen();
       if (!this.trial) save.data.lives -= 1; // time trials never cost lives
@@ -963,12 +989,13 @@ export class Session {
         g.gameOver(this);
         return;
       }
+      input.clear(); // the press that skipped the card must not also jump or bite
       this.respawn();
       if (!current()) return;
       this.dying = false;
       g.ui.showHud(2.5);
-      await g.ui.fade(0, 0.35);
-    }, wait * 1000);
+      await g.ui.fade(0, DEATH_FLOW.fade / 1000);
+    }, waitMs);
   }
 
   respawn() {
@@ -1038,6 +1065,7 @@ export class Session {
   // ---------- per-frame ----------
   update(dt) {
     const g = this.game;
+    this._updateDeathCard(dt);
     if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
     this.godUsed ||= !!save.data.godMode;
     if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;

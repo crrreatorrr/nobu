@@ -27,6 +27,7 @@ import {audio} from '../src/audio/audio.js';
 import {UI} from '../src/ui/ui.js';
 import {readQueue} from '../src/hub/scoreQueue.js';
 import {resetWorld} from './helpers.js';
+import {DEATH_FLOW} from '../src/config/difficulty.js';
 const noop=()=>{};const sessions=[];
 beforeEach(()=>{resetWorld();vi.useFakeTimers();const ctx=new Proxy({measureText:()=>({width:50}),createRadialGradient:()=>({addColorStop:noop}),createLinearGradient:()=>({addColorStop:noop}),getImageData:(x,y,w,h)=>({data:new Uint8ClampedArray(w*h*4)})},{get:(o,k)=>o[k]??noop});vi.spyOn(HTMLCanvasElement.prototype,'getContext').mockReturnValue(ctx);vi.spyOn(HTMLCanvasElement.prototype,'toDataURL').mockReturnValue('');vi.spyOn(hub,'bank').mockResolvedValue();vi.spyOn(hub,'beginAttempt').mockResolvedValue({id:'pipeline-life',ok:false});vi.spyOn(hub,'startCarry').mockImplementation(()=>{});vi.spyOn(hub,'exit').mockImplementation(()=>{});});
 afterEach(()=>{for(const s of sessions.splice(0))s.dispose();vi.clearAllTimers();vi.useRealTimers();vi.restoreAllMocks();});
@@ -188,4 +189,29 @@ it('settles an abandoned L5 intro waiter when a newer dialogue already owns actu
  const{game,s}=fixture({realUI:true});const launch=s.startLevel();await flush(1300);const old=game.ui.dialog;expect(old).toBeTruthy();
  const newer=game.ui.say([['mask','Already newer']]),current=game.ui.dialog;game.toMap(5);game.player.frozen=true;
  expect(await launch).toBe(false);expect(game.ui.dialog).toBe(current);expect(game.player.frozen).toBe(true);game.ui.cancelSay(current);await newer;
+});
+
+it('respawns after the shorter death flow and keeps the card up for its full time when nothing is pressed',async()=>{
+ const{game,s}=fixture(),lives=save.data.lives;const spawn=vi.spyOn(game.player,'spawnAt');s.onPlayerDeath('fall');
+ expect(DEATH_FLOW.waitFall+DEATH_FLOW.card+DEATH_FLOW.fade).toBeLessThanOrEqual(1800);
+ expect(DEATH_FLOW.waitOther+DEATH_FLOW.card+DEATH_FLOW.fade).toBeLessThanOrEqual(2100);
+ await flush(DEATH_FLOW.waitFall);expect(game.ui.deathCard).toHaveBeenCalledWith('fall');
+ s.update(0.4);await flush(DEATH_FLOW.card-1);expect(spawn).not.toHaveBeenCalled();
+ await flush(1);expect(spawn).toHaveBeenCalledOnce();expect(save.data.lives).toBe(lives-1);expect(s.dying).toBe(false);expect(s._deathCard).toBeNull();
+});
+it.each(['jump','bite','confirm'])('skips the death card on %s after 250 ms without carrying the press into the respawn',async key=>{
+ const{game,s}=fixture(),lives=save.data.lives;const spawn=vi.spyOn(game.player,'spawnAt');s.onPlayerDeath('fall');
+ await flush(DEATH_FLOW.waitFall);input._pressed=new Set([key]);
+ s.update(0.1);await flush(0);expect(spawn).not.toHaveBeenCalled(); // 100 ms: too early to skip
+ s.update(0.2);await flush(0);
+ expect(spawn).toHaveBeenCalledOnce();expect(save.data.lives).toBe(lives-1);expect(input._pressed.size).toBe(0);expect(s.dying).toBe(false);
+ expect(DEATH_FLOW.waitFall+DEATH_FLOW.cardSkipAfter+DEATH_FLOW.fade).toBeLessThanOrEqual(1200);
+ await flush(6000);expect(spawn).toHaveBeenCalledOnce();
+});
+it('an abandoned session never respawns, even when the skip key is pressed on its death card',async()=>{
+ const{game,s}=fixture(),lives=save.data.lives;const spawn=vi.spyOn(game.player,'spawnAt');s.onPlayerDeath('fall');
+ await flush(DEATH_FLOW.waitFall+300);expect(s._deathCard).toBeTruthy();
+ game.toMap(5);const write=watchAfterExit(game);expect(s._deathCard).toBeNull();
+ input._pressed=new Set(['jump']);s.update(0.5);s._updateDeathCard(0.5);await flush(6000);input._pressed=new Set();
+ expect(spawn).not.toHaveBeenCalled();expect(save.data.lives).toBe(lives);assertRetired(game,s);assertNoLateEffect(game,write);
 });
