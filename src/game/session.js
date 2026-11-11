@@ -963,6 +963,7 @@ export class Session {
     const current = () => this._pipelineCurrent(stage, null, epoch) && !this._retryAbandoned() && this.stage === stage;
     if (import.meta.env.DEV) this.game.devTuning?.death(this, type);
     this.dying = true;
+    this.game.feedback?.('death');
     this.onPlayerHurt(); // Includes direct pit/crusher deaths which bypass hurt().
     if (this.phase === 'boss' && this.boss && !this.boss.defeated) {
       const phase = this.boss.phase;
@@ -1070,18 +1071,34 @@ export class Session {
   }
 
   // ---------- per-frame ----------
-  update(dt) {
+  _tickBossRun(dt) {
     const g = this.game;
-    this._updateDeathCard(dt);
-    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
-    this.godUsed ||= !!save.data.godMode;
-    if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
     if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
       this.bossRun.t += dt;
       this.bossClock = this.bossRun.t;
       // Enabling God Mode for any part of a fight permanently voids this attempt.
       if (save.data.godMode || g.player.god) this.bossRun.void = true;
     }
+  }
+
+  // A hitstop frame (Game.hitstop): nothing in the world moves, but the boss medal clock keeps
+  // running, so a Speed medal is not made easier, and the camera shake and effects play on.
+  updateFrozen(dt) {
+    const g = this.game;
+    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    this._updateDeathCard(dt);
+    this._tickBossRun(dt);
+    g.camera.update?.(dt, g.player);
+    g.fx.update?.(dt);
+  }
+
+  update(dt) {
+    const g = this.game;
+    this._updateDeathCard(dt);
+    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    this.godUsed ||= !!save.data.godMode;
+    if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
+    this._tickBossRun(dt);
     if (this.invincibleT > 0) {
       this.invincibleT -= dt;
       if (this.invincibleT <= 0) {
@@ -1125,6 +1142,7 @@ export class Session {
   onFlop(pos) {
     const g = this.game;
     g.camera.shake(0.45, 0.3);
+    g.feedback?.('flop');
     g.fx.ring(pos.x, pos.y, pos.z, { color: 0xffffff, radius: 2.4 });
     g.fx.puff(pos.x, pos.y + 0.1, pos.z, { count: 8, size: 0.5, color: 0xf0e8d8, speed: 4 });
     for (const e of [...this.stage.entities]) {

@@ -53,6 +53,7 @@ function fresh() {
     v: 3,
     musicVol: 0.6,
     sfxVol: 0.8,
+    rumble: true,            // gamepad rumble (pause menu)
   };
 }
 
@@ -202,6 +203,7 @@ function sanitize(d) {
   d.tickets = finite(d.tickets, 0);
   d.musicVol = finite(d.musicVol, f.musicVol);
   d.sfxVol = finite(d.sfxVol, f.sfxVol);
+  d.rumble = d.rumble !== false;
   if (!isObj(d.tutorials)) d.tutorials = {};
   d.colorBones = boolMap(d.colorBones, COLORS);
   if (!isObj(d.loadout)) d.loadout = f.loadout;
@@ -338,7 +340,7 @@ export const save = {
   },
   // New game clears story progress; trial and mastery records stay permanent.
   reset() {
-    const keep = { nobuModel: data.nobuModel, pixelated: data.pixelated, godMode: data.godMode, musicVol: data.musicVol, sfxVol: data.sfxVol, loadout: data.loadout };
+    const keep = { nobuModel: data.nobuModel, pixelated: data.pixelated, godMode: data.godMode, musicVol: data.musicVol, sfxVol: data.sfxVol, rumble: data.rumble, loadout: data.loadout };
     const disk = readDisk();
     const records = sanitize({ ...fresh(), ...data });
     if (disk) mergeScores(records, disk);

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
 import { input } from '../core/input.js';
 import { HINTS } from '../core/prompts.js';
+import { HITSTOP_MS, RUMBLE } from '../config/feedback.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { UI } from '../ui/ui.js';
@@ -740,6 +741,13 @@ export class Game {
     // Start pauses; so does losing the pad mid-level, so Nobu never runs on without the player.
     if ((input.pressed('pause') || input.padLost()) && !this.ui.talking && !s.dying) { this.openPause(); return; }
     if (this.camera) this.camera.peekInput = input.look; // right stick: camera peek (see GameCamera._applyPeek)
+    if (this.hitstopT > 0) {
+      // Hitstop: the world holds for a few frames. Presses made meanwhile are kept for the first live frame.
+      this.hitstopT -= dt;
+      input.carry();
+      s.updateFrozen?.(dt);
+      return;
+    }
     s.update(dt);
     this._updateFlyingMasks(dt);
     updateBossBar(this, s);
@@ -776,6 +784,20 @@ export class Game {
   onFlop(pos) { this.session?.onFlop(pos); }
   onPlayerDeath(type) { this.session?.onPlayerDeath(type); }
 
+  // ---------------- hit feedback ----------------
+  /** Freezes the session for `ms`. Off wherever a clock is ranked or recorded. */
+  hitstop(ms) {
+    const s = this.session;
+    if (!s || !(ms > 0) || s.trial || s.ranked || s.rush || s.def?.gauntlet) return;
+    this.hitstopT = Math.max(this.hitstopT || 0, ms / 1000);
+  }
+  rumble(ms, strong, weak) { if (save.data.rumble !== false) input.rumble(ms, strong, weak); }
+  /** One name per event: 'kill', 'bossHit', 'maskLost', 'death', 'flop' (src/config/feedback.js). */
+  feedback(kind) {
+    if (HITSTOP_MS[kind]) this.hitstop(HITSTOP_MS[kind]);
+    if (RUMBLE[kind]) this.rumble(...RUMBLE[kind]);
+  }
+
   // ---------------- pause ----------------
   openPause() {
     this.state = 'pause';
@@ -796,6 +818,7 @@ export class Game {
       { id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` },
       { id: 'music', label: `MUSIC: ${Math.round(save.data.musicVol * 10)}` },
       { id: 'sfx', label: `SFX: ${Math.round(save.data.sfxVol * 10)}` },
+      { id: 'rumble', label: `RUMBLE: ${save.data.rumble === false ? 'OFF' : 'ON'}` },
       { id: 'hub', label: 'EXIT TO HUB' },
       { id: 'quit', label: 'QUIT TO MAP' },
     ];
@@ -889,6 +912,12 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawPause();
       } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
+      else if (it.id === 'rumble') {
+        save.data.rumble = save.data.rumble === false;
+        save.write();
+        if (save.data.rumble) input.rumble(...RUMBLE.maskLost); // a sample, so the player feels what they chose
+        this._drawPause();
+      }
       else if (it.id === 'hub') { this.pauseExitSel = 0; audio.play('menu'); this._drawPauseExit(); }
       else if (it.id === 'quit') {
         this.ui.pinHud(false);

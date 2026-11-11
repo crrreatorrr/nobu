@@ -140,3 +140,22 @@ test('left stick moves with the 0.2 deadzone; right stick looks with 0.15; stick
   expect(f.any).toBe(false); expect(f.active).toBe(true);
   expect(f.pressed.has('right')).toBe(true); // stick also steers menus
 });
+
+test('rumble plays a dual-rumble effect on the pad being read, and is a no-op without one', () => {
+  const r = new PadReader();
+  expect(r.rumble(100, 1, 1)).toBe(false); // nothing read yet
+  const calls = [];
+  const gp = { ...pad(), vibrationActuator: { playEffect: (type, params) => { calls.push([type, params]); return Promise.resolve('complete'); } } };
+  r.read([gp], 0);
+  expect(r.rumble(150, 0.8, 0.4)).toBe(true);
+  expect(calls).toEqual([['dual-rumble', { startDelay: 0, duration: 150, strongMagnitude: 0.8, weakMagnitude: 0.4 }]]);
+  expect(r.rumble(90, 7, -2)).toBe(true); // magnitudes are clamped to 0..1
+  expect(calls[1][1]).toMatchObject({ strongMagnitude: 1, weakMagnitude: 0 });
+  expect(r.rumble(0, 1, 1)).toBe(false);
+  r.read([pad()], 16); // a pad with no actuator
+  expect(r.rumble(100, 1, 1)).toBe(false);
+  r.read([{ ...pad(), vibrationActuator: { playEffect: () => { throw new Error('unsupported'); } } }], 32);
+  expect(r.rumble(100, 1, 1)).toBe(false);
+  r.read([], 48); // unplugged
+  expect(r.rumble(100, 1, 1)).toBe(false);
+});
