@@ -76,6 +76,16 @@ function bankBoneResults(session, st) {
   return fresh;
 }
 
+const _bossProbe = new THREE.Vector3();
+// The boss bar must not hide the boss: it goes see-through while the boss is drawn behind it (UI.bossGhost).
+function updateBossBar(game, s) {
+  const boss = s.boss, cam = game.camera?.cam, ui = game.ui;
+  if (!ui?.bossGhost) return;
+  if (!boss?.active || boss.defeated || !boss.pos || !cam?.isCamera) { ui.bossGhost(false); return; }
+  _bossProbe.copy(boss.pos); _bossProbe.y += 1.5; _bossProbe.project(cam);
+  ui.bossGhost(_bossProbe.z < 1, (_bossProbe.x + 1) / 2, (1 - _bossProbe.y) / 2);
+}
+
 export class Game {
   constructor(canvas, uiRoot) {
     this.canvas = canvas;
@@ -732,6 +742,7 @@ export class Game {
     if (this.camera) this.camera.peekInput = input.look; // right stick: camera peek (see GameCamera._applyPeek)
     s.update(dt);
     this._updateFlyingMasks(dt);
+    updateBossBar(this, s);
   }
 
   // Blue Sphere -> mask flies to Nobu, then the mask level goes up.

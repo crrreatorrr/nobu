@@ -108,6 +108,8 @@ function pgeo() {
   return PG;
 }
 
+export const FEATHER_SCALE = 1.6;
+
 export class Projectiles {
   constructor(game, stage) {
     this.game = game;
@@ -122,6 +124,7 @@ export class Projectiles {
     const mesh = new THREE.Mesh(G.feather, G.mFeather);
     mesh.position.copy(pos);
     mesh.lookAt(pos.clone().add(dir));
+    mesh.scale.setScalar(FEATHER_SCALE); // drawn larger so it reads from the arena camera; the hit radius is unchanged
     return this._add({ kind: 'feather', mesh, vel: dir.clone().multiplyScalar(speed), life: 3, r: 0.45, death: 'angel' });
   }
 

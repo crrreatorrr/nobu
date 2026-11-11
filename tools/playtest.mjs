@@ -69,6 +69,26 @@ function installStepper() {
     const v = g.player.pos.clone().set(x, y, z).project(cam);
     return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight, behind: v.z > 1 };
   };
+  /** World bounding box of the visible, opaque meshes under an object (skinned meshes in their current pose). */
+  pt.box = (obj) => {
+    const min = g.player.pos.clone().set(Infinity, Infinity, Infinity), max = g.player.pos.clone().set(-Infinity, -Infinity, -Infinity), v = g.player.pos.clone();
+    obj.updateMatrixWorld(true);
+    obj.traverseVisible((o) => {
+      const pos = o.isMesh && o.geometry?.attributes?.position;
+      if (!pos || o.material?.transparent) return;
+      if (o.isSkinnedMesh) {
+        const step = Math.max(1, Math.floor(pos.count / 400));
+        for (let i = 0; i < pos.count; i += step) { o.getVertexPosition(i, v); v.applyMatrix4(o.matrixWorld); min.min(v); max.max(v); }
+        return;
+      }
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const b = o.geometry.boundingBox;
+      for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
+        v.set(x, y, z).applyMatrix4(o.matrixWorld); min.min(v); max.max(v);
+      }
+    });
+    return { min, max };
+  };
   window.__pt = pt;
   return true;
 }
@@ -235,9 +255,11 @@ const SUITE = {
     return { shown: log, target: 'Lid Knight, slide, snacks, treat, cat and trampoline in turn, each for at least 2.5 s' };
   },
 
-  // Nobu's on-screen height at each arena centre and whether the far corners are in frame (plan B3).
+  // Nobu's on-screen height at each arena centre, whether the far edge and corners are in frame from
+  // the near edge, and whether the Bird's rear-up clears the boss bar (plan B3).
   async framing(ctx) {
     const out = {};
+    const HALF = { 1: 11, 2: 11.2, 3: 12.5, 4: 11, 5: 11.7 }; // arena half-widths used by each boss
     for (const level of [1, 2, 3, 4, 5]) {
       await ctx.go(level, { god: true });
       await ctx.boss();
@@ -245,30 +267,54 @@ const SUITE = {
       for (const [vw, vh] of [[960, 540], [1024, 768]]) {
         await ctx.page.setViewportSize({ width: vw, height: vh });
         await sleep(300);
-        const m = await ctx.eval(() => {
-          const g = window.__nobu, p = g.player, pt = window.__pt, boss = g.session.boss;
-          const measure = (x, z) => {
-            p.pos.set(x, 0.02, z); p.vel.set(0, 0, 0); g.camera.snap(p);
-            const top = pt.project(x, 1.3, z), foot = pt.project(x, 0, z);
-            return { top, foot, pct: (foot.y - top.y) / window.innerHeight * 100 };
-          };
+        const m = await ctx.eval((half) => {
+          const g = window.__nobu, p = g.player, pt = window.__pt;
           const inFrame = (q) => !q.behind && q.x >= 0 && q.x <= window.innerWidth && q.y >= 0 && q.y <= window.innerHeight;
-          const centre = measure(0, 0);
-          const bossTop = pt.project(boss.pos.x, boss.pos.y + 3, boss.pos.z);
-          const near = measure(0, 10);
-          const far = { edge: pt.project(0, 0, -11), left: pt.project(-11, 0, -11), right: pt.project(11, 0, -11) };
+          /** Screen-space box of an object's world bounding box. */
+          const screenBox = (obj) => {
+            obj.updateMatrixWorld(true);
+            const b = pt.box(obj);
+            let top = Infinity, bottom = -Infinity;
+            for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
+              const q = pt.project(x, y, z); top = Math.min(top, q.y); bottom = Math.max(bottom, q.y);
+            }
+            return { top, bottom, heightM: b.max.y - b.min.y };
+          };
+          const stand = (x, z) => { p.pos.set(x, p.pos.y, z); p.vel.set(0, 0, 0); p.root.position.copy(p.pos); g.camera.snap(p); };
+          const y0 = p.pos.y;
+          stand(0, 0);
+          const body = { top: pt.project(0, y0 + 1.3, 0).y, foot: pt.project(0, y0, 0).y };
+          const model = screenBox(p.root);
+          stand(0, half - 1);
+          const far = { edge: pt.project(0, y0, -half), left: pt.project(-half, y0, -half), right: pt.project(half, y0, -half) };
           const bar = document.getElementById('bossbar').getBoundingClientRect();
-          return { nobuPctAtCentre: +centre.pct.toFixed(2), nobuPctAtNearEdge: +near.pct.toFixed(2),
-            fromNearEdge: { farEdge: inFrame(far.edge), farLeft: inFrame(far.left), farRight: inFrame(far.right), farEdgeY: Math.round(far.edge.y) },
-            bossBarBottom: Math.round(bar.bottom), bossTopY: Math.round(bossTop.y), fov: g.camera.cam.fov };
-        });
+          return { nobuBodyPct: +((body.foot - body.top) / window.innerHeight * 100).toFixed(2),
+            nobuModelPct: +((model.bottom - model.top) / window.innerHeight * 100).toFixed(2), nobuModelHeightM: +model.heightM.toFixed(2),
+            fromNearEdge: { farEdge: inFrame(far.edge), farLeft: inFrame(far.left), farRight: inFrame(far.right), farEdgeY: Math.round(far.edge.y), farLeftX: Math.round(far.left.x) },
+            bossBarBottom: Math.round(bar.bottom), fov: g.camera.cam.fov };
+        }, HALF[level]);
         out[`boss${level}`][`${vw}x${vh}`] = m;
-        await ctx.eval(() => { const g = window.__nobu; g.player.pos.set(0, 0.02, 8); g.camera.snap(g.player); });
+        await ctx.eval(() => { const g = window.__nobu; g.player.pos.set(0, g.player.pos.y, 8); g.camera.snap(g.player); });
         await ctx.shot(`framing-boss${level}-${vw}x${vh}`);
       }
       await ctx.page.setViewportSize({ width: 960, height: 540 });
+      if (level === 1) {
+        // The Bird's dive wind-up: it rears up to y 8.5 above its target. Is all of it below the boss bar?
+        await ctx.eval(() => { const g = window.__nobu; g.player.pos.set(0, g.player.pos.y, 4); g.camera.snap(g.player); g.session.boss.beginAttack('aim'); });
+        await sleep(800);
+        out.birdRearUp = await ctx.eval(() => {
+          const g = window.__nobu, pt = window.__pt, boss = g.session.boss;
+          const b = pt.box(boss.obj);
+          let top = Infinity;
+          for (const x of [b.min.x, b.max.x]) for (const z of [b.min.z, b.max.z]) top = Math.min(top, pt.project(x, b.max.y, z).y);
+          const bar = document.getElementById('bossbar').getBoundingClientRect();
+          return { state: boss.state, bossY: +boss.pos.y.toFixed(2), bossTopPx: Math.round(top), bossCentrePx: Math.round(pt.project(boss.pos.x, boss.pos.y + 1, boss.pos.z).y), bossBarBottomPx: Math.round(bar.bottom),
+            bossBarGhost: document.getElementById('bossbar').classList.contains('ghost'), bossBarOpacity: +getComputedStyle(document.getElementById('bossbar')).opacity };
+        });
+        out.birdRearUp.shot = await ctx.shot('framing-bird-rear-up');
+      }
     }
-    out.target = 'Nobu at least 7.5% of the viewport height at the arena centre; far edge and corners in frame from the near edge';
+    out.target = 'Nobu (nobuModelPct, the visible model) at least 7.5% of the viewport height at the arena centre; far edge and corners in frame from the near edge; the Bird rear-up below the boss bar, or the bar see-through while the Bird is behind it';
     return out;
   },
 

@@ -264,7 +264,7 @@ export function buildBoss1Arena(game, stage, tickets) {
     fov: 68, // Keep the new high perch tells below the boss HUD.
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
-    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 11.5, z: 16 }, follow: 0.45 },
+    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 9.5, z: 13.1 }, follow: 0.55, bossFocus: 0.3 },
     spheres: [new THREE.Vector3(-9, 0, 9), new THREE.Vector3(9, 0, 9), new THREE.Vector3(0, 0, -9)],
   };
 }

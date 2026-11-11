@@ -717,7 +717,7 @@ export class Session {
     this.bossStageDeaths = 0;
     this.bossDdaUsed = false;
     g.camera.opts.focus = boss.pos;
-    g.camera.opts.focusWeight = 0.2;
+    g.camera.opts.focusWeight = g.camera.opts.bossFocus ?? 0.2; // the Bird's arena leans further, to keep its rear-up in frame
     this.busy = false;
   }
 

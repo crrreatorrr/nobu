@@ -92,3 +92,22 @@ describe('tutorial pop-up queue', () => {
     expect(ui.popup.classList.contains('dodge')).toBe(false);
   });
 });
+
+describe('boss bar', () => {
+  it('goes see-through only while the boss is drawn behind it', () => {
+    vi.stubGlobal('innerWidth', 960); vi.stubGlobal('innerHeight', 540);
+    ui.boss.getBoundingClientRect = () => ({ left: 220, right: 740, top: 74, bottom: 138, width: 520, height: 64 });
+    ui.bossGhost(true, 0.5, 0.2); // bar hidden: nothing to dodge
+    expect(ui.boss.classList.contains('ghost')).toBe(false);
+    ui.bossShow('MECHA BIRD', 'bird');
+    ui.bossGhost(true, 0.5, 0.2); // (480, 108): behind the bar
+    expect(ui.boss.classList.contains('ghost')).toBe(true);
+    ui.bossGhost(true, 0.5, 0.6); // down in the arena
+    expect(ui.boss.classList.contains('ghost')).toBe(false);
+    ui.bossGhost(true, 0.5, 0.2); ui.bossGhost(false); // off screen or not active
+    expect(ui.boss.classList.contains('ghost')).toBe(false);
+    ui.bossGhost(true, 0.5, 0.2); ui.bossHide();
+    expect(ui.boss.classList.contains('ghost')).toBe(false);
+    vi.unstubAllGlobals();
+  });
+});

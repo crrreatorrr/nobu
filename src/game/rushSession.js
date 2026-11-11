@@ -122,7 +122,7 @@ export class RushSession extends Session {
     audio.playMusic(stage.theme.music);
     this.boss.start();
     g.camera.opts.focus = this.boss.pos;
-    g.camera.opts.focusWeight = .2;
+    g.camera.opts.focusWeight = g.camera.opts.bossFocus ?? .2;
     this.dying = false;
     this.busy = false;
     this.transitioning = false;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { World } from '../src/world/physics.js';
-import { Projectiles, makeMarker, MARKER_OPACITY, MARKER_RIM } from '../src/bosses/common.js';
+import { Projectiles, makeMarker, MARKER_OPACITY, MARKER_RIM, FEATHER_SCALE } from '../src/bosses/common.js';
 import { audio } from '../src/audio/audio.js';
 
 /** Landing markers: a soft shadow plus a thin, unlit gold rim at the hit radius (plan B1/B2). */
@@ -77,5 +77,13 @@ describe('landing marker rim', () => {
     expect(rimRadius(pr.marker)).toBeCloseTo(2.2, 5);
     for (let i = 0; i < 60; i++) proj.update(1 / 60);
     expect(rimOf(pr.marker).material.opacity).toBeGreaterThan(first);
+  });
+
+  it('feathers are drawn 1.6x larger with the same hit radius', () => {
+    const { proj } = fixture();
+    const pr = proj.feather(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1), 11);
+    expect(FEATHER_SCALE).toBe(1.6);
+    expect(pr.mesh.scale.x).toBe(1.6);
+    expect(pr.r).toBe(0.45);
   });
 });

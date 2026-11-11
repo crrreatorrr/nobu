@@ -143,7 +143,7 @@ export function buildBoss2Arena(game, stage, tickets) {
   return {
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
-    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 12, z: 15.5 }, follow: 0.45 },
+    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 9.8, z: 12.7 }, follow: 0.55 },
     ledges: catArena.ledges,
     catArena,
     spheres: [new THREE.Vector3(9, 0, 9), new THREE.Vector3(-9, 0, -9), new THREE.Vector3(0, 0, 9)],

@@ -25,7 +25,7 @@ export function buildBoss4Arena(game, stage, tickets) {
     ...pieces,
     spawn: new THREE.Vector3(0, 0, 9),
     facing: Math.PI,
-    camera: { mode: 'arena', center: new THREE.Vector3(), offset: { x: 0, y: 12.5, z: 16.5 }, follow: 0.45 },
+    camera: { mode: 'arena', center: new THREE.Vector3(), offset: { x: 0, y: 10.3, z: 13.5 }, follow: 0.55 },
     spheres: [new THREE.Vector3(-9, 0, 9), new THREE.Vector3(9, 0, 9), new THREE.Vector3(0, 0, 10)]
   };
 }

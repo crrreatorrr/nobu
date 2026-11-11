@@ -9,6 +9,7 @@ import { savedBoard } from '../game/bones.js';
 import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
+export const BOSS_GHOST_PAD = 48; // px around the boss bar that still counts as "behind it"
 export const TUTORIAL_SEC = 6;         // a pop-up with nothing waiting behind it
 export const TUTORIAL_QUEUED_SEC = 4;  // one waiting
 export const TUTORIAL_BUSY_SEC = 3;    // two or more waiting
@@ -198,7 +199,21 @@ export class UI {
     this.bbSpFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
     this.boss.classList.toggle('sp-ready', ready);
   }
-  bossHide() { this.boss.classList.remove('show'); }
+  bossHide() { this.boss.classList.remove('show'); this.bossGhost(false); }
+  /**
+   * The bar goes see-through while the boss itself is drawn behind it (a wind-up at the top of the
+   * frame). x and y are the boss's viewport position, 0..1; `on` is false when it is off screen.
+   */
+  bossGhost(on, x = 0, y = 0) {
+    let ghost = false;
+    if (on && this.boss.classList.contains('show')) {
+      this._barRectAge = (this._barRectAge || 0) + 1;
+      if (!this._barRect || this._barRectAge > 30) { this._barRect = this.boss.getBoundingClientRect(); this._barRectAge = 0; }
+      const r = this._barRect, px = x * window.innerWidth, py = y * window.innerHeight;
+      ghost = r.width > 0 && px > r.left - BOSS_GHOST_PAD && px < r.right + BOSS_GHOST_PAD && py > r.top - BOSS_GHOST_PAD && py < r.bottom + BOSS_GHOST_PAD;
+    }
+    if (ghost !== !!this._barGhost) { this._barGhost = ghost; this.boss.classList.toggle('ghost', ghost); }
+  }
 
   // ---------- dialogue ----------
   // lines: [[speakerKey, text], ...] -> Promise
