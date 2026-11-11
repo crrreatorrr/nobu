@@ -163,6 +163,7 @@ export class RushSession extends Session {
     if (!this._alive() || this.dying || this.transitioning) return;
     const epoch = this._nextEpoch(), g = this.game;
     this.dying = true;
+    g.feedback?.('death'); // rumble only; hitstop is off in Rush
     this.busy = false; // As in normal fights, the death penalty stays on the fight clock.
     this.onPlayerHurt();
     this.deaths++;
