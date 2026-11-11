@@ -281,6 +281,7 @@ export class Game {
   }
 
   toTitle() {
+    this.ui?.clearTutorialQueue?.();
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
@@ -436,6 +437,7 @@ export class Game {
   }
 
   toMap(sel = 1) {
+    this.ui?.clearTutorialQueue?.();
     const fromRemix = !!this.session?.remix;
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
@@ -684,6 +686,7 @@ export class Game {
 
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
+    this.ui?.clearTutorialQueue?.();
     sessionModes(opts);
     if (opts.remix && !remixAvailable(save.data, levelDef(n))) return false;
     if (n === 'rush' && !rushAvailable(save.data)) return false;
@@ -1156,6 +1159,7 @@ export class Game {
 
   // ---------------- game over ----------------
   gameOver(session) {
+    this.ui?.clearTutorialQueue?.();
     if (session.def?.gauntlet) audio.setRate(1);
     this.state = 'gameover';
     this.goSel = 0;

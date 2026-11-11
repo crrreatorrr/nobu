@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../src/art/assets.js', () => ({ Assets: { has: () => false, url: () => '' } }));
-import { UI, TUTORIAL_MIN_SEC, TUTORIAL_QUEUED_SEC, TUTORIAL_SEC, TUTORIAL_QUEUE_CAP } from '../src/ui/ui.js';
+import { UI, TUTORIAL_MIN_SEC, TUTORIAL_QUEUED_SEC, TUTORIAL_BUSY_SEC, TUTORIAL_SEC, TUTORIAL_QUEUE_CAP } from '../src/ui/ui.js';
 import { TUTORIALS } from '../src/story/script.js';
 import { save } from '../src/core/save.js';
 import { audio } from '../src/audio/audio.js';
@@ -39,18 +39,18 @@ describe('tutorial pop-up queue', () => {
     const log = run(20, [[TUTORIALS.snacks.title, 0.8]]);
     expect(log.map(([name]) => name)).toEqual(['snacks', 'treat', 'cat'].map((id) => TUTORIALS[id].title));
     for (const [, sec] of log) expect(sec).toBeGreaterThanOrEqual(TUTORIAL_MIN_SEC - 1e-6);
-    expect(Math.abs(log[0][1] - TUTORIAL_QUEUED_SEC)).toBeLessThan(0.11);
-    expect(Math.abs(log[1][1] - TUTORIAL_QUEUED_SEC)).toBeLessThan(0.11);
-    expect(Math.abs(log[2][1] - TUTORIAL_SEC)).toBeLessThan(0.11); // nothing waiting: the full time
+    expect(Math.abs(log[0][1] - TUTORIAL_BUSY_SEC)).toBeLessThan(0.11);   // two waiting
+    expect(Math.abs(log[1][1] - TUTORIAL_QUEUED_SEC)).toBeLessThan(0.11); // one waiting
+    expect(Math.abs(log[2][1] - TUTORIAL_SEC)).toBeLessThan(0.11);        // nothing waiting: the full time
     expect(save.data.tutorials).toEqual({ snacks: true, treat: true, cat: true });
     expect(shown()).toBe(false);
   });
 
-  it('shows the five Level 1 tutorials between d 80 and d 101 in turn at run speed', () => {
-    const at = { slide: 80, snacks: 84.5, treat: 88.5, cat: 91.5, trampoline: 101 }, log = [];
-    let prev = 80;
+  it('shows the Level 1 tutorials between d 76 and d 101 in turn at run speed, Lid Knight included', () => {
+    const at = { knight: 76.5, slide: 80, snacks: 84.5, treat: 88.5, cat: 91.5, trampoline: 101 }, log = [];
+    let prev = 76.5;
     for (const [id, d] of Object.entries(at)) { run((d - prev) / 8, log); prev = d; ui.tutorial(id); ui.tutorial(id); }
-    run(30, log);
+    run(40, log);
     expect(log.map(([name]) => name)).toEqual(Object.keys(at).map((id) => TUTORIALS[id].title));
     for (const [, sec] of log) expect(sec).toBeGreaterThanOrEqual(TUTORIAL_MIN_SEC - 1e-6);
   });
@@ -73,13 +73,15 @@ describe('tutorial pop-up queue', () => {
     expect(save.data.tutorials.treat).toBe(true);
   });
 
-  it('clears the queue with the screen, caps it, and ignores repeats and seen tutorials', () => {
+  it('caps the queue, ignores repeats and seen tutorials, and keeps waiting cards through a pause', () => {
     ui.tutorial('snacks');
-    for (const id of ['treat', 'treat', 'cat', 'trampoline', 'bite', 'slide', 'snacks']) ui.tutorial(id);
-    expect(ui.popupQueue).toEqual(['treat', 'cat', 'trampoline', 'bite']);
+    for (const id of ['treat', 'treat', 'cat', 'trampoline', 'bite', 'slide', 'jump', 'dog', 'snacks']) ui.tutorial(id);
+    expect(ui.popupQueue).toEqual(['treat', 'cat', 'trampoline', 'bite', 'slide', 'jump']);
     expect(ui.popupQueue.length).toBe(TUTORIAL_QUEUE_CAP);
-    expect(save.data.tutorials.slide).toBeUndefined(); // dropped, so its trigger can show it later
-    ui.clearScreen();
+    expect(save.data.tutorials.dog).toBeUndefined(); // dropped, not marked seen
+    ui.setScreen('<div>PAUSED</div>', 'dim'); ui.clearScreen(); // pause and resume
+    expect(ui.popupQueue.length).toBe(TUTORIAL_QUEUE_CAP);
+    ui.clearTutorialQueue();
     expect(ui.popupQueue).toEqual([]);
   });
 

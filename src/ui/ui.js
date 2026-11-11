@@ -10,10 +10,13 @@ import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
 export const TUTORIAL_SEC = 6;         // a pop-up with nothing waiting behind it
-export const TUTORIAL_QUEUED_SEC = 4;  // a pop-up with another one waiting
+export const TUTORIAL_QUEUED_SEC = 4;  // one waiting
+export const TUTORIAL_BUSY_SEC = 3;    // two or more waiting
 export const TUTORIAL_MIN_SEC = 2.5;   // never replaced sooner than this
-// Four waiting, not three: Level 1 fires five tutorials between d 80 and d 101 (under 3 s at run speed).
-export const TUTORIAL_QUEUE_CAP = 4;
+// Level 1 fires six tutorials in about three seconds at run speed (Lid Knight at d 76.5, then
+// d 80 to d 101), and track triggers fire once per run, so a dropped entry would not come back.
+export const TUTORIAL_QUEUE_CAP = 6;
+export const tutorialSeconds = (waiting) => (waiting >= 2 ? TUTORIAL_BUSY_SEC : waiting === 1 ? TUTORIAL_QUEUED_SEC : TUTORIAL_SEC);
 
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
@@ -267,7 +270,7 @@ export class UI {
     if (this.popupT > 0 && (this.popupAge < TUTORIAL_MIN_SEC || this.popupQueue.length)) {
       if (this.popupQueue.length >= TUTORIAL_QUEUE_CAP) return;
       this.popupQueue.push(id);
-      this.popupT = Math.min(this.popupT, Math.max(TUTORIAL_MIN_SEC, TUTORIAL_QUEUED_SEC) - this.popupAge);
+      this.popupT = Math.min(this.popupT, Math.max(0.01, tutorialSeconds(this.popupQueue.length) - this.popupAge));
       return;
     }
     this._showTutorial(id);
@@ -281,11 +284,11 @@ export class UI {
     this.popup.querySelector('.p-title').textContent = t.title;
     this.popup.querySelector('.p-text').innerHTML = input.prompt(t.text);
     this.popup.classList.add('show');
-    this.popupT = this.popupQueue?.length ? TUTORIAL_QUEUED_SEC : TUTORIAL_SEC;
+    this.popupT = tutorialSeconds(this.popupQueue?.length || 0);
     this.popupAge = 0;
     audio.play('select');
   }
-  /** Drops waiting tutorials without marking them seen (death, level end, a new screen). */
+  /** Drops waiting tutorials without marking them seen (death, level end, leaving the level). Pausing keeps them. */
   clearTutorialQueue() { if (this.popupQueue) this.popupQueue.length = 0; }
 
   banner(text, sub = '', dur = 1.8) {
@@ -307,7 +310,7 @@ export class UI {
     this.screen.className = `screen ${cls}`;
     this.screen.innerHTML = input.prompt(html); // pad players see pad buttons in control prompts
   }
-  clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; this.clearTutorialQueue(); }
+  clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; }
 
   fade(to, dur = 0.45) {
     this.fadeEl.style.transition = `opacity ${dur}s`;
