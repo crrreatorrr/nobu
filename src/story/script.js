@@ -193,6 +193,23 @@ export const BETWEEN = {
   ],
 };
 
+// The pause menu's MOVES page. `tut` reuses a tutorial's title and text; `ability` (a key of
+// player.abilities) or `gear` (a gear effect id) hides the row until the move is owned.
+export const MOVES_TEXT = { title: 'MOVES', base: 'ALWAYS', earned: 'EARNED', gear: 'GEAR', none: 'Beat a boss to earn a new move.' };
+export const MOVES = [
+  { tut: 'jump', group: 'base' },
+  { tut: 'bite', group: 'base' },
+  { tut: 'slide', group: 'base' },
+  { tut: 'flop', group: 'base' },
+  { tut: 'glide', group: 'earned', ability: 'glide' },
+  { tut: 'zoom', group: 'earned', ability: 'zoom' },
+  { tut: 'bark', group: 'earned', ability: 'bark' },
+  { tut: 'dustDash', group: 'earned', ability: 'dustDash' },
+  { tut: 'moonJump', group: 'earned', ability: 'moonJump' },
+  { group: 'gear', gear: 'air_dash', title: 'AIR DASH', text: 'Clown-Nose Collar: in the air, press <span class="key">U</span> or <span class="key">Q</span> to dash forward. Once per jump.' },
+  { group: 'gear', gear: 'extra_air_jumps', title: 'TRIPLE JUMP', text: "Champion's Crown: one more jump in the air." },
+];
+
 export const TUTORIALS = {
   moonJump: { img: 'nobu_head', title: 'NEW MOVE: MOON JUMP!', text: 'Hold SLIDE without moving, then JUMP. To the moon!' },
   polaroid: {img:'nobu_head',title:'POLAROID',text:"A Polaroid! Only good boys who haven't been bonked get to keep it. Grab it before you trip."},

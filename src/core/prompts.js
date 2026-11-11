@@ -45,6 +45,7 @@ export const PAD_PROMPTS = [
   [`${k('K')} or ${k('CTRL')}`, k('B')],
   [`${k('K')} / ${k('CTRL')}`, k('B')],
   [`${k('L')} or ${k('E')}`, k('Y')],
+  [`${k('U')} or ${k('Q')}`, k('LT')],
   [`${k('↓')} / ${k('S')}`, k('↓')],
   [k('SPACE'), k('A')],
   [k('J'), k('X')],

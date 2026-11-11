@@ -18,7 +18,7 @@ import { rushAvailable } from './rushArenas.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime, ownsAsyncLifecycle, isPipelineSession } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { remixAvailable, sessionModes } from './remix.js';
-import { REMIX_TEXT } from '../story/script.js';
+import { REMIX_TEXT, MOVES, MOVES_TEXT, TUTORIALS } from '../story/script.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
@@ -767,6 +767,7 @@ export class Game {
     this.state = 'pause';
     this.pauseSel = 0;
     this.pauseExitSel = null;
+    this.pauseMoves = false;
     this.ui.pinHud(true);
     audio.play('menu');
     this._drawPause();
@@ -775,6 +776,7 @@ export class Game {
   _pauseItems() {
     return [
       { id: 'resume', label: 'RESUME' },
+      { id: 'moves', label: 'MOVES' },
       { id: 'wardrobe', label: 'WARDROBE' },
       { id: 'model', label: `NOBU MODEL: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` },
       { id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` },
@@ -811,6 +813,28 @@ export class Game {
     }
   }
 
+  /** The moves the player has right now: base moves, earned moves once owned, gear moves while worn. */
+  _moveRows() {
+    const abilities = this.player?.abilities || {}, gear = this.player?.gear || {};
+    return MOVES.filter((m) => (!m.ability || abilities[m.ability]) && (!m.gear || gear[m.gear]))
+      .map((m) => ({ group: m.group, title: m.title || TUTORIALS[m.tut].title, text: m.text || TUTORIALS[m.tut].text }));
+  }
+
+  _drawMoves() {
+    const rows = this._moveRows();
+    const row = (m) => `<div class="move-row"><b>${m.title.replace(/^NEW MOVE: |!$/g, '')}</b><span>${m.text}</span></div>`;
+    const group = (id) => { const list = rows.filter((m) => m.group === id); return list.length ? `<div class="move-group">${MOVES_TEXT[id]}</div>${list.map(row).join('')}` : ''; };
+    const earned = group('earned') || `<div class="move-group">${MOVES_TEXT.earned}</div><div class="move-row"><span>${MOVES_TEXT.none}</span></div>`;
+    this.ui.setScreen(`<div class="big-title">${MOVES_TEXT.title}</div><div class="moves">${group('base')}${earned}${group('gear')}</div>
+      <div class="hint" style="margin-top:12px">${HINTS.pauseExit}</div>`, 'dim');
+  }
+
+  updateMoves() {
+    if (input.pressed('pause') || input.pressed('back') || input.confirmPressed() || input.pressed('bite')) {
+      this.pauseMoves = false; audio.play('menu'); this._drawPause();
+    }
+  }
+
   _drawPause() {
     const items = this._pauseItems();
     const s = this.session;
@@ -826,6 +850,7 @@ export class Game {
 
   updatePause() {
     if (this.pauseExitSel != null) { this.updatePauseExit(); return; }
+    if (this.pauseMoves) { this.updateMoves(); return; }
     const items = this._pauseItems();
     const it = items[this.pauseSel];
     if (input.pressed('up')) { this.pauseSel = (this.pauseSel + items.length - 1) % items.length; audio.play('menu'); this._drawPause(); }
@@ -842,6 +867,7 @@ export class Game {
     if (input.pressed('pause') || input.pressed('back')) { this.closePause(); return; }
     if (input.confirmPressed() || input.pressed('bite')) {
       if (it.id === 'resume') this.closePause();
+      else if (it.id === 'moves') { this.pauseMoves = true; audio.play('menu'); this._drawMoves(); }
       else if (it.id === 'wardrobe') this.openWardrobe('pause');
       else if (it.id === 'model') {
         save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
