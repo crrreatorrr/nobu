@@ -52,7 +52,7 @@ describe('hitstop', () => {
     const game = playGame();
     game.hitstop(80); game.hitstop(40);
     expect(game.hitstopT).toBeCloseTo(0.08);
-    game.feedback('kill'); game.feedback('bossHit'); game.feedback('maskLost');
+    game.hitFeedback('kill'); game.hitFeedback('bossHit'); game.hitFeedback('maskLost');
     expect(game.hitstopT).toBeCloseTo(0.08);
   });
 
@@ -85,7 +85,7 @@ describe('hitstop', () => {
   it.each([['trial', { trial: true }], ['Boss Rush', { rush: true }], ['Box Gauntlet', { def: { gauntlet: true } }]])(
     'is off in %s, so no clock is shortened', (_name, mode) => {
       const game = playGame(mode);
-      game.feedback('kill'); game.feedback('bossHit'); game.feedback('maskLost'); game.hitstop(500);
+      game.hitFeedback('kill'); game.hitFeedback('bossHit'); game.hitFeedback('maskLost'); game.hitstop(500);
       expect(game.hitstopT || 0).toBe(0);
       frame(game); frame(game);
       expect(game.session.update).toHaveBeenCalledTimes(2);
@@ -110,7 +110,7 @@ describe('hitstop', () => {
 
 describe('hit feedback call sites', () => {
   function enemy() {
-    const game = { camera: { shake: vi.fn() }, feedback: vi.fn(), session: { onEnemyDefeated: vi.fn(), chainSoundPitch: 1 },
+    const game = { camera: { shake: vi.fn() }, hitFeedback: vi.fn(), session: { onEnemyDefeated: vi.fn(), chainSoundPitch: 1 },
       player: { pos: new THREE.Vector3() }, fx: { sparkle: vi.fn() } };
     const e = Object.create(Enemy.prototype);
     Object.assign(e, { stage: { game }, game, state: 'alive', stateT: 0, dead: false, interactive: true, pos: new THREE.Vector3(2, 0, 0), knockV: new THREE.Vector3() });
@@ -122,20 +122,20 @@ describe('hit feedback call sites', () => {
     e[how](); e[how]();
     expect(game.camera.shake).toHaveBeenCalledTimes(1);
     expect(game.camera.shake).toHaveBeenCalledWith(0.12, 0.12);
-    expect(game.feedback).toHaveBeenCalledTimes(1);
-    expect(game.feedback).toHaveBeenCalledWith('kill');
+    expect(game.hitFeedback).toHaveBeenCalledTimes(1);
+    expect(game.hitFeedback).toHaveBeenCalledWith('kill');
     expect(game.session.onEnemyDefeated).toHaveBeenCalledTimes(1);
   });
 
   it('a boss hit asks for bossHit feedback', () => {
-    const game = { camera: { shake: vi.fn() }, feedback: vi.fn(), ui: { bossHp: vi.fn() }, fx: { sparkle: vi.fn() }, session: { onBossPhase: vi.fn(), onBossDefeated: vi.fn() } };
+    const game = { camera: { shake: vi.fn() }, hitFeedback: vi.fn(), ui: { bossHp: vi.fn() }, fx: { sparkle: vi.fn() }, session: { onBossPhase: vi.fn(), onBossDefeated: vi.fn() } };
     const stage = { game, world: new World(), entities: [], scene: new THREE.Scene() };
     const boss = new Boss(stage, 0, 0, 0, { key: 'bird' });
     boss.vulnerable = true; boss.hitCool = 0;
     expect(boss.damage()).toBe(true);
-    expect(game.feedback).toHaveBeenCalledWith('bossHit');
+    expect(game.hitFeedback).toHaveBeenCalledWith('bossHit');
     expect(boss.damage()).toBe(false); // not vulnerable: no second stop
-    expect(game.feedback).toHaveBeenCalledTimes(1);
+    expect(game.hitFeedback).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -156,11 +156,11 @@ describe('rumble', () => {
     const playEffect = vi.fn(() => Promise.resolve('complete'));
     withPad(padWith(playEffect));
     const game = playGame();
-    game.feedback('death');
+    game.hitFeedback('death');
     expect(playEffect).toHaveBeenCalledWith('dual-rumble', { startDelay: 0, duration: 250, strongMagnitude: 1, weakMagnitude: 0.6 });
-    game.feedback('kill'); // a kill has hitstop but no rumble
+    game.hitFeedback('kill'); // a kill has hitstop but no rumble
     expect(playEffect).toHaveBeenCalledTimes(1);
-    game.feedback('flop');
+    game.hitFeedback('flop');
     expect(playEffect).toHaveBeenLastCalledWith('dual-rumble', { startDelay: 0, duration: 90, strongMagnitude: 0.6, weakMagnitude: 0.2 });
   });
 
@@ -168,20 +168,20 @@ describe('rumble', () => {
     const playEffect = vi.fn(() => Promise.resolve());
     const game = playGame();
     withPad(padWith(playEffect));
-    save.data.rumble = false; game.feedback('death');
-    save.data.rumble = true; input.lastDevice = 'keyboard'; game.feedback('death');
+    save.data.rumble = false; game.hitFeedback('death');
+    save.data.rumble = true; input.lastDevice = 'keyboard'; game.hitFeedback('death');
     expect(playEffect).not.toHaveBeenCalled();
     withPad(padWith(null));
-    expect(() => game.feedback('death')).not.toThrow();
+    expect(() => game.hitFeedback('death')).not.toThrow();
     withPad(padWith(() => { throw new Error('no haptics'); }));
-    expect(() => game.feedback('death')).not.toThrow();
+    expect(() => game.hitFeedback('death')).not.toThrow();
   });
 
   it('still rumbles in a trial, where hitstop is off', () => {
     const playEffect = vi.fn(() => Promise.resolve());
     withPad(padWith(playEffect));
     const game = playGame({ trial: true });
-    game.feedback('maskLost');
+    game.hitFeedback('maskLost');
     expect(playEffect).toHaveBeenCalledTimes(1);
     expect(game.hitstopT || 0).toBe(0);
   });

@@ -142,6 +142,8 @@ class Input {
   carry(actions) { for (const a of this._pressed) if (!actions || actions.includes(a)) this.pressedQ.add(a); }
   /** Forgets this frame's presses of the given actions. */
   drop(actions) { for (const a of actions) this._pressed.delete(a); }
+  // Forget every held key and queued press (the feedback window swallows the keyups).
+  releaseAll() { this.codes.clear(); this._recompute(); this._god9 = null; this.clear(); }
   clear() { this._pressed = new Set(); this._anyPressed = false; this.pressedQ.clear(); this.anyKeyQ = false; this._padLost = false; }
 }
 

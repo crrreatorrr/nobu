@@ -741,7 +741,7 @@ export class Boss extends Entity {
     this.vulnerable = false;
     audio.play('bossHit');
     this.game.camera.shake(0.6, 0.4);
-    this.game.feedback?.('bossHit');
+    this.game.hitFeedback?.('bossHit');
     this.fx.sparkle(this.pos.x, this.pos.y + 1.5, this.pos.z, { count: 18, color: 0xffffff, size: 0.9, speed: 6 });
     this.game.ui.bossHp(this.hp / this.maxHp, this.phase);
     if (!this.ulting) this.charge = Math.min(1, this.charge + 0.15);

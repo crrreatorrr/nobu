@@ -109,6 +109,10 @@ export class Game {
     this.exBusy = false;
     /** Counts frames that throw; halts the loop and shows the "Something broke" panel after a streak. */
     this.crash = crashGuard;
+    /** True while the feedback window is open: nothing updates, whatever the state. See hold(). */
+    this.held = false;
+    /** Feedback handle (src/hub/feedback.js), set by main.js. Absent in tests. */
+    this.feedback = null;
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('beforeunload', (e) => {
       if (this.hubExit) return;
@@ -167,12 +171,18 @@ export class Game {
         const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
         this.last = now;
         input.poll();
-        if (input.anyPressed()) audio.unlock();
-        this.update(dt);
-        if (input.deviceSwitched()) this.refreshPrompts();
-        this.ui.popupHold = this.state !== 'play'; // tutorial cards wait, hidden, behind the pause menu and other screens
-        this.ui.update(dt);
-        this.render();
+        if (this.held) {
+          // Feedback window open: keep the picture, drop every press, advance nothing.
+          input.clear();
+          this.render();
+        } else {
+          if (input.anyPressed()) audio.unlock();
+          this.update(dt);
+          if (input.deviceSwitched()) this.refreshPrompts();
+          this.ui.popupHold = this.state !== 'play'; // tutorial cards wait, hidden, behind the pause menu and other screens
+          this.ui.update(dt);
+          this.render();
+        }
         this.crash.frameOk();
       }
     } catch (e) {
@@ -180,6 +190,24 @@ export class Game {
     } finally {
       if (!manual) requestAnimationFrame((t) => this.loop(t));
     }
+  }
+
+  // Freeze for the feedback window. The state machine is left alone (play stays play, a menu
+  // stays that menu, a cutscene keeps its panel): the loop just stops updating, so the trial
+  // clock, bosses and timers that run on dt all stand still and the pause menu never opens.
+  // Returns the token release() needs.
+  hold() {
+    const token = { state: this.state, held: this.held };
+    this.held = true;
+    input.releaseAll();
+    return token;
+  }
+
+  // Undo hold(): the same state as before, no held keys, and no dt jump on the next frame.
+  release(token) {
+    this.held = !!token?.held;
+    input.releaseAll();
+    this.last = performance.now();
   }
 
   // Redraw the open menu so its control prompts match the device just used (keyboard or pad).
@@ -798,7 +826,7 @@ export class Game {
   }
   rumble(ms, strong, weak) { if (save.data.rumble !== false) input.rumble(ms, strong, weak); }
   /** One name per event: 'kill', 'bossHit', 'maskLost', 'death', 'flop' (src/config/feedback.js). */
-  feedback(kind) {
+  hitFeedback(kind) {
     if (HITSTOP_MS[kind]) this.hitstop(HITSTOP_MS[kind]);
     if (RUMBLE[kind]) this.rumble(...RUMBLE[kind]);
   }
@@ -824,6 +852,7 @@ export class Game {
       { id: 'music', label: `MUSIC: ${Math.round(save.data.musicVol * 10)}` },
       { id: 'sfx', label: `SFX: ${Math.round(save.data.sfxVol * 10)}` },
       { id: 'rumble', label: `RUMBLE: ${save.data.rumble === false ? 'OFF' : 'ON'}` },
+      { id: 'feedback', label: 'SEND FEEDBACK' },
       { id: 'hub', label: 'EXIT TO HUB' },
       { id: 'quit', label: 'QUIT TO MAP' },
     ];
@@ -923,6 +952,7 @@ export class Game {
         if (save.data.rumble) input.rumble(...RUMBLE.maskLost); // a sample, so the player feels what they chose
         this._drawPause();
       }
+      else if (it.id === 'feedback') { audio.play('select'); this.feedback?.open(); }
       else if (it.id === 'hub') { this.pauseExitSel = 0; audio.play('menu'); this._drawPauseExit(); }
       else if (it.id === 'quit') {
         this.ui.pinHud(false);
@@ -1151,6 +1181,7 @@ export class Game {
   }
 
   _showComplete(n, st, fresh = [], bonus = false) {
+    this.feedback?.breadcrumb('level_clear', { level: String(n), bonus, deaths: st?.deathsAtGate ?? this.session?.deaths ?? 0 });
     openCompleteTally(this, n, st, fresh, bonus, {
       board: this.ui.boneBoard(n, { bonus }), hint: goalHint(this, n, st),
       milestones: (st.kennelFresh || []).map((id) => ({ id, text: BONE_TEXT.kennel(id) })),
@@ -1206,6 +1237,7 @@ export class Game {
   gameOver(session) {
     this.ui?.clearTutorialQueue?.({ current: true });
     if (session.def?.gauntlet) audio.setRate(1);
+    this.feedback?.breadcrumb('game_over', { level: String(session.level) });
     this.state = 'gameover';
     this.goSel = 0;
     this.goT = 0;

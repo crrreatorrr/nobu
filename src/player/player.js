@@ -786,7 +786,7 @@ export class Player {
       this.invulnT = 1.7;
       audio.play('maskLost');
       this.game.camera.shake(0.35, 0.3);
-      this.game.feedback?.('maskLost');
+      this.game.hitFeedback?.('maskLost');
       if (fromX !== undefined) {
         const dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
         const d = Math.hypot(dx, dz) || 1;
@@ -803,7 +803,7 @@ export class Player {
       this.invulnT = guard.invuln_s;
       audio.play('maskLost');
       this.game.camera.shake(0.35, 0.3);
-      this.game.feedback?.('maskLost');
+      this.game.hitFeedback?.('maskLost');
       if (fromX !== undefined) {
         const dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
         const d = Math.hypot(dx, dz) || 1;

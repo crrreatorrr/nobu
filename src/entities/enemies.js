@@ -15,7 +15,7 @@ import { KILL_SHAKE } from '../config/feedback.js';
 // A kill lands: a small shake, a 40 ms hitstop and nothing else new. Bite, stomp, slide, flop and bark all end here.
 function killFeedback(game) {
   game.camera?.shake?.(KILL_SHAKE.amp, KILL_SHAKE.dur);
-  game.feedback?.('kill');
+  game.hitFeedback?.('kill');
 }
 
 const M = {};
