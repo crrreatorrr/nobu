@@ -3,7 +3,7 @@ import { Entity } from '../entities/entity.js';
 import { PumpPill } from '../entities/enemies.js';
 import { BlueSphere, explode } from '../entities/breakables.js';
 import { TitanTNT } from './titanArena.js';
-import { makeMarker, MARKER_OPACITY } from './common.js';
+import { makeMarker, setMarkerRim, MARKER_OPACITY } from './common.js';
 import { audio } from '../audio/audio.js';
 import { materialSet, modelSkeletons } from './catResources.js';
 import { queenCleanup, queenHazardsPaused, queenProceduralCleanup } from './queenResources.js';
@@ -156,6 +156,7 @@ export class QueenAirdrop extends Entity {
     this.marker = makeMarker(1);
     this.marker.position.set(this.pos.x, candle.pos.y + 0.04, this.pos.z);
     this.marker.material.opacity = 0;
+    setMarkerRim(this.marker, 0);
     stage.scene.add(this.marker);
     this.disposeResources = queenProceduralCleanup(
       stage,
@@ -167,7 +168,9 @@ export class QueenAirdrop extends Entity {
     this.pos.y -= 3 * dt;
     this.obj.position.copy(this.pos);
     this.marker.position.y = this.candle.pos.y + 0.04;
-    this.marker.material.opacity = MARKER_OPACITY * Math.max(0, Math.min(1, 1 - (this.pos.y - this.candle.pos.y) / 11));
+    const near = Math.max(0, Math.min(1, 1 - (this.pos.y - this.candle.pos.y) / 11));
+    this.marker.material.opacity = MARKER_OPACITY * near;
+    setMarkerRim(this.marker, near);
     if (this.pos.y > this.candle.pos.y + 0.6) return;
     const p = this.player;
     if (
