@@ -882,7 +882,7 @@ export class Game {
       ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
       : live ? `${board}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(s.remix ? REMIX_TEXT.complete.missed : goalHint(this, s.level, live))}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
-      <div class="hint" style="margin-top:20px">${HINTS.pause}</div>`, 'dim');
+      <div class="hint" style="margin-top:20px">${HINTS.pause}</div>`, 'dim pause-screen');
   }
 
   updatePause() {

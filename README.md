@@ -12,6 +12,12 @@ npm run dev
 Open the printed URL, normally **http://localhost:5173/play/nobu/**. `npm run build` creates the
 static production build in `dist/`; `npm test` runs the automated checks and `npm run lint` runs ESLint.
 
+`node tools/playtest.mjs [physics|respawn|tutorials|framing|markers|layout]` is a headless playtest
+harness: it starts the dev server, turns rendering off, steps the simulation at 60 Hz and prints jump
+distances, respawn times, tutorial order, boss arena framing and layout checks as JSON, with
+screenshots in `tools/_raw/playtest/`. It needs Playwright with a Chromium it can launch, which is
+not a dependency of this repo.
+
 ## Controls
 
 Play on the keyboard or on any standard-mapping gamepad (Xbox, PlayStation or Switch Pro buttons

@@ -157,6 +157,18 @@ html, body {
 .menu-item.sel::before { content: '▶ '; }
 .hint { font-size: 20px; font-weight: 800; color: var(--cream); text-shadow: 0 2px 0 var(--ink); opacity: 0.9; text-align: center; }
 
+/* ---------- Pause menu: ten items have to fit a 540 px tall window ---------- */
+.screen.pause-screen .big-title { font-size: 64px; }
+.screen.pause-screen .menu { gap: 4px; margin-top: 12px; }
+.screen.pause-screen .menu-item { font-size: 30px; }
+.screen.pause-screen .bone-board { margin: 6px 0 !important; }
+@media (max-height: 620px) {
+  .screen.pause-screen .big-title { font-size: 44px; }
+  .screen.pause-screen .menu { gap: 0; margin-top: 6px; }
+  .screen.pause-screen .menu-item { font-size: 24px; }
+  .screen.pause-screen .hint { font-size: 16px; margin-top: 6px !important; }
+}
+
 /* ---------- Pause: MOVES page ---------- */
 .moves { width: min(860px, 92vw); max-height: 68vh; overflow-y: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
 .move-group { font-family: var(--font-display); font-size: 20px; color: var(--gold); -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; margin-top: 6px; }
