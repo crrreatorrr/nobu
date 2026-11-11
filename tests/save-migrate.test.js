@@ -50,6 +50,17 @@ describe('save v3 migration', () => {
     expect(Object.keys(save.data.dogsFreed).some((id) => id.startsWith('ride:'))).toBe(false);
   });
 
+  it('rumble defaults to on for old saves, keeps an explicit off, and survives New Game', () => {
+    load({ v: 2, unlocked: 1 });
+    expect(save.data.rumble).toBe(true);
+    load({ v: 3, rumble: false });
+    expect(save.data.rumble).toBe(false);
+    save.reset();
+    expect(save.data.rumble).toBe(false);
+    load({ v: 3, rumble: 'yes' });
+    expect(save.data.rumble).toBe(true);
+  });
+
   it('preserves settings, lives, Tickets, wardrobe, story, colors and trial metadata', () => {
     const prior = { v: 2, unlocked: 3, beaten: [true, true, true], lives: 7, tickets: 93,
       seenIntro: true, finished: true, lastLevel: 3, tutorials: { glide: true }, nobuModel: 'classic',

@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { HINTS, PAD_PROMPTS, padPrompt } from '../src/core/prompts.js';
 import { input } from '../src/core/input.js';
-import { BETWEEN, GAUNTLET_TEXT, KENNEL_TEXT, LEVEL_INTRO, REMIX_TEXT, RUSH_TEXT, TUTORIALS } from '../src/story/script.js';
+import { BETWEEN, GAUNTLET_TEXT, KENNEL_TEXT, LEVEL_INTRO, REMIX_TEXT, RUSH_TEXT, TUTORIALS, MOVES } from '../src/story/script.js';
 
 // Every on-screen prompt that names a key. A pad player must not see any of these keys.
 const KEYBOARD = /\b(SPACE|Space|ENTER|ESC|Esc|SHIFT|Shift|CTRL|Ctrl|L or E|J or|any key)\b|class="key">[JKLSE]</;
@@ -9,6 +9,7 @@ const KEYBOARD = /\b(SPACE|Space|ENTER|ESC|Esc|SHIFT|Shift|CTRL|Ctrl|L or E|J or
 function prompts() {
   const out = [...Object.values(HINTS), 'Steer ◀ ▶ · SPACE hops'];
   for (const t of Object.values(TUTORIALS)) if (t?.text) out.push(t.text);
+  for (const m of MOVES) if (m.text) out.push(m.text);
   for (const lines of [...Object.values(LEVEL_INTRO), ...Object.values(BETWEEN)]) for (const [, text] of lines) out.push(text);
   for (const k of ['mapControls', 'continue', 'play', 'choose', 'controls']) out.push(KENNEL_TEXT[k]);
   out.push(RUSH_TEXT.controls, RUSH_TEXT.continue, REMIX_TEXT.controls, GAUNTLET_TEXT.enter, GAUNTLET_TEXT.continue, 'PRESS ANY KEY');

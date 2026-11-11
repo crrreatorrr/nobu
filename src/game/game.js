@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Assets } from '../art/assets.js';
 import { input } from '../core/input.js';
 import { HINTS } from '../core/prompts.js';
+import { HITSTOP_MS, RUMBLE } from '../config/feedback.js';
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { UI } from '../ui/ui.js';
@@ -18,7 +19,7 @@ import { rushAvailable } from './rushArenas.js';
 import { Session, LEVEL_NAMES, TRIAL_TARGETS, fmtTime, ownsAsyncLifecycle, isPipelineSession } from './session.js';
 import { trialLayout, trialVariant } from '../config/trials.js';
 import { remixAvailable, sessionModes } from './remix.js';
-import { REMIX_TEXT } from '../story/script.js';
+import { REMIX_TEXT, MOVES, MOVES_TEXT, TUTORIALS } from '../story/script.js';
 import { nextMainLevel, isFinalStoryLevel, unlockFollowingMain } from './mainProgression.js';
 import { chapterMapPaths, chapterMapMarkup } from './chapterMapPaths.js';
 import { LEVELS, MAP_ORDER, levelDef, isOpen, playOrder } from '../levels/registry.js';
@@ -74,6 +75,17 @@ function bankBoneResults(session, st) {
   st.perfectFresh = !(session.def || levelDef(session.level)).bonus && bankPerfect(d, session.level, st.perfectCandidate === true, ctx);
   st.kennelFresh = noticeKennelMilestones(d, LEVELS);
   return fresh;
+}
+
+const HITSTOP_CARRY = ['jump', 'bite', 'slide', 'bark', 'dash'];
+const _bossProbe = new THREE.Vector3();
+// The boss bar must not hide the boss: it goes see-through while the boss is drawn behind it (UI.bossGhost).
+function updateBossBar(game, s) {
+  const boss = s.boss, cam = game.camera?.cam, ui = game.ui;
+  if (!ui?.bossGhost) return;
+  if (!boss?.active || boss.defeated || !boss.pos || !cam?.isCamera) { ui.bossGhost(false); return; }
+  _bossProbe.copy(boss.pos); _bossProbe.y += 1.5; _bossProbe.project(cam);
+  ui.bossGhost(_bossProbe.z < 1, (_bossProbe.x + 1) / 2, (1 - _bossProbe.y) / 2);
 }
 
 export class Game {
@@ -167,6 +179,7 @@ export class Game {
           if (input.anyPressed()) audio.unlock();
           this.update(dt);
           if (input.deviceSwitched()) this.refreshPrompts();
+          this.ui.popupHold = this.state !== 'play'; // tutorial cards wait, hidden, behind the pause menu and other screens
           this.ui.update(dt);
           this.render();
         }
@@ -200,7 +213,7 @@ export class Game {
   // Redraw the open menu so its control prompts match the device just used (keyboard or pad).
   refreshPrompts() {
     if (this.state === 'map') this._drawMap();
-    else if (this.state === 'pause') { if (this.pauseExitSel != null) this._drawPauseExit(); else this._drawPause(); }
+    else if (this.state === 'pause') { if (this.pauseExitSel != null) this._drawPauseExit(); else if (this.pauseMoves) this._drawMoves(); else this._drawPause(); }
     else if (this.state === 'wardrobe') this._drawWardrobe();
     else if (this.state === 'kennel' && !this.kennel?.disposed) this.kennel?.draw();
     else if (this.state === 'cutscene') { const skip = this.ui.screen?.querySelector?.('.cut-skip'); if (skip) skip.innerHTML = input.prompt(HINTS.cutscene); }
@@ -309,6 +322,7 @@ export class Game {
   }
 
   toTitle() {
+    this.ui?.clearTutorialQueue?.({ current: true });
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
@@ -378,7 +392,7 @@ export class Game {
         this.openWardrobe('title');
       } else if (it.id === 'continue') {
         if (save.data.lives < 0) save.data.lives = START_LIVES;
-        this.toMap(Math.min(save.data.unlocked, 3));
+        this.toMap(save.data.lastLevel ?? 1);
       } else if (it.id === 'model') {
         save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
         save.write();
@@ -464,6 +478,7 @@ export class Game {
   }
 
   toMap(sel = 1) {
+    this.ui?.clearTutorialQueue?.({ current: true });
     const fromRemix = !!this.session?.remix;
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
@@ -712,6 +727,7 @@ export class Game {
 
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
+    this.ui?.clearTutorialQueue?.({ current: true });
     sessionModes(opts);
     if (opts.remix && !remixAvailable(save.data, levelDef(n))) return false;
     if (n === 'rush' && !rushAvailable(save.data)) return false;
@@ -755,8 +771,16 @@ export class Game {
     // Start pauses; so does losing the pad mid-level, so Nobu never runs on without the player.
     if ((input.pressed('pause') || input.padLost()) && !this.ui.talking && !s.dying) { this.openPause(); return; }
     if (this.camera) this.camera.peekInput = input.look; // right stick: camera peek (see GameCamera._applyPeek)
+    if (this.hitstopT > 0) {
+      // Hitstop: the world holds for a few frames. Presses made meanwhile are kept for the first live frame.
+      this.hitstopT -= dt;
+      input.carry(HITSTOP_CARRY); // not 'god' or 'pause': those were already handled above this frame
+      s.updateFrozen?.(dt);
+      return;
+    }
     s.update(dt);
     this._updateFlyingMasks(dt);
+    updateBossBar(this, s);
   }
 
   // Blue Sphere -> mask flies to Nobu, then the mask level goes up.
@@ -790,11 +814,29 @@ export class Game {
   onFlop(pos) { this.session?.onFlop(pos); }
   onPlayerDeath(type) { this.session?.onPlayerDeath(type); }
 
+  // ---------------- hit feedback ----------------
+  /**
+   * Freezes the session for `ms`. Off where a frozen frame would shorten a recorded clock: time trials,
+   * Boss Rush and Box Gauntlets. A story boss fight keeps it, because its medal clock runs through the stop.
+   */
+  hitstop(ms) {
+    const s = this.session;
+    if (!s || !(ms > 0) || s.trial || s.rush || s.def?.gauntlet) return;
+    this.hitstopT = Math.max(this.hitstopT || 0, ms / 1000);
+  }
+  rumble(ms, strong, weak) { if (save.data.rumble !== false) input.rumble(ms, strong, weak); }
+  /** One name per event: 'kill', 'bossHit', 'maskLost', 'death', 'flop' (src/config/feedback.js). */
+  hitFeedback(kind) {
+    if (HITSTOP_MS[kind]) this.hitstop(HITSTOP_MS[kind]);
+    if (RUMBLE[kind]) this.rumble(...RUMBLE[kind]);
+  }
+
   // ---------------- pause ----------------
   openPause() {
     this.state = 'pause';
     this.pauseSel = 0;
     this.pauseExitSel = null;
+    this.pauseMoves = false;
     this.ui.pinHud(true);
     audio.play('menu');
     this._drawPause();
@@ -803,11 +845,13 @@ export class Game {
   _pauseItems() {
     return [
       { id: 'resume', label: 'RESUME' },
+      { id: 'moves', label: 'MOVES' },
       { id: 'wardrobe', label: 'WARDROBE' },
       { id: 'model', label: `NOBU MODEL: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` },
       { id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` },
       { id: 'music', label: `MUSIC: ${Math.round(save.data.musicVol * 10)}` },
       { id: 'sfx', label: `SFX: ${Math.round(save.data.sfxVol * 10)}` },
+      { id: 'rumble', label: `RUMBLE: ${save.data.rumble === false ? 'OFF' : 'ON'}` },
       { id: 'feedback', label: 'SEND FEEDBACK' },
       { id: 'hub', label: 'EXIT TO HUB' },
       { id: 'quit', label: 'QUIT TO MAP' },
@@ -840,6 +884,28 @@ export class Game {
     }
   }
 
+  /** The moves the player has right now: base moves, earned moves once owned, gear moves while worn. */
+  _moveRows() {
+    const abilities = this.player?.abilities || {}, gear = this.player?.gear || {};
+    return MOVES.filter((m) => (!m.ability || abilities[m.ability]) && (!m.gear || gear[m.gear]))
+      .map((m) => ({ group: m.group, title: m.title || TUTORIALS[m.tut].title, text: m.text || TUTORIALS[m.tut].text }));
+  }
+
+  _drawMoves() {
+    const rows = this._moveRows();
+    const row = (m) => `<div class="move-row"><b>${m.title.replace(/^NEW MOVE: |!$/g, '')}</b><span>${m.text}</span></div>`;
+    const group = (id) => { const list = rows.filter((m) => m.group === id); return list.length ? `<div class="move-group">${MOVES_TEXT[id]}</div>${list.map(row).join('')}` : ''; };
+    const earned = group('earned') || `<div class="move-group">${MOVES_TEXT.earned}</div><div class="move-row"><span>${MOVES_TEXT.none}</span></div>`;
+    this.ui.setScreen(`<div class="big-title">${MOVES_TEXT.title}</div><div class="moves">${group('base')}${earned}${group('gear')}</div>
+      <div class="hint" style="margin-top:12px">${HINTS.pauseExit}</div>`, 'dim');
+  }
+
+  updateMoves() {
+    if (input.pressed('pause') || input.pressed('back') || input.confirmPressed() || input.pressed('bite')) {
+      this.pauseMoves = false; audio.play('menu'); this._drawPause();
+    }
+  }
+
   _drawPause() {
     const items = this._pauseItems();
     const s = this.session;
@@ -850,11 +916,12 @@ export class Game {
       ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
       : live ? `${board}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(s.remix ? REMIX_TEXT.complete.missed : goalHint(this, s.level, live))}</div>` : '';
     this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
-      <div class="hint" style="margin-top:20px">${HINTS.pause}</div>`, 'dim');
+      <div class="hint" style="margin-top:20px">${HINTS.pause}</div>`, 'dim pause-screen');
   }
 
   updatePause() {
     if (this.pauseExitSel != null) { this.updatePauseExit(); return; }
+    if (this.pauseMoves) { this.updateMoves(); return; }
     const items = this._pauseItems();
     const it = items[this.pauseSel];
     if (input.pressed('up')) { this.pauseSel = (this.pauseSel + items.length - 1) % items.length; audio.play('menu'); this._drawPause(); }
@@ -871,6 +938,7 @@ export class Game {
     if (input.pressed('pause') || input.pressed('back')) { this.closePause(); return; }
     if (input.confirmPressed() || input.pressed('bite')) {
       if (it.id === 'resume') this.closePause();
+      else if (it.id === 'moves') { this.pauseMoves = true; audio.play('menu'); this._drawMoves(); }
       else if (it.id === 'wardrobe') this.openWardrobe('pause');
       else if (it.id === 'model') {
         save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
@@ -878,6 +946,12 @@ export class Game {
         this.player.rebuildModel(save.data.nobuModel);
         this._drawPause();
       } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
+      else if (it.id === 'rumble') {
+        save.data.rumble = save.data.rumble === false;
+        save.write();
+        if (save.data.rumble) input.rumble(...RUMBLE.maskLost); // a sample, so the player feels what they chose
+        this._drawPause();
+      }
       else if (it.id === 'feedback') { audio.play('select'); this.feedback?.open(); }
       else if (it.id === 'hub') { this.pauseExitSel = 0; audio.play('menu'); this._drawPauseExit(); }
       else if (it.id === 'quit') {
@@ -1001,6 +1075,7 @@ export class Game {
     const stage = session.stage, epoch = session._lifecycleEpoch || 0;
     const current = () => pipelineCurrent(this, session, stage, epoch);
     if (!current()) return false;
+    this.ui?.clearTutorialQueue?.();
     if (session.remix) return session._finishRemix();
     const n = levelDef(session.level).id;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
@@ -1160,6 +1235,7 @@ export class Game {
 
   // ---------------- game over ----------------
   gameOver(session) {
+    this.ui?.clearTutorialQueue?.({ current: true });
     if (session.def?.gauntlet) audio.setRate(1);
     this.feedback?.breadcrumb('game_over', { level: String(session.level) });
     this.state = 'gameover';

@@ -110,6 +110,7 @@ export class PadReader {
     this.layout = layout;
     this.tuning = tuning;
     this.key = null; // identity of the pad being read
+    this.pad = null; // the Gamepad last read, for rumble
     this.latched = new Set(); // buttons held when the pad appeared, ignored until released
     this.prevHeld = new Set();
     this.prevRaw = new Set();
@@ -125,6 +126,7 @@ export class PadReader {
    */
   read(pads, now) {
     const gp = pickPad(pads);
+    this.pad = gp || null;
     if (!gp) {
       const lost = this.key !== null;
       this.key = null;
@@ -173,5 +175,17 @@ export class PadReader {
     const look = radialDeadzone(gp.axes?.[2] || 0, gp.axes?.[3] || 0, t.rightDeadzone);
     const active = any || pressed.size > 0 || move[0] !== 0 || move[1] !== 0 || look[0] !== 0 || look[1] !== 0;
     return { connected: true, held, pressed, any, move, look, active, lost: false };
+  }
+
+  /** Dual-motor rumble on the pad being read. A no-op without a pad or without a vibration actuator. */
+  rumble(ms, strong = 1, weak = 1) {
+    const actuator = this.pad?.vibrationActuator;
+    if (!actuator?.playEffect || !(ms > 0)) return false;
+    const clamp = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+    try {
+      const done = actuator.playEffect('dual-rumble', { startDelay: 0, duration: ms, strongMagnitude: clamp(strong), weakMagnitude: clamp(weak) });
+      done?.catch?.(() => {}); // unsupported effect or a pad that just left: not worth an error
+    } catch { return false; }
+    return true;
   }
 }

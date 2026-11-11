@@ -48,14 +48,33 @@ function markerTexture() {
   });
   return markerTex;
 }
-export const MARKER_OPACITY = 0.38;
+export const MARKER_OPACITY = 0.5;
+// The shadow says "something lands here"; the thin gold rim says where the hit radius ends. The rim
+// is unlit and ignores fog, so it also reads on a darkened floor (Titan's Lights Out).
+export const MARKER_RIM = Object.freeze({ color: 0xffd23f, inner: 0.92, start: 0.35, end: 0.9, fixed: 0.75 });
+const rimGeo = new Map();
 export function makeMarker(radius = 1.5) {
   let geo = markerGeo.get(radius);
   if (!geo) { markerGeo.set(radius, geo = new THREE.PlaneGeometry(radius * 2, radius * 2)); geo.userData.shared = true; }
   const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: markerTexture(), color: 0x000000, transparent: true, opacity: MARKER_OPACITY, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }));
   m.rotation.x = -Math.PI / 2;
   m.renderOrder = 2;
+  let ring = rimGeo.get(radius);
+  if (!ring) { rimGeo.set(radius, ring = new THREE.RingGeometry(radius * MARKER_RIM.inner, radius, 40)); ring.userData.shared = true; }
+  const rim = new THREE.Mesh(ring, new THREE.MeshBasicMaterial({ color: MARKER_RIM.color, transparent: true, opacity: MARKER_RIM.fixed, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  rim.position.z = 0.01; // local z is world up once the marker lies flat
+  rim.renderOrder = 3;
+  m.add(rim);
+  m.userData.rim = rim;
   return m;
+}
+/** Rim opacity for a marker that counts down: k runs 0 → 1 over the delay. Boss-owned markers keep MARKER_RIM.fixed. */
+export function setMarkerRim(marker, k, { trueSize = false } = {}) {
+  const rim = marker?.userData.rim;
+  if (!rim) return;
+  rim.material.opacity = MARKER_RIM.start + (MARKER_RIM.end - MARKER_RIM.start) * Math.max(0, Math.min(1, k));
+  // A shadow that grows as the object falls still shows the full hit radius from the first frame.
+  if (trueSize) rim.scale.setScalar(1 / (marker.scale.x || 1));
 }
 
 // ---------- projectiles ----------
@@ -89,6 +108,8 @@ function pgeo() {
   return PG;
 }
 
+export const FEATHER_SCALE = 1.6;
+
 export class Projectiles {
   constructor(game, stage) {
     this.game = game;
@@ -103,6 +124,7 @@ export class Projectiles {
     const mesh = new THREE.Mesh(G.feather, G.mFeather);
     mesh.position.copy(pos);
     mesh.lookAt(pos.clone().add(dir));
+    mesh.scale.setScalar(FEATHER_SCALE); // drawn larger so it reads from the arena camera; the hit radius is unchanged
     return this._add({ kind: 'feather', mesh, vel: dir.clone().multiplyScalar(speed), life: 3, r: 0.45, death: 'angel' });
   }
 
@@ -129,6 +151,9 @@ export class Projectiles {
     mesh.visible = false;
     const marker = makeMarker(radius);
     marker.position.set(x, y + 0.05, z);
+    marker.scale.setScalar(0.5);
+    marker.material.opacity = MARKER_OPACITY * 0.5;
+    setMarkerRim(marker, 0, { trueSize: true });
     return this._add({ kind: 'drop', mesh, marker, vel: new THREE.Vector3(0, 0, 0), life: delay + 1.6, delay, r: radius, death: 'cone', groundY: y, t: 0 });
   }
 
@@ -167,6 +192,7 @@ export class Projectiles {
     const marker = makeMarker(radius);
     marker.position.set(pos.x, groundY + 0.05, pos.z);
     marker.visible = false;
+    setMarkerRim(marker, 0);
     return this._add({ kind: 'egg', mesh, marker, blink, shell, vel: vel.clone(), life: 99, fuse, fuseMax: fuse, r: 0.5, radius, death: 'puff', groundY });
   }
 
@@ -287,7 +313,8 @@ export class Projectiles {
         const k = Math.min(1, pr.t / pr.delay);
         // the falling cone's shadow widens and darkens as it drops
         pr.marker.scale.setScalar(0.5 + k * 0.5);
-        pr.marker.material.opacity = MARKER_OPACITY * (0.35 + k * 0.65);
+        pr.marker.material.opacity = MARKER_OPACITY * (0.5 + k * 0.5);
+        setMarkerRim(pr.marker, k, { trueSize: true });
         if (pr.t > pr.delay - 0.35) {
           pr.mesh.visible = true;
           const f = Math.min(1, (pr.t - (pr.delay - 0.35)) / 0.35);
@@ -348,6 +375,7 @@ export class Projectiles {
           pr.marker.visible = true;
           pr.marker.position.set(m.x, pr.groundY + 0.05, m.z);
           pr.marker.material.opacity = MARKER_OPACITY * (0.5 + 0.5 * (1 - pr.fuse / pr.fuseMax));
+          setMarkerRim(pr.marker, 1 - pr.fuse / pr.fuseMax);
           // no numbers: the egg shivers, swells and blinks faster the closer it is to going off
           const k = 1 - pr.fuse / pr.fuseMax;
           const on = Math.sin(pr.fuse * (30 - pr.fuse * 8)) > 0;
@@ -713,6 +741,7 @@ export class Boss extends Entity {
     this.vulnerable = false;
     audio.play('bossHit');
     this.game.camera.shake(0.6, 0.4);
+    this.game.hitFeedback?.('bossHit');
     this.fx.sparkle(this.pos.x, this.pos.y + 1.5, this.pos.z, { count: 18, color: 0xffffff, size: 0.9, speed: 6 });
     this.game.ui.bossHp(this.hp / this.maxHp, this.phase);
     if (!this.ulting) this.charge = Math.min(1, this.charge + 0.15);

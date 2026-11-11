@@ -30,11 +30,12 @@ function build(layout=2,corrections=true){
 }
 let raw,candidate,classic;
 beforeAll(()=>{raw=build(2,false);candidate=build();classic=build(1);});
+// The arena hash was re-pinned for plan B3 (FOV 56, camera offset 13/20, follow 0.15); nothing else in it changed.
 test('retains explicit Classic layout and preserves the Bird arena byte for byte',()=>{
  expect(classic.s.track.length).toBeCloseTo(328.492,2);expect(classic.s.entities.filter(e=>e instanceof ConedDog)).toHaveLength(5);
  const source=fs.readFileSync('src/levels/level1.js','utf8');
  const arena=source.slice(source.indexOf('export function buildBoss1Arena'));
- expect(createHash('sha256').update(arena).digest('hex')).toBe('27e872a900c48cf7c1505c38d77ea61b8fccb2f02a6a037d97d1e071c02590f5');
+ expect(createHash('sha256').update(arena).digest('hex')).toBe('315e869895d64a67fbd743c111c208a88e59cb0bbe9997d9c731b27784fec71d');
  expect(ticketBudget(measureTicketBudget(classic.s,classic.t,7)).wholeMax).toBe(131);
 });
 test('adds the measured225m track without self intersections and keeps the exact gate/end',()=>{

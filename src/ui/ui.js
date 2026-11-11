@@ -9,6 +9,16 @@ import { savedBoard } from '../game/bones.js';
 import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
+export const BOSS_GHOST_PAD = 48; // px around the boss bar that still counts as "behind it"
+export const TUTORIAL_SEC = 6;         // a pop-up with nothing waiting behind it
+export const TUTORIAL_QUEUED_SEC = 4;  // one waiting
+export const TUTORIAL_BUSY_SEC = 3;    // two or more waiting
+export const TUTORIAL_MIN_SEC = 2.5;   // never replaced sooner than this
+// Level 1 fires six tutorials in about three seconds at run speed (Lid Knight at d 76.5, then
+// d 80 to d 101), and track triggers fire once per run, so a dropped entry would not come back.
+export const TUTORIAL_QUEUE_CAP = 6;
+export const tutorialSeconds = (waiting) => (waiting >= 2 ? TUTORIAL_BUSY_SEC : waiting === 1 ? TUTORIAL_QUEUED_SEC : TUTORIAL_SEC);
+
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
 export class UI {
@@ -78,6 +88,8 @@ export class UI {
     this.popup = h('div', 'popup', '<img><div><div class="p-title"></div><div class="p-text"></div></div>');
     root.appendChild(this.popup);
     this.popupT = 0;
+    this.popupAge = 0;
+    this.popupQueue = [];
     this.bannerEl = h('div', 'banner');
     root.appendChild(this.bannerEl);
     this.bannerT = 0;
@@ -187,7 +199,21 @@ export class UI {
     this.bbSpFill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
     this.boss.classList.toggle('sp-ready', ready);
   }
-  bossHide() { this.boss.classList.remove('show'); }
+  bossHide() { this.boss.classList.remove('show'); this.bossGhost(false); }
+  /**
+   * The bar goes see-through while the boss itself is drawn behind it (a wind-up at the top of the
+   * frame). x and y are the boss's viewport position, 0..1; `on` is false when it is off screen.
+   */
+  bossGhost(on, x = 0, y = 0) {
+    let ghost = false;
+    if (on && this.boss.classList.contains('show')) {
+      this._barRectAge = (this._barRectAge || 0) + 1;
+      if (!this._barRect || this._barRectAge > 30) { this._barRect = this.boss.getBoundingClientRect(); this._barRectAge = 0; }
+      const r = this._barRect, px = x * window.innerWidth, py = y * window.innerHeight;
+      ghost = r.width > 0 && px > r.left - BOSS_GHOST_PAD && px < r.right + BOSS_GHOST_PAD && py > r.top - BOSS_GHOST_PAD && py < r.bottom + BOSS_GHOST_PAD;
+    }
+    if (ghost !== !!this._barGhost) { this._barGhost = ghost; this.boss.classList.toggle('ghost', ghost); }
+  }
 
   // ---------- dialogue ----------
   // lines: [[speakerKey, text], ...] -> Promise
@@ -247,25 +273,48 @@ export class UI {
   }
 
   // ---------- tutorial pop-up (once per save) ----------
+  // A pop-up that has been up for less than TUTORIAL_MIN_SEC is not replaced: the next one waits in a
+  // short queue. An entry is marked seen when it is shown, so one cleared from the queue comes back.
   tutorial(id) {
     const t = TUTORIALS[id];
     if (!t) return;
     save.data.tutorials ||= {};
     if (save.data.tutorials[id]) return;
+    this.popupQueue ||= [];
+    if (this.popupQueue.includes(id)) return;
+    if (this.popupT > 0 && (this.popupAge < TUTORIAL_MIN_SEC || this.popupQueue.length)) {
+      if (this.popupQueue.length >= TUTORIAL_QUEUE_CAP) return;
+      this.popupQueue.push(id);
+      this.popupT = Math.min(this.popupT, Math.max(0.01, tutorialSeconds(this.popupQueue.length) - this.popupAge));
+      return;
+    }
+    this._showTutorial(id);
+  }
+  _showTutorial(id) {
+    const t = TUTORIALS[id];
+    save.data.tutorials ||= {};
     save.data.tutorials[id] = true;
     save.write();
     this.popup.querySelector('img').src = Assets.url(t.img);
     this.popup.querySelector('.p-title').textContent = t.title;
     this.popup.querySelector('.p-text').innerHTML = input.prompt(t.text);
     this.popup.classList.add('show');
-    this.popupT = 6;
+    this.popupT = tutorialSeconds(this.popupQueue?.length || 0);
+    this.popupAge = 0;
     audio.play('select');
+  }
+  /** Drops waiting tutorials without marking them seen (death, level end, leaving the level). Pausing keeps them. */
+  clearTutorialQueue({ current = false } = {}) {
+    const dropped = this.popupQueue ? this.popupQueue.splice(0) : [];
+    if (current && this.popup) { this.popupT = 0; this.popup.classList.remove('show'); } // leaving the level: the card on screen goes too
+    return dropped;
   }
 
   banner(text, sub = '', dur = 1.8) {
     this.bannerEl.innerHTML = input.prompt(`${text}${sub ? `<small>${sub}</small>` : ''}`);
     this.bannerEl.classList.add('show');
     this.bannerT = dur;
+    this.popup?.classList.add('dodge'); // the tutorial card moves out from under the banner
   }
 
   deathCard(type) {
@@ -293,8 +342,20 @@ export class UI {
       if (this.hudPinned && key !== 'chain') continue;
       if (s.timer > 0) { s.timer -= dt; if (s.timer <= 0) s.el.classList.remove('show'); }
     }
-    if (this.popupT > 0) { this.popupT -= dt; if (this.popupT <= 0) this.popup.classList.remove('show'); }
-    if (this.bannerT > 0) { this.bannerT -= dt; if (this.bannerT <= 0) this.bannerEl.classList.remove('show'); }
+    this.popup.classList.toggle('held', !!this.popupHold);
+    if (this.popupT > 0 && !this.popupHold) {
+      this.popupT -= dt;
+      this.popupAge = (this.popupAge || 0) + dt;
+      if (this.popupT <= 0) {
+        const next = this.popupQueue?.shift();
+        if (next) this._showTutorial(next);
+        else this.popup.classList.remove('show');
+      }
+    }
+    if (this.bannerT > 0) {
+      this.bannerT -= dt;
+      if (this.bannerT <= 0) { this.bannerEl.classList.remove('show'); this.popup?.classList.remove('dodge'); }
+    }
     this._updateDialog(dt);
   }
 }

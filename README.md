@@ -12,6 +12,12 @@ npm run dev
 Open the printed URL, normally **http://localhost:5173/play/nobu/**. `npm run build` creates the
 static production build in `dist/`; `npm test` runs the automated checks and `npm run lint` runs ESLint.
 
+`node tools/playtest.mjs [physics|respawn|tutorials|framing|markers|layout]` is a headless playtest
+harness: it starts the dev server, turns rendering off, steps the simulation at 60 Hz and prints jump
+distances, respawn times, tutorial order, boss arena framing and layout checks as JSON, with
+screenshots in `tools/_raw/playtest/`. It needs Playwright with a Chromium it can launch, which is
+not a dependency of this repo.
+
 ## Controls
 
 Play on the keyboard or on any standard-mapping gamepad (Xbox, PlayStation or Switch Pro buttons
@@ -47,6 +53,14 @@ LT spends an available air dash instead of starting a Belly Flop; B/LB/RT remain
 The keyboard has two complete hands: the left alone (WASD, Space, Shift bite, Ctrl slide, E bark,
 Q dash), or WASD/Arrows with J/K/L/U on the right. Shift stays Bite rather than a run key because
 NOBU has no run button; Zoomies (hold Slide) is its sprint.
+
+A jump out of a slide is a **long jump**: hold the stick the way Nobu faces and the slide's speed
+carries through the air, fading as it goes (about 15% further than a running jump). It is off in
+time trials, Box Gauntlets, Boss Rush and boss fights, whose targets, clocks and patterns were set
+without it. The pause menu has a
+**MOVES** page listing every move you currently have, and a **RUMBLE** toggle for gamepads. Enemy
+kills, boss hits and lost masks freeze the action for a few frames (hitstop); that is also off in
+time trials, Boss Rush and Box Gauntlets, so no recorded clock is affected.
 
 Why this pad layout: Jump is the most frequent action, so it sits on A, with Bite, Slide and Bark
 on the other face buttons as in classic mascot platformers. Slide is also on LB and both
@@ -88,6 +102,11 @@ Bird, Cat, Cone and Titan each have three evolving stages; the Queen has four. A
 animation, sound and arena tells rather than on-screen attack countdowns. Bird/Cat retries restart
 at stage 1; ordinary Cone/Titan/Queen fights resume at the current stage. Earned Mega Bark still
 works on bosses that explicitly accept it, including while wearing a Wizard Hat.
+
+Deaths inside a boss fight cost no lives. After three deaths the fight gives quiet help (one Sproto
+Mask, slightly longer tells and punish windows), which voids that attempt's medals. Cone, Titan and
+Queen count the three deaths per stage; Bird and Cat, which restart at stage 1, count them across
+the whole fight.
 
 Two optional bonus stages open after the first two bosses: **Roomba Rush** after Bird, and
 **Glowworm Grotto** after Cat. Roomba Rush's vacuum drives itself: steer, hop, ram backpacks and

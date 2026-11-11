@@ -29,11 +29,14 @@ import { SNACK_EXCLUDED, staticSnackPotential, applyRunResults, boneContext, sna
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
+import { DEATH_FLOW, DEATH_CLOCK_SEC } from '../config/difficulty.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
 import { TRIAL_TARGETS, trialMedal, fmtTime, trialLayout, trialVariant } from '../config/trials.js';
 
+// After a skipped death card, Jump and Bite presses are swallowed this long, so mashing through the card does not act.
+const RESPAWN_GUARD_SEC = 0.3, RESPAWN_GUARD_ACTIONS = ['jump', 'bite', 'confirm'];
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // Let the loading bar paint before the next synchronous build step. rAF stops in a
 // hidden tab, so a short timeout also ends the wait.
@@ -113,6 +116,40 @@ export class Session {
       const timer = setTimeout(() => { this._lifecycleWaiters.delete(timer); resolve(); }, ms);
       this._lifecycleWaiters.set(timer, resolve);
     });
+  }
+
+  // The death card: resolves on its timer, or early when update() sees a skip press after skipAfterMs.
+  // Owned sessions register it with the lifecycle waiters, so retiring the session still releases it.
+  _deathCardDelay(ms, skipAfterMs) {
+    return new Promise(resolve => {
+      const owned = isPipelineSession(this) || this.remix;
+      const card = { t: 0, skipAfterMs, done: () => {
+        clearTimeout(timer);
+        this._lifecycleWaiters?.delete(timer);
+        if (this._deathCard === card) this._deathCard = null;
+        resolve();
+      } };
+      const timer = setTimeout(card.done, ms);
+      if (owned) (this._lifecycleWaiters ||= new Map()).set(timer, card.done);
+      this._deathCard = card;
+    });
+  }
+
+  // See DEATH_CLOCK_SEC: the gauntlet and boss-medal clocks stop for the death flow and pay its old cost up front.
+  _chargeDeathClock(type) {
+    const g = this.game, cost = type === 'fall' ? DEATH_CLOCK_SEC.fall : DEATH_CLOCK_SEC.other;
+    if (this.def?.gauntlet && !this.busy && !g.ui.talking) this.gauntletT += cost;
+    if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy) {
+      this.bossRun.t += cost;
+      this.bossClock = this.bossRun.t;
+    }
+  }
+
+  _updateDeathCard(dt) {
+    const card = this._deathCard;
+    if (!card) return;
+    card.t += dt * 1000;
+    if (card.t >= card.skipAfterMs && (input.pressed('jump') || input.pressed('bite') || input.pressed('confirm'))) { this._cardSkipped = true; card.done(); }
   }
 
   _retirePipelineTransitions() {
@@ -695,7 +732,7 @@ export class Session {
     this.bossStageDeaths = 0;
     this.bossDdaUsed = false;
     g.camera.opts.focus = boss.pos;
-    g.camera.opts.focusWeight = 0.2;
+    g.camera.opts.focusWeight = g.camera.opts.bossFocus ?? 0.2; // an arena may set its own lean toward the boss
     this.busy = false;
   }
 
@@ -790,7 +827,12 @@ export class Session {
 
   _applyBossDda(phase, resetMask = false) {
     this.bossStageDeaths = this.bossDeaths[phase] || 0;
-    const help = bossDda(this.bossStageDeaths, this._bossContext());
+    // A boss that restarts at stage 1 (Bird, Cat) counts deaths across the whole fight: per-stage
+    // counting would need three deaths in stage 3, each after clearing stages 1 and 2 again.
+    const counted = this.boss.phaseCheckpoints === false
+      ? Object.values(this.bossDeaths).reduce((sum, n) => sum + (n || 0), 0)
+      : this.bossStageDeaths;
+    const help = bossDda(counted, this._bossContext());
     this.boss.dda = { tele: help.tele, window: help.window };
     if (resetMask || help.masks) this.setMask(resetMask ? help.masks : Math.max(this.mask, help.masks));
     if (help.masks) {
@@ -939,6 +981,7 @@ export class Session {
     const current = () => this._pipelineCurrent(stage, null, epoch) && !this._retryAbandoned() && this.stage === stage;
     if (import.meta.env.DEV) this.game.devTuning?.death(this, type);
     this.dying = true;
+    this.game.hitFeedback?.('death');
     this.onPlayerHurt(); // Includes direct pit/crusher deaths which bypass hurt().
     if (this.phase === 'boss' && this.boss && !this.boss.defeated) {
       const phase = this.boss.phase;
@@ -954,28 +997,38 @@ export class Session {
     const prevMask = this.mask;
     this.mask = 0;
     g.mask.setLevel(0, prevMask);
-    const wait = type === 'fall' ? 1.0 : 1.5;
+    // Cards still waiting are dropped unmarked, and their one-shot track triggers are re-armed so they
+    // fire again on the way back from the checkpoint. Proximity tutorials ask again by themselves.
+    const dropped = g.ui.clearTutorialQueue?.() || [];
+    if (dropped.length) for (const t of this.stage?.track?.triggers || []) if (t.tut && dropped.includes(t.tut)) t.fired = false;
+    this._chargeDeathClock(type);
+    const waitMs = type === 'fall' ? DEATH_FLOW.waitFall : DEATH_FLOW.waitOther;
     setTimeout(async () => {
       if (!current()) return;
       g.ui.deathCard(type);
-      await this._pipelineDelay(1700);
+      await this._deathCardDelay(DEATH_FLOW.card, DEATH_FLOW.cardSkipAfter);
       if (!current()) return;
-      await g.ui.fade(1, 0.35);
+      await g.ui.fade(1, DEATH_FLOW.fade / 1000);
       if (!current()) return;
       g.ui.clearScreen();
-      if (!this.trial) save.data.lives -= 1; // time trials never cost lives
+      // Time trials never cost lives, and neither do boss fights (as in Boss Rush): a Game Over
+      // inside a fight would replay the whole level and its gate.
+      if (!this.trial && this.phase !== 'boss') save.data.lives -= 1;
       if (save.data.lives < 0) {
         this.over = true;
         this.dying = false;
         g.gameOver(this);
         return;
       }
+      input.clear(); // the press that skipped the card must not also jump or bite
+      if (this._cardSkipped) this._respawnGuardT = RESPAWN_GUARD_SEC; // nor the next one, when the player was mashing
+      this._cardSkipped = false;
       this.respawn();
       if (!current()) return;
       this.dying = false;
       g.ui.showHud(2.5);
-      await g.ui.fade(0, 0.35);
-    }, wait * 1000);
+      await g.ui.fade(0, DEATH_FLOW.fade / 1000);
+    }, waitMs);
   }
 
   respawn() {
@@ -1043,17 +1096,35 @@ export class Session {
   }
 
   // ---------- per-frame ----------
-  update(dt) {
+  _tickBossRun(dt) {
     const g = this.game;
-    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
-    this.godUsed ||= !!save.data.godMode;
-    if (this.def?.gauntlet && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
-    if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.busy && g.state !== 'pause') {
+    if (this.phase === 'boss' && this.bossRun && this.boss?.active && !this.boss.defeated && !this.dying && !this.busy && g.state !== 'pause') {
       this.bossRun.t += dt;
       this.bossClock = this.bossRun.t;
       // Enabling God Mode for any part of a fight permanently voids this attempt.
       if (save.data.godMode || g.player.god) this.bossRun.void = true;
     }
+  }
+
+  // A hitstop frame (Game.hitstop): nothing in the world moves, but the boss medal clock keeps
+  // running, so a Speed medal is not made easier, and the camera shake and effects play on.
+  updateFrozen(dt) {
+    const g = this.game;
+    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    this._updateDeathCard(dt);
+    this._tickBossRun(dt);
+    g.camera.update?.(dt, g.player);
+    g.fx.update?.(dt);
+  }
+
+  update(dt) {
+    const g = this.game;
+    this._updateDeathCard(dt);
+    if (this._respawnGuardT > 0) { this._respawnGuardT -= dt; input.drop(RESPAWN_GUARD_ACTIONS); }
+    if (!this.stage || this.loading || !this._pipelineCurrent(this.stage, null, this._lifecycleEpoch || 0)) return;
+    this.godUsed ||= !!save.data.godMode;
+    if (this.def?.gauntlet && !this.dying && !this.busy && !g.player.frozen && !g.ui.talking && g.state !== 'pause') this.gauntletT += dt;
+    this._tickBossRun(dt);
     if (this.invincibleT > 0) {
       this.invincibleT -= dt;
       if (this.invincibleT <= 0) {
@@ -1097,6 +1168,7 @@ export class Session {
   onFlop(pos) {
     const g = this.game;
     g.camera.shake(0.45, 0.3);
+    g.hitFeedback?.('flop');
     g.fx.ring(pos.x, pos.y, pos.z, { color: 0xffffff, radius: 2.4 });
     g.fx.puff(pos.x, pos.y + 0.1, pos.z, { count: 8, size: 0.5, color: 0xf0e8d8, speed: 4 });
     for (const e of [...this.stage.entities]) {

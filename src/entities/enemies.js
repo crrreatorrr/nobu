@@ -10,6 +10,13 @@ import { rand, canvasTex, damp } from '../core/util.js';
 import { TUNING } from '../player/player.js';
 import { Assets } from '../art/assets.js';
 import { remixEnemySpeed } from '../config/difficulty.js';
+import { KILL_SHAKE } from '../config/feedback.js';
+
+// A kill lands: a small shake, a 40 ms hitstop and nothing else new. Bite, stomp, slide, flop and bark all end here.
+function killFeedback(game) {
+  game.camera?.shake?.(KILL_SHAKE.amp, KILL_SHAKE.dur);
+  game.hitFeedback?.('kill');
+}
 
 const M = {};
 function mats() {
@@ -184,6 +191,7 @@ export class Enemy extends Entity {
     audio.play('knock');
     this.fx.sparkle(this.pos.x, this.pos.y + 0.8, this.pos.z, { count: 6, color: 0xffffff, size: 0.6, speed: 3 });
     this.game.session.onEnemyDefeated(this);
+    killFeedback(this.game);
   }
 
   squash() {
@@ -193,6 +201,7 @@ export class Enemy extends Entity {
     this.interactive = false;
     this.game.session.onEnemyDefeated(this);
     audio.play('squash', this.game.session.chainSoundPitch ?? 1);
+    killFeedback(this.game);
   }
 
   onBite(p) {

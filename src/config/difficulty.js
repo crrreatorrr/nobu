@@ -40,3 +40,12 @@ export const BOSS = {
 
 export const FLOOR = { teleSec: 0.40, windowSec: 0.90 };
 export const ULT_CHARGE = [0, 26, 20, 15, 12]; // 1-based; the Queen has a fourth stage.
+
+// Death to respawn, in milliseconds. The card can be skipped with Jump, Bite or Confirm once it has
+// been up for cardSkipAfter. The trial clock is stopped for all of it.
+// Two recorded clocks used to run through the old, longer flow: a Box Gauntlet's time and a boss fight's
+// Speed-medal time. They now stop while Nobu is dead and are charged what a death always cost them
+// (old wait + 1.7 s card + fade), so records set before and after the change compare like for like and
+// skipping the card gains nothing.
+export const DEATH_CLOCK_SEC = Object.freeze({ fall: 3.05, other: 3.55 });
+export const DEATH_FLOW = Object.freeze({ waitFall: 600, waitOther: 900, card: 900, cardSkipAfter: 250, fade: 200 });

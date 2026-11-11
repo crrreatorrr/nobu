@@ -22,6 +22,11 @@ import { TUNING } from '../config/movement.js';
 export { TUNING } from '../config/movement.js';
 // New reward-move constants; existing shared movement tuning is unchanged.
 export const DUST_DASH = Object.freeze({ speed: 20, time: 0.22, cooldown: 0.8, slideRemaining: 0.15 });
+// Slide-jump = long jump: the jump keeps SLIDE_JUMP_SPEED in the air, fading at `decay` m/s per second,
+// while the stick stays within 60 degrees of facing (cone is its cosine). It is not part of TUNING,
+// and it is off in time trials, Box Gauntlets, Boss Rush and boss fights: their boards, targets,
+// medal clocks and box patterns were set with a slide-jump that fell back to run speed at once.
+export const SLIDE_JUMP = Object.freeze({ decay: 4, cone: 0.5 });
 
 // Mega Bark with nothing equipped. Spell Bark replaces these while the hat is on.
 export const BARK_BASE = {
@@ -81,6 +86,7 @@ export class Player {
 
   reset() {
     this.moonHold = null;
+    this.airCarry = 0;
     this.earnedBossBarkCool = 0;
     this.bossFling = null;
     this.mode = 'normal';
@@ -280,7 +286,16 @@ export class Player {
       this.zooming = !!this.zoomArmed && mag > 0.3;
       this.speedMul = this.zooming ? 1.55 : 1;
       if (this.zooming && grounded && Math.random() < 0.6) this.game.fx?.dust(this.pos.x - this.vel.x * 0.04, this.pos.y, this.pos.z - this.vel.z * 0.04, { count: 1, size: 0.3, color: this._dustColor(), speed: 1.2, life: 0.35 });
-      const speed = T.RUN * this.speedMul;
+      let speed = T.RUN * this.speedMul;
+      if (this.airCarry) {
+        // Long jump: hold the stick the way Nobu faces and the slide's speed carries, fading slowly.
+        const f = this.forward;
+        if (grounded || mag < 0.3 || dx * f.x + dz * f.z < SLIDE_JUMP.cone) this.airCarry = 0;
+        else {
+          speed = Math.max(speed, this.airCarry);
+          this.airCarry = Math.max(T.RUN, this.airCarry - SLIDE_JUMP.decay * dt);
+        }
+      }
       const tx = dx * mag * speed, tz = dz * mag * speed;
       const hs = Math.hypot(this.vel.x, this.vel.z);
       // skid when slamming the stick the other way at speed
@@ -349,6 +364,7 @@ export class Player {
         if (fromSlide) {
           const f = this.forward;
           this.vel.x = f.x * T.SLIDE_JUMP_SPEED; this.vel.z = f.z * T.SLIDE_JUMP_SPEED;
+          if (this._slideJumpCarries()) this.airCarry = T.SLIDE_JUMP_SPEED;
         }
       } else if (this.canDouble && this.mode === 'normal') {
         this._airJump();
@@ -617,11 +633,20 @@ export class Player {
     this.dashCharges = spec ? spec.charges_per_jump : 0;
   }
 
+  // The long jump is off wherever a clock is recorded or a pattern was authored without it: time
+  // trials (boards, TRIAL_TARGETS), Box Gauntlets (bestMs, box patterns), Boss Rush (bestMs) and
+  // every boss fight (the Speed medal clock).
+  _slideJumpCarries() {
+    const s = this.game?.session;
+    return !(s?.trial || s?.rush || s?.def?.gauntlet || s?.phase === 'boss');
+  }
+
   // One horizontal burst. vel.y stays 0 until the timer ends, or until a jump or landing cancels it.
   _startAirDash() {
     const spec = this.gear.air_dash;
     if (!spec || this.dashCharges <= 0 || this.body.grounded || this.airDashT > 0) return;
     this.dashCharges -= 1;
+    this.airCarry = 0;
     this.airDashT = spec.dash_time_s;
     const speed = spec.distance_m / Math.max(0.05, spec.dash_time_s);
     const f = this.forward;
@@ -634,6 +659,7 @@ export class Player {
   }
 
   _startFlop() {
+    this.airCarry = 0;
     this.mode = 'flop';
     this.flopPhase = 'wind';
     this.flopT = 0;
@@ -642,6 +668,7 @@ export class Player {
   }
 
   _onLand(solid, impact, wasGrounded) {
+    this.airCarry = 0;
     if (this.mode === 'flop' && this.flopPhase === 'fall') this.clearConed();
     if (!wasGrounded) {
       this.airDashT = 0;
@@ -749,6 +776,7 @@ export class Player {
   // Returns true if the hit landed (mask absorbed it or Nobu died).
   hurt(type = 'angel', fromX, fromZ) {
     if (this.mode === 'dead' || this.invulnT > 0 || this.invincible || this.frozen) return false;
+    this.airCarry = 0;
     const s = this.game.session;
     if (this.god) { this._godHit(!(s?.mask > 0) && !(this.gear.damage_guard && this.guardCharges > 0)); return false; }
     if (this.moonHold) cancelMoonCharge(this);
@@ -758,6 +786,7 @@ export class Player {
       this.invulnT = 1.7;
       audio.play('maskLost');
       this.game.camera.shake(0.35, 0.3);
+      this.game.hitFeedback?.('maskLost');
       if (fromX !== undefined) {
         const dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
         const d = Math.hypot(dx, dz) || 1;
@@ -774,6 +803,7 @@ export class Player {
       this.invulnT = guard.invuln_s;
       audio.play('maskLost');
       this.game.camera.shake(0.35, 0.3);
+      this.game.hitFeedback?.('maskLost');
       if (fromX !== undefined) {
         const dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
         const d = Math.hypot(dx, dz) || 1;

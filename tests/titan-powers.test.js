@@ -264,6 +264,29 @@ describe('Titan actual attack states', () => {
     a.update(2);
     expect(a.legs.every((l) => !l.solid.enabled)).toBe(true);
   });
+  it('leg stomp markers stay readable during Lights Out: an unlit rim that is not black', () => {
+    const { boss, game, stage, titanArena: a } = fixture();
+    stage.sun = { intensity: 1 }; stage.hemi = { intensity: 1 };
+    boss.phase = 3;
+    a.setPhase(3);
+    a.darken();
+    expect(a.darkT).toBeGreaterThan(0);
+    expect(stage.sun.intensity).toBeLessThan(0.2);
+    boss.beginAttack('stomp');
+    for (let i = 0; i < 100; i++) { boss.update(1 / 120); game.session.projectiles.update(1 / 120); }
+    const legs = game.session.projectiles.list.filter((pr) => pr.kind === 'drop');
+    expect(legs).toHaveLength(3);
+    expect(a.darkT).toBeGreaterThan(0);
+    for (const pr of legs) {
+      const rim = pr.marker.userData.rim;
+      expect(pr.marker.visible).toBe(true);
+      expect(rim.material.isMeshBasicMaterial).toBe(true); // unlit: the dimmed sun does not reach it
+      expect(rim.material.fog).toBe(false);
+      expect(rim.material.color.getHex()).not.toBe(0x000000);
+      expect(rim.material.color.getHSL({}).l).toBeGreaterThan(0.5);
+      expect(rim.material.opacity).toBeGreaterThanOrEqual(0.35);
+    }
+  });
   it('finishestotalvacuumwithfullbonuswindowandresetcannotleaveitlocked', () => {
     const { boss, titanArena: a } = fixture();
     boss.pos.set(0, 0, 0);
