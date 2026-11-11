@@ -9,6 +9,12 @@ import { savedBoard } from '../game/bones.js';
 import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
+export const TUTORIAL_SEC = 6;         // a pop-up with nothing waiting behind it
+export const TUTORIAL_QUEUED_SEC = 4;  // a pop-up with another one waiting
+export const TUTORIAL_MIN_SEC = 2.5;   // never replaced sooner than this
+// Four waiting, not three: Level 1 fires five tutorials between d 80 and d 101 (under 3 s at run speed).
+export const TUTORIAL_QUEUE_CAP = 4;
+
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
 export class UI {
@@ -78,6 +84,8 @@ export class UI {
     this.popup = h('div', 'popup', '<img><div><div class="p-title"></div><div class="p-text"></div></div>');
     root.appendChild(this.popup);
     this.popupT = 0;
+    this.popupAge = 0;
+    this.popupQueue = [];
     this.bannerEl = h('div', 'banner');
     root.appendChild(this.bannerEl);
     this.bannerT = 0;
@@ -247,25 +255,44 @@ export class UI {
   }
 
   // ---------- tutorial pop-up (once per save) ----------
+  // A pop-up that has been up for less than TUTORIAL_MIN_SEC is not replaced: the next one waits in a
+  // short queue. An entry is marked seen when it is shown, so one cleared from the queue comes back.
   tutorial(id) {
     const t = TUTORIALS[id];
     if (!t) return;
     save.data.tutorials ||= {};
     if (save.data.tutorials[id]) return;
+    this.popupQueue ||= [];
+    if (this.popupQueue.includes(id)) return;
+    if (this.popupT > 0 && (this.popupAge < TUTORIAL_MIN_SEC || this.popupQueue.length)) {
+      if (this.popupQueue.length >= TUTORIAL_QUEUE_CAP) return;
+      this.popupQueue.push(id);
+      this.popupT = Math.min(this.popupT, Math.max(TUTORIAL_MIN_SEC, TUTORIAL_QUEUED_SEC) - this.popupAge);
+      return;
+    }
+    this._showTutorial(id);
+  }
+  _showTutorial(id) {
+    const t = TUTORIALS[id];
+    save.data.tutorials ||= {};
     save.data.tutorials[id] = true;
     save.write();
     this.popup.querySelector('img').src = Assets.url(t.img);
     this.popup.querySelector('.p-title').textContent = t.title;
     this.popup.querySelector('.p-text').innerHTML = input.prompt(t.text);
     this.popup.classList.add('show');
-    this.popupT = 6;
+    this.popupT = this.popupQueue?.length ? TUTORIAL_QUEUED_SEC : TUTORIAL_SEC;
+    this.popupAge = 0;
     audio.play('select');
   }
+  /** Drops waiting tutorials without marking them seen (death, level end, a new screen). */
+  clearTutorialQueue() { if (this.popupQueue) this.popupQueue.length = 0; }
 
   banner(text, sub = '', dur = 1.8) {
     this.bannerEl.innerHTML = input.prompt(`${text}${sub ? `<small>${sub}</small>` : ''}`);
     this.bannerEl.classList.add('show');
     this.bannerT = dur;
+    this.popup?.classList.add('dodge'); // the tutorial card moves out from under the banner
   }
 
   deathCard(type) {
@@ -280,7 +307,7 @@ export class UI {
     this.screen.className = `screen ${cls}`;
     this.screen.innerHTML = input.prompt(html); // pad players see pad buttons in control prompts
   }
-  clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; }
+  clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; this.clearTutorialQueue(); }
 
   fade(to, dur = 0.45) {
     this.fadeEl.style.transition = `opacity ${dur}s`;
@@ -293,8 +320,19 @@ export class UI {
       if (this.hudPinned && key !== 'chain') continue;
       if (s.timer > 0) { s.timer -= dt; if (s.timer <= 0) s.el.classList.remove('show'); }
     }
-    if (this.popupT > 0) { this.popupT -= dt; if (this.popupT <= 0) this.popup.classList.remove('show'); }
-    if (this.bannerT > 0) { this.bannerT -= dt; if (this.bannerT <= 0) this.bannerEl.classList.remove('show'); }
+    if (this.popupT > 0) {
+      this.popupT -= dt;
+      this.popupAge = (this.popupAge || 0) + dt;
+      if (this.popupT <= 0) {
+        const next = this.popupQueue?.shift();
+        if (next) this._showTutorial(next);
+        else this.popup.classList.remove('show');
+      }
+    }
+    if (this.bannerT > 0) {
+      this.bannerT -= dt;
+      if (this.bannerT <= 0) { this.bannerEl.classList.remove('show'); this.popup?.classList.remove('dodge'); }
+    }
     this._updateDialog(dt);
   }
 }

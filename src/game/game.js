@@ -350,7 +350,7 @@ export class Game {
         this.openWardrobe('title');
       } else if (it.id === 'continue') {
         if (save.data.lives < 0) save.data.lives = START_LIVES;
-        this.toMap(Math.min(save.data.unlocked, 3));
+        this.toMap(save.data.lastLevel ?? 1);
       } else if (it.id === 'model') {
         save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
         save.write();
@@ -971,6 +971,7 @@ export class Game {
     const stage = session.stage, epoch = session._lifecycleEpoch || 0;
     const current = () => pipelineCurrent(this, session, stage, epoch);
     if (!current()) return false;
+    this.ui?.clearTutorialQueue?.();
     if (session.remix) return session._finishRemix();
     const n = levelDef(session.level).id;
     const st = session.stats || { tickets: session.levelTickets, broken: 0, breakables: 0, dogs: 0, dogsTotal: 0 };
