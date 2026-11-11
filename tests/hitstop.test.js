@@ -72,6 +72,16 @@ describe('hitstop', () => {
     expect(input.pressed('jump')).toBe(false); // carried once, not repeated
   });
 
+  it('does not replay a God Mode toggle pressed during the stop', () => {
+    const game = playGame();
+    game.toggleGod = vi.fn();
+    game.hitstop(80);
+    input.pressedQ.add('god'); input.pressedQ.add('bite');
+    frame(game); frame(game);
+    expect(game.toggleGod).toHaveBeenCalledTimes(1);
+    expect(input.pressed('bite')).toBe(true); // still waiting for the first live frame
+  });
+
   it.each([['trial', { trial: true }], ['ranked', { ranked: true }], ['Boss Rush', { rush: true }], ['Box Gauntlet', { def: { gauntlet: true } }]])(
     'is off in %s, so no clock is shortened', (_name, mode) => {
       const game = playGame(mode);

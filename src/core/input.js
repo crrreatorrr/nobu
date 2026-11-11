@@ -139,7 +139,7 @@ class Input {
   /** Rumble, only for a player who is using the pad. */
   rumble(ms, strong, weak) { return this.lastDevice === 'pad' && this.padReader.rumble(ms, strong, weak); }
   /** Keeps this frame's presses for the next frame: a hitstop frame must not eat a jump or a bite. */
-  carry() { for (const a of this._pressed) this.pressedQ.add(a); }
+  carry(actions) { for (const a of this._pressed) if (!actions || actions.includes(a)) this.pressedQ.add(a); }
   clear() { this._pressed = new Set(); this._anyPressed = false; this.pressedQ.clear(); this.anyKeyQ = false; this._padLost = false; }
 }
 

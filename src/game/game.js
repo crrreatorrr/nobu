@@ -77,6 +77,7 @@ function bankBoneResults(session, st) {
   return fresh;
 }
 
+const HITSTOP_CARRY = ['jump', 'bite', 'slide', 'bark', 'dash'];
 const _bossProbe = new THREE.Vector3();
 // The boss bar must not hide the boss: it goes see-through while the boss is drawn behind it (UI.bossGhost).
 function updateBossBar(game, s) {
@@ -744,7 +745,7 @@ export class Game {
     if (this.hitstopT > 0) {
       // Hitstop: the world holds for a few frames. Presses made meanwhile are kept for the first live frame.
       this.hitstopT -= dt;
-      input.carry();
+      input.carry(HITSTOP_CARRY); // not 'god' or 'pause': those were already handled above this frame
       s.updateFrozen?.(dt);
       return;
     }
