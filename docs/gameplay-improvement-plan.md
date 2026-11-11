@@ -4,6 +4,25 @@
 
 **Plan only. No game code has changed.** Written 2026-11-09 against `main` at `ea093ce`.
 
+**Implementation status (2026-11-11, branch `claude/trusting-ramanujan-63h582`).** The sections below
+are the plan as written; this table records what was built and where it differs.
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| A1 | Done | |
+| A2 | Done | Measured 1.77 s (fall), 1.19 s (skipped), 2.07 s (other). Boss Rush keeps its own flow: its death time is on the Rush clock. |
+| A3 | Done | Also lists gear moves (Air Dash, Triple Jump) while worn. |
+| A4 | Done, changed | Queue cap 6, not 3: Lid Knight's tutorial fires at d 76.5, so Level 1 queues six cards, and track triggers fire once per run. A card shows 6 s alone, 4 s with one waiting, 3 s with two or more. Cleared on death, level end and leaving the level, not on every `clearScreen()` (a pause would have dropped it). |
+| A5 | Done, changed | The dodging card sits at `bottom: 20px`; at 96 px a two-line banner still reached it. |
+| B1, B2 | Done | The falling-object rim is at full radius from the first frame while the shadow still grows. |
+| B3 | Done, partly changed | Offsets and `follow` as proposed. The Bird's arena uses FOV 68, not 58. Its rear-up cannot sit below the boss bar with any camera tried, so the bar goes see-through while the boss is drawn behind it. Queen unchanged. |
+| B4, B5 | Done | |
+| B6 | Not done | Conditional on an owner choice; the plan recommends B5 alone. |
+| C1 | Done, gated | Option 1 with `decay` 4 (not 3): 6.56 m against a 5.73 m running jump by the harness's measure (ratio 1.15, the plan's 6.3 / 5.47). Off in time trials, ranked play and Box Gauntlets, so the boards, `TRIAL_TARGETS` and the box patterns are untouched. |
+| C2, C3, C4 | Done | Hitstop is also off in Boss Rush and Box Gauntlets. Values are in `src/config/feedback.js`. |
+| D1 | Done | `tools/playtest.mjs`. It uses the dev hooks; the Test Lab API does not exist yet. |
+| D2, D3, D4 | Not done | D2 needs people; D3 applies only if B4 is declined; D4 is not planned. |
+
 How this relates to `docs/gameplay-expansion-plan.md` (2026-11-04):
 
 - The expansion plan **adds content**: Levels 4–6, two bosses, longer Levels 1–3, bone boards, the Kennel,

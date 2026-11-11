@@ -47,6 +47,13 @@ The keyboard has two complete hands: the left alone (WASD, Space, Shift bite, Ct
 Q dash), or WASD/Arrows with J/K/L/U on the right. Shift stays Bite rather than a run key because
 NOBU has no run button; Zoomies (hold Slide) is its sprint.
 
+A jump out of a slide is a **long jump**: hold the stick the way Nobu faces and the slide's speed
+carries through the air, fading as it goes (about 15% further than a running jump). It is off in
+time trials and Box Gauntlets, whose targets and patterns were set without it. The pause menu has a
+**MOVES** page listing every move you currently have, and a **RUMBLE** toggle for gamepads. Enemy
+kills, boss hits and lost masks freeze the action for a few frames (hitstop); that is also off in
+time trials, Boss Rush and Box Gauntlets, so no recorded clock is affected.
+
 Why this pad layout: Jump is the most frequent action, so it sits on A, with Bite, Slide and Bark
 on the other face buttons as in classic mascot platformers. Slide is also on LB and both
 triggers because three earned moves hold Slide while pressing something else (Zoomies, Moon Jump
