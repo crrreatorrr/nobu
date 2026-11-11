@@ -10,16 +10,16 @@ are the plan as written; this table records what was built and where it differs.
 | Item | Status | Notes |
 | --- | --- | --- |
 | A1 | Done | |
-| A2 | Done | Measured 1.77 s (fall), 1.19 s (skipped), 2.07 s (other). Boss Rush keeps its own flow: its death time is on the Rush clock. |
+| A2 | Done | Measured 1.77 s (fall), 1.19 s (skipped), 2.07 s (other). Two recorded clocks ran through the old flow, so they now stop while Nobu is dead and are charged its old cost (3.05 s fall, 3.55 s other, `DEATH_CLOCK_SEC`): a Box Gauntlet's time and a boss fight's Speed-medal time. Old and new records compare like for like, and skipping gains nothing. After a skipped card, Jump and Bite are swallowed for 0.3 s. Boss Rush keeps its own flow. |
 | A3 | Done | Also lists gear moves (Air Dash, Triple Jump) while worn. |
-| A4 | Done, changed | Queue cap 6, not 3: Lid Knight's tutorial fires at d 76.5, so Level 1 queues six cards, and track triggers fire once per run. A card shows 6 s alone, 4 s with one waiting, 3 s with two or more. Cleared on death, level end and leaving the level, not on every `clearScreen()` (a pause would have dropped it). |
+| A4 | Done, changed | Queue cap 6, not 3: Lid Knight's tutorial fires at d 76.5, so Level 1 queues six cards. A card shows 6 s alone, 4 s with one waiting, 3 s with two or more. The queue is cleared on death, level end and leaving the level, not on every `clearScreen()`. On death the track triggers of cards that were queued but not shown are re-armed, so they fire again in the same run. Cards wait, hidden and with their timers stopped, while the pause menu or another screen is up. |
 | A5 | Done, changed | The dodging card sits at `bottom: 20px`; at 96 px a two-line banner still reached it. |
 | B1, B2 | Done | The falling-object rim is at full radius from the first frame while the shadow still grows. |
-| B3 | Done, partly changed | Offsets and `follow` as proposed. The Bird's arena uses FOV 68, not 58. Its rear-up cannot sit below the boss bar with any camera tried, so the bar goes see-through while the boss is drawn behind it. Queen unchanged. |
+| B3 | Done, changed after QA | The proposed closer cameras hid 3 to 5 m of near floor with Nobu at the centre. Final values use a longer lens from further back: Bird FOV 56, offset 13/20; Cat FOV 52, 13/20; Cone FOV 56, 13/19.5; Titan FOV 50, 13.5/20.5; `follow` 0.15 for all. Measured at 960x540 and 1024x768: at most 0.45 m of near floor hidden with Nobu at the centre, none at the near edge, 2.6 to 3.4 m at the far edge (the original cameras hid more in every case). Nobu's model is 7.1 to 7.9% of the viewport height, against about 6.5% for the Bird before, so most of the proposed size gain was given up for the floor. The boss bar is smaller and goes see-through while the boss is drawn behind it. Queen unchanged. |
 | B4, B5 | Done | |
 | B6 | Not done | Conditional on an owner choice; the plan recommends B5 alone. |
-| C1 | Done, gated | Option 1 with `decay` 4 (not 3): 6.56 m against a 5.73 m running jump by the harness's measure (ratio 1.15, the plan's 6.3 / 5.47). Off in time trials, ranked play and Box Gauntlets, so the boards, `TRIAL_TARGETS` and the box patterns are untouched. |
-| C2, C3, C4 | Done | Hitstop is also off in Boss Rush and Box Gauntlets. Values are in `src/config/feedback.js`. |
+| C1 | Done, gated | Option 1 with `decay` 4 (not 3): 6.56 m against a 5.73 m running jump by the harness's measure (ratio 1.15, the plan's 6.3 / 5.47). Off in time trials, Box Gauntlets, Boss Rush and every boss fight, so the boards, `TRIAL_TARGETS`, Rush and Speed-medal times and the box patterns are untouched. |
+| C2, C3, C4 | Done | Hitstop is off in time trials, Boss Rush and Box Gauntlets; a story boss fight keeps it and its medal clock runs through the stop. `session.ranked` is never set in this codebase, so nothing gates on it. Values are in `src/config/feedback.js`. |
 | D1 | Done | `tools/playtest.mjs`. It uses the dev hooks; the Test Lab API does not exist yet. |
 | D2, D3, D4 | Not done | D2 needs people; D3 applies only if B4 is declined; D4 is not planned. |
 

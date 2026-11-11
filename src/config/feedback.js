@@ -1,6 +1,6 @@
 // Hit feedback: hitstop (a few frozen frames) and gamepad rumble. Camera shake stays at its call sites.
-// Hitstop is off wherever a clock is ranked or recorded (time trials, ranked play, Boss Rush, Box
-// Gauntlets), and a boss fight's medal clock keeps running through it.
+// Hitstop is off where it would shorten a recorded clock (time trials, Boss Rush, Box Gauntlets);
+// a story boss fight's medal clock keeps running through it.
 export const HITSTOP_MS = Object.freeze({ kill: 40, bossHit: 80, maskLost: 60 });
 // [milliseconds, strong motor, weak motor]
 export const RUMBLE = Object.freeze({

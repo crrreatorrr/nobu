@@ -67,6 +67,17 @@ describe('pause menu MOVES page', () => {
     expect(screen.html).not.toMatch(/class="key">(J|K|SHIFT|CTRL|SPACE|U|Q|L|E)</);
   });
 
+  it('a keyboard/pad switch on the MOVES page redraws the MOVES page, not the pause menu', () => {
+    const { game, screen } = pausedGame({ abilities: ALL });
+    open(game);
+    input.lastDevice = 'pad';
+    game.refreshPrompts();
+    expect(game.pauseMoves).toBe(true);
+    expect(screen.html).toContain('<b>ZOOMIES</b>');
+    expect(screen.html).not.toContain('PAUSED');
+    expect(screen.html).toContain(padPrompt(TUTORIALS.bite.text));
+  });
+
   it.each(['pause', 'back'])('%s returns to the pause menu, not to play', (action) => {
     const { game, screen } = pausedGame();
     open(game);

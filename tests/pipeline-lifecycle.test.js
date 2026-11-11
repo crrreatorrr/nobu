@@ -215,3 +215,24 @@ it('an abandoned session never respawns, even when the skip key is pressed on it
  input._pressed=new Set(['jump']);s.update(0.5);s._updateDeathCard(0.5);await flush(6000);input._pressed=new Set();
  expect(spawn).not.toHaveBeenCalled();expect(save.data.lives).toBe(lives);assertRetired(game,s);assertNoLateEffect(game,write);
 });
+
+it('re-arms the track triggers of tutorials that were queued but not shown when Nobu dies',async()=>{
+ const{game,s}=fixture({realUI:true});const tr=s.stage.track;const k=makeKit(game,s.stage,s.tickets,tr);
+ save.data.tutorials={};k.tut(10,'snacks');k.tut(12,'treat');k.tut(14,'cat');k.trigger(16,()=>{});
+ const[a,b,c,plain]=tr.triggers.slice(-4);expect([a.tut,b.tut,c.tut,plain.tut]).toEqual(['snacks','treat','cat',undefined]);
+ for(const t of[a,b,c,plain]){t.fired=true;t.fn();}
+ expect(game.ui.popupQueue).toEqual(['treat','cat']);
+ s.onPlayerDeath('fall');
+ expect(game.ui.popupQueue).toEqual([]);expect(save.data.tutorials).toEqual({snacks:true});
+ expect([a.fired,b.fired,c.fired,plain.fired]).toEqual([true,false,false,true]); // shown stays fired; queued ones fire again
+});
+it('swallows Jump and Bite for 0.3 s after a skipped death card, and not after an unskipped one',async()=>{
+ const{s}=fixture();s.onPlayerDeath('fall');await flush(DEATH_FLOW.waitFall);
+ input._pressed=new Set(['jump']);s.update(0.3);await flush(0);expect(s.dying).toBe(false);
+ input._pressed=new Set(['jump','bite','slide']);s.update(0.08); // the mashed press, 0.08 s after respawn
+ expect(input.pressed('jump')).toBe(false);expect(input.pressed('bite')).toBe(false);expect(input.pressed('slide')).toBe(true);
+ input._pressed=new Set();s.update(0.3);
+ input._pressed=new Set(['jump']);s.update(0.016);expect(input.pressed('jump')).toBe(true);
+ s.onPlayerDeath('fall');await flush(DEATH_FLOW.waitFall+DEATH_FLOW.card+DEATH_FLOW.fade+100);expect(s.dying).toBe(false);
+ input._pressed=new Set(['jump']);s.update(0.016);expect(input.pressed('jump')).toBe(true);input._pressed=new Set();
+});

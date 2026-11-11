@@ -74,7 +74,7 @@ describe('slide-jump', () => {
     expect(long.dist).toBeLessThan(6.8);
   });
 
-  it.each([['a time trial', { trial: true }], ['ranked play', { ranked: true }], ['a Box Gauntlet', { def: { gauntlet: true } }]])(
+  it.each([['a time trial', { trial: true }], ['Boss Rush', { rush: true, phase: 'boss' }], ['a story boss fight (Speed medal clock)', { phase: 'boss' }], ['a Box Gauntlet', { def: { gauntlet: true } }]])(
     'is off in %s: the jump falls back to run speed at once, as it always has', (_name, mode) => {
       const f = fixture(mode);
       const off = jump(f, { slide: true });
@@ -83,6 +83,11 @@ describe('slide-jump', () => {
       expect(off.dist - run.dist).toBeLessThan(0.15); // the old 5.52 m against 5.47 m
       expect(off.dist).toBeLessThan(jump(fixture(), { slide: true }).dist - 0.5);
     });
+
+  it('gates on modes that exist: an unset session.ranked changes nothing, and the field keeps the long jump', () => {
+    const field = jump(fixture({ phase: 'level', ranked: true }), { slide: true });
+    expect(field.dist).toBeCloseTo(jump(fixture(), { slide: true }).dist, 6);
+  });
 
   it('fades at 4 m/s per second and never drops below run speed', () => {
     const f = fixture();

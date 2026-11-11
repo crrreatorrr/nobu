@@ -193,7 +193,8 @@ export function makeKit(game, stage, tickets, track = null) {
       add(new WarpSparkle(stage, p.x, p.y, p.z));
     },
     trigger(d, fn) { track.trigger(d, fn); },
-    tut(d, id) { track.trigger(d, popup(id)); },
+    // `tut` names the tutorial, so a card that was queued but lost to a death can re-arm its trigger.
+    tut(d, id) { track.trigger(d, popup(id)); track.triggers[track.triggers.length - 1].tut = id; },
     sign(x, y, d, lines, o = {}) { const p = W(x, y, d); return sign(stage, p.x, p.y, p.z, lines, { ...o, yaw: yawAt(d) + Math.PI + offsetYaw(o.rot || 0) }); },
     gate(d, label, color) { const p = W(0, 0, d); return bossGate(stage, p.x, p.y, p.z, label, color, yawAt(d) + Math.PI); },
     water(d0, d1, { w = 8.6, y = -1.2, color = 0x3aa8d8 } = {}) {

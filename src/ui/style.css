@@ -322,6 +322,8 @@ html, body {
   transition: transform 0.4s cubic-bezier(.2,1.3,.4,1);
 }
 .popup.show { transform: none; }
+/* a screen (pause, wardrobe, results) is up: the card waits out of sight and its timer is stopped */
+.popup.held { visibility: hidden; }
 /* while a banner is up the card sits low, so the banner never runs underneath it */
 .popup.dodge { top: auto; bottom: 20px; }
 .popup img { width: 110px; height: 110px; object-fit: contain; flex: none; }

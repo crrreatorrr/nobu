@@ -82,7 +82,7 @@ describe('hitstop', () => {
     expect(input.pressed('bite')).toBe(true); // still waiting for the first live frame
   });
 
-  it.each([['trial', { trial: true }], ['ranked', { ranked: true }], ['Boss Rush', { rush: true }], ['Box Gauntlet', { def: { gauntlet: true } }]])(
+  it.each([['trial', { trial: true }], ['Boss Rush', { rush: true }], ['Box Gauntlet', { def: { gauntlet: true } }]])(
     'is off in %s, so no clock is shortened', (_name, mode) => {
       const game = playGame(mode);
       game.feedback('kill'); game.feedback('bossHit'); game.feedback('maskLost'); game.hitstop(500);

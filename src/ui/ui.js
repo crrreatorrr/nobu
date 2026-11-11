@@ -304,7 +304,11 @@ export class UI {
     audio.play('select');
   }
   /** Drops waiting tutorials without marking them seen (death, level end, leaving the level). Pausing keeps them. */
-  clearTutorialQueue() { if (this.popupQueue) this.popupQueue.length = 0; }
+  clearTutorialQueue({ current = false } = {}) {
+    const dropped = this.popupQueue ? this.popupQueue.splice(0) : [];
+    if (current && this.popup) { this.popupT = 0; this.popup.classList.remove('show'); } // leaving the level: the card on screen goes too
+    return dropped;
+  }
 
   banner(text, sub = '', dur = 1.8) {
     this.bannerEl.innerHTML = input.prompt(`${text}${sub ? `<small>${sub}</small>` : ''}`);
@@ -338,7 +342,8 @@ export class UI {
       if (this.hudPinned && key !== 'chain') continue;
       if (s.timer > 0) { s.timer -= dt; if (s.timer <= 0) s.el.classList.remove('show'); }
     }
-    if (this.popupT > 0) {
+    this.popup.classList.toggle('held', !!this.popupHold);
+    if (this.popupT > 0 && !this.popupHold) {
       this.popupT -= dt;
       this.popupAge = (this.popupAge || 0) + dt;
       if (this.popupT <= 0) {

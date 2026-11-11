@@ -261,10 +261,12 @@ export function buildBoss1Arena(game, stage, tickets) {
   k.tix(-6, 0, -6, 6, 0, -6, 7);
   return {
     ...birdArena,
-    fov: 68, // Keep the new high perch tells below the boss HUD.
+    // Framing (plan B3, re-tuned after QA): a longer lens from further back, so the whole playable floor is in
+    // frame with Nobu at the centre or the near edge, and at most about 3 m of near floor is hidden from the far edge.
+    fov: 56,
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
-    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 9.5, z: 13.1 }, follow: 0.55, bossFocus: 0.3 },
+    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 13, z: 20 }, follow: 0.15 },
     spheres: [new THREE.Vector3(-9, 0, 9), new THREE.Vector3(9, 0, 9), new THREE.Vector3(0, 0, -9)],
   };
 }

@@ -170,6 +170,7 @@ export class Game {
         if (input.anyPressed()) audio.unlock();
         this.update(dt);
         if (input.deviceSwitched()) this.refreshPrompts();
+        this.ui.popupHold = this.state !== 'play'; // tutorial cards wait, hidden, behind the pause menu and other screens
         this.ui.update(dt);
         this.render();
         this.crash.frameOk();
@@ -184,7 +185,7 @@ export class Game {
   // Redraw the open menu so its control prompts match the device just used (keyboard or pad).
   refreshPrompts() {
     if (this.state === 'map') this._drawMap();
-    else if (this.state === 'pause') { if (this.pauseExitSel != null) this._drawPauseExit(); else this._drawPause(); }
+    else if (this.state === 'pause') { if (this.pauseExitSel != null) this._drawPauseExit(); else if (this.pauseMoves) this._drawMoves(); else this._drawPause(); }
     else if (this.state === 'wardrobe') this._drawWardrobe();
     else if (this.state === 'kennel' && !this.kennel?.disposed) this.kennel?.draw();
     else if (this.state === 'cutscene') { const skip = this.ui.screen?.querySelector?.('.cut-skip'); if (skip) skip.innerHTML = input.prompt(HINTS.cutscene); }
@@ -293,7 +294,7 @@ export class Game {
   }
 
   toTitle() {
-    this.ui?.clearTutorialQueue?.();
+    this.ui?.clearTutorialQueue?.({ current: true });
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.ui.trialTime(null);
     this.state = 'title';
@@ -449,7 +450,7 @@ export class Game {
   }
 
   toMap(sel = 1) {
-    this.ui?.clearTutorialQueue?.();
+    this.ui?.clearTutorialQueue?.({ current: true });
     const fromRemix = !!this.session?.remix;
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (retiresOnLeave(this.session) && !this.session.disposed) this.session.dispose();
@@ -698,7 +699,7 @@ export class Game {
 
   // ---------------- play ----------------
   async startLevel(n, opts = {}) {
-    this.ui?.clearTutorialQueue?.();
+    this.ui?.clearTutorialQueue?.({ current: true });
     sessionModes(opts);
     if (opts.remix && !remixAvailable(save.data, levelDef(n))) return false;
     if (n === 'rush' && !rushAvailable(save.data)) return false;
@@ -786,10 +787,13 @@ export class Game {
   onPlayerDeath(type) { this.session?.onPlayerDeath(type); }
 
   // ---------------- hit feedback ----------------
-  /** Freezes the session for `ms`. Off wherever a clock is ranked or recorded. */
+  /**
+   * Freezes the session for `ms`. Off where a frozen frame would shorten a recorded clock: time trials,
+   * Boss Rush and Box Gauntlets. A story boss fight keeps it, because its medal clock runs through the stop.
+   */
   hitstop(ms) {
     const s = this.session;
-    if (!s || !(ms > 0) || s.trial || s.ranked || s.rush || s.def?.gauntlet) return;
+    if (!s || !(ms > 0) || s.trial || s.rush || s.def?.gauntlet) return;
     this.hitstopT = Math.max(this.hitstopT || 0, ms / 1000);
   }
   rumble(ms, strong, weak) { if (save.data.rumble !== false) input.rumble(ms, strong, weak); }
@@ -1200,7 +1204,7 @@ export class Game {
 
   // ---------------- game over ----------------
   gameOver(session) {
-    this.ui?.clearTutorialQueue?.();
+    this.ui?.clearTutorialQueue?.({ current: true });
     if (session.def?.gauntlet) audio.setRate(1);
     this.state = 'gameover';
     this.goSel = 0;

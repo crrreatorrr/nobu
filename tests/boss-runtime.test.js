@@ -200,6 +200,41 @@ describe('session boss retries and awards', () => {
     save.data.lives = 0; s.onPlayerDeath('fall'); await vi.advanceTimersByTimeAsync(2500);
     expect(save.data.lives).toBe(-1); expect(game.gameOver).toHaveBeenCalledWith(s);
   });
+  it.each([['fall', 3.05], ['angel', 3.55]])('a %s death costs the boss Speed clock what it always did (%s s), skipped card or not', async (type, cost) => {
+    for (const skip of [false, true]) {
+      vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
+      const { session: s, game, stage, p } = f;
+      Object.assign(game.ui, { deathCard: vi.fn(), fade: vi.fn(async () => {}), clearScreen: vi.fn(), showHud: vi.fn() });
+      Object.assign(stage, { update: vi.fn(), followSky: vi.fn() }); p.update = vi.fn();
+      s.tickets.update = vi.fn(); s.projectiles.update = vi.fn(); game.mask.update = vi.fn(); game.camera.update = vi.fn(); game.fx.update = vi.fn();
+      s.bossRun.t = 10; s.update(0.5);
+      s.onPlayerDeath(type);
+      expect(s.bossRun.t).toBeCloseTo(10.5 + cost); expect(s.bossClock).toBeCloseTo(10.5 + cost);
+      // The fight clock is stopped for the whole death flow, however long the player lets it run.
+      for (let i = 0; i < 30 && s.dying; i++) { if (skip && i === 20) input.pressed.mockReturnValue(true); s.update(0.05); await vi.advanceTimersByTimeAsync(50); }
+      if (skip) expect(s.dying).toBe(false); // the card was skipped inside the loop
+      input.pressed.mockReturnValue(false);
+      await vi.advanceTimersByTimeAsync(2500);
+      expect(s.dying).toBe(false);
+      expect(s.bossRun.t).toBeCloseTo(10.5 + cost);
+      s.update(0.25); expect(s.bossRun.t).toBeCloseTo(10.75 + cost); // and runs again after the respawn
+      vi.useRealTimers();
+    }
+  });
+  it('a Box Gauntlet death costs its clock the old 3.05 s and the clock stops while Nobu is dead', async () => {
+    vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
+    const { session: s, game, stage, p } = f;
+    Object.assign(game.ui, { deathCard: vi.fn(), fade: vi.fn(async () => {}), clearScreen: vi.fn(), showHud: vi.fn() });
+    Object.assign(stage, { update: vi.fn(), followSky: vi.fn() }); p.update = vi.fn();
+    s.tickets.update = vi.fn(); s.projectiles.update = vi.fn(); game.mask.update = vi.fn(); game.camera.update = vi.fn(); game.fx.update = vi.fn();
+    s.phase = 'level'; s.boss = null; s.def = { ...s.def, gauntlet: true }; s.gauntletT = 20; save.data.lives = 9;
+    s.update(0.5); expect(s.gauntletT).toBeCloseTo(20.5);
+    s.onPlayerDeath('fall'); expect(s.gauntletT).toBeCloseTo(23.55);
+    for (let i = 0; i < 20; i++) { s.update(0.05); await vi.advanceTimersByTimeAsync(50); }
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(s.dying).toBe(false); expect(s.gauntletT).toBeCloseTo(23.55);
+    s.update(0.5); expect(s.gauntletT).toBeCloseTo(24.05);
+  });
   it('a trial death in the field still costs no life', async () => {
     vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
     const { session: s, game } = f;

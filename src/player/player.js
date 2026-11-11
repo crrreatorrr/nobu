@@ -24,8 +24,8 @@ export { TUNING } from '../config/movement.js';
 export const DUST_DASH = Object.freeze({ speed: 20, time: 0.22, cooldown: 0.8, slideRemaining: 0.15 });
 // Slide-jump = long jump: the jump keeps SLIDE_JUMP_SPEED in the air, fading at `decay` m/s per second,
 // while the stick stays within 60 degrees of facing (cone is its cosine). It is not part of TUNING,
-// and it is off in time trials and Box Gauntlets: their boards, targets and box patterns were set
-// with a slide-jump that fell back to run speed at once.
+// and it is off in time trials, Box Gauntlets, Boss Rush and boss fights: their boards, targets,
+// medal clocks and box patterns were set with a slide-jump that fell back to run speed at once.
 export const SLIDE_JUMP = Object.freeze({ decay: 4, cone: 0.5 });
 
 // Mega Bark with nothing equipped. Spell Bark replaces these while the hat is on.
@@ -633,10 +633,12 @@ export class Player {
     this.dashCharges = spec ? spec.charges_per_jump : 0;
   }
 
-  // The long jump is off where a board, a medal target or a box pattern was set without it.
+  // The long jump is off wherever a clock is recorded or a pattern was authored without it: time
+  // trials (boards, TRIAL_TARGETS), Box Gauntlets (bestMs, box patterns), Boss Rush (bestMs) and
+  // every boss fight (the Speed medal clock).
   _slideJumpCarries() {
     const s = this.game?.session;
-    return !(s?.trial || s?.ranked || s?.def?.gauntlet);
+    return !(s?.trial || s?.rush || s?.def?.gauntlet || s?.phase === 'boss');
   }
 
   // One horizontal burst. vel.y stays 0 until the timer ends, or until a jump or landing cancels it.

@@ -93,6 +93,30 @@ describe('tutorial pop-up queue', () => {
   });
 });
 
+describe('tutorial cards behind a screen and on leaving a level', () => {
+  it('a held card is hidden, its timer stops and the queue does not drain; it resumes afterwards', () => {
+    ui.tutorial('snacks'); ui.tutorial('treat'); run(1);
+    ui.popupHold = true; // Game.loop sets this whenever the state is not 'play' (pause menu, wardrobe, results)
+    for (let i = 0; i < 400; i++) ui.update(STEP); // 20 s paused
+    expect(ui.popup.classList.contains('held')).toBe(true);
+    expect(title()).toBe(TUTORIALS.snacks.title);
+    expect(ui.popupQueue).toEqual(['treat']);
+    expect(save.data.tutorials.treat).toBeUndefined();
+    ui.popupHold = false; ui.update(STEP);
+    expect(ui.popup.classList.contains('held')).toBe(false);
+    const log = run(12);
+    expect(log.map(([name]) => name)).toEqual([TUTORIALS.snacks.title, TUTORIALS.treat.title]);
+  });
+
+  it('clearing returns the dropped ids, and leaving the level also takes the card on screen', () => {
+    ui.tutorial('snacks'); ui.tutorial('treat'); ui.tutorial('cat');
+    expect(ui.clearTutorialQueue()).toEqual(['treat', 'cat']);
+    expect(shown()).toBe(true); // a death keeps the card that is up
+    expect(ui.clearTutorialQueue({ current: true })).toEqual([]);
+    expect(shown()).toBe(false); expect(ui.popupT).toBe(0);
+  });
+});
+
 describe('boss bar', () => {
   it('goes see-through only while the boss is drawn behind it', () => {
     vi.stubGlobal('innerWidth', 960); vi.stubGlobal('innerHeight', 540);

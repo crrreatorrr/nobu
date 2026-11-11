@@ -55,7 +55,8 @@ NOBU has no run button; Zoomies (hold Slide) is its sprint.
 
 A jump out of a slide is a **long jump**: hold the stick the way Nobu faces and the slide's speed
 carries through the air, fading as it goes (about 15% further than a running jump). It is off in
-time trials and Box Gauntlets, whose targets and patterns were set without it. The pause menu has a
+time trials, Box Gauntlets, Boss Rush and boss fights, whose targets, clocks and patterns were set
+without it. The pause menu has a
 **MOVES** page listing every move you currently have, and a **RUMBLE** toggle for gamepads. Enemy
 kills, boss hits and lost masks freeze the action for a few frames (hitstop); that is also off in
 time trials, Boss Rush and Box Gauntlets, so no recorded clock is affected.

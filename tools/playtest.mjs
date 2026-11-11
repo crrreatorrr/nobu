@@ -259,7 +259,7 @@ const SUITE = {
   // the near edge, and whether the Bird's rear-up clears the boss bar (plan B3).
   async framing(ctx) {
     const out = {};
-    const HALF = { 1: 11, 2: 11.2, 3: 12.5, 4: 11, 5: 11.7 }; // arena half-widths used by each boss
+    const HALF = { 1: 11, 2: 11.2, 3: 11.5, 4: 11, 5: 11.7 }; // half-width of the floor each boss aims at
     for (const level of [1, 2, 3, 4, 5]) {
       await ctx.go(level, { god: true });
       await ctx.boss();
@@ -287,15 +287,29 @@ const SUITE = {
           const model = screenBox(p.root);
           stand(0, half - 1);
           const far = { edge: pt.project(0, y0, -half), left: pt.project(-half, y0, -half), right: pt.project(half, y0, -half) };
+          // How much floor, measured in from the near edge, is below the frame (worst of three lines across the arena).
+          const hiddenAt = (pz) => {
+            stand(0, pz);
+            let worst = 0;
+            for (const x of [0, half * 0.8, -half * 0.8]) {
+              let d = 0;
+              while (d <= 2 * half && !inFrame(pt.project(x, y0, half - d))) d += 0.05;
+              worst = Math.max(worst, d);
+            }
+            return +worst.toFixed(2);
+          };
+          const nearFloorHiddenM = { nobuAtCentre: hiddenAt(0), nobuAtNearEdge: hiddenAt(half - 1), nobuAtFarEdge: hiddenAt(-half + 0.5) };
           const bar = document.getElementById('bossbar').getBoundingClientRect();
-          return { nobuBodyPct: +((body.foot - body.top) / window.innerHeight * 100).toFixed(2),
+          return { nearFloorHiddenM, nobuBodyPct: +((body.foot - body.top) / window.innerHeight * 100).toFixed(2),
             nobuModelPct: +((model.bottom - model.top) / window.innerHeight * 100).toFixed(2), nobuModelHeightM: +model.heightM.toFixed(2),
             fromNearEdge: { farEdge: inFrame(far.edge), farLeft: inFrame(far.left), farRight: inFrame(far.right), farEdgeY: Math.round(far.edge.y), farLeftX: Math.round(far.left.x) },
             bossBarBottom: Math.round(bar.bottom), fov: g.camera.cam.fov };
         }, HALF[level]);
         out[`boss${level}`][`${vw}x${vh}`] = m;
-        await ctx.eval(() => { const g = window.__nobu; g.player.pos.set(0, g.player.pos.y, 8); g.camera.snap(g.player); });
-        await ctx.shot(`framing-boss${level}-${vw}x${vh}`);
+        for (const [name, z] of [['centre', 0], ['far', -HALF[level] + 0.5]]) {
+          await ctx.eval((pz) => { const g = window.__nobu; g.player.pos.set(0, g.player.pos.y, pz); g.player.root.position.copy(g.player.pos); g.camera.snap(g.player); }, z);
+          await ctx.shot(`framing-boss${level}-${vw}x${vh}-${name}`);
+        }
       }
       await ctx.page.setViewportSize({ width: 960, height: 540 });
       if (level === 1) {
@@ -314,7 +328,7 @@ const SUITE = {
         out.birdRearUp.shot = await ctx.shot('framing-bird-rear-up');
       }
     }
-    out.target = 'Nobu (nobuModelPct, the visible model) at least 7.5% of the viewport height at the arena centre; far edge and corners in frame from the near edge; the Bird rear-up below the boss bar, or the bar see-through while the Bird is behind it';
+    out.target = 'The whole floor in frame with Nobu at the centre or near edge (nearFloorHiddenM 0) and at most about 3 m hidden from the far edge; Nobu (nobuModelPct, the visible model) as large as that allows; far edge and corners in frame from the near edge; the Bird rear-up below the boss bar, or the bar see-through while the Bird is behind it';
     return out;
   },
 
