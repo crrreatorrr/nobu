@@ -88,6 +88,11 @@ animation, sound and arena tells rather than on-screen attack countdowns. Bird/C
 at stage 1; ordinary Cone/Titan/Queen fights resume at the current stage. Earned Mega Bark still
 works on bosses that explicitly accept it, including while wearing a Wizard Hat.
 
+Deaths inside a boss fight cost no lives. After three deaths the fight gives quiet help (one Sproto
+Mask, slightly longer tells and punish windows), which voids that attempt's medals. Cone, Titan and
+Queen count the three deaths per stage; Bird and Cat, which restart at stage 1, count them across
+the whole fight.
+
 Two optional bonus stages open after the first two bosses: **Roomba Rush** after Bird, and
 **Glowworm Grotto** after Cat. Roomba Rush's vacuum drives itself: steer, hop, ram backpacks and
 dodge hazards; its Sofa bonus loop is explored on foot. In the Grotto, Lumi lights the route and

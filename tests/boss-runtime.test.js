@@ -152,26 +152,61 @@ describe('session boss retries and awards', () => {
     s.bossDeaths[2] = 0; s.respawn(); expect(s.boss.dda).toEqual({ tele: 1, window: 0 });
     expect(s.bossRun.void).toBe(true);
   });
-  it.each(['bird', 'cat'])('restores later-stage DDA after %s restarts at stage 1', async (key) => {
+  it.each(['bird', 'cat'])('counts deaths across the whole fight for %s, which restarts at stage 1', async (key) => {
     vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
     const { session: s, game, p } = f;
     s.def = { ...s.def, bossKey: key };
-    s.boss.phaseCheckpoints = false; s.boss.phase = 2;
-    for (let i = 0; i < 3; i++) { s.dying = false; s.onPlayerDeath('fall'); }
+    s.boss.phaseCheckpoints = false;
+    // One death in each stage: no single stage reaches three, the fight does.
+    for (const phase of [1, 2]) { s.boss.phase = phase; s.dying = false; s.onPlayerDeath('fall'); }
     vi.clearAllTimers(); s.dying = false;
-    expect(s.bossDeaths[2]).toBe(3);
     s.respawn();
     expect(s.boss.phase).toBe(1); expect(s.boss.dda).toEqual({ tele: 1, window: 0 });
-    expect(s.mask).toBe(0); expect(s.bossDdaUsed).toBe(false);
-    // Real phase-entry orchestration, with only the cinematic/visual work stubbed.
+    expect(s.mask).toBe(0); expect(s.bossDdaUsed).toBe(false); expect(s.bossRun.void).toBe(false);
+    s.boss.phase = 3; s.dying = false; s.onPlayerDeath('fall'); vi.clearAllTimers(); s.dying = false;
+    expect(s.bossDeaths).toEqual({ 1: 1, 2: 1, 3: 1 });
+    s.respawn();
+    expect(s.boss.resetToPhase).toHaveBeenLastCalledWith(1);
+    expect(s.boss.dda).toEqual({ tele: 1.15, window: 0.3 });
+    expect(s.mask).toBe(1); expect(s.bossRun.void).toBe(true); expect(s.bossDdaUsed).toBe(true);
+    // The help carries into later stages through the real phase-entry orchestration.
     game.camera.cinematic = vi.fn(); game.camera.endCinematic = vi.fn(); game.ui.say = vi.fn(async () => {});
     s.info = { spheres: [] }; s.boss.evolve = vi.fn(async () => {});
     s.boss.phase = 2; p.mode = 'normal'; s.mask = 0;
     const entry = s.onBossPhase(s.boss, 2); await vi.runAllTimersAsync(); await entry;
     expect(s.boss.dda).toEqual({ tele: 1.15, window: 0.3 });
-    expect(s.mask).toBe(1); expect(s.bossRun.void).toBe(true); expect(s.bossDdaUsed).toBe(true);
+    expect(s.mask).toBe(1);
     s.mask = 2; s._applyBossDda(2); expect(s.mask).toBe(2);
-    expect(s.bossDeaths[2]).toBe(3); expect(s.bossStageDeaths).toBe(3);
+    expect(s.bossStageDeaths).toBe(1); // the per-stage count is still reported as before
+  });
+  it('keeps per-stage counting for bosses with stage checkpoints', () => {
+    const f = fixture(); prepareRespawn(f); const s = f.session;
+    s.boss.phaseCheckpoints = true; s.bossDeaths = { 1: 2, 2: 2, 3: 2 };
+    s.respawn();
+    expect(s.boss.dda).toEqual({ tele: 1, window: 0 }); expect(s.mask).toBe(0); expect(s.bossRun.void).toBe(false);
+  });
+  it('boss deaths cost no lives, so a fight cannot end in Game Over; field deaths still do', async () => {
+    vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
+    const { session: s, game } = f;
+    Object.assign(game.ui, { deathCard: vi.fn(), fade: vi.fn(async () => {}), clearScreen: vi.fn(), showHud: vi.fn() });
+    game.gameOver = vi.fn(); vi.spyOn(save, 'write').mockImplementation(() => {});
+    save.data.lives = 0; // the plan's acceptance case: no lives left at the gate
+    for (let i = 0; i < 4; i++) { s.onPlayerDeath('angel'); await vi.advanceTimersByTimeAsync(2500); }
+    expect(save.data.lives).toBe(0); expect(game.gameOver).not.toHaveBeenCalled();
+    expect(f.p.spawnAt).toHaveBeenCalledTimes(4); expect(s.dying).toBe(false); expect(s.boss.active).toBe(true);
+    s.phase = 'level'; s.boss = null; save.data.lives = 2;
+    s.onPlayerDeath('fall'); await vi.advanceTimersByTimeAsync(2500);
+    expect(save.data.lives).toBe(1); expect(game.gameOver).not.toHaveBeenCalled();
+    save.data.lives = 0; s.onPlayerDeath('fall'); await vi.advanceTimersByTimeAsync(2500);
+    expect(save.data.lives).toBe(-1); expect(game.gameOver).toHaveBeenCalledWith(s);
+  });
+  it('a trial death in the field still costs no life', async () => {
+    vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
+    const { session: s, game } = f;
+    Object.assign(game.ui, { deathCard: vi.fn(), fade: vi.fn(async () => {}), clearScreen: vi.fn(), showHud: vi.fn() });
+    s.phase = 'level'; s.boss = null; s.trial = true; const lives = save.data.lives;
+    s.onPlayerDeath('fall'); await vi.advanceTimersByTimeAsync(2500);
+    expect(save.data.lives).toBe(lives);
   });
   it.each(['rush', 'remix', 'trial'])('does not grant even a generic pity mask in %s boss fights', (mode) => {
     const f = fixture(); prepareRespawn(f);

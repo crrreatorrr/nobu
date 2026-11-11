@@ -810,7 +810,12 @@ export class Session {
 
   _applyBossDda(phase, resetMask = false) {
     this.bossStageDeaths = this.bossDeaths[phase] || 0;
-    const help = bossDda(this.bossStageDeaths, this._bossContext());
+    // A boss that restarts at stage 1 (Bird, Cat) counts deaths across the whole fight: per-stage
+    // counting would need three deaths in stage 3, each after clearing stages 1 and 2 again.
+    const counted = this.boss.phaseCheckpoints === false
+      ? Object.values(this.bossDeaths).reduce((sum, n) => sum + (n || 0), 0)
+      : this.bossStageDeaths;
+    const help = bossDda(counted, this._bossContext());
     this.boss.dda = { tele: help.tele, window: help.window };
     if (resetMask || help.masks) this.setMask(resetMask ? help.masks : Math.max(this.mask, help.masks));
     if (help.masks) {
@@ -982,7 +987,9 @@ export class Session {
       await g.ui.fade(1, DEATH_FLOW.fade / 1000);
       if (!current()) return;
       g.ui.clearScreen();
-      if (!this.trial) save.data.lives -= 1; // time trials never cost lives
+      // Time trials never cost lives, and neither do boss fights (as in Boss Rush): a Game Over
+      // inside a fight would replay the whole level and its gate.
+      if (!this.trial && this.phase !== 'boss') save.data.lives -= 1;
       if (save.data.lives < 0) {
         this.over = true;
         this.dying = false;

@@ -173,7 +173,7 @@ it('normalizes string level5 for stale direct completion and checkpoint retry',a
 it('continues a live Queen stage-checkpoint retry after cancelling an in-progress evolution',async()=>{
  const{game,s,boss}=await liveBoss();boss.phase=2;const change=s.onBossPhase(boss,2);await flush(600);expect(boss.evolving).toBeTruthy();
  const lives=save.data.lives;game.player.die('fall');await change;await flush(2700);
- expect(s.bossPhaseCp).toBe(2);expect(boss.phase).toBe(2);expect(boss.active).toBe(true);expect(s.busy).toBe(false);expect(game.player.dead).toBe(false);expect(game.camera.cine).toBeNull();expect(save.data.lives).toBe(lives-1);expect(s.bossDeaths[2]).toBe(1);
+ expect(s.bossPhaseCp).toBe(2);expect(boss.phase).toBe(2);expect(boss.active).toBe(true);expect(s.busy).toBe(false);expect(game.player.dead).toBe(false);expect(game.camera.cine).toBeNull();expect(save.data.lives).toBe(lives);expect(s.bossDeaths[2]).toBe(1);
 });
 
 it('shows a standalone L5 trial result without changing the public queue',async()=>{
