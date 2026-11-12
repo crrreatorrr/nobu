@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Boss, flamePart, glowPart, pullToward } from './common.js';
+import { styleLane } from './readability.js';
 import { Vacuum } from '../entities/enemies.js';
 import { Assets } from '../art/assets.js';
 import { toon } from '../player/nobuPrims.js';
@@ -123,6 +124,8 @@ export class RoombaTitan extends Boss {
     );
     this.lane.position.y = 0.035;
     this.lane.visible = false;
+    styleLane(this.lane); // solid edges, so the lane reads on the wood and in Lights Out
+    this.lane.material.opacity = 0.95;
     stage.scene.add(this.lane);
     this.stars = new THREE.Group();
     for (let i = 0; i < 6; i++) {

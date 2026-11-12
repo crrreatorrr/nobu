@@ -1,3 +1,4 @@
+import { ARENA_CAMERAS, arenaCamera } from './arenaCameras.js';
 import { placeHiddenBone } from '../entities/hiddenBone.js';
 import { installSections } from './sections.js';
 import { SECTION_TEXT } from '../story/script.js';
@@ -143,10 +144,8 @@ export function buildBoss2Arena(game, stage, tickets) {
   return {
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
-    // Framing (plan B3, re-tuned after QA): a longer lens from further back, so the whole playable floor is in
-    // frame with Nobu at the centre or the near edge, and at most about 3 m of near floor is hidden from the far edge.
-    fov: 52,
-    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 13, z: 20 }, follow: 0.15 },
+    fov: ARENA_CAMERAS.cat.fov,
+    camera: arenaCamera('cat'),
     ledges: catArena.ledges,
     catArena,
     spheres: [new THREE.Vector3(9, 0, 9), new THREE.Vector3(-9, 0, -9), new THREE.Vector3(0, 0, 9)],

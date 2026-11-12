@@ -1,5 +1,7 @@
 // A play session for one level: the path stage, then its boss arena (bonus stages end at a goal instead).
 // Owns checkpoints (with Crash-style rollback on death), lives, tickets, masks, invincibility and stats.
+import { makeNobuRing, placeNobuRing } from '../bosses/readability.js';
+import { collectThreats } from '../bosses/threats.js';
 import * as THREE from 'three';
 import { ddaFor, armCheckpointPity } from './dda.js';
 import { awardGauntlet, GAUNTLET_FIRST_CLEAR_TICKETS } from './gauntletRewards.js';
@@ -219,6 +221,7 @@ export class Session {
     g.camera.setMode(info.camera.mode, info.camera);
     g.camera.cam.fov = info.fov || 58;
     g.camera.cam.updateProjectionMatrix();
+    if (info.camera.fit) info.camera.fit.baseFov = g.camera.cam.fov; // the authored lens an arena fit works from
     g.camera.endCinematic();
     g.camera.snap(g.player);
     this.cp = { pos: info.spawn.clone(), facing: info.facing, seq: this.seq, tickets: save.data.tickets, levelTickets: this.levelTickets, fieldRaw: this.fieldRaw, coconutRaw: this.coconutRaw, lifeLine: this.lifeLine || 0, snackRaw: this.snack.raw, freedIds: new Set(this.freedIds) };
@@ -721,7 +724,7 @@ export class Session {
     this._goalIntroDialog = null;
     g.camera.endCinematic();
     g.player.frozen = false;
-    g.ui.bossShow(boss.name, boss.portrait, boss.stages);
+    g.ui.bossShow(boss.name, boss.portrait, boss.stages, info.bossBar);
     g.ui.bossCharge(0, false);
     audio.playMusic(stage.theme.music);
     g.ui.banner('FIGHT!', boss.name, 1.4);
@@ -733,6 +736,8 @@ export class Session {
     this.bossDdaUsed = false;
     g.camera.opts.focus = boss.pos;
     g.camera.opts.focusWeight = g.camera.opts.bossFocus ?? 0.2; // an arena may set its own lean toward the boss
+    // The arena lens widens when it must, so Nobu, the boss and every active threat stay in frame.
+    if (g.camera.opts.fit) g.camera.opts.fit.collect = (set) => this._fitPoints(set);
     this.busy = false;
   }
 
@@ -1158,10 +1163,26 @@ export class Session {
     }
     this.tickets.update(dt);
     this.projectiles.update(dt);
+    this._nobuRing();
     g.mask.update(dt, g.player, g.camera.cam);
     g.camera.update(dt, g.player);
     this.stage.followSky(g.camera.cam);
     g.fx.update(dt);
+  }
+
+  // Boss-fight readability: a ring on the floor under Nobu while a boss is fighting, so he can be
+  // found at a glance from the far arena camera. It belongs to the stage and goes with it.
+  _nobuRing() {
+    const stage = this.stage, boss = this.boss, on = !!boss && boss.active && !boss.defeated;
+    if (!stage?.scene || (!on && !stage.nobuRing)) return;
+    if (!stage.nobuRing) stage.scene.add(stage.nobuRing = makeNobuRing());
+    placeNobuRing(stage.nobuRing, stage.world, this.game.player, on);
+  }
+
+  /** What the arena camera must keep in frame (GameCamera "Arena fit"). */
+  _fitPoints(set) {
+    const boss = this.boss;
+    return collectThreats({ player: this.game.player, boss: boss?.active ? boss : null, projectiles: this.projectiles, scene: this.stage?.scene }, set);
   }
 
   // Belly flop shockwave: breaks / squashes everything nearby.

@@ -1,3 +1,4 @@
+import { ARENA_CAMERAS, arenaCamera } from './arenaCameras.js';
 import { addMoonReturnExtras, addColoredReturnExtras } from './moonReturnRoutes.js';
 import { MOON_RETURN_ROUTES } from './data/moon-return-routes.js';
 export const MOON_LEDGES = Object.freeze([MOON_RETURN_ROUTES[1]]);
@@ -261,12 +262,10 @@ export function buildBoss1Arena(game, stage, tickets) {
   k.tix(-6, 0, -6, 6, 0, -6, 7);
   return {
     ...birdArena,
-    // Framing (plan B3, re-tuned after QA): a longer lens from further back, so the whole playable floor is in
-    // frame with Nobu at the centre or the near edge, and at most about 3 m of near floor is hidden from the far edge.
-    fov: 56,
+    fov: ARENA_CAMERAS.bird.fov,
     spawn: new THREE.Vector3(0, 0, 8),
     facing: Math.PI,
-    camera: { mode: 'arena', center: new THREE.Vector3(0, 0, 0), offset: { x: 0, y: 13, z: 20 }, follow: 0.15 },
+    camera: arenaCamera('bird'),
     spheres: [new THREE.Vector3(-9, 0, 9), new THREE.Vector3(9, 0, 9), new THREE.Vector3(0, 0, -9)],
   };
 }

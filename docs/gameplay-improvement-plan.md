@@ -23,6 +23,54 @@ are the plan as written; this table records what was built and where it differs.
 | D1 | Done | `tools/playtest.mjs`. It uses the dev hooks; the Test Lab API does not exist yet. |
 | D2, D3, D4 | Not done | D2 needs people; D3 applies only if B4 is declined; D4 is not planned. |
 
+**Readability follow-up (2026-11-12, branch `claude/trusting-ramanujan-63h582`, after PR #73).** B3 gave
+back most of its size gain to keep the floor in frame, so F1 to F3 were only partly fixed: the gold rim
+was about 1 px on the Bird arena at 540p and Nobu was no larger. This pass makes the threats themselves
+readable at the current camera distance. It is presentation only: no hit radius, tell, damage, attack
+order, medal, trial clock or Ticket report changed. Code: `src/bosses/readability.js` (pixel-sized
+rings, outlines, shadows, lanes), `src/bosses/threats.js` (what must be in frame), `src/camera/camera.js`
+("Arena fit"), `src/levels/arenaCameras.js` (the five arena cameras in one place).
+
+| What | Change |
+| --- | --- |
+| Landing markers, all five bosses | The ring's band is sized in screen pixels each time it is drawn: 4.5 px at 540p, growing with the viewport, never under 3 px, with a dark line inside and a hairline outside so it reads on sand, wood and lavender as well as grass. Its outer edge is still exactly the hit radius. The fill inside beats faster as the impact nears (no number, no bar). It is unlit and unfogged, so it shows in Lights Out. Ring opacity now starts at 0.75, not 0.35. |
+| Projectiles | Feathers are 0.24 m wide, not 0.16 (still inside the hit radius). Feathers, cone shots, hairballs, rockets, egg bombs, yarn balls, coconuts, debris and shockwave rings have an outline. Rockets are drawn 1.4x and cone shots 1.25x larger. Everything that flies above the floor (feather, cone shot, hairball, rocket, egg) has a ring on the floor under it the size of its hit radius. Claw slashes have a dark line on the floor under them; scratch trails have a dark edge. The Titan's cable is unlit and outlined. |
+| Lasers | The aiming line is 7 to 22 cm wide, not 3 to 8 (it was about 1 px). The burning spot has a pixel-sized ring at its 0.75 m hit radius. The Bird's laser shows the whole line it will sweep from the first frame of its aim. |
+| Lanes and sweeps | The Cat's dash lane and the Titan's charge lane have solid edges. The Cone's sweep arms have a strip on the floor showing the width that hits. |
+| Countdown fill on boss-owned markers | Bird dive, Cat tail spin, Cone grab and clones drive the ring's fill from their own tell; the Cat's pounce marker keeps a steady beat. |
+| Nobu | A cyan ring on the floor under him while a boss is fighting. It stays on the floor when he jumps, so it also shows where he lands. Cyan, because gold means danger. |
+| Boss bar | Smaller again (bottom edge 138 px → 118 px at 540p). It now goes see-through when any part of the boss from feet to head, or a wing, is behind it; before, only a point 1.5 m above the boss's origin was tested, so the Queen's head and crown sat behind an opaque bar for most of her fight. In the Queen's arena the bar is at the top left, because she stands at the top centre of the frame all fight. |
+| Dynamic camera | **Tightening toward the action was built, measured and not kept.** At up to 1.2x it made Nobu 52 to 57 px tall instead of 44 to 48, but with Nobu at the arena centre it hid 1.15 to 1.8 m of near floor at 960x540 and 2.95 to 3.35 m at 1024x768 (the authored cameras hide 0 to 0.45 m), which is what QA rejected in PR #73. **What is kept is widen-only:** the lens is never tighter than authored, and it widens at once (to 0.82x at most), then eases back, when Nobu, the boss or an active marker or projectile would be out of frame. The Bird's rear-up, whose top was cut off 5 px from the top of the frame, is now whole (top at 52 px). Only the field of view changes; position, aim and the movement basis are the authored ones. The Queen's camera is untouched. |
+
+Measured with `node tools/playtest.mjs attacks` at 960x540, which forces every attack of every boss with
+Nobu 4 m in front of the arena centre and takes a frame at the first moment of the tell, at mid-tell and
+just after the attack goes live (117 frames looked at across the five bosses). "Before" is `main` at
+`ce0a305` with the same harness.
+
+| Boss | Thinnest marker ring, px | Smallest projectile side, px | Nobu's height, px (share of viewport) |
+| --- | --- | --- | --- |
+| Mecha Bird | 1.1 → 4.5 | feather 8.8 → 16.2; rocket 13.9 → 21.7; egg 21.4 → 24.1 | 44 → 44 (8.1%), plus the ring |
+| Big Cat | 1.2 → 4.5 | hairball 20.1 → 24.1; claw slash 19.6 → 20.0 with its floor line; scratch 4.9 → 7.5 | 47 → 47 (8.8%), plus the ring |
+| Evil Cone | 1.6 → 4.5 | cone shot 13.4 → 21.2; slow homer 8.0 → 11.4 | 44 → 44 (8.2%), plus the ring |
+| Roomba Titan | 1.5 → 4.5 (also in Lights Out) | falling leg 34 → 34; cable and lane restyled, not resized | 48 → 48 (8.9%), plus the ring |
+| Pump Queen | 0.8 → 4.5 (airdrop markers) | none in flight; pillar warnings unchanged | 46 → 46 (8.5%), plus the ring |
+
+At 1280x720 the ring is 6.0 px and at 1024x768 it is 6.4 px. Nobu's own size did not change: the only
+way found to enlarge him hides floor. With Nobu at the arena centre the model is still 7.1 to 7.9% of
+the viewport height and the hidden near floor is as PR #73 left it (0 to 0.45 m at the centre, none at
+the near edge, 2.6 to 3.4 m at the far edge).
+
+Tests: `tests/boss-readability.test.js` (pixel minimums with the real arena cameras: ring at least 3 px
+all the way round for every marker radius anywhere on each floor, projectile sizes, laser line, Nobu's
+ring), `tests/arena-framing.test.js` (the framing guarantee at 960x540, 1280x720 and 1024x768: never
+tighter than authored, every threat framed with a margin on the frame it appears while the lens has
+range, pose and movement basis untouched), `tests/markers.test.js`.
+
+Known limits. The lens stops widening at 0.82x, so with Nobu at the far edge a threat at the near wall
+can still be out of frame, as it could before. The 1.4 s "FIGHT!" banner still covers the boss at the
+start of a fight. Nothing here was judged by a person at full frame rate: the frames were rendered one
+at a time in software.
+
 How this relates to `docs/gameplay-expansion-plan.md` (2026-11-04):
 
 - The expansion plan **adds content**: Levels 4–6, two bosses, longer Levels 1–3, bone boards, the Kennel,

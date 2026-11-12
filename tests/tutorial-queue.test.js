@@ -128,6 +128,18 @@ describe('boss bar', () => {
     expect(ui.boss.classList.contains('ghost')).toBe(true);
     ui.bossGhost(true, 0.5, 0.6); // down in the arena
     expect(ui.boss.classList.contains('ghost')).toBe(false);
+    ui.bossGhost(true, 0.5, 0.6, 0.22); // feet in the arena, head behind the bar (a tall boss, or one rearing up)
+    expect(ui.boss.classList.contains('ghost')).toBe(true);
+    ui.bossGhost(true, 0.5, 0.6, 0.4); // all of it below the bar
+    expect(ui.boss.classList.contains('ghost')).toBe(false);
+    ui.bossGhost(true, 0.9, 0.2); // beside the bar
+    expect(ui.boss.classList.contains('ghost')).toBe(false);
+    ui.bossGhost(true, 0.9, 0.2, 0.2, 0.1); // beside it, but a wing reaches behind
+    expect(ui.boss.classList.contains('ghost')).toBe(true);
+    ui.bossShow('THE PUMP QUEEN', 'queen', 4, 'left'); // her arena docks the bar at the top left
+    expect(ui.boss.classList.contains('dock-left')).toBe(true);
+    ui.bossShow('MECHA BIRD', 'bird');
+    expect(ui.boss.classList.contains('dock-left')).toBe(false);
     ui.bossGhost(true, 0.5, 0.2); ui.bossGhost(false); // off screen or not active
     expect(ui.boss.classList.contains('ghost')).toBe(false);
     ui.bossGhost(true, 0.5, 0.2); ui.bossHide();
