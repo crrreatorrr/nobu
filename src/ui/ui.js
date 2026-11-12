@@ -22,6 +22,20 @@ export const tutorialSeconds = (waiting) => (waiting >= 2 ? TUTORIAL_BUSY_SEC : 
 
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
+/**
+ * A menu taller than the window scrolls inside its own list (.menu has overflow-y:auto in the
+ * stylesheet); this keeps the selected item in view by moving only that list, never the page.
+ */
+export function scrollMenuToSel(root) {
+  for (const menu of root?.querySelectorAll?.('.menu') || []) {
+    const sel = menu.querySelector('.menu-item.sel');
+    if (!sel || !(menu.scrollHeight > menu.clientHeight)) continue;
+    const top = sel.offsetTop - menu.offsetTop, bottom = top + sel.offsetHeight;
+    if (top < menu.scrollTop) menu.scrollTop = Math.max(0, top - 8);
+    else if (bottom > menu.scrollTop + menu.clientHeight) menu.scrollTop = bottom - menu.clientHeight + 8;
+  }
+}
+
 export class UI {
   boneBoard(id, { bonus = false, run = null, fresh = [] } = {}) {
     const saved = savedBoard(save.data, id);
@@ -96,6 +110,13 @@ export class UI {
     this.bannerT = 0;
     this.screen = h('div', 'screen');
     root.appendChild(this.screen);
+    // Modal layer above the screen: the system menu (map, kennel, results) and CONTROLLER SETTINGS.
+    // A separate layer, so the menu underneath keeps its DOM (a running results tally, say).
+    this.modal = h('div', 'screen modal');
+    root.appendChild(this.modal);
+    /** Game's click handler for menu items (mouse), set by Game.boot. */
+    this.onClick = null;
+    root.addEventListener?.('click', (e) => this.onClick?.(e));
     this.fadeEl = h('div');
     this.fadeEl.id = 'fade';
     root.appendChild(this.fadeEl);
@@ -362,8 +383,18 @@ export class UI {
   setScreen(html, cls = '') {
     this.screen.className = `screen ${cls}`;
     this.screen.innerHTML = input.prompt(html); // pad players see pad buttons in control prompts
+    scrollMenuToSel(this.screen);
   }
   clearScreen() { this.screen.className = 'screen'; this.screen.innerHTML = ''; }
+
+  /** Modal layer (system menu, controller settings). `raw` skips the pad prompt rewrite. */
+  setModal(html, cls = '', { raw = false } = {}) {
+    this.modal.className = `screen modal show ${cls}`;
+    this.modal.innerHTML = raw ? html : input.prompt(html);
+    scrollMenuToSel(this.modal);
+  }
+  clearModal() { this.modal.className = 'screen modal'; this.modal.innerHTML = ''; }
+  get modalOpen() { return this.modal.classList.contains('show'); }
 
   fade(to, dur = 0.45) {
     this.fadeEl.style.transition = `opacity ${dur}s`;

@@ -275,6 +275,8 @@ it('quits Rush through the real pause handler without saving stale currency', as
   await enter(session);
   const write = vi.spyOn(save, 'write');
   game._pauseItems = Game.prototype._pauseItems;
+  game._pauseActivate = Game.prototype._pauseActivate;
+  game._quitLevel = Game.prototype._quitLevel;
   game.pauseSel = game._pauseItems().findIndex(item => item.id === 'quit');
   game.toMap = vi.fn();
   vi.spyOn(input, 'pressed').mockReturnValue(false);

@@ -11,7 +11,7 @@ function prompts() {
   for (const t of Object.values(TUTORIALS)) if (t?.text) out.push(t.text);
   for (const m of MOVES) if (m.text) out.push(m.text);
   for (const lines of [...Object.values(LEVEL_INTRO), ...Object.values(BETWEEN)]) for (const [, text] of lines) out.push(text);
-  for (const k of ['mapControls', 'continue', 'play', 'choose', 'controls']) out.push(KENNEL_TEXT[k]);
+  for (const k of ['mapControls', 'continue', 'play', 'choose', 'controls', 'mainControls']) out.push(KENNEL_TEXT[k]);
   out.push(RUSH_TEXT.controls, RUSH_TEXT.continue, REMIX_TEXT.controls, GAUNTLET_TEXT.enter, GAUNTLET_TEXT.continue, 'PRESS ANY KEY');
   return out;
 }
@@ -29,7 +29,7 @@ test('every pad rewrite matches text the game really shows', () => {
 });
 
 test('pad prompts name the default layout', () => {
-  expect(padPrompt(HINTS.map)).toBe('◀ ▶ choose · A play · LB wardrobe · LT exchange · B title');
+  expect(padPrompt(HINTS.map)).toBe('◀ ▶ choose · A play · LB wardrobe · LT exchange · B menu');
   expect(padPrompt(KENNEL_TEXT.controls)).toContain('Y / VIEW Sniffer');
   expect(padPrompt(TUTORIALS.bite.text)).toContain('<span class="key">X</span>');
   expect(padPrompt(TUTORIALS.slide.text)).toContain('<span class="key">B</span>');

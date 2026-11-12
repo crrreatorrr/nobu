@@ -420,3 +420,64 @@ html, body {
 .crash-detail { margin: 8px 0 18px; font-size: 18px; color: var(--cream); }
 .crash-button { font-family: var(--font-display); font-size: 26px; letter-spacing: 1px; color: var(--ink); background: var(--gold); border: 3px solid var(--ink); border-radius: 12px; padding: 6px 22px; cursor: pointer; box-shadow: 0 4px 0 var(--ink); }
 .crash-button:hover, .crash-button:focus-visible { background: #ffd65c; outline: none; }
+
+/* ---------- Menus: fit any window (src/game/menus.js) ----------
+   A menu longer than the window scrolls inside its own list (UI keeps the selected item in view),
+   never the page. Items take mouse clicks. */
+.menu { min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 6px 44px; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; }
+.menu[data-menu] { pointer-events: auto; }
+.menu-item[data-mi] { cursor: pointer; white-space: nowrap; }
+.title-menu { display: flex; flex-direction: column; align-items: center; max-height: 58vh; }
+.title-menu .menu { margin-top: 10px; gap: 6px; }
+.title-menu .menu-item { font-size: clamp(24px, 4.2vh, 38px); }
+
+/* Modal layer: the system menu and CONTROLLER SETTINGS, above the screen and below the fade. */
+.screen.modal { z-index: 4; }
+.screen.modal:not(.show) { display: none; }
+.sys-panel {
+  display: flex; flex-direction: column; align-items: center; max-height: 94vh; min-height: 0;
+  background: rgba(40, 10, 70, 0.94); border: 5px solid var(--orange); border-radius: 20px;
+  padding: 16px 20px; box-shadow: 0 6px 0 var(--ink); pointer-events: auto;
+}
+.sys-panel .big-title { font-size: clamp(40px, 9vh, 72px); }
+.sys-panel .menu { margin-top: 12px; gap: 4px; }
+.sys-panel .menu-item { font-size: clamp(22px, 4.6vh, 36px); }
+.menu-tip { position: absolute; top: 2vh; right: 2vw; font-size: 18px; opacity: 0.85; }
+
+/* Game over: five items under the death card */
+.screen.gameover-screen .death-card img { height: 30vh; }
+.screen.gameover-screen .big-title { font-size: clamp(44px, 9vh, 84px); }
+.screen.gameover-screen .menu { margin-top: 10px; gap: 2px; }
+.screen.gameover-screen .menu-item { font-size: clamp(22px, 4.4vh, 38px); }
+
+/* ---------- CONTROLLER SETTINGS (src/ui/controlsScreen.js) ---------- */
+.ctl-panel {
+  display: flex; flex-direction: column; width: min(1100px, 96vw); max-height: 96vh; min-height: 0;
+  background: rgba(40, 10, 70, 0.96); border: 5px solid var(--orange); border-radius: 20px;
+  padding: 12px 18px; box-shadow: 0 6px 0 var(--ink); pointer-events: auto;
+}
+.ctl-panel .sub-title { font-size: clamp(24px, 5vh, 34px); }
+.ctl-list { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--orange) transparent; margin: 4px 0; }
+.ctl-row {
+  display: grid; grid-template-columns: minmax(150px, 1.7fr) repeat(4, minmax(0, 1fr)); gap: 6px; align-items: center;
+  padding: 3px 8px; border-radius: 10px; font-size: clamp(14px, 2.4vh, 18px); font-weight: 800; cursor: pointer;
+}
+.ctl-row.sel { background: rgba(255, 194, 26, 0.16); }
+.ctl-head { cursor: default; font-family: var(--font-display); font-weight: 400; color: var(--gold); letter-spacing: 1px; }
+.ctl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctl-cell { text-align: center; padding: 2px 4px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctl-head .ctl-cell { background: none; }
+.ctl-cell.empty { opacity: 0.45; }
+.ctl-cell.sel { background: var(--gold); color: var(--ink); }
+.ctl-cell.wait { animation: blink 0.8s infinite; }
+.ctl-cell small { font-size: 0.75em; opacity: 0.8; }
+.ctl-wide { grid-template-columns: minmax(150px, 1.7fr) 4fr; }
+.ctl-wide .ctl-name { font-family: var(--font-display); font-weight: 400; font-size: 1.15em; }
+.ctl-row.sel .ctl-name { color: var(--gold); }
+.ctl-value { display: flex; align-items: center; gap: 10px; }
+.ctl-value [data-ctl-nudge] { cursor: pointer; padding: 0 6px; }
+.ctl-bar { display: inline-block; width: 140px; height: 10px; border: 2px solid var(--ink); border-radius: 6px; background: #2a0f40; overflow: hidden; }
+.ctl-bar span { display: block; height: 100%; background: var(--gold); }
+.ctl-msg { min-height: 1.3em; font-size: clamp(14px, 2.3vh, 18px); color: var(--gold); }
+.ctl-hint { font-size: clamp(14px, 2.3vh, 18px); }
+.ctl-fixed { font-size: clamp(12px, 1.9vh, 15px); opacity: 0.75; font-weight: 700; }

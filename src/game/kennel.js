@@ -41,7 +41,10 @@ export class Kennel {
   update(dt, input) {
     this.yard.update(dt);
     if (input.pressed('pause') || input.pressed('back')) {
-      if (this.mode !== 'main') this.closeMode(); else { this.dispose(); this.game.toMap('kennel'); }
+      if (this.mode !== 'main') this.closeMode();
+      // Esc / Start: the Kennel's menu (LEVEL MAP, MAIN MENU, hub, CONTROLLER SETTINGS, FULL SCREEN); Backspace / B: straight to the map.
+      else if (input.pressed('pause') && this.game.openSystemMenu) this.game.openSystemMenu('kennel');
+      else { this.dispose(); this.game.toMap('kennel'); }
       return;
     }
     if (this.mode !== 'golden' && (input.pressed('bark') || input.pressed('sniffer')) && this.status.unlocks.includes('sniffer')) { this.mode = 'sniffer'; audio.play('sniff'); this.draw(); return; }
@@ -70,7 +73,7 @@ export class Kennel {
       const active = this.mode === 'buddy' ? save.data.kennel.buddy || 'none' : save.data.kennel.tint || 'none';
       content = `<div class="sub-title">${esc(c.names[this.mode])}</div><div class="menu-item sel">◀ ${esc(c.labels?.[selected] || selected)} ▶${this.mode !== 'jukebox' && active === selected ? ' ✓' : ''}</div><div class="hint">${esc(this.mode === 'jukebox' ? c.play : c.choose)}</div>`;
     }
-    this.game.ui.setScreen(`<div class="kennel-panel" style="position:absolute;left:3%;top:3%;max-width:45%;max-height:90vh;overflow:auto;background:#12051fcc;padding:18px;border-radius:12px"><div class="big-title">${esc(c.title)}</div><div class="hint">${esc(c.count(this.status.freed, this.status.total))}${this.yard.hidden ? ` · ${esc(c.more(this.yard.hidden))}` : ''}</div>${content}<div class="hint">${esc(c.controls)}</div></div>`);
+    this.game.ui.setScreen(`<div class="kennel-panel" style="position:absolute;left:3%;top:3%;max-width:45%;max-height:90vh;overflow:auto;background:#12051fcc;padding:18px;border-radius:12px"><div class="big-title">${esc(c.title)}</div><div class="hint">${esc(c.count(this.status.freed, this.status.total))}${this.yard.hidden ? ` · ${esc(c.more(this.yard.hidden))}` : ''}</div>${content}<div class="hint">${esc(this.mode === 'main' && c.mainControls ? c.mainControls : c.controls)}</div></div>`);
     for (const button of this.game.ui.screen.querySelectorAll('[data-kennel]')) button.addEventListener('click', () => { this.mode = button.dataset.kennel; this.choice = 0; if (this.mode === 'sniffer') audio.play('sniff'); this.draw(); });
   }
   dispose() { if (this.disposed) return; this.disposed = true; audio.stopMusic(); this.yard.dispose(); }
