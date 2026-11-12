@@ -4,7 +4,8 @@
 // Phase 3: HOMING ROCKETS, ticking EGG BOMBS, cone drops, lasers, gusts, dives
 // The GLB is auto-rigged: real wing flaps (with a lagging wingtip), head tracking, tail and a swinging cage.
 import * as THREE from 'three';
-import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart } from './common.js';
+import { Boss, makeMarker, setMarkerRim, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart } from './common.js';
+import { makeFloorPath, setFloorPath } from './readability.js';
 import { BIRD_STAGE_POWERS } from '../story/script.js';
 import { BirdEscort, BirdEggCraters, BIRD_PERCHES, moveBirdCage } from './birdArena.js';
 import { autoRig, sstep, blendPose } from './autorig.js';
@@ -57,6 +58,11 @@ export class MechaBird extends Boss {
     this.marker.visible = false;
     stage.scene.add(this.marker);
     this.beam = new Beam(stage.scene, 0xff3040);
+    // the line the laser is about to burn across the floor, shown from the first frame of its aim
+    this.laserPath = makeFloorPath(0xff3040);
+    stage.scene.add(this.laserPath);
+    const hideBeam = this.beam.hide.bind(this.beam);
+    this.beam.hide = () => { hideBeam(); this.laserPath.visible = false; }; // the path never outlives its beam
     this.target = new THREE.Vector3();
     this.circleA = 0;
     this.plan = [];
@@ -225,7 +231,7 @@ export class MechaBird extends Boss {
   }
   afterAttack() { this.nextAction(); }
   beginAttack(state) {
-    this.fbHead.rotation.x=0;this.setState(state);this.beam.hide();this.marker.visible=false;this.shots=0;this.did=false;
+    this.fbHead.rotation.x=0;this.setState(state);this.beam.hide();this.laserPath.visible=false;this.marker.visible=false;this.shots=0;this.did=false;
     if(state==='aim') {this.target.set(this.P.x,0,this.P.z);this.marker.visible=true;audio.play('bossRoar');}
     if(state==='perch') {
       const perches=this.game.session.info?.perches || BIRD_PERCHES.map(p=>new THREE.Vector3(...p));
@@ -312,6 +318,7 @@ export class MechaBird extends Boss {
         if (this.stateT < lockAt - 0.3) this.target.set(this.P.x, 0, this.P.z);
         this.marker.position.set(this.target.x, 0.06, this.target.z);
         this.marker.scale.setScalar(1 + Math.sin(this.stateT * 18) * 0.08);
+        setMarkerRim(this.marker, this.stateT / lockAt);
         const back = dirTo(this.target, new THREE.Vector3(0, 0, 0)).multiplyScalar(-6);
         this.pos.x = damp(this.pos.x, this.target.x - back.x * 0.5, 3, dt);
         this.pos.z = damp(this.pos.z, this.target.z - back.z * 0.5, 3, dt);
@@ -478,7 +485,7 @@ export class MechaBird extends Boss {
         const cyc = aimT + sweepT;
         const n = Math.floor(tt / cyc), local = tt - n * cyc;
         if (n >= this.sweeps) {
-          this.beam.hide();
+          this.beam.hide(); this.laserPath.visible = false;
           this.animate(dt);
           if (tt > this.sweeps * cyc + (this.chainQ?.length ? 0 : .4)) this.endAttack();
           break;
@@ -490,6 +497,7 @@ export class MechaBird extends Boss {
         this.faceTo(spot, dt, 10);
         this.animate(dt, { head: [0.5, 0, 0], pitch: 0.1 });
         this.beam.set(from, spot, firing, tt);
+        setFloorPath(this.laserPath, firing ? spot : this.laserA, this.laserB, 1.5, firing ? 0.55 : 0.6 + Math.sin(tt * 30) * 0.25);
         if (firing) {
           if (this.firingSnd !== n) { this.firingSnd = n; audio.play('laser'); }
           if (Math.random() < dt * 50) this.fx.sparkle(spot.x, 0.15, spot.z, { count: 1, color: 0xffa060, size: 0.5, speed: 3, up: 3 });
@@ -584,10 +592,11 @@ export class MechaBird extends Boss {
           const elapsed=local-this.ultLaserStart,aim=this.tele(.75/sp),sweep=1.7/sp;
           const firing=elapsed>=aim,k=Math.max(0,Math.min(1,(elapsed-aim)/sweep));
           const spot=_spot.lerpVectors(this.laserA,this.laserB,k);this.beam.set(this.headPos(_from),spot,firing,elapsed);
+          setFloorPath(this.laserPath,firing?spot:this.laserA,this.laserB,1.5,firing?.55:.6+Math.sin(elapsed*30)*.25);
           if(firing && !this.ultLaserSound){this.ultLaserSound=true;audio.play('laser');}
           if(firing && !p.dead && this.beam.hits(p))p.hurt('angel',spot.x,spot.z);
           if(elapsed<aim+sweep)break;
-          this.ultLaserDone=true;this.beam.hide();this.ultNext=local+every;
+          this.ultLaserDone=true;this.beam.hide();this.laserPath.visible=false;this.ultNext=local+every;
         }
         if(this.shots<waves && local>=this.ultNext){
           this.shots++;this.ultNext=local+every;this.ultLastWave=local;

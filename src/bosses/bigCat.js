@@ -3,7 +3,8 @@
 // Also: paw swipes, bouncing hairballs, a giant YARN BALL it bats across the arena,
 // CLAW SLASH shockwaves, a TAIL-WHIP SPIN, and phase-3 ZOOMIES (dashes until it collapses, dizzy).
 import * as THREE from 'three';
-import { Boss, makeMarker, dirTo, rotY, attachGlb, flamePart, spikePart } from './common.js';
+import { Boss, makeMarker, setMarkerRim, dirTo, rotY, attachGlb, flamePart, spikePart } from './common.js';
+import { styleLane } from './readability.js';
 import { autoRig, sstep, chain, segDist, blendPose } from './autorig.js';
 import { Entity } from '../entities/entity.js';
 import { Chaser } from '../entities/chaser.js';
@@ -259,6 +260,7 @@ export class BigCatBoss extends Boss {
     this.lane = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5), new THREE.MeshBasicMaterial({ color: 0xff3040, transparent: true, opacity: 0.35, depthWrite: false }));
     this.lane.visible = false;
     this.lane.renderOrder = 2;
+    styleLane(this.lane); // solid edges: plain red at 0.35 was lost on the orange sand
     stage.scene.add(this.lane);
     this.yaw = Math.PI;
     this.target = new THREE.Vector3();
@@ -504,6 +506,7 @@ export class BigCatBoss extends Boss {
           this.marker.visible = true;
           this.marker.position.set(this.pos.x, this.pos.y + 0.06, this.pos.z);
           this.marker.scale.setScalar(2.0 + Math.sin(this.stateT * 20) * 0.08);
+          setMarkerRim(this.marker, this.stateT / tele);
         } else if (this.stateT < tele + dur) {
           this.marker.visible = false;
           this.rig.pose('spin', dt);
@@ -583,7 +586,7 @@ export class BigCatBoss extends Boss {
           this.lane.position.set(this.pos.x, this.pos.y + 0.05, this.pos.z);
           this.lane.rotation.y = Math.atan2(this.dashTo.x - this.pos.x, this.dashTo.z - this.pos.z);
           this.lane.scale.set(1, 1, len);
-          this.lane.material.opacity = 0.25 + Math.sin(this.stateT * 25) * 0.12;
+          this.lane.material.opacity = 0.8 + Math.sin(this.stateT * 25) * 0.2;
           if (this.stateT > this.tele(0.5 / this.sp)) { this.dashState = 'go'; this.stateT = 0; this.dashFrom = this.pos.clone(); audio.play('pounce'); }
         } else {
           this.lane.visible = false;

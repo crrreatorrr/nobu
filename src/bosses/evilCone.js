@@ -5,7 +5,8 @@
 // PUMP.FUN minions launched in every phase (they pump up with each hop, then dump: explode),
 // and the rechargeable ultimate SHAME SUPERNOVA (spinning floor-laser spokes + cone rain).
 import * as THREE from 'three';
-import { Boss, makeMarker, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart, pullToward } from './common.js';
+import { Boss, makeMarker, setMarkerRim, dirTo, rotY, attachGlb, Beam, flamePart, glowPart, spikePart, pullToward } from './common.js';
+import { styleLane } from './readability.js';
 import { autoRig, sstep, chain, blendPose } from './autorig.js';
 import { Broccoli, PumpPill } from '../entities/enemies.js';
 import { toon } from '../player/nobuPrims.js';
@@ -167,6 +168,10 @@ export class EvilCone extends Boss {
         c.position.set(1.4 + i * 1.0, 0, 0);
         bar.add(c);
       }
+      // the strip of floor this arm sweeps (it hits within 0.5 m of its line, from 1 m to 12.6 m out)
+      const strip = styleLane(new THREE.Mesh(new THREE.PlaneGeometry(1, 11.6).rotateX(-Math.PI / 2).rotateY(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff5ad0, transparent: true, opacity: 0.85, depthWrite: false })));
+      strip.position.set(6.8, -0.42, 0);
+      bar.add(strip);
       bar.rotation.y = b * Math.PI;
       this.sweep.add(bar);
       this.bars.push(bar);
@@ -451,7 +456,7 @@ export class EvilCone extends Boss {
           this.sweep.rotation.y = this.sweepA;
           const k = this.stateT / tele;
           this.bars.forEach((b) => b.scale.set(k, 1, 1));
-          this.bars.forEach((b) => b.children.forEach((c) => c.material.emissive.setRGB(0.3 + Math.sin(this.stateT * 30) * 0.3, 0.05, 0.3)));
+          this.bars.forEach((b) => b.children.forEach((c) => c.material.emissive?.setRGB(0.3 + Math.sin(this.stateT * 30) * 0.3, 0.05, 0.3)));
         } else {
           const w = (this.phase === 2 ? 1.7 : 2.2) * (this.phase === 3 ? 1.1 : 1);
           this.sweep.rotation.y += w * dt;
@@ -541,6 +546,7 @@ export class EvilCone extends Boss {
           this.marker.visible = true;
           this.marker.position.set(this.grabT.x, ground + 0.06, this.grabT.z);
           this.marker.scale.setScalar(this.stateT > track ? 1.15 : 1 + Math.sin(this.stateT * 14) * 0.06);
+          setMarkerRim(this.marker, this.stateT / (track + lock));
           this.anim(dt, { armL: [0, 0, -1.2], armR: [0, 0, 1.4], squash: this.stateT > track ? 0.15 : 0 });
           if (!this.did) { this.did = true; audio.play('laugh'); }
         } else if (!this.slammed) {
@@ -594,6 +600,7 @@ export class EvilCone extends Boss {
             pos.x = damp(pos.x, T.x, 7, dt); pos.z = damp(pos.z, T.z, 7, dt); pos.y = damp(pos.y, ground + 7, 4, dt);
             mk.visible = true; mk.position.set(T.x, ground + 0.06, T.z);
             mk.scale.setScalar(this.stateT > track - 0.2 ? 1.15 : 1 + Math.sin(this.stateT * 14) * 0.06);
+            setMarkerRim(mk, this.stateT / t0);
           } else if (!(isMe ? this.slammed : o.slammed)) {
             pos.y -= 34 * dt;
             if (pos.y <= ground + 1.45) {

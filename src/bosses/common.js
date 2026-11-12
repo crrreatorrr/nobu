@@ -13,6 +13,7 @@ import { CageCover } from './arena.js';
 import { pullToward as pullBossToward } from './vortex.js';
 
 import { Assets } from '../art/assets.js';
+import { READ, addOutline, makeGroundRing, makeGroundShadow, markerFill } from './readability.js';
 
 // Scratch vectors for the per-frame projectile loop (no allocation per frame).
 const _pc = new THREE.Vector3();
@@ -35,9 +36,11 @@ export function attachGlb(parent, id, height, offsetY = 0, hideRoots = []) {
 }
 
 // ---------- telegraph marker ----------
-// Landing spots read as a soft ground shadow, not a red target: a subtle cue that darkens as the
-// threat arrives. One shared texture and one geometry per radius; only the material is per marker
-// because callers fade its opacity.
+// A landing spot is a soft ground shadow (it darkens as the threat arrives) under a gold ring that
+// ends exactly at the hit radius. The ring's band is sized in screen pixels (readability.js), so it is
+// as bold from the far arena cameras as from close up, and the fill inside it beats faster as the
+// impact nears. One shared texture and one shadow geometry per radius; materials are per marker
+// because callers fade them.
 let markerTex;
 const markerGeo = new Map();
 function markerTexture() {
@@ -49,32 +52,37 @@ function markerTexture() {
   return markerTex;
 }
 export const MARKER_OPACITY = 0.5;
-// The shadow says "something lands here"; the thin gold rim says where the hit radius ends. The rim
-// is unlit and ignores fog, so it also reads on a darkened floor (Titan's Lights Out).
-export const MARKER_RIM = Object.freeze({ color: 0xffd23f, inner: 0.92, start: 0.35, end: 0.9, fixed: 0.75 });
-const rimGeo = new Map();
+// The ring is unlit and ignores fog, so it also reads on a darkened floor (Titan's Lights Out).
+// `start`..`end` is its opacity over a countdown; `fixed` is for a marker that follows Nobu and locks.
+export const MARKER_RIM = Object.freeze({ color: READ.gold, start: 0.75, end: 1, fixed: 0.95 });
 export function makeMarker(radius = 1.5) {
   let geo = markerGeo.get(radius);
   if (!geo) { markerGeo.set(radius, geo = new THREE.PlaneGeometry(radius * 2, radius * 2)); geo.userData.shared = true; }
   const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: markerTexture(), color: 0x000000, transparent: true, opacity: MARKER_OPACITY, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }));
   m.rotation.x = -Math.PI / 2;
   m.renderOrder = 2;
-  let ring = rimGeo.get(radius);
-  if (!ring) { rimGeo.set(radius, ring = new THREE.RingGeometry(radius * MARKER_RIM.inner, radius, 40)); ring.userData.shared = true; }
-  const rim = new THREE.Mesh(ring, new THREE.MeshBasicMaterial({ color: MARKER_RIM.color, transparent: true, opacity: MARKER_RIM.fixed, depthWrite: false, fog: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const rim = makeGroundRing(radius, { flat: false, color: MARKER_RIM.color, opacity: MARKER_RIM.fixed });
   rim.position.z = 0.01; // local z is world up once the marker lies flat
-  rim.renderOrder = 3;
+  rim.userData.clockFill = true; // a steady beat until a countdown drives it (setMarkerRim)
   m.add(rim);
   m.userData.rim = rim;
+  m.userData.radius = radius;
   return m;
 }
-/** Rim opacity for a marker that counts down: k runs 0 → 1 over the delay. Boss-owned markers keep MARKER_RIM.fixed. */
+/**
+ * Ring opacity and fill for a marker that counts down: k runs 0 → 1 over the delay. Boss-owned
+ * markers that never call this keep MARKER_RIM.fixed and a steady beat.
+ */
 export function setMarkerRim(marker, k, { trueSize = false } = {}) {
   const rim = marker?.userData.rim;
   if (!rim) return;
-  rim.material.opacity = MARKER_RIM.start + (MARKER_RIM.end - MARKER_RIM.start) * Math.max(0, Math.min(1, k));
+  const t = Math.max(0, Math.min(1, k));
+  rim.material.opacity = MARKER_RIM.start + (MARKER_RIM.end - MARKER_RIM.start) * t;
+  rim.userData.clockFill = false;
+  rim.userData.fill = markerFill(t);
   // A shadow that grows as the object falls still shows the full hit radius from the first frame.
-  if (trueSize) rim.scale.setScalar(1 / (marker.scale.x || 1));
+  rim.userData.trueSize = trueSize;
+  if (trueSize) rim.scale.setScalar(marker.userData.radius / (marker.scale.x || 1));
 }
 
 // ---------- projectiles ----------
@@ -83,8 +91,22 @@ function pgeo() {
   if (PG.ready) return PG;
   Object.assign(PG, {
     ready: true,
-    feather: (() => { const g = new THREE.ConeGeometry(0.16, 1.0, 5); g.rotateX(Math.PI / 2); return g; })(),
+    // The feather is fatter than it was (0.16 → 0.24) so it is not a sliver from the arena camera. With
+    // FEATHER_SCALE it is still inside the 0.45 m hit radius.
+    feather: (() => { const g = new THREE.ConeGeometry(0.24, 1.0, 6); g.rotateX(Math.PI / 2); return g; })(),
     cone: (() => { const g = new THREE.CylinderGeometry(0.42, 0.14, 0.5, 14, 1, true); g.rotateX(Math.PI / 2); return g; })(),
+    // outline hulls: each shape a little larger, drawn back faces only (readability.js)
+    featherHull: new THREE.ConeGeometry(0.31, 1.2, 6).rotateX(Math.PI / 2),
+    coneHull: new THREE.CylinderGeometry(0.5, 0.21, 0.62, 14).rotateX(Math.PI / 2),
+    hairHull: new THREE.IcosahedronGeometry(0.5, 1),
+    rocketHull: new THREE.CylinderGeometry(0.19, 0.19, 1.16, 10).rotateX(Math.PI / 2).translate(0, 0, 0.13),
+    eggHull: new THREE.SphereGeometry(0.49, 16, 12).scale(1, 1.25, 1),
+    ballHull: new THREE.SphereGeometry(1.07, 18, 14),
+    ringHull: new THREE.TorusGeometry(1, 0.29, 6, 40),
+    debris: new THREE.BoxGeometry(0.35, 0.12, 0.5), debrisHull: new THREE.BoxGeometry(0.5, 0.27, 0.65),
+    clawLine: new THREE.PlaneGeometry(2.4, 0.5).rotateX(-Math.PI / 2),
+    mClawLine: new THREE.MeshBasicMaterial({ color: READ.ink, transparent: true, opacity: 0.5, depthWrite: false, fog: false }),
+    mScratchEdge: new THREE.MeshBasicMaterial({ color: READ.ink, transparent: true, opacity: 0.6, depthWrite: false, fog: false, side: THREE.DoubleSide }),
     bigCone: new THREE.CylinderGeometry(0.15, 1.1, 1.6, 16, 1, true),
     hairball: new THREE.IcosahedronGeometry(0.42, 1),
     ring: new THREE.TorusGeometry(1, 0.22, 6, 40),
@@ -109,6 +131,12 @@ function pgeo() {
 }
 
 export const FEATHER_SCALE = 1.6;
+/** Rockets are drawn this much larger; their hit radius is unchanged. */
+export const MISSILE_SCALE = 1.4;
+/** Small cone shots are drawn this much larger; their hit radius is unchanged. */
+export const CONE_SCALE = 1.25;
+// Kinds that fly above the floor get a shadow ring on the floor under them, the size of their hit radius.
+const AIRBORNE = new Set(['feather', 'cone', 'hairball', 'missile', 'egg']);
 
 export class Projectiles {
   constructor(game, stage) {
@@ -117,7 +145,22 @@ export class Projectiles {
     this.list = [];
   }
 
-  _add(p) { this.list.push(p); this.stage.scene.add(p.mesh); if (p.marker) this.stage.scene.add(p.marker); return p; }
+  _add(p) {
+    this.list.push(p); this.stage.scene.add(p.mesh); if (p.marker) this.stage.scene.add(p.marker);
+    if (AIRBORNE.has(p.kind)) {
+      // The arenas are flat, so the floor height is read once, where the shot starts.
+      const m = p.mesh.position;
+      const gy = p.groundY ?? this.stage.world?.groundBelow?.(m.x, m.y + 0.1, m.z) ?? -Infinity;
+      if (Number.isFinite(gy)) {
+        p.shadow = makeGroundShadow(p.r);
+        p.shadowY = gy + 0.04;
+        p.shadow.position.set(m.x, p.shadowY, m.z);
+        p.mesh.userData.groundShadow = p.shadow;
+        this.stage.scene.add(p.shadow);
+      }
+    }
+    return p;
+  }
 
   feather(pos, dir, speed = 11) {
     const G = pgeo();
@@ -125,6 +168,7 @@ export class Projectiles {
     mesh.position.copy(pos);
     mesh.lookAt(pos.clone().add(dir));
     mesh.scale.setScalar(FEATHER_SCALE); // drawn larger so it reads from the arena camera; the hit radius is unchanged
+    addOutline(mesh, G.featherHull);
     return this._add({ kind: 'feather', mesh, vel: dir.clone().multiplyScalar(speed), life: 3, r: 0.45, death: 'angel' });
   }
 
@@ -133,6 +177,8 @@ export class Projectiles {
     const mesh = new THREE.Mesh(G.cone, G.mCone);
     mesh.position.copy(pos);
     mesh.lookAt(pos.clone().add(dir));
+    mesh.scale.setScalar(CONE_SCALE);
+    addOutline(mesh, G.coneHull);
     return this._add({ kind: 'cone', mesh, vel: dir.clone().multiplyScalar(speed), life: 3.2, r: 0.5, death: 'cone', gravity });
   }
 
@@ -140,6 +186,7 @@ export class Projectiles {
     const G = pgeo();
     const mesh = new THREE.Mesh(G.hairball, G.mHair);
     mesh.position.copy(pos);
+    addOutline(mesh, G.hairHull);
     return this._add({ kind: 'hairball', mesh, vel: new THREE.Vector3(dir.x * speed, 5, dir.z * speed), life: 4, r: 0.5, death: 'angel', gravity: 20, groundY, bounce: true, biteable: true });
   }
 
@@ -162,6 +209,7 @@ export class Projectiles {
     const mesh = new THREE.Mesh(G.ring, G.mRing);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(x, y + 0.25, z);
+    addOutline(mesh, G.ringHull);
     audio.play('stomp');
     return this._add({ kind: 'wave', mesh, vel: new THREE.Vector3(), life: maxR / speed, r: 0.2, speed, R: 0.3, cx: x, cz: z, groundY: y, death: 'angel' });
   }
@@ -176,6 +224,8 @@ export class Projectiles {
     mesh.add(flame);
     mesh.position.copy(pos);
     mesh.lookAt(pos.clone().add(dir));
+    mesh.scale.setScalar(MISSILE_SCALE);
+    addOutline(mesh, G.rocketHull);
     audio.play('missile');
     return this._add({ kind: 'missile', mesh, flame, vel: dir.clone().normalize().multiplyScalar(speed), speed, turn, life, r: 0.42, death: 'puff', groundY, biteable: true, t: 0 });
   }
@@ -189,6 +239,7 @@ export class Projectiles {
     blink.position.set(0, 0.5, 0);
     mesh.add(shell, blink);
     mesh.position.copy(pos);
+    addOutline(mesh, G.eggHull, 0xfff4d6); // a dark shell, so a pale edge
     const marker = makeMarker(radius);
     marker.position.set(pos.x, groundY + 0.05, pos.z);
     marker.visible = false;
@@ -204,6 +255,7 @@ export class Projectiles {
     spin.add(new THREE.Mesh(G.ball, toon(color)));
     const dark = toon(new THREE.Color(color).offsetHSL(0, 0, -0.12).getHex());
     for (let i = 0; i < 5; i++) { const w = new THREE.Mesh(G.wrap, dark); w.rotation.set(rand(0, Math.PI), rand(0, Math.PI), rand(0, Math.PI)); spin.add(w); }
+    addOutline(spin, G.ballHull);
     spin.scale.setScalar(radius);
     mesh.add(spin);
     mesh.position.set(pos.x, groundY + radius, pos.z);
@@ -218,6 +270,11 @@ export class Projectiles {
     const d = dir.clone().setY(0).normalize();
     mesh.position.set(pos.x, groundY + 0.5, pos.z);
     mesh.rotation.y = Math.atan2(d.x, d.z);
+    // the slash skims half a metre up: a dark line on the floor under it shows where it is
+    const line = new THREE.Mesh(G.clawLine, G.mClawLine);
+    line.position.y = -0.46;
+    mesh.add(line);
+    mesh.userData.groundLine = line;
     audio.play('slash');
     return this._add({ kind: 'claw', mesh, vel: d.multiplyScalar(speed), dir: d.clone(), life, r: 1.2, groundY, death: 'angel' });
   }
@@ -225,8 +282,10 @@ export class Projectiles {
   coconut(pos, dir, o = {}) { return this.roller(pos, dir, { radius: 0.7, color: 0x7a4a22, life: 4, bound: 11.5, ...o }); }
   debris(pos, dir, speed = 10) {
     const pr = this.cone(pos, dir, speed);
-    pr.mesh.geometry = new THREE.BoxGeometry(0.35, 0.12, 0.5);
+    const G = pgeo();
+    pr.mesh.geometry = G.debris;
     pr.mesh.material = toon(0xd4c0a0);
+    pr.mesh.userData.outline.geometry = G.debrisHull;
     return pr;
   }
   falling(x, z, { kind = 'crate', groundY = 0, delay = 0.9, r = 1, onLand } = {}) {
@@ -251,15 +310,24 @@ export class Projectiles {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.35, length), new THREE.MeshBasicMaterial({ color: 0xff66bb, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
     mesh.rotation.set(-Math.PI / 2, 0, -Math.atan2(b.x - a.x, b.z - a.z));
     mesh.position.set((a.x + b.x) / 2, a.y + 0.03, (a.z + b.z) / 2);
+    // a dark edge on both sides, so the pink line reads on a pale or a warm floor
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.6, length + 0.25), pgeo().mScratchEdge);
+    edge.position.z = -0.012;
+    edge.renderOrder = -1;
+    mesh.add(edge);
+    mesh.userData.outline = edge;
     return this._add({ kind: 'scratch', mesh, a: a.clone(), b: b.clone(), life, groundY: a.y, death: 'angel' });
   }
   cableArc(pivot, len, a0, a1, w = 0.5, { life = 1, groundY = pivot.y } = {}) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, len), toon(0xffbb55));
+    // unlit and outlined: the cable has to read in Lights Out too
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, len), new THREE.MeshBasicMaterial({ color: 0xffbb55, fog: false }));
+    addOutline(mesh, new THREE.BoxGeometry(w + 0.16, 0.22, len + 0.16));
     return this._add({ kind: 'cable', mesh, pivot: pivot.clone(), len, a0, a1, width: w, life, duration: life, groundY, death: 'angel' });
   }
   slowHomer(pos, { dir = _want.set(0, 0, 1), ...o } = {}) {
     const pr = this.missile(pos, dir, { speed: 4.5, turn: 1.2, life: 5, ...o });
     pr.coned = true; pr.r = 0.32;
+    pr.shadow?.scale.setScalar(pr.r);
     return pr;
   }
   wakeRing(x, z, { groundY = 0, life = 5 } = {}) {
@@ -271,6 +339,7 @@ export class Projectiles {
   _remove(pr) {
     this.stage.scene.remove(pr.mesh);
     if (pr.marker) this.stage.scene.remove(pr.marker);
+    if (pr.shadow) this.stage.scene.remove(pr.shadow);
     if (pr.cover) {
       pr.cageCover.clear();
       const covers = this.stage.scene.userData.bossCover;
@@ -440,6 +509,10 @@ export class Projectiles {
         if (pr.life > 0 && pc.distanceTo(pr.mesh.position) < pr.r + 0.38) hit = true;
       }
       pr.cageCover?.update();
+      if (pr.shadow) {
+        pr.shadow.position.set(pr.mesh.position.x, pr.shadowY, pr.mesh.position.z);
+        if (pr.kind === 'egg') pr.shadow.visible = !pr.landed; // its blast marker takes over
+      }
       if (pr.kind === 'feather') {
         for (const cover of this.stage.scene.userData.bossCover || NO_COVER) {
           if (cover.enabled && segmentBoxTime(_previous, pr.mesh.position, cover) !== Infinity) { pr.life = 0; hit = false; break; }
@@ -472,9 +545,11 @@ export class Projectiles {
 }
 
 // ---------- laser beam (visor / eye lasers) ----------
+/** Radius in metres of the aiming line's core and glow (they were 0.015 and 0.04). */
+export const BEAM_AIM = Object.freeze({ core: 0.035, glow: 0.11 });
 // A glowing line from a source to a point on the floor; the hot spot on the floor burns.
 export class Beam {
-  constructor(scene, color = 0xff3050) {
+  constructor(scene, color = 0xff3050, { ring = true } = {}) {
     this.scene = scene;
     this.group = new THREE.Group();
     const unit = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true).translate(0, 0.5, 0).rotateX(Math.PI / 2);
@@ -482,6 +557,9 @@ export class Beam {
     this.glow = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
     this.spot = new THREE.Mesh(new THREE.CircleGeometry(0.7, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
     this.group.add(this.core, this.glow, this.spot);
+    // the edge of the burning spot, in pixels like a landing marker (hits() uses the same 0.75 m)
+    this.ring = ring ? makeGroundRing(0.75, { color: 0xfff0b0, fillColor: color, opacity: 0.95 }) : null;
+    if (this.ring) this.group.add(this.ring);
     this.group.visible = false;
     this.color = color;
     scene.add(this.group);
@@ -493,14 +571,20 @@ export class Beam {
     this.group.visible = true;
     this.from.copy(from); this.to.copy(to);
     const len = from.distanceTo(to);
-    for (const [m, w] of [[this.core, firing ? 0.07 : 0.015], [this.glow, firing ? 0.2 + Math.sin(t * 60) * 0.04 : 0.04]]) {
+    // The aiming line was 3 cm wide, under a pixel from the arena camera; it is now a visible line.
+    for (const [m, w] of [[this.core, firing ? 0.07 : BEAM_AIM.core], [this.glow, firing ? 0.2 + Math.sin(t * 60) * 0.04 : BEAM_AIM.glow]]) {
       m.position.copy(from);
       m.lookAt(to);
       m.scale.set(w, w, len);
     }
-    this.glow.material.opacity = firing ? 0.6 : 0.3 + Math.sin(t * 30) * 0.15;
+    this.glow.material.opacity = firing ? 0.6 : 0.45 + Math.sin(t * 30) * 0.15;
     this.spot.position.set(to.x, to.y + 0.04, to.z);
     this.spot.scale.setScalar(firing ? 1 + Math.sin(t * 40) * 0.12 : 0.5);
+    if (this.ring) {
+      this.ring.position.set(to.x, to.y + 0.05, to.z);
+      this.ring.material.opacity = firing ? 1 : 0.8;
+      this.ring.userData.fill = firing ? 0.45 : 0.2 + Math.sin(t * 30) * 0.1;
+    }
   }
   hide() { this.group.visible = false; }
   // true when Nobu stands in the hot spot (jumping clears it)

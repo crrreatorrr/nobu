@@ -1,3 +1,4 @@
+import { arenaCamera } from './arenaCameras.js';
 import * as THREE from 'three';
 import { makeKit } from './kit.js';
 import { buildQueenArena } from '../bosses/queenArena.js';
@@ -10,7 +11,10 @@ export function buildBoss5Arena(game, stage, tickets) {
     ...parts,
     spawn: new THREE.Vector3(0, 0, 11.7),
     facing: Math.PI,
-    camera: { mode: 'arena', center: new THREE.Vector3(), offset: { x: 0, y: 15, z: 19 }, follow: 0.4 },
+    camera: arenaCamera('queen'),
+    // The Queen stands in the middle of the frame all fight, with her head and crown where the boss bar
+    // usually is, so here the bar sits at the top left instead (plan F3).
+    bossBar: 'left',
     spheres: [
       new THREE.Vector3(-11.7, 0, 11.7),
       new THREE.Vector3(11.7, 0, 11.7),

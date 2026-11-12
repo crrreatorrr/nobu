@@ -2,7 +2,10 @@
 //
 //   node tools/playtest.mjs [suite ...] [--url http://localhost:5173/play/nobu/] [--out dir]
 //
-// Suites: physics, respawn, tutorials, framing, markers, layout. No suite names runs them all.
+// Suites: physics, respawn, tutorials, framing, markers, layout, attacks. No suite names runs them all.
+// `attacks` forces every boss attack and takes a frame at the first moment of its tell, at mid-tell and
+// just after it goes live, measuring marker ring width, projectile size and Nobu's height in pixels and
+// whether every threat is in frame. Narrow it with --boss 1..5 and --only <attack>; --sizes 960x540,1280x720,1024x768.
 // Without --url it starts its own Vite dev server on --port (default 5403) and stops it at the end.
 // Screenshots go to --out (default tools/_raw/playtest, which is git-ignored).
 //
@@ -21,12 +24,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
-const SUITES = ['physics', 'respawn', 'tutorials', 'framing', 'markers', 'layout'];
+const SUITES = ['physics', 'respawn', 'tutorials', 'framing', 'markers', 'layout', 'attacks'];
 const args = process.argv.slice(2);
 const opt = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args.splice(i, 2)[1] : fallback; };
 const port = Number(opt('port', 5403));
 const givenUrl = opt('url', null);
 const outDir = path.resolve(opt('out', 'tools/_raw/playtest'));
+const onlyBoss = opt('boss', null);
+const onlyAttack = opt('only', null);
+const sizes = opt('sizes', '960x540').split(',').map((v) => v.split('x').map(Number));
+const noShots = args.includes('--no-shots') && !!args.splice(args.indexOf('--no-shots'), 1);
 const wanted = args.length ? args : SUITES;
 for (const name of wanted) if (!SUITES.includes(name)) { console.error(`Unknown suite "${name}". Suites: ${SUITES.join(', ')}`); process.exit(2); }
 
@@ -55,10 +62,13 @@ function installStepper() {
   g.last = simNow;
   setInterval(() => {
     now = performance.now();
+    if (pt.hold) { simNow = now; return; }
     // Stay in step with the wall clock; after a long stall, drop the backlog instead of racing.
     if (now - simNow > 250) simNow = now - STEP;
     while (simNow + STEP <= now) { simNow += STEP; loop(simNow, true); }
   }, 4);
+  /** With pt.hold set the wall-clock stepper stands still; this steps the simulation by hand, as fast as it will go. */
+  pt.advance = (sec) => { for (let n = Math.round(sec * 60); n > 0; n--) { simNow += STEP; loop(simNow, true); } };
   pt.record = (on) => { pt.recording = on; if (on) pt.samples = []; return pt.samples; };
   pt.renderFrame = () => { render(); };
   pt.key = (code, type) => window.dispatchEvent(new KeyboardEvent(type, { code }));
@@ -360,6 +370,41 @@ const SUITE = {
     return out;
   },
 
+  // Every boss attack at the first moment of its tell, at mid-tell and just after it goes live:
+  // marker ring width, projectile size and Nobu's height in pixels, HUD overlap and framing.
+  async attacks(ctx) {
+    const out = {};
+    for (const level of [1, 2, 3, 4, 5]) {
+      if (onlyBoss && Number(onlyBoss) !== level) continue;
+      await ctx.eval(() => { window.__pt.hold = false; });
+      await ctx.go(level, { god: true });
+      await ctx.boss();
+      await ctx.eval(() => { window.__pt.hold = true; });
+      const res = out[`boss${level}`] = {};
+      for (const [vw, vh] of sizes) {
+        await ctx.page.setViewportSize({ width: vw, height: vh });
+        await sleep(200);
+        for (const [name, phase, tell, opts = {}] of ATTACKS[level]) {
+          if (onlyAttack && onlyAttack !== name) continue;
+          const key = `${name}@${vw}x${vh}`;
+          await ctx.eval(beginBossAttack, { name, phase, opts: { ...opts, stay: level === 5 } }); // the Queen's floor is pillars: Nobu stays on the rim
+          const frames = {};
+          let t = 0;
+          for (const [label, at] of [['start', 1 / 60], ['mid', tell / 2], ['live', tell + (opts.live ?? 0.3)]]) {
+            await ctx.eval((sec) => window.__pt.advance(sec), at - t); t = at;
+            await ctx.eval(() => window.__pt.renderFrame()); // the marker and ring sizes are set as they are drawn
+            frames[label] = await ctx.eval(measureThreats);
+            if (!noShots && vw === sizes[0][0]) frames[label].shot = path.basename(await ctx.shot(`attack-boss${level}-${name}-${label}-${vw}x${vh}`));
+          }
+          res[key] = frames;
+        }
+      }
+      await ctx.page.setViewportSize({ width: 960, height: 540 });
+    }
+    out.summary = summarise(out);
+    return out;
+  },
+
   // Bounding boxes at 960x540: title logo against menu, banner against tutorial card (plan A5).
   async layout(ctx) {
     const out = {};
@@ -393,6 +438,124 @@ const SUITE = {
     return out;
   },
 };
+
+// [attack, stage, tell seconds (plan section 4, "Boss attack reference"), options]. `live` is how long
+// after the tell the third frame is taken.
+const ATTACKS = {
+  1: [['aim', 1, 0.99, { live: 0.05 }], ['volley', 1, 0.51], ['gust', 1, 0.72], ['perch', 1, 0.45, { live: 1.2 }], ['laser', 2, 0.55, { live: 0.5 }],
+    ['cage', 2, 1.14, { live: -0.2 }], ['missiles', 3, 0.47, { live: 0.6 }], ['eggs', 3, 0.40, { live: 1.4 }], ['bomb', 3, 0.47, { live: 0.6 }], ['ultimate', 1, 1.35, { live: 0.5 }]],
+  2: [['swipe', 1, 0.41, { live: 0.05 }], ['cough', 1, 0.56], ['pounce', 1, 0.71, { live: 0.9 }], ['yarn', 1, 0.56, { live: 0.6 }], ['dot', 1, 0.8], ['claws', 2, 0.52],
+    ['tailspin', 2, 0.42, { live: 0.1 }], ['table', 2, 0.8], ['zoomies', 3, 0.40, { live: 0.05 }], ['frenzy', 1, 1.12, { live: 0.3 }]],
+  3: [['barrage', 1, 0.42], ['spiral', 1, 0.57, { live: 0.8 }], ['shock', 1, 0.40], ['drops', 1, 0.63, { live: 0.4 }], ['shame', 1, 0.66], ['sweep', 2, 0.72], ['lasers', 2, 0.64, { live: 0.8 }],
+    ['vortex', 2, 0.48, { live: 0.8 }], ['grab', 2, 1.0, { live: 0.2 }], ['clones', 3, 0.77, { live: 0.3 }], ['rugpull', 2, 0.72], ['tide', 3, 0.84], ['ultimate', 1, 1.39, { live: 0.6 }]],
+  4: [['charge', 1, 0.78, { live: 0.1 }], ['cable', 1, 0.70, { live: 0.2 }], ['suction', 2, 0.53], ['recharge', 2, 0.66, { live: 0.1 }], ['stomp', 3, 0.68, { live: 0.1, dark: true }], ['ultimate', 1, 1.4, { live: 0.6 }]],
+  5: [['mint', 1, 0.61], ['wave', 1, 0.5], ['pump', 1, 1.06], ['fomo', 2, 0.67], ['airdrop', 2, 1.5, { live: 1.0 }], ['crash', 3, 0.66], ['liquidation', 4, 1.0], ['wake', 4, 0.62, { live: 1.6 }], ['ultimate', 1, 1.5, { live: 1 }]],
+};
+
+/** Page side: put the fight in a known state and start one attack. */
+function beginBossAttack({ name, phase, opts }) {
+  const g = window.__nobu, s = g.session, boss = s.boss, p = g.player;
+  s.projectiles?.clear?.();
+  boss.onResetPhase?.();
+  if (boss.phase !== phase) { boss.phase = phase; boss.arena?.setPhase?.(phase, true); }
+  boss.charge = 0;
+  boss.clearChain?.();
+  const y = p.pos.y;
+  if (!opts.stay) p.pos.set(opts.px ?? 0, y, opts.pz ?? 4);
+  p.vel.set(0, 0, 0); p.root.position.copy(p.pos);
+  if (boss.home) boss.pos.copy(boss.home);
+  if (opts.dark) boss.arena.darken();
+  if (name === 'frenzy') { boss.setState('frenzy'); boss.did = false; boss.fz = 'charge'; }
+  else boss.beginAttack(name);
+  g.camera.snap(p);
+}
+
+/** Page side: pixel sizes of everything that must be readable in the frame as it stands. */
+async function measureThreats() {
+  const g = window.__nobu, s = g.session, boss = s.boss, p = g.player, pt = window.__pt;
+  const THREE_V = p.pos.constructor;
+  const { collectThreats } = await import('/play/nobu/src/bosses/threats.js');
+  const W = window.innerWidth, H = window.innerHeight;
+  const r1 = (v) => Math.round(v * 10) / 10;
+  // Like pt.box, but see-through meshes count too (cone shots and claw slashes are translucent).
+  const anyBox = (obj) => {
+    const min = new THREE_V(Infinity, Infinity, Infinity), max = new THREE_V(-Infinity, -Infinity, -Infinity), v = new THREE_V();
+    obj.updateMatrixWorld(true);
+    obj.traverseVisible((o) => {
+      if (!o.isMesh || !o.geometry?.attributes?.position || o === obj.userData.groundLine) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const g = o.geometry.boundingBox;
+      for (const x of [g.min.x, g.max.x]) for (const y of [g.min.y, g.max.y]) for (const z of [g.min.z, g.max.z]) { v.set(x, y, z).applyMatrix4(o.matrixWorld); min.min(v); max.max(v); }
+    });
+    return { min, max };
+  };
+  const screenBox = (obj, all = false) => {
+    const b = all ? anyBox(obj) : pt.box(obj);
+    if (!Number.isFinite(b.min.x)) return null;
+    let l = Infinity, r = -Infinity, t = Infinity, bt = -Infinity;
+    for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
+      const q = pt.project(x, y, z); l = Math.min(l, q.x); r = Math.max(r, q.x); t = Math.min(t, q.y); bt = Math.max(bt, q.y);
+    }
+    return { left: l, right: r, top: t, bottom: bt };
+  };
+  const nobu = screenBox(p.root);
+  const markers = [];
+  const c = new THREE_V(), sc = new THREE_V();
+  for (const o of g.stage.scene.children) {
+    const rim = o.userData.rim;
+    if (!rim || !o.visible) continue;
+    o.getWorldPosition(c); rim.getWorldScale(sc);
+    const outer = (rim.userData.radius ?? rim.geometry.parameters.outerRadius) * sc.x;
+    // The harness reads the ring's world width where the code keeps it; before that existed it was 8% of the radius.
+    const width = rim.userData.ringWorld ?? outer * (1 - rim.geometry.parameters.innerRadius / rim.geometry.parameters.outerRadius);
+    let min = Infinity, max = 0;
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a);
+      const A = pt.project(c.x + dx * outer, c.y, c.z + dz * outer), B = pt.project(c.x + dx * (outer - width), c.y, c.z + dz * (outer - width));
+      const px = Math.hypot(A.x - B.x, A.y - B.y); min = Math.min(min, px); max = Math.max(max, px);
+    }
+    const e = pt.project(c.x - outer, c.y, c.z), f = pt.project(c.x + outer, c.y, c.z);
+    markers.push({ r: r1(outer), ringPxMin: r1(min), ringPxMax: r1(max), widthPx: r1(Math.abs(f.x - e.x)), rimOpacity: r1(rim.material.opacity ?? rim.material.uniforms?.uOpacity?.value ?? 0), fill: r1(rim.userData.fill ?? 0) });
+  }
+  const projectiles = [];
+  for (const pr of s.projectiles?.list || []) {
+    if (!pr.mesh.visible || pr.kind === 'wave') continue;
+    const was = pr.mesh.userData.groundShadow?.visible; // measure the object itself, not its shadow
+    const b = screenBox(pr.mesh, true);
+    if (!b) continue;
+    projectiles.push({ kind: pr.kind, wPx: r1(b.right - b.left), hPx: r1(b.bottom - b.top), outlined: !!pr.mesh.userData.outline, groundShadow: !!was });
+  }
+  const set = collectThreats({ player: p, boss, projectiles: s.projectiles, scene: g.stage.scene });
+  const off = [];
+  for (let i = 0; i < set.n; i++) {
+    const q = pt.project(set.xyz[i * 3], set.xyz[i * 3 + 1], set.xyz[i * 3 + 2]);
+    if (q.behind || q.x < 0 || q.x > W || q.y < 0 || q.y > H) off.push(`${set.kinds[i]}(${Math.round(q.x)},${Math.round(q.y)})`);
+  }
+  const barEl = document.getElementById('bossbar'), bar = barEl.getBoundingClientRect();
+  const bb = screenBox(boss.obj);
+  const overBar = !!bb && bb.right > bar.left && bb.left < bar.right && bb.bottom > bar.top && bb.top < bar.bottom;
+  return { state: boss.state, nobuPx: nobu ? r1(nobu.bottom - nobu.top) : null, nobuPct: nobu ? r1((nobu.bottom - nobu.top) / H * 100) : null,
+    fov: r1(g.camera.cam.fov), zoom: +(g.camera.fitZoom ?? 1).toFixed(2), markers, projectiles, offFrame: off,
+    bossTopPx: bb ? Math.round(bb.top) : null, barBottomPx: Math.round(bar.bottom), barHeightPx: Math.round(bar.height), bossBehindBar: overBar,
+    barGhost: barEl.classList.contains('ghost'), barLeftPx: Math.round(bar.left), barRightPx: Math.round(bar.right), nobuRing: !!g.stage.scene.getObjectByName('nobu-ring')?.visible };
+}
+
+/** Smallest sizes per boss across every frame taken. */
+function summarise(out) {
+  const sum = {};
+  for (const [boss, attacks] of Object.entries(out)) {
+    const m = { ringPxMin: Infinity, projectileMinPx: {}, nobuPx: [Infinity, 0], offFrame: [], behindBarOpaque: [] };
+    for (const [key, frames] of Object.entries(attacks)) for (const [label, f] of Object.entries(frames)) {
+      for (const k of f.markers) m.ringPxMin = Math.min(m.ringPxMin, k.ringPxMin);
+      for (const pr of f.projectiles) m.projectileMinPx[pr.kind] = Math.min(m.projectileMinPx[pr.kind] ?? Infinity, Math.min(pr.wPx, pr.hPx));
+      if (f.nobuPx) { m.nobuPx[0] = Math.min(m.nobuPx[0], f.nobuPx); m.nobuPx[1] = Math.max(m.nobuPx[1], f.nobuPx); }
+      if (f.offFrame.length) m.offFrame.push(`${key}/${label}: ${f.offFrame.join(' ')}`);
+      if (f.bossBehindBar && !f.barGhost && label !== 'live') m.behindBarOpaque.push(`${key}/${label}`);
+    }
+    sum[boss] = m;
+  }
+  return sum;
+}
 
 /** Rise, air time and horizontal air distance of the first airborne stretch in a sample list. */
 function airStats(samples) {

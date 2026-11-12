@@ -183,8 +183,11 @@ export class UI {
   hideHud() { for (const s of Object.values(this.slots)) { s.timer = 0; s.el.classList.remove('show'); } }
 
   // ---------- boss bar ----------
-  bossShow(name, portrait, stages = 3) {
+  // `dock` moves the bar off the top centre for an arena whose boss stands there all fight ('left').
+  bossShow(name, portrait, stages = 3, dock = null) {
     this.bossStages = stages;
+    this.boss.classList.toggle('dock-left', dock === 'left');
+    this._barRect = null;
     this.boss.querySelector('img').src = Assets.url(portrait);
     this.boss.querySelector('.bb-name').textContent = name;
     this.bossHp(1, 1);
@@ -203,14 +206,17 @@ export class UI {
   /**
    * The bar goes see-through while the boss itself is drawn behind it (a wind-up at the top of the
    * frame). x and y are the boss's viewport position, 0..1; `on` is false when it is off screen.
+   * With y2, the boss spans y..y2 on screen (feet to head), and with halfW it is that wide either side
+   * of x (wings); any part of that behind the bar counts.
    */
-  bossGhost(on, x = 0, y = 0) {
+  bossGhost(on, x = 0, y = 0, y2 = y, halfW = 0) {
     let ghost = false;
     if (on && this.boss.classList.contains('show')) {
       this._barRectAge = (this._barRectAge || 0) + 1;
       if (!this._barRect || this._barRectAge > 30) { this._barRect = this.boss.getBoundingClientRect(); this._barRectAge = 0; }
-      const r = this._barRect, px = x * window.innerWidth, py = y * window.innerHeight;
-      ghost = r.width > 0 && px > r.left - BOSS_GHOST_PAD && px < r.right + BOSS_GHOST_PAD && py > r.top - BOSS_GHOST_PAD && py < r.bottom + BOSS_GHOST_PAD;
+      const r = this._barRect, px = x * window.innerWidth, hw = halfW * window.innerWidth;
+      const top = Math.min(y, y2) * window.innerHeight, bottom = Math.max(y, y2) * window.innerHeight;
+      ghost = r.width > 0 && px + hw > r.left - BOSS_GHOST_PAD && px - hw < r.right + BOSS_GHOST_PAD && bottom > r.top - BOSS_GHOST_PAD && top < r.bottom + BOSS_GHOST_PAD;
     }
     if (ghost !== !!this._barGhost) { this._barGhost = ghost; this.boss.classList.toggle('ghost', ghost); }
   }

@@ -2,8 +2,71 @@
 // and a cinematic mode for intros/defeats. Exposes a camera-relative movement basis for the player.
 import * as THREE from 'three';
 import { damp, rand } from '../core/util.js';
+import { PointSet } from '../bosses/threats.js';
 
 const _v = new THREE.Vector3();
+const _fitSet = new PointSet();
+
+// Arena fit (boss fights). The authored arena cameras show the whole floor when Nobu is at the centre
+// or the near edge, but they pan with him, so a threat on the far side of him can be out of frame, and
+// a boss that rears up high is cut off at the top. With `opts.fit` set, the lens widens, at once and
+// only as far as needed (down to minZoom), the moment Nobu, the boss or an active threat would not be
+// inside the frame, and eases back when they are. It never goes tighter than the authored lens, so it
+// never hides floor the authored camera shows. (A version that also tightened toward the action made
+// Nobu 1.2x taller but hid 1.2 to 3.3 m more of the near floor; see the plan's status section.)
+// Only the field of view changes; the camera's position and aim, and so the movement basis, are
+// exactly the authored ones.
+//   opts.fit = { half, halfZ?, baseFov?, collect(pointSet) }
+// `half` is the floor's half-width (and half-depth unless halfZ is given) around opts.center.
+// collect() adds the points to frame (src/bosses/threats.js).
+export const ARENA_FIT = Object.freeze({
+  margin: 0.9, // Nobu, markers, projectiles and lanes stay inside this fraction of the frame
+  reachMargin: 0.97, // the floor around Nobu
+  bossMargin: 0.97, // the boss, whose top is high in the frame when it flies
+  maxIn: 1, // never tighter than the authored lens: tightening hides floor
+  minZoom: 0.82, // never wider than this times the authored lens
+  inRate: 0.1, // easing back per second, as a fraction of the authored lens; widening is immediate
+  cineRate: 3, // ease back to the authored lens during a cinematic
+});
+const FIT_MARGIN = { reach: ARENA_FIT.reachMargin, boss: ARENA_FIT.bossMargin };
+// Kept in frame while that costs nothing, but never a reason to go wider than the authored lens: the
+// floor around Nobu, and the far end of a lane (the wall a charge will hit).
+const FIT_SOFT = { reach: true, lane: true };
+
+/**
+ * The smallest tan(fov / 2) at which every point is inside the frame of `cam` as it stands, each with
+ * its margin. Points behind the camera cannot be framed and are skipped. `cam.matrixWorldInverse`
+ * must be current. Soft points (see FIT_SOFT) ask for no more than `softCap`.
+ */
+export function requiredTan(cam, set, softCap = Infinity) {
+  let need = 0;
+  const e = cam.matrixWorldInverse.elements, a = cam.aspect, xyz = set.xyz;
+  for (let i = 0; i < set.n; i++) {
+    const x = xyz[i * 3], y = xyz[i * 3 + 1], z = xyz[i * 3 + 2];
+    const depth = -(e[2] * x + e[6] * y + e[10] * z + e[14]);
+    if (depth < 0.5) continue;
+    const cx = Math.abs(e[0] * x + e[4] * y + e[8] * z + e[12]), cy = Math.abs(e[1] * x + e[5] * y + e[9] * z + e[13]);
+    const m = FIT_MARGIN[set.kinds[i]] ?? ARENA_FIT.margin;
+    let t = Math.max(cy, cx / a) / (depth * m);
+    if (t > softCap && FIT_SOFT[set.kinds[i]]) t = softCap;
+    if (t > need) need = t;
+  }
+  return need;
+}
+
+/** Fills `set` with what an arena fit must frame, each point pulled in to the edge of the floor. */
+export function fitPoints(opts, set) {
+  const fit = opts.fit, c = opts.center, cx = c?.x ?? 0, cz = c?.z ?? 0;
+  const hx = fit.half ?? Infinity, hz = fit.halfZ ?? hx;
+  set.clear();
+  fit.collect?.(set);
+  // A marker or a lane may run past the edge of the floor; only the part on the floor has to show.
+  for (let i = 0; i < set.n; i++) {
+    set.xyz[i * 3] = Math.min(cx + hx, Math.max(cx - hx, set.xyz[i * 3]));
+    set.xyz[i * 3 + 2] = Math.min(cz + hz, Math.max(cz - hz, set.xyz[i * 3 + 2]));
+  }
+  return set;
+}
 
 // Right-stick camera peek. The authored framing stays in charge: the stick swings the camera
 // around its look point by at most these angles (radians) and it eases back when released.
@@ -45,6 +108,34 @@ export class GameCamera {
     this.switchT = 0;
     this.peekInput = [0, 0]; // set each play frame from the right stick
     this.peek = { yaw: 0, pitch: 0 };
+    this._fit = null; // arena fit state: { opts, base, tan }
+  }
+
+  /** How wide the arena fit is right now: 1 is the authored lens, below 1 is wider. */
+  get fitZoom() { return this._fit ? this._fit.base / this._fit.tan : 1; }
+
+  // Runs last, on the camera as it will be drawn (after shake and peek).
+  _fitLens(dt, player, snap = false) {
+    const o = this.opts, cam = this.cam, fit = this.mode === 'arena' ? o.fit : null;
+    if (!fit?.collect) { this._fit = null; return; }
+    let st = this._fit;
+    if (!st || st.opts !== o) {
+      // The authored lens: the session records it on the fit when it sets the arena's field of view.
+      const t = Math.tan((fit.baseFov ?? cam.fov) * Math.PI / 360);
+      st = this._fit = { opts: o, base: t, tan: t };
+    }
+    if (this.cine || !player) {
+      st.tan = snap ? st.base : damp(st.tan, st.base, ARENA_FIT.cineRate, dt);
+    } else {
+      cam.updateMatrixWorld();
+      const set = fitPoints(o, _fitSet);
+      const lo = st.base / ARENA_FIT.maxIn, hi = st.base / ARENA_FIT.minZoom;
+      const want = Math.min(hi, Math.max(lo, requiredTan(cam, set, st.base)));
+      // Never tighter than needed, even for one frame; easing back is slow so the lens does not pump.
+      st.tan = snap || want >= st.tan ? want : Math.max(want, st.tan - ARENA_FIT.inRate * st.base * dt);
+    }
+    const fov = Math.atan(st.tan) * 360 / Math.PI;
+    if (Math.abs(fov - cam.fov) > 1e-4) { cam.fov = fov; cam.updateProjectionMatrix(); }
   }
 
   setMode(mode, opts = {}, blend = 0.6) {
@@ -170,6 +261,7 @@ export class GameCamera {
     this.pos.copy(t.pos);
     this.look.copy(t.look);
     this._apply(0, player);
+    this._fitLens(0, player, true);
   }
 
   update(dt, player) {
@@ -208,6 +300,7 @@ export class GameCamera {
     }
     stepPeek(this.peek, this.cine || !player ? null : this.peekInput, dt);
     this._applyPeek(player);
+    this._fitLens(dt, player);
   }
 
   // Swing the rendered camera around the look point. Runs after the movement basis is taken.

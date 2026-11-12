@@ -119,7 +119,7 @@ export class PumpQueen extends Boss {
     this.crownPoint = new THREE.Vector3();
     this.beamFrom = new THREE.Vector3();
     this.beamTo = new THREE.Vector3();
-    this.beam = new Beam(stage.scene, 0x4aff8a);
+    this.beam = new Beam(stage.scene, 0x4aff8a, { ring: false }); // a tractor beam on Nobu, not a spot on the floor
     this.CHAINS = QUEEN_CHAINS;
     this.plan = [];
     this.minions = [];

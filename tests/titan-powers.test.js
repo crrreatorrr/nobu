@@ -280,11 +280,11 @@ describe('Titan actual attack states', () => {
     for (const pr of legs) {
       const rim = pr.marker.userData.rim;
       expect(pr.marker.visible).toBe(true);
-      expect(rim.material.isMeshBasicMaterial).toBe(true); // unlit: the dimmed sun does not reach it
+      expect(rim.material.isShaderMaterial && rim.material.lights === false).toBe(true); // unlit: the dimmed sun does not reach it
       expect(rim.material.fog).toBe(false);
-      expect(rim.material.color.getHex()).not.toBe(0x000000);
-      expect(rim.material.color.getHSL({}).l).toBeGreaterThan(0.5);
-      expect(rim.material.opacity).toBeGreaterThanOrEqual(0.35);
+      expect(rim.material.uniforms.uColor.value.getHex()).not.toBe(0x000000);
+      expect(rim.material.uniforms.uColor.value.getHSL({}).l).toBeGreaterThan(0.5);
+      expect(rim.material.opacity).toBeGreaterThanOrEqual(0.75);
     }
   });
   it('finishestotalvacuumwithfullbonuswindowandresetcannotleaveitlocked', () => {

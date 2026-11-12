@@ -84,8 +84,16 @@ function updateBossBar(game, s) {
   const boss = s.boss, cam = game.camera?.cam, ui = game.ui;
   if (!ui?.bossGhost) return;
   if (!boss?.active || boss.defeated || !boss.pos || !cam?.isCamera) { ui.bossGhost(false); return; }
-  _bossProbe.copy(boss.pos); _bossProbe.y += 1.5; _bossProbe.project(cam);
-  ui.bossGhost(_bossProbe.z < 1, (_bossProbe.x + 1) / 2, (1 - _bossProbe.y) / 2);
+  // Feet to head: a tall boss (the Queen) or one that rears up (the Bird) is behind the bar with its
+  // head long before its middle is.
+  const base = boss.pos.y + (boss.size?.oy ?? 0), height = Math.max(1.5, boss.size?.h ?? 1.5);
+  _bossProbe.copy(boss.pos); _bossProbe.y = base; _bossProbe.project(cam);
+  const x = (_bossProbe.x + 1) / 2, y = (1 - _bossProbe.y) / 2, front = _bossProbe.z < 1;
+  _bossProbe.copy(boss.pos); _bossProbe.y = base + height; _bossProbe.project(cam);
+  const top = (1 - _bossProbe.y) / 2, ok = front && _bossProbe.z < 1;
+  // half its width on screen (the arena cameras look down -z, so world x is screen x)
+  _bossProbe.copy(boss.pos); _bossProbe.x += (boss.size?.w ?? 0) / 2; _bossProbe.y = base + height; _bossProbe.project(cam);
+  ui.bossGhost(ok, x, y, top, Math.abs((_bossProbe.x + 1) / 2 - x));
 }
 
 export class Game {
