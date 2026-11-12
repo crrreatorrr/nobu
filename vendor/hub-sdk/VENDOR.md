@@ -1,8 +1,8 @@
 # Vendored @metaverse/hub-sdk
 
 - repo: https://github.com/crrreatorrr/metaverse-hub
-- branch: claude/nifty-einstein-ptgr08
-- sha: 5099cb5
+- branch: main
+- sha: c6627e5
 - package: packages/hub-sdk @ 0.7.2
 - built with: `node scripts/vendor-sdk.mjs`
 - iife: dist/hub-sdk.iife.js (global HubSDK; classic script, not a CDN import)
@@ -48,6 +48,4 @@ Re-sync this tree to hub main whenever packages/hub-sdk changes. Hub main includ
 
 0.7.1 adds the optional `tickets` field to `EventResult` (Tickets the server credited for an event). NOBU does not read it yet.
 
-0.7.2 fixes the feedback screenshot, which used to copy only the game canvas, so reports showed the 3D scene without the menus, HUD or pause panel. The window now draws the page's HTML over the canvases (`dist/pageShot.js`, using modern-screenshot 4.7.0, MIT, vendored as `dist/third_party/modern-screenshot.js` and loaded on demand). NOBU's adapter keeps `canvases: () => [game.canvas]` and passes no `overlay`, so the HTML is drawn. From the canvas copy until the window opens, the game draws no new frame (`game.still`): in a software renderer a frame took about a second and starved the HTML's font and image fetches, which the SDK limits to 1 s each. `index.html` loads the Google Fonts stylesheet with `crossorigin="anonymous"`, or the screenshot's text falls back to a system font. This tree was vendored from the hub branch `claude/nifty-einstein-ptgr08` at 5099cb5, which is not merged to hub main yet.
-
-After the hub PR merges, re-vendor from hub main. Only this header changes if packages/hub-sdk did not.
+0.7.2 fixes the feedback screenshot, which used to copy only the game canvas, so reports showed the 3D scene without the menus, HUD or pause panel. The window now draws the page's HTML over the canvases (`dist/pageShot.js`, using modern-screenshot 4.7.0, MIT, vendored as `dist/third_party/modern-screenshot.js` and loaded on demand). NOBU's adapter keeps `canvases: () => [game.canvas]` and passes no `overlay`, so the HTML is drawn. From the canvas copy until the window opens, the game draws no new frame (`game.still`): in a software renderer a frame took about a second and starved the HTML's font and image fetches, which the SDK limits to 1 s each. `index.html` loads the Google Fonts stylesheet with `crossorigin="anonymous"`, or the screenshot's text falls back to a system font. This tree was vendored from hub main `c6627e5` (`c6627e51585a7c0e8006122af54e0e413ca91876`) after metaverse-hub#183 merged as `bb0017c`. Hub #185 is on that main and does not change `packages/hub-sdk`, so the built files match the earlier 5099cb5 pin apart from this header.
