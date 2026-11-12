@@ -121,6 +121,11 @@ export class Game {
     this.crash = crashGuard;
     /** True while the feedback window is open: nothing updates, whatever the state. See hold(). */
     this.held = false;
+    /**
+     * True while the feedback screenshot is taken (src/hub/feedback.js): like held, and the frame on
+     * screen is not drawn again either, so the page's HTML is copied without a game frame in between.
+     */
+    this.still = false;
     /** Feedback handle (src/hub/feedback.js), set by main.js. Absent in tests. */
     this.feedback = null;
     window.addEventListener('resize', () => this.resize());
@@ -187,10 +192,11 @@ export class Game {
         const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
         this.last = now;
         input.poll();
-        if (this.held) {
-          // Feedback window open: keep the picture, drop every press, advance nothing.
+        if (this.held || this.still) {
+          // Feedback window open: keep the picture, drop every press, advance nothing. While its
+          // screenshot is taken the canvas keeps the frame already on it, so draw nothing at all.
           input.clear();
-          this.render();
+          if (!this.still) this.render();
         } else {
           if (input.anyPressed()) audio.unlock();
           this.update(dt);

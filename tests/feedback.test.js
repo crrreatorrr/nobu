@@ -3,11 +3,22 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Game } from '../src/game/game.js';
 import { input } from '../src/core/input.js';
-import { feedbackContext } from '../src/hub/feedback.js';
+import { feedbackContext, installGameFeedback } from '../src/hub/feedback.js';
+
+// The SDK's window is not under test here: keep the options NOBU passes to it.
+const installed = vi.hoisted(() => ({ options: null }));
+vi.mock('@metaverse/hub-sdk', async (importOriginal) => ({
+  ...(await importOriginal()),
+  installFeedback: (options) => {
+    installed.options = options;
+    return { open() {}, close() {}, isOpen: () => false, breadcrumb() {}, dispose: vi.fn() };
+  },
+  feedbackTransportFromSdk: () => ({ access: async () => ({ ok: true }), submit: async () => ({ id: 'T-1' }) }),
+}));
 
 function fakeGame(state) {
   const g = Object.create(Game.prototype);
-  Object.assign(g, { state, held: false, last: 0, crash: { halted: false, frameOk() {}, frameFailed(e) { throw e; } },
+  Object.assign(g, { state, held: false, still: false, last: 0, crash: { halted: false, frameOk() {}, frameFailed(e) { throw e; } },
     update: vi.fn(), render: vi.fn(), refreshPrompts() {}, ui: { update: vi.fn() } });
   return g;
 }
@@ -54,6 +65,61 @@ describe('feedback hold', () => {
     confirm.mockRestore();
     expect(g.feedback.open).toHaveBeenCalledTimes(1);
     expect(g.state).toBe('pause');
+  });
+});
+
+// SDK 0.7.2 draws the page's HTML over the canvas copy in the screenshot. The game draws no new
+// frame from the copy until the window opens, so the HTML's fonts and images are not starved.
+describe('feedback screenshot', () => {
+  function install(state = 'pause') {
+    const g = fakeGame(state);
+    g.canvas = document.createElement('canvas');
+    const handle = installGameFeedback(g, { transport: { access: async () => ({ ok: true }), submit: async () => ({ id: 'T-1' }) } });
+    return { g, handle, options: installed.options };
+  }
+
+  it('copies the game canvas and lets the SDK draw the HTML UI over it', () => {
+    const { g, handle, options } = install();
+    expect(options.canvases()).toEqual([g.canvas]);
+    expect(options.overlay).toBeUndefined();
+    handle.dispose();
+  });
+
+  it('draws the frame to copy, then nothing until the window holds the game', () => {
+    const { g, handle, options } = install('play');
+    options.beforeCapture();
+    expect(g.render).toHaveBeenCalledTimes(1);
+    expect(g.still).toBe(true);
+    g.loop(1000, true); g.loop(1016, true);
+    expect(g.render).toHaveBeenCalledTimes(1);
+    expect(g.update).not.toHaveBeenCalled();
+    const token = options.pause();
+    expect(g.still).toBe(false);
+    expect(g.held).toBe(true);
+    g.loop(1032, true);
+    expect(g.render).toHaveBeenCalledTimes(2);
+    options.resume(token);
+    expect(g.held).toBe(false);
+    g.loop(performance.now() + 16, true);
+    expect(g.update).toHaveBeenCalledTimes(1);
+    handle.dispose();
+  });
+
+  it('starts again by itself when no window opens, and on dispose', () => {
+    vi.useFakeTimers();
+    try {
+      const { g, handle, options } = install();
+      options.beforeCapture();
+      vi.advanceTimersByTime(4999);
+      expect(g.still).toBe(true);
+      vi.advanceTimersByTime(1);
+      expect(g.still).toBe(false);
+      options.beforeCapture();
+      handle.dispose();
+      expect(g.still).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
