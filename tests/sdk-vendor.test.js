@@ -43,12 +43,12 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // (in-game feedback window: installFeedback, feedbackAccess, submitFeedback):
 //   05c5a9b2de11d00d921df6c3eb7a2948b1af06d862f0031eeea1baed34a1c476
 //   iife 092603b61a3511fbbcaa3b674b16f02b24d581752e1fa1dc69eeb577bc5ae5e8
-// 0.7.2 / hub branch claude/nifty-einstein-ptgr08 at 2a6a4bc, not merged to hub main yet
+// 0.7.2 / hub branch claude/nifty-einstein-ptgr08 at 5099cb5, not merged to hub main yet
 // (0.7.1: EventResult.tickets; 0.7.2: the feedback screenshot draws the page's HTML over the
 // canvases with a vendored modern-screenshot, dist/pageShot.js and dist/third_party/). Re-vendor
 // from hub main once that branch merges. File sha256 of dist/hub-sdk.iife.js:
-const CONTENT_MANIFEST_SHA256 = '7a5d7f5675f91650940154c26efea95e5755266b50d6f9842d67079c1f84679d';
-const IIFE_SHA256 = '25b989eb2cda2227e4395c84965c7a4bea5f937c3df442c08aad8ab8c40e5a35';
+const CONTENT_MANIFEST_SHA256 = '694fe072045df6abacf63bade9d6fb6d2bcbe982f400cdbe97a93c3b85a30b15';
+const IIFE_SHA256 = '770e8e1b41ad1abef33eb0d04ef9c7eec8fda723336e5149a7809d902042013c';
 
 function listFiles(dir) {
   const out = [];
@@ -120,7 +120,7 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: claude/nifty-einstein-ptgr08\n- sha: 2a6a4bc\n- package: packages/hub-sdk @ 0.7.2');
+    expect(note).toContain('- branch: claude/nifty-einstein-ptgr08\n- sha: 5099cb5\n- package: packages/hub-sdk @ 0.7.2');
     expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
     const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
     const iife = fs.readFileSync(iifePath);
