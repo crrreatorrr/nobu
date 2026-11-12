@@ -40,3 +40,12 @@ it('shows Golden speech once and persists its acknowledgement independently from
   kennel.update(.01, press('confirm')); expect(save.data.kennel.goldenSeen).toBe(true); expect(save.data.secretSeen).toBe(false);
   save.load(); const again = fixture(Infinity); expect(again.kennel.mode).toBe('main');
 });
+
+it('Esc / Start opens the menu from the main Kennel page; Backspace / B still goes straight to the map', () => {
+  const { game, kennel } = fixture(8);
+  game.openSystemMenu = vi.fn();
+  kennel.update(.01, press('pause'));
+  expect(game.openSystemMenu).toHaveBeenCalledWith('kennel'); expect(game.toMap).not.toHaveBeenCalled();
+  kennel.update(.01, press('back'));
+  expect(game.toMap).toHaveBeenCalledWith('kennel');
+});

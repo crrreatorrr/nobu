@@ -39,6 +39,8 @@ import { kennelStatus, missingSecrets, selectedTint } from './kennelData.js';
 import { bankPerfect } from './mastery.js';
 import { trialTargetLine, eligibleTrialLine, bossMedalPanel, perfectPaw } from './masteryView.js';
 import { applyFurTint } from '../player/furTint.js';
+import { fullscreen } from '../ui/fullscreen.js';
+import { MENU_METHODS, MAIN_MENU, CONTROLS, exitHub, fullscreenItems, menuHtml, ensureMenuTip } from './menus.js';
 
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
 function esc(text) {
@@ -143,6 +145,7 @@ export class Game {
 
   async boot() {
     save.load();
+    input.loadBindings(); // CONTROLLER SETTINGS (src/core/controls.js)
     const hubReady = hub.init();
     audio.setVolumes(save.data.musicVol, save.data.sfxVol);
     this.uiRoot.innerHTML = '<div class="loading"><div class="big-title" style="font-size:52px">NOBU</div><div class="bar"><div class="fill"></div></div><div class="hint">Loading Higgsfield art...</div></div>';
@@ -151,6 +154,11 @@ export class Game {
     await Promise.race([hubReady, new Promise((r) => setTimeout(r, 6000))]);
     this.uiRoot.innerHTML = '';
     this.ui = new UI(this.uiRoot);
+    this.ui.onClick = (e) => this._onMenuClick(e);
+    input.gestureHook = (acts) => this._menuGesture(acts);
+    // FULL SCREEN labels follow the browser, including Esc or F11 leaving full screen.
+    fullscreen.onChange(() => { if (this.ui) this.refreshPrompts(); });
+    fullscreen.onRefused = () => this.ui?.banner('FULL SCREEN', input.prompt('Press ENTER, click it, or press F11', 'Click it with the mouse, or press F11'), 2.2);
     this.ui.godBadge(save.data.godMode);
     this.loadout = new Loadout();
     const unavailable = this.loadout.resync();
@@ -187,10 +195,11 @@ export class Game {
           if (input.anyPressed()) audio.unlock();
           this.update(dt);
           if (input.deviceSwitched()) this.refreshPrompts();
-          this.ui.popupHold = this.state !== 'play'; // tutorial cards wait, hidden, behind the pause menu and other screens
+          this.ui.popupHold = this.state !== 'play' || !!this.sysMenu || !!this.controlsScreen; // tutorial cards wait, hidden, behind the pause menu and other screens
           this.ui.update(dt);
           this.render();
         }
+        fullscreen.reset(); // a FULL SCREEN keydown no menu frame consumed
         this.crash.frameOk();
       }
     } catch (e) {
@@ -218,9 +227,14 @@ export class Game {
     this.last = performance.now();
   }
 
-  // Redraw the open menu so its control prompts match the device just used (keyboard or pad).
+  // Redraw the open menu so its control prompts match the device just used (keyboard or pad), and
+  // so FULL SCREEN shows the browser's state.
   refreshPrompts() {
-    if (this.state === 'map') this._drawMap();
+    if (this.controlsScreen) this.controlsScreen.draw();
+    else if (this.sysMenu) this._drawSysMenu();
+    if (this.state === 'title' && this.titleMenu) this._drawTitleMenu();
+    else if (this.state === 'gameover') this._drawGameOver();
+    else if (this.state === 'map') this._drawMap();
     else if (this.state === 'pause') { if (this.pauseExitSel != null) this._drawPauseExit(); else if (this.pauseMoves) this._drawMoves(); else this._drawPause(); }
     else if (this.state === 'wardrobe') this._drawWardrobe();
     else if (this.state === 'kennel' && !this.kennel?.disposed) this.kennel?.draw();
@@ -228,10 +242,16 @@ export class Game {
     else if (this.state === 'title' && !this.titleMenu) {
       const footer = this.ui.screen?.querySelector?.('.title-footer');
       if (footer) footer.innerHTML = input.prompt(HINTS.title);
+    } else if (this.state === 'complete') {
+      const tip = this.ui.screen?.querySelector?.('.menu-tip');
+      if (tip) tip.innerHTML = input.prompt(HINTS.resultsMenu);
     }
   }
 
   update(dt) {
+    // CONTROLLER SETTINGS and the system menu sit on top of whatever screen opened them.
+    if (this.controlsScreen) { this.controlsScreen.update(dt); return; }
+    if (this.sysMenu) { this.updateSysMenu(dt); return; }
     switch (this.state) {
       case 'title': this.updateTitle(dt); break;
       case 'cutscene': this.updateCutscene(dt); break;
@@ -358,15 +378,16 @@ export class Game {
     items.push({ id: 'model', label: `NOBU: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` });
     items.push({ id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` });
     items.push({ id: 'god', label: `GOD MODE: ${save.data.godMode ? 'ON' : 'OFF'}` });
-    if (hub.view().inSession) items.push({ id: 'hub', label: 'RETURN TO HUB' });
+    items.push(CONTROLS, ...fullscreenItems());
+    // Standalone too: exitToHub then opens the hub page (hub.exit falls back to its URL).
+    items.push(exitHub('RETURN TO HUB'));
     return items;
   }
 
   _drawTitleMenu() {
     const items = this._titleItems();
     this.titleSel = Math.min(this.titleSel, items.length - 1);
-    const html = items.map((it, i) => `<div class="menu-item ${i === this.titleSel ? 'sel' : ''}">${it.label}</div>`).join('');
-    this.ui.setScreen(`<img class="title-logo" src="${Assets.url('logo')}"><div class="title-menu"><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(save.data, LEVELS).total)}</div><div class="menu">${html}</div></div>`);
+    this.ui.setScreen(`<img class="title-logo" src="${Assets.url('logo')}"><div class="title-menu"><div class="hint">${BONE_TEXT.goodBoyPercent(goodBoyPercent(save.data, LEVELS).total)}</div>${menuHtml('title', items, this.titleSel)}</div>`);
   }
 
   updateTitle(dt) {
@@ -391,36 +412,41 @@ export class Game {
     if (input.pressed('up')) { this.titleSel = (this.titleSel + items.length - 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
     if (input.pressed('down')) { this.titleSel = (this.titleSel + 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
     if (input.confirmPressed() || input.pressed('bite')) {
-      const it = items[this.titleSel];
-      audio.play('select');
-      if (it.id === 'new') {
-        save.reset();
-        this.playCutscene(INTRO, () => { save.data.seenIntro = true; save.write(); this.toMap(1); });
-      } else if (it.id === 'wardrobe') {
-        this.openWardrobe('title');
-      } else if (it.id === 'continue') {
-        if (save.data.lives < 0) save.data.lives = START_LIVES;
-        this.toMap(save.data.lastLevel ?? 1);
-      } else if (it.id === 'model') {
-        save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
-        save.write();
-        this._refreshTitleNobu();
-        this.player.rebuildModel(save.data.nobuModel);
-        this._drawTitleMenu();
-      } else if (it.id === 'god') {
-        this.toggleGod();
-        this._drawTitleMenu();
-      } else if (it.id === 'pixel') {
-        save.data.pixelated = !save.data.pixelated;
-        save.write();
-        this.resize();
-        this._drawTitleMenu();
-      } else if (it.id === 'hub') {
-        this.exitToHub();
-      }
+      this._titleActivate(items[this.titleSel]);
       return; // pad Start is confirm as well as pause: it must not also leave the menu
     }
     if (input.pressed('pause') || input.pressed('back')) { this.titleMenu = null; this.toTitle(); }
+  }
+
+  _titleActivate(it) {
+    if (it.id === 'controls') { this.openControls(() => this._drawTitleMenu()); return; }
+    if (it.id === 'fullscreen') { this._toggleFullscreen(); return; }
+    audio.play('select');
+    if (it.id === 'new') {
+      save.reset();
+      this.playCutscene(INTRO, () => { save.data.seenIntro = true; save.write(); this.toMap(1); });
+    } else if (it.id === 'wardrobe') {
+      this.openWardrobe('title');
+    } else if (it.id === 'continue') {
+      if (save.data.lives < 0) save.data.lives = START_LIVES;
+      this.toMap(save.data.lastLevel ?? 1);
+    } else if (it.id === 'model') {
+      save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
+      save.write();
+      this._refreshTitleNobu();
+      this.player.rebuildModel(save.data.nobuModel);
+      this._drawTitleMenu();
+    } else if (it.id === 'god') {
+      this.toggleGod();
+      this._drawTitleMenu();
+    } else if (it.id === 'pixel') {
+      save.data.pixelated = !save.data.pixelated;
+      save.write();
+      this.resize();
+      this._drawTitleMenu();
+    } else if (it.id === 'hub') {
+      this.exitToHub();
+    }
   }
 
   // ---------------- cutscenes (comic panels) ----------------
@@ -730,7 +756,8 @@ export class Game {
     }
     if (input.confirmPressed() || input.pressed('bite')) { audio.play('select'); if (levelDef(this.mapSel).meta && !levelDef(this.mapSel).rush) this.openKennel(); else this.startLevel(this.mapSel, { remix: !!this.mapRemix }); return; }
     else if (!this.mapRemix && input.pressed('trial') && levelDef(this.mapSel).trial && save.beatenOf(this.mapSel)) { audio.play('select'); this.startLevel(this.mapSel, { trial: true }); }
-    if (input.pressed('pause') || input.pressed('back')) { audio.play('menu'); this.toTitle(); }
+    // Esc / B: the map's menu (MAIN MENU, hub, CONTROLLER SETTINGS, FULL SCREEN). Pad Start plays (confirm, above).
+    if (input.pressed('pause') || input.pressed('back')) this.openSystemMenu('map');
   }
 
   // ---------------- play ----------------
@@ -844,6 +871,7 @@ export class Game {
     this.state = 'pause';
     this.pauseSel = 0;
     this.pauseExitSel = null;
+    this.pauseExitTarget = 'hub';
     this.pauseMoves = false;
     this.ui.pinHud(true);
     audio.play('menu');
@@ -860,23 +888,30 @@ export class Game {
       { id: 'music', label: `MUSIC: ${Math.round(save.data.musicVol * 10)}` },
       { id: 'sfx', label: `SFX: ${Math.round(save.data.sfxVol * 10)}` },
       { id: 'rumble', label: `RUMBLE: ${save.data.rumble === false ? 'OFF' : 'ON'}` },
+      CONTROLS,
+      ...fullscreenItems(),
       { id: 'feedback', label: 'SEND FEEDBACK' },
-      { id: 'hub', label: 'EXIT TO HUB' },
+      exitHub(),
       { id: 'quit', label: 'QUIT TO MAP' },
+      MAIN_MENU,
     ];
   }
 
-  /** Leaving mid-level asks first: KEEP PLAYING (the default) resumes, EXIT TO HUB leaves. */
+  /**
+   * Leaving mid-level asks first: KEEP PLAYING (the default) resumes, the second item leaves.
+   * pauseExitTarget is 'hub' (EXIT TO HUB) or 'title' (MAIN MENU).
+   */
   _pauseExitItems() {
     return [
       { id: 'stay', label: 'KEEP PLAYING' },
-      { id: 'leave', label: 'EXIT TO HUB' },
+      this.pauseExitTarget === 'title' ? { id: 'leave', label: 'MAIN MENU' } : { id: 'leave', label: 'EXIT TO HUB' },
     ];
   }
 
   _drawPauseExit() {
     const items = this._pauseExitItems();
-    this.ui.setScreen(`<div class="big-title">EXIT TO HUB?</div><div class="hint">This level ends here. Tickets from it are not banked.</div><div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseExitSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
+    const title = this.pauseExitTarget === 'title' ? 'QUIT TO MAIN MENU?' : 'EXIT TO HUB?';
+    this.ui.setScreen(`<div class="big-title">${title}</div><div class="hint">This level ends here. Tickets from it are not banked.</div>${menuHtml('pauseExit', items, this.pauseExitSel)}
       <div class="hint" style="margin-top:20px">${HINTS.pauseExit}</div>`, 'dim');
   }
 
@@ -884,12 +919,24 @@ export class Game {
     const items = this._pauseExitItems();
     if (input.pressed('up') || input.pressed('down')) { this.pauseExitSel = 1 - this.pauseExitSel; audio.play('menu'); this._drawPauseExit(); }
     if (input.pressed('pause') || input.pressed('back')) { this.pauseExitSel = null; audio.play('menu'); this._drawPause(); return; }
-    if (input.confirmPressed() || input.pressed('bite')) {
-      const id = items[this.pauseExitSel].id;
-      this.pauseExitSel = null;
-      if (id === 'leave') this.exitToHub();
-      else this.closePause();
-    }
+    if (input.confirmPressed() || input.pressed('bite')) this._pauseExitActivate(items[this.pauseExitSel]);
+  }
+
+  _pauseExitActivate(it) {
+    this.pauseExitSel = null;
+    if (it.id !== 'leave') { this.closePause(); return; }
+    if (this.pauseExitTarget === 'title') this._quitLevel(() => this.toTitle());
+    else this.exitToHub();
+  }
+
+  /** QUIT TO MAP and MAIN MENU: save, retire the session, fade out, then go. */
+  _quitLevel(go) {
+    this.ui.pinHud(false);
+    const session = this.session;
+    const epoch = this._launchEpoch;
+    if (!session.rush) save.write();
+    if (retiresOnLeave(session) && !session.disposed) session.dispose();
+    this.ui.fade(1).then(() => { if (this._launchEpoch === epoch && this.session === session) go(session); });
   }
 
   /** The moves the player has right now: base moves, earned moves once owned, gear moves while worn. */
@@ -923,7 +970,7 @@ export class Game {
     const stats = s?.def?.gauntlet
       ? `<div class="sub-title">${esc(s.def.name)}</div><div class="hint">${GAUNTLET_TEXT.allBoxes}: ${live?.broken || 0} / ${live?.breakables || 0} · ${GAUNTLET_TEXT.deaths(s.deaths)}</div>`
       : live ? `${board}<div class="hint">${BONE_TEXT.liveStats(live, pct)} · ${BONE_TEXT.deaths(live.deathsAtGate)}</div><div class="hint">${esc(s.remix ? REMIX_TEXT.complete.missed : goalHint(this, s.level, live))}</div>` : '';
-    this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}<div class="menu">${items.map((it, i) => `<div class="menu-item ${i === this.pauseSel ? 'sel' : ''}">${it.label}</div>`).join('')}</div>
+    this.ui.setScreen(`<div class="big-title">PAUSED</div>${stats}${menuHtml('pause', items, this.pauseSel)}
       <div class="hint" style="margin-top:20px">${HINTS.pause}</div>`, 'dim pause-screen');
   }
 
@@ -944,33 +991,30 @@ export class Game {
       this._drawPause();
     }
     if (input.pressed('pause') || input.pressed('back')) { this.closePause(); return; }
-    if (input.confirmPressed() || input.pressed('bite')) {
-      if (it.id === 'resume') this.closePause();
-      else if (it.id === 'moves') { this.pauseMoves = true; audio.play('menu'); this._drawMoves(); }
-      else if (it.id === 'wardrobe') this.openWardrobe('pause');
-      else if (it.id === 'model') {
-        save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
-        save.write();
-        this.player.rebuildModel(save.data.nobuModel);
-        this._drawPause();
-      } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
-      else if (it.id === 'rumble') {
-        save.data.rumble = save.data.rumble === false;
-        save.write();
-        if (save.data.rumble) input.rumble(...RUMBLE.maskLost); // a sample, so the player feels what they chose
-        this._drawPause();
-      }
-      else if (it.id === 'feedback') { audio.play('select'); this.feedback?.open(); }
-      else if (it.id === 'hub') { this.pauseExitSel = 0; audio.play('menu'); this._drawPauseExit(); }
-      else if (it.id === 'quit') {
-        this.ui.pinHud(false);
-        const session = this.session, level = session.level;
-        const epoch = this._launchEpoch;
-        if (!session.rush) save.write();
-        if (retiresOnLeave(session) && !session.disposed) session.dispose();
-        this.ui.fade(1).then(() => { if (this._launchEpoch === epoch && this.session === session) this.toMap(level); });
-      }
+    if (input.confirmPressed() || input.pressed('bite')) this._pauseActivate(it);
+  }
+
+  _pauseActivate(it) {
+    if (it.id === 'resume') this.closePause();
+    else if (it.id === 'moves') { this.pauseMoves = true; audio.play('menu'); this._drawMoves(); }
+    else if (it.id === 'wardrobe') this.openWardrobe('pause');
+    else if (it.id === 'model') {
+      save.data.nobuModel = save.data.nobuModel === 'glb' ? 'classic' : 'glb';
+      save.write();
+      this.player.rebuildModel(save.data.nobuModel);
+      this._drawPause();
+    } else if (it.id === 'pixel') { save.data.pixelated = !save.data.pixelated; save.write(); this.resize(); this._drawPause(); }
+    else if (it.id === 'rumble') {
+      save.data.rumble = save.data.rumble === false;
+      save.write();
+      if (save.data.rumble) input.rumble(...RUMBLE.maskLost); // a sample, so the player feels what they chose
+      this._drawPause();
     }
+    else if (it.id === 'controls') this.openControls(() => { if (this.state === 'pause') this._drawPause(); });
+    else if (it.id === 'fullscreen') this._toggleFullscreen();
+    else if (it.id === 'feedback') { audio.play('select'); this.feedback?.open(); }
+    else if (it.id === 'hub' || it.id === 'title') { this.pauseExitTarget = it.id; this.pauseExitSel = 0; audio.play('menu'); this._drawPauseExit(); }
+    else if (it.id === 'quit') this._quitLevel((session) => this.toMap(session.level));
   }
 
   closePause() {
@@ -1213,6 +1257,11 @@ export class Game {
   }
 
   async updateComplete(dt) {
+    // Esc / P / pad Start: the results screen's menu. Only while the results are up (not during the dialogue after them).
+    if (this.completeNext) {
+      ensureMenuTip(this.ui);
+      if (input.pressed('pause')) { this.openSystemMenu('complete'); return; }
+    }
     const session = this.session, stage = session?.stage, epoch = session?._lifecycleEpoch || 0;
     const current = () => !session || pipelineCurrent(this, session, stage, epoch);
     const pressed = input.anyPressed();
@@ -1255,23 +1304,33 @@ export class Game {
     this._drawGameOver();
     this.ui.fade(0);
   }
+  _gameOverItems() {
+    return [{ id: 'continue', label: 'CONTINUE' }, MAIN_MENU, exitHub(), CONTROLS, ...fullscreenItems()];
+  }
   _drawGameOver() {
-    const items = ['CONTINUE', 'QUIT'];
+    const items = this._gameOverItems();
+    this.goSel = Math.min(this.goSel || 0, items.length - 1);
     this.ui.setScreen(`<div class="death-card show"><img src="${Assets.url('death_cone')}"></div>
       <div class="big-title">GAME OVER</div><div class="sub-title">The cone... it fits so well...</div>
-      <div class="menu">${items.map((t, i) => `<div class="menu-item ${i === this.goSel ? 'sel' : ''}">${t}</div>`).join('')}</div>`, 'dim');
+      ${menuHtml('gameover', items, this.goSel)}`, 'dim gameover-screen');
   }
   updateGameOver(dt) {
     this.goT += dt;
-    if (input.pressed('up') || input.pressed('down')) { this.goSel = 1 - this.goSel; audio.play('menu'); this._drawGameOver(); }
-    if (this.goT > 0.8 && (input.confirmPressed() || input.pressed('bite'))) {
-      audio.play('select');
-      const lvl = this.session?.level || save.data.lastLevel || 1;
-      save.data.lives = START_LIVES;
-      save.write();
-      if (this.goSel === 0) this.startLevel(lvl, { remix: !!this.session?.remix });
-      else this.toTitle();
-    }
+    const n = this._gameOverItems().length;
+    if (input.pressed('up')) { this.goSel = (this.goSel + n - 1) % n; audio.play('menu'); this._drawGameOver(); }
+    if (input.pressed('down')) { this.goSel = (this.goSel + 1) % n; audio.play('menu'); this._drawGameOver(); }
+    if (this.goT > 0.8 && (input.confirmPressed() || input.pressed('bite'))) this._gameOverActivate(this._gameOverItems()[this.goSel]);
+  }
+  _gameOverActivate(it) {
+    if (it.id === 'controls') { this.openControls(() => { if (this.state === 'gameover') this._drawGameOver(); }); return; }
+    if (it.id === 'fullscreen') { this._toggleFullscreen(); return; }
+    audio.play('select');
+    const lvl = this.session?.level || save.data.lastLevel || 1;
+    save.data.lives = START_LIVES;
+    save.write();
+    if (it.id === 'continue') this.startLevel(lvl, { remix: !!this.session?.remix });
+    else if (it.id === 'hub') this.exitToHub();
+    else this.toTitle();
   }
 
   // ---------------- ending credits ----------------
@@ -1300,3 +1359,5 @@ export class Game {
     if (this.creditsT > 2 && input.anyPressed()) this.toTitle();
   }
 }
+
+Object.assign(Game.prototype, MENU_METHODS);

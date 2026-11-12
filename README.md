@@ -45,7 +45,21 @@ whether on-screen prompts show keys or buttons.
 | Map: wardrobe | I | LB |
 | Map: Ticket exchange | X | LT |
 | Map: Sniffer, once unlocked | L / E | View |
-| Exit to the hub | Map: H · Pause: EXIT TO HUB | Title menu: RETURN TO HUB · Pause: EXIT TO HUB |
+| Exit to the hub | Map: H · any menu: EXIT TO HUB / RETURN TO HUB | Any menu: EXIT TO HUB / RETURN TO HUB |
+| Menu on the map, in the Kennel and on results screens | Esc (Backspace on the map too) | B on the map · Start in the Kennel and on results |
+
+Every menu (title, pause, game over, and the menu that Esc opens on the map, in the Kennel and on
+results screens) offers **MAIN MENU** (not on the title menu itself; mid-level it asks first),
+**EXIT TO HUB** (standalone, it opens the hub page), **CONTROLLER SETTINGS** and **FULL SCREEN**.
+The game always fills the browser window; FULL SCREEN switches the browser's full screen on and off
+(the item is hidden where the browser does not allow it, and Esc or F11 also leave it; in full
+screen, Esc only leaves full screen). CONTROLLER SETTINGS lists every action with two keyboard and
+two gamepad slots: pick a slot and press the new key or button to bind it (a key another action of
+the same kind uses is swapped; Esc cancels, Delete or pad X clears an extra slot). It also has
+vibration on/off, the left stick dead zone and Reset to defaults. Bindings apply at once and are kept
+in `localStorage` under `nobu-saviour-dog-controls-v1` (`src/core/controls.js`); the screen itself
+always answers to the arrows, Enter, Esc, the D-pad, A and B, so a bad binding can be undone. On-screen
+prompts still name the default keys.
 
 Movement is camera-relative. In Scratchpost Canyon's front-facing chase, hold **Down / S** to run
 away from the cat. `K` avoids browser shortcuts such as Ctrl+W. With the Clown Collar equipped,
@@ -71,7 +85,7 @@ camera is authored per section, so the right stick only peeks: it swings the vie
 and eases back when released, and movement keeps following the authored framing. The mouse does
 not look around for the same reason, and so Esc always pauses. A button still held when the game
 loads (such as the hub's portal confirm) is ignored until released, and unplugging the pad during
-a level pauses it. The left stick has a 0.2 radial deadzone and the right stick 0.15; held menu
+a level pauses it. The left stick has a 0.2 radial deadzone by default (CONTROLLER SETTINGS changes it) and the right stick 0.15; held menu
 directions repeat after 350 ms, then every 120 ms. The layout lives in `src/core/gamepad.js` and
 the prompt rewrites in `src/core/prompts.js`.
 
