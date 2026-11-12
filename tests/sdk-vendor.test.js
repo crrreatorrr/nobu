@@ -43,11 +43,13 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // (in-game feedback window: installFeedback, feedbackAccess, submitFeedback):
 //   05c5a9b2de11d00d921df6c3eb7a2948b1af06d862f0031eeea1baed34a1c476
 //   iife 092603b61a3511fbbcaa3b674b16f02b24d581752e1fa1dc69eeb577bc5ae5e8
-// 0.7.2 / hub branch claude/nifty-einstein-ptgr08 at 5099cb5, not merged to hub main yet
-// (0.7.1: EventResult.tickets; 0.7.2: the feedback screenshot draws the page's HTML over the
-// canvases with a vendored modern-screenshot, dist/pageShot.js and dist/third_party/). Re-vendor
-// from hub main once that branch merges. File sha256 of dist/hub-sdk.iife.js:
-const CONTENT_MANIFEST_SHA256 = '694fe072045df6abacf63bade9d6fb6d2bcbe982f400cdbe97a93c3b85a30b15';
+// 0.7.2 / hub branch claude/nifty-einstein-ptgr08 at 5099cb5 (before hub #183 merged):
+//   694fe072045df6abacf63bade9d6fb6d2bcbe982f400cdbe97a93c3b85a30b15
+//   iife 770e8e1b41ad1abef33eb0d04ef9c7eec8fda723336e5149a7809d902042013c
+// 0.7.2 / hub main c6627e51585a7c0e8006122af54e0e413ca91876
+// (hub #183 merged as bb0017c; hub #185 does not change packages/hub-sdk, so the built
+// files match 5099cb5 and only the provenance header moved). File sha256 of dist/hub-sdk.iife.js:
+const CONTENT_MANIFEST_SHA256 = '84545f29559ddb89e4390e43f35e12bbd73619c3ae1174e91f26642e387e9e07';
 const IIFE_SHA256 = '770e8e1b41ad1abef33eb0d04ef9c7eec8fda723336e5149a7809d902042013c';
 
 function listFiles(dir) {
@@ -120,7 +122,7 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: claude/nifty-einstein-ptgr08\n- sha: 5099cb5\n- package: packages/hub-sdk @ 0.7.2');
+    expect(note).toContain('- branch: main\n- sha: c6627e5\n- package: packages/hub-sdk @ 0.7.2');
     expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
     const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
     const iife = fs.readFileSync(iifePath);
