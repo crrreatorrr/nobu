@@ -30,7 +30,8 @@ export const ARENA_FIT = Object.freeze({
 });
 const FIT_MARGIN = { reach: ARENA_FIT.reachMargin, boss: ARENA_FIT.bossMargin };
 // Kept in frame while that costs nothing, but never a reason to go wider than the authored lens: the
-// floor around Nobu, and the far end of a lane (the wall a charge will hit).
+// floor around Nobu, and the corners of a lane. The middle of a charge lane's far end (kind 'laneEnd',
+// the wall the Titan or the Cat will hit) is not soft: the lens widens for it while the lane is shown.
 const FIT_SOFT = { reach: true, lane: true };
 
 /**

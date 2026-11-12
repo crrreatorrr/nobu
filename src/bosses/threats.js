@@ -41,6 +41,14 @@ function addMarker(out, marker) {
   out.add(_c.x, _c.y, _c.z - reach, 'marker'); out.add(_c.x, _c.y, _c.z + reach, 'marker');
 }
 
+// The middle of a lane's far end (the wall a charge will hit). A lane runs along its local +z, so its
+// far end is the bounding box's max z.
+function addLaneEnd(out, mesh) {
+  const b = mesh.geometry.boundingBox;
+  _c.set((b.min.x + b.max.x) / 2, b.max.y, b.max.z).applyMatrix4(mesh.matrixWorld);
+  out.add(_c.x, _c.y, _c.z, 'laneEnd');
+}
+
 function addBoxCorners(out, mesh, kind) {
   if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
   mesh.updateWorldMatrix(true, false);
@@ -70,7 +78,10 @@ export function collectThreats(fight, out = new PointSet()) {
     out.add(b.x, b.y + oy, b.z, 'boss'); out.add(b.x, b.y + oy + h, b.z, 'boss');
     for (const name of ['lane', 'laserPath']) {
       const lane = boss[name];
-      if (lane?.isMesh && lane.visible && lane.parent) addBoxCorners(out, lane, 'lane');
+      if (!lane?.isMesh || !lane.visible || !lane.parent) continue;
+      addBoxCorners(out, lane, 'lane');
+      // A charge lane's end is framed while the lane is shown, even if that widens the lens.
+      if (name === 'lane') addLaneEnd(out, lane);
     }
     for (const beam of [...(boss.beams || []), boss.beam, boss.arena?.beam]) {
       if (!beam) continue;

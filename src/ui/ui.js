@@ -9,6 +9,7 @@ import { savedBoard } from '../game/bones.js';
 import { godTallyText } from '../game/godTally.js';
 import { pick } from '../core/util.js';
 
+export const BANNER_BOSS_PAD = 0.04; // viewport heights kept between an avoidBoss banner and the boss
 export const BOSS_GHOST_PAD = 48; // px around the boss bar that still counts as "behind it"
 export const TUTORIAL_SEC = 6;         // a pop-up with nothing waiting behind it
 export const TUTORIAL_QUEUED_SEC = 4;  // one waiting
@@ -218,6 +219,8 @@ export class UI {
       const top = Math.min(y, y2) * window.innerHeight, bottom = Math.max(y, y2) * window.innerHeight;
       ghost = r.width > 0 && px + hw > r.left - BOSS_GHOST_PAD && px - hw < r.right + BOSS_GHOST_PAD && bottom > r.top - BOSS_GHOST_PAD && top < r.bottom + BOSS_GHOST_PAD;
     }
+    // Where the boss is on screen, as fractions of the viewport height, for banners that avoid it.
+    this._bossSpan = on ? { top: Math.min(y, y2), bottom: Math.max(y, y2) } : null;
     if (ghost !== !!this._barGhost) { this._barGhost = ghost; this.boss.classList.toggle('ghost', ghost); }
   }
 
@@ -316,11 +319,36 @@ export class UI {
     return dropped;
   }
 
-  banner(text, sub = '', dur = 1.8) {
+  /**
+   * With opts.avoidBoss the banner is a small one in a band at the bottom or top of the frame, never
+   * over the boss: each frame it takes whichever band the boss is not in (the span bossGhost records),
+   * and leaves early if the boss reaches into both.
+   */
+  banner(text, sub = '', dur = 1.8, opts = {}) {
     this.bannerEl.innerHTML = input.prompt(`${text}${sub ? `<small>${sub}</small>` : ''}`);
+    this.bannerEl.className = 'banner';
+    this.bannerAvoid = !!opts.avoidBoss;
+    if (this.bannerAvoid) { this.bannerEl.classList.add('edge'); this._placeBanner(); }
     this.bannerEl.classList.add('show');
     this.bannerT = dur;
-    this.popup?.classList.add('dodge'); // the tutorial card moves out from under the banner
+    // the tutorial card moves out from under the banner (it sits top right, clear of the low band)
+    this.popup?.classList.toggle('dodge', !this.bannerAvoid || this.bannerEl.classList.contains('high'));
+  }
+
+  // Puts an avoidBoss banner in the band clear of the boss; false when neither band is clear.
+  _placeBanner() {
+    const el = this.bannerEl, span = this._bossSpan, h = window.innerHeight || 1;
+    const clear = () => {
+      if (!span) return true;
+      const top = el.offsetTop / h, bottom = (el.offsetTop + el.offsetHeight) / h;
+      return span.bottom < top - BANNER_BOSS_PAD || span.top > bottom + BANNER_BOSS_PAD;
+    };
+    const was = el.classList.contains('high');
+    for (const high of [was, !was]) {
+      el.classList.toggle('high', high);
+      if (clear()) return true;
+    }
+    return false;
   }
 
   deathCard(type) {
@@ -360,6 +388,10 @@ export class UI {
     }
     if (this.bannerT > 0) {
       this.bannerT -= dt;
+      if (this.bannerAvoid && this.bannerT > 0) {
+        if (this._placeBanner()) this.popup?.classList.toggle('dodge', this.bannerEl.classList.contains('high'));
+        else this.bannerT = 0; // the boss fills both bands: the banner goes rather than cover it
+      }
       if (this.bannerT <= 0) { this.bannerEl.classList.remove('show'); this.popup?.classList.remove('dodge'); }
     }
     this._updateDialog(dt);
