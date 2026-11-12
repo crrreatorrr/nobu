@@ -71,6 +71,15 @@ can still be out of frame, as it could before. The 1.4 s "FIGHT!" banner still c
 start of a fight. Nothing here was judged by a person at full frame rate: the frames were rendered one
 at a time in software.
 
+**Framing follow-up (2026-11-12, branch `claude/nobu-boss-framing`).** Presentation only; not tested or
+playtested this round (owner's call), only linted and built. The "FIGHT!" banner is now small (52 px), shown
+for 1 s and placed in a band at the bottom (or, if the boss is there, under the boss bar), checked every
+frame against the boss's on-screen span; if the boss reaches into both bands it leaves early
+(`UI.banner(..., { avoidBoss })`). The Queen's arena has the same widen-only fit as the other four, with her
+authored lens, offset and follow unchanged. A charge lane's far end (Titan and Big Cat) is now a hard fit
+point (`laneEnd` in `src/bosses/threats.js`), so the lens widens for it while the lane is shown, within the
+0.82x limit; the lane's corners stay soft.
+
 How this relates to `docs/gameplay-expansion-plan.md` (2026-11-04):
 
 - The expansion plan **adds content**: Levels 4–6, two bosses, longer Levels 1–3, bone boards, the Kennel,

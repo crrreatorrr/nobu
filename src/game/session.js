@@ -727,7 +727,7 @@ export class Session {
     g.ui.bossShow(boss.name, boss.portrait, boss.stages, info.bossBar);
     g.ui.bossCharge(0, false);
     audio.playMusic(stage.theme.music);
-    g.ui.banner('FIGHT!', boss.name, 1.4);
+    g.ui.banner('FIGHT!', boss.name, 1, { avoidBoss: true }); // small, in a band clear of the boss
     boss.start();
     this.bossRun = newBossRun();
     this.bossClock = 0;

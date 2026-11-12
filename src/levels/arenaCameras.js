@@ -4,8 +4,8 @@
 // Framing (plan B3, re-tuned after QA): a longer lens from further back, so the whole playable floor
 // is in frame with Nobu at the centre or the near edge. `half` is the floor's half-width. With `fit`,
 // the lens also widens when a threat would be out of frame (src/camera/camera.js, "Arena fit"). The
-// Queen's camera pans far more (follow 0.4) and her arena is pillars from edge to edge, so it stays
-// exactly as authored.
+// Queen's camera keeps its authored lens, offset and pan (follow 0.4), and gets the same widen-only fit:
+// one frame at 1280x720 had Nobu out of it.
 import * as THREE from 'three';
 
 export const ARENA_CAMERAS = Object.freeze({
@@ -13,7 +13,7 @@ export const ARENA_CAMERAS = Object.freeze({
   cat: Object.freeze({ fov: 52, offset: Object.freeze({ x: 0, y: 13, z: 20 }), follow: 0.15, half: 12.5, fit: true }),
   cone: Object.freeze({ fov: 56, offset: Object.freeze({ x: 0, y: 13, z: 19.5 }), follow: 0.15, half: 12.5, fit: true }),
   titan: Object.freeze({ fov: 50, offset: Object.freeze({ x: 0, y: 13.5, z: 20.5 }), follow: 0.15, half: 13, fit: true }),
-  queen: Object.freeze({ fov: 58, offset: Object.freeze({ x: 0, y: 15, z: 19 }), follow: 0.4, half: 11.7, fit: false }),
+  queen: Object.freeze({ fov: 58, offset: Object.freeze({ x: 0, y: 15, z: 19 }), follow: 0.4, half: 11.7, fit: true }),
 });
 
 /** A fresh camera options object for one arena (the session adds the boss focus and the fit's collector). */

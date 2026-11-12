@@ -16,6 +16,8 @@ import { audio } from '../src/audio/audio.js';
  */
 const VIEWPORTS = [[960, 540], [1280, 720], [1024, 768]];
 const FIT_ARENAS = ['bird', 'cat', 'cone', 'titan'];
+// The Queen's camera pans with Nobu far more (follow 0.4); it has the same widen-only fit and guarantee.
+const GUARANTEE_ARENAS = [...FIT_ARENAS, 'queen'];
 
 /** Deterministic random numbers, so a failure can be replayed. */
 function rng(seed) {
@@ -90,7 +92,7 @@ function randomScene(rand, half) {
 }
 
 describe('arena fit: the framing guarantee', () => {
-  it.each(FIT_ARENAS.flatMap((key) => VIEWPORTS.map((vp) => [key, vp])))('%s at %j: no threat the authored lens shows is ever cropped, through moves, spawns and shake', (key, vp) => {
+  it.each(GUARANTEE_ARENAS.flatMap((key) => VIEWPORTS.map((vp) => [key, vp])))('%s at %j: no threat the authored lens shows is ever cropped, through moves, spawns and shake', (key, vp) => {
     const rand = rng(key.length * 7919 + vp[0]);
     for (let n = 0; n < 60; n++) {
       const scene = randomScene(rand, ARENA_CAMERAS[key].half);
@@ -194,8 +196,11 @@ describe('arena fit: the framing guarantee', () => {
     expect(r.camera.fitZoom).toBe(1);
   });
 
-  it('the Queen arena keeps its authored camera', () => {
-    expect(arenaCamera('queen').fit).toBeUndefined();
+  it('the Queen arena keeps its authored camera and widens only', () => {
+    const q = arenaCamera('queen');
+    expect(q.fit).toEqual({ half: ARENA_CAMERAS.queen.half });
+    expect(q.offset).toEqual({ x: 0, y: 15, z: 19 });
+    expect(q.follow).toBe(0.4);
   });
 
   it('leaves Nobu exactly as large as the authored camera draws him whenever the fight fits', () => {
@@ -258,6 +263,7 @@ describe('what the fit frames', () => {
     const set = collectThreats(f), c = kinds(set);
     expect(c.projectile).toBe(4); // feather, roller, both ends of the scratch
     expect(c.lane).toBe(4); expect(c.beam).toBe(1);
+    expect(c.laneEnd).toBe(1); expect(has(set, 0, 0.03, 9)).toBe(true); // the far end, framed even if that widens the lens
     expect(has(set, 3, 1.05, -8)).toBe(true); expect(has(set, 1, 0.03, 9)).toBe(true); expect(has(set, -7, 0, 6)).toBe(true);
   });
 
