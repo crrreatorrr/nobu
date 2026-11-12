@@ -87,7 +87,11 @@ export function actionsFor(down, layout = PAD_LAYOUT) {
   return held;
 }
 
-/** One menu direction from the D-pad, else the left stick's dominant axis past the threshold. */
+/**
+ * One menu direction from the D-pad, else the left stick's dominant axis past the threshold.
+ * Deliberately the physical D-pad and stick, not the remappable layout: menus (and the controller
+ * settings screen) stay navigable whatever the player binds.
+ */
 export function menuDirection(down, ax, ay, tuning = PAD_TUNING) {
   if (down.has(PAD.UP)) return 'up';
   if (down.has(PAD.DOWN)) return 'down';
@@ -119,8 +123,8 @@ export class PadReader {
   }
 
   /**
-   * Read one frame. Returns { connected, held, pressed, any, move, look, active, lost }:
-   * held/pressed are action sets; any is true when a button (not a stick) went down; move and
+   * Read one frame. Returns { connected, held, pressed, buttons, any, move, look, active, lost }:
+   * held/pressed are action sets; buttons are the raw button indices pressed this frame; any is true when a button (not a stick) went down; move and
    * look are the left and right sticks after their deadzones (x right, y down); active is true
    * when the player used the pad this frame; lost is true on the frame the pad disappears.
    */
@@ -133,7 +137,7 @@ export class PadReader {
       this.prevHeld = new Set();
       this.prevRaw = new Set();
       this.dir = null;
-      return { connected: false, held: new Set(), pressed: new Set(), any: false, move: [0, 0], look: [0, 0], active: false, lost };
+      return { connected: false, held: new Set(), pressed: new Set(), buttons: new Set(), any: false, move: [0, 0], look: [0, 0], active: false, lost };
     }
     const t = this.tuning;
     const raw = buttonsDown(gp, t);
@@ -153,7 +157,8 @@ export class PadReader {
     const down = new Set([...raw].filter((b) => !this.latched.has(b)));
 
     let any = false;
-    for (const b of down) if (!this.prevRaw.has(b)) any = true;
+    const buttons = new Set(); // raw button indices that went down this frame (controller settings binds these)
+    for (const b of down) if (!this.prevRaw.has(b)) { any = true; buttons.add(b); }
     this.prevRaw = down;
 
     const held = actionsFor(down, this.layout);
@@ -174,7 +179,7 @@ export class PadReader {
     const move = radialDeadzone(rx, ry, t.leftDeadzone);
     const look = radialDeadzone(gp.axes?.[2] || 0, gp.axes?.[3] || 0, t.rightDeadzone);
     const active = any || pressed.size > 0 || move[0] !== 0 || move[1] !== 0 || look[0] !== 0 || look[1] !== 0;
-    return { connected: true, held, pressed, any, move, look, active, lost: false };
+    return { connected: true, held, pressed, buttons, any, move, look, active, lost: false };
   }
 
   /** Dual-motor rumble on the pad being read. A no-op without a pad or without a vibration actuator. */
