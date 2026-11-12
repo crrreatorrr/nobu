@@ -39,11 +39,16 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // (hub #117; marina_anchor and dragon_scale):
 //   d4da695e6fda1b575ac41ef308d5ef4a862b9d0cdc68b5064385590b6adf9818
 //   iife e7626595184dc132e72ffd707c87149b266c7b3933d40670e55eb2fb0a64eda6
-// 0.7.0 / hub branch claude/festive-ptolemy-4mg8oe at b9ac308, not merged to hub main yet
-// (in-game feedback window: installFeedback, feedbackAccess, submitFeedback). Re-vendor from
-// hub main once that branch merges. File sha256 of dist/hub-sdk.iife.js:
-const CONTENT_MANIFEST_SHA256 = '05c5a9b2de11d00d921df6c3eb7a2948b1af06d862f0031eeea1baed34a1c476';
-const IIFE_SHA256 = '092603b61a3511fbbcaa3b674b16f02b24d581752e1fa1dc69eeb577bc5ae5e8';
+// 0.7.0 / hub branch claude/festive-ptolemy-4mg8oe at b9ac308
+// (in-game feedback window: installFeedback, feedbackAccess, submitFeedback):
+//   05c5a9b2de11d00d921df6c3eb7a2948b1af06d862f0031eeea1baed34a1c476
+//   iife 092603b61a3511fbbcaa3b674b16f02b24d581752e1fa1dc69eeb577bc5ae5e8
+// 0.7.2 / hub branch claude/nifty-einstein-ptgr08 at 2a6a4bc, not merged to hub main yet
+// (0.7.1: EventResult.tickets; 0.7.2: the feedback screenshot draws the page's HTML over the
+// canvases with a vendored modern-screenshot, dist/pageShot.js and dist/third_party/). Re-vendor
+// from hub main once that branch merges. File sha256 of dist/hub-sdk.iife.js:
+const CONTENT_MANIFEST_SHA256 = '7a5d7f5675f91650940154c26efea95e5755266b50d6f9842d67079c1f84679d';
+const IIFE_SHA256 = '25b989eb2cda2227e4395c84965c7a4bea5f937c3df442c08aad8ab8c40e5a35';
 
 function listFiles(dir) {
   const out = [];
@@ -90,9 +95,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.7.0', () => {
+  it('package.json is SDK 0.7.2', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.7.0');
+    expect(pkg.version).toBe('0.7.2');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -115,14 +120,14 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: claude/festive-ptolemy-4mg8oe\n- sha: b9ac308\n- package: packages/hub-sdk @ 0.7.0');
+    expect(note).toContain('- branch: claude/nifty-einstein-ptgr08\n- sha: 2a6a4bc\n- package: packages/hub-sdk @ 0.7.2');
     expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
     const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
     const iife = fs.readFileSync(iifePath);
     expect(createHash('sha256').update(iife).digest('hex')).toBe(IIFE_SHA256);
     expect(iife.toString('utf8')).toContain('global HubSDK');
     const pin = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/SOURCE.pin.json'), 'utf8'));
-    expect(pin).toMatchObject({ version: '0.7.0', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
+    expect(pin).toMatchObject({ version: '0.7.2', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
     const files = listFiles(path.resolve('vendor/hub-sdk'));
     expect(files.some(file => file.endsWith('.map'))).toBe(false);
     for (const file of files) expect(fs.readFileSync(file, 'utf8')).not.toContain('sourceMappingURL=');
@@ -185,7 +190,23 @@ describe('vendored hub SDK', () => {
     expect(types).toContain('submitFeedback?(');
   });
 
-  it('content manifest matches SDK 0.7.0 after maps and sourceMappingURL are removed', () => {
+  // 0.7.2: the screenshot draws the page's HTML (menus, HUD, pause panel) over the game canvas.
+  // feedback.js loads ./pageShot, which loads ./third_party/modern-screenshot.js on demand.
+  it('ships the HTML page capture and its vendored library', async () => {
+    const feedback = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/feedback.js'), 'utf8');
+    expect(feedback).toContain("from './pageShot'");
+    const pageShot = await import('../vendor/hub-sdk/dist/pageShot.js');
+    expect(typeof pageShot.capturePage).toBe('function');
+    expect(typeof pageShot.loadPageShot).toBe('function');
+    const library = await pageShot.loadPageShot();
+    expect(typeof library.domToCanvas).toBe('function');
+    const dts = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/feedback.d.ts'), 'utf8');
+    expect(dts).toContain('overlay?: false |');
+    const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
+    expect(types).toContain('tickets?: number;');
+  });
+
+  it('content manifest matches SDK 0.7.2 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);

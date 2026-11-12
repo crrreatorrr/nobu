@@ -13,6 +13,8 @@ import { hub } from './hubBridge.js';
 export const BUILD_VERSION = typeof __NOBU_VERSION__ === 'string' ? __NOBU_VERSION__ : 'dev';
 
 const ERROR_MAX = 10;
+/** Longest the game stays still for a screenshot. The SDK opens the window within about 3 s. */
+const STILL_MAX_MS = 5000;
 const round = (n, places = 2) => (Number.isFinite(n) ? Math.round(n * 10 ** places) / 10 ** places : null);
 const point = (p) => (p ? { x: round(p.x), y: round(p.y), z: round(p.z) } : null);
 
@@ -112,20 +114,32 @@ export function installGameFeedback(game, { transport = feedbackTransportFromSdk
     errors.push({ message: `${info.source}: ${info.message}`, stack: info.stack, at: Math.round(performance.now()) });
     if (errors.length > ERROR_MAX) errors.shift();
   });
+  // From the screenshot until the window opens, the SDK draws the page's HTML (menus, HUD, pause
+  // panel) over the canvas copy, fetching its fonts and images with a 1 s limit each. A game frame
+  // drawn in the meantime took about a second in a software renderer and starved those fetches, so
+  // the report lost its fonts and icons. The game stays still instead; pause() takes over.
+  let stillTimer = 0;
+  const endStill = () => { clearTimeout(stillTimer); game.still = false; };
   const handle = installFeedback({
     title: 'NOBU: Saviour Dog',
     version: BUILD_VERSION,
     transport,
     // The loop stops updating in whatever state it is in, so the game's own pause menu never
     // opens over the window and closing it leaves the exact screen the player was on.
-    pause: () => game.hold(),
+    pause: () => { endStill(); return game.hold(); },
     resume: (token) => game.release(token),
     context: () => feedbackContext(game),
-    // No preserveDrawingBuffer: draw the current frame again right before the canvas is read.
-    beforeCapture: () => { if (game.ui) game.render(); },
+    // No preserveDrawingBuffer: draw the current frame again right before the canvas is read, then
+    // keep it. The SDK draws the rest of the page (no `overlay` option), so the HTML UI is included.
+    beforeCapture: () => {
+      if (game.ui) game.render();
+      game.still = true;
+      clearTimeout(stillTimer);
+      stillTimer = setTimeout(endStill, STILL_MAX_MS);
+    },
     canvases: () => [game.canvas],
     errors: () => errors.slice(),
     theme: THEME,
   });
-  return { ...handle, dispose() { stopErrors(); handle.dispose(); } };
+  return { ...handle, dispose() { stopErrors(); endStill(); handle.dispose(); } };
 }
