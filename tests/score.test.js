@@ -131,30 +131,35 @@ describe('case 6: trial score and window.__nobu', () => {
     expect(main).toContain('window.__nobu');
 
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nobu-prod-'));
-    await execFileAsync(process.execPath, [
-      path.resolve('node_modules/vite/bin/vite.js'),
-      'build',
-      '--outDir', outDir,
-      '--emptyOutDir',
-      '--logLevel', 'error',
-    ], {
-      cwd: path.resolve('.'),
-      timeout: 180000,
-      // Vitest sets NODE_ENV=test. Vite keeps import.meta.env.DEV true in that
-      // case, so the child has to build as a real production bundle.
-      env: { ...process.env, NODE_ENV: 'production' },
-    });
+    try {
+      await execFileAsync(process.execPath, [
+        path.resolve('node_modules/vite/bin/vite.js'),
+        'build',
+        '--outDir', outDir,
+        '--emptyOutDir',
+        '--logLevel', 'error',
+      ], {
+        cwd: path.resolve('.'),
+        timeout: 180000,
+        // Vitest sets NODE_ENV=test. Vite keeps import.meta.env.DEV true in that
+        // case, so the child has to build as a real production bundle.
+        env: { ...process.env, NODE_ENV: 'production' },
+      });
 
-    const js = [];
-    const walk = (dir) => {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) walk(full);
-        else if (entry.name.endsWith('.js')) js.push(fs.readFileSync(full, 'utf8'));
-      }
-    };
-    walk(outDir);
-    expect(js.length).toBeGreaterThan(0);
-    expect(js.join('\n')).not.toContain('__nobu');
+      const js = [];
+      const walk = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) walk(full);
+          else if (entry.name.endsWith('.js')) js.push(fs.readFileSync(full, 'utf8'));
+        }
+      };
+      walk(outDir);
+      expect(js.length).toBeGreaterThan(0);
+      expect(js.join('\n')).not.toContain('__nobu');
+    } finally {
+      // Each production bundle is ~41 MB; never leave it in the temp folder.
+      fs.rmSync(outDir, { recursive: true, force: true });
+    }
   }, 180000);
 });
