@@ -43,7 +43,8 @@ export function resetWorld() {
   sessionStorage.clear();
   resetSdk();
   resetLocks();
-  save.reset();
+  // Opens this browser's save afresh: the progress store, settings and wallet all start empty.
+  save.load();
   save.data.tickets = 0;
   save.data.lives = START_LIVES;
   save.data.godMode = false;
@@ -55,8 +56,6 @@ export function resetWorld() {
   save.data.perfect = {};
   save.data.rush = { clear: false, noHit: false, bestMs: null };
   save.data.gauntlets = {};
-  // reset() keeps trial bests on purpose, so clear them on disk too.
-  save.write({ merge: false });
   resetHub(hub);
 }
 

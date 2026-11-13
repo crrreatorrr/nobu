@@ -817,10 +817,24 @@ class HubBridge {
       this.reach = 'offline';
       this.inSession = hasSession();
     }
+    this._claimProgress();
     if (this.reach === 'ready' && this.inSession) {
       await this._syncTicketAccount();
       await this.flush();
       await this.flushScores();
+    }
+  }
+
+  // Progress belongs to the hub account only while init gave a live session. Otherwise (standalone,
+  // offline, or init failed) it is this browser's. Runs before the wallet sync below, so the server
+  // balance lands in the account's local wallet, not in the held one.
+  _claimProgress() {
+    const playerId = this.reach === 'ready' && this.inSession ? this.profile?.playerId : null;
+    if (typeof playerId === 'string' && playerId) {
+      this.progressReady = save.attach(this._sdk, playerId).catch((err) => console.warn('[hub] progress not attached', err));
+    } else {
+      save.release();
+      this.progressReady = Promise.resolve();
     }
   }
 

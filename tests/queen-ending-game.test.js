@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Game } from '../src/game/game.js';
 import { LEVELS } from '../src/levels/registry.js';
-import { save, SAVE_KEY } from '../src/core/save.js';
+import { save, PROGRESS_KEY } from '../src/core/save.js';
 import { input } from '../src/core/input.js';
 import { audio } from '../src/audio/audio.js';
 import { Assets } from '../src/art/assets.js';
@@ -55,7 +55,7 @@ it('acknowledges the true ending on completion, persists it and does not replay 
   expect(save.data.secretSeen).toBe(false);
   g.playCutscene.mock.calls[0][1]();
   expect(done).toHaveBeenCalledOnce();
-  expect(JSON.parse(localStorage.getItem(SAVE_KEY)).secretSeen).toBe(true);
+  expect(JSON.parse(localStorage.getItem(PROGRESS_KEY)).secretSeen).toBe(true);
   expect(g._trySecretEnding(done)).toBe(false);
 });
 it('checks eligibility again on entering the map after later completion progress', () => {

@@ -8,10 +8,19 @@ import { sdk } from './sdkState.js';
 
 const HAT = 'nobu_wizard_hat';
 
+const wearHat = () => { save.data.loadout = { slots: { head: HAT, neck: null, back: null, body: null } }; };
+
 beforeEach(() => {
   resetWorld();
-  save.data.loadout = { slots: { head: HAT, neck: null, back: null, body: null } };
+  wearHat();
 });
+
+// The loadout is kept per owner (src/core/save.js): a hub account starts with its own choice,
+// never with the one made outside the hub. These sessions equip the hat inside the account.
+async function readyWearing() {
+  await readyHub();
+  wearHat();
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -27,7 +36,7 @@ async function standalone() {
 describe('Relic gear ownership', () => {
   it('a live session that owns the relic shows and wears the Wizard Hat', async () => {
     sdk.relics.add('tinubu_crown');
-    await readyHub();
+    await readyWearing();
     const loadout = new Loadout();
     expect(readNobuOwnership()).toMatchObject({ ready: true, itemIds: [HAT] });
     expect(loadout.options('head')).toEqual([null, HAT]);
@@ -47,7 +56,7 @@ describe('Relic gear ownership', () => {
   });
 
   it('a session whose relic list lacks the relic hides the hat but does not erase it', async () => {
-    await readyHub();
+    await readyWearing();
     const loadout = new Loadout();
     expect(loadout.resync()).toEqual(['Wizard Hat']);
     expect(loadout.cosmeticSlots().head).toBe(null);

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { save } from '../src/core/save.js';
+import { PROGRESS_KEY, SAVE_KEY, save } from '../src/core/save.js';
 import { levelEndCalls, readHubStore, readyHub, resetHub, resetWorld } from './helpers.js';
 import { creditedEarnTotal, sdk } from './sdkState.js';
 
@@ -88,9 +88,12 @@ describe('case 3: two tabs share the key store', () => {
   });
 });
 
+// An older tab still writes the single pre-store save (SAVE_KEY). Its progress belongs to this
+// browser, so these run outside a hub session, where save.js merges it into the device copy.
 describe('v3 progress shared with older and newer tabs', () => {
-  const key = 'nobu-saviour-dog-save-v1';
+  const key = SAVE_KEY;
   const put = (value) => localStorage.setItem(key, JSON.stringify(value));
+  beforeEach(() => { save.load(); });
 
   it('unions bones and durable progress, maxes counts, and keeps local cosmetic choices', () => {
     save.data.boneBoard = { 1: { golden: false, goodBoy: true, hidden: false, snack: 1 } };
@@ -135,7 +138,7 @@ describe('v3 progress shared with older and newer tabs', () => {
     expect(save.data.bestDogs).toEqual({ 1: 3, 2: 2 });
     expect(save.data.dogsFreed['1:dalmatian-a']).toBe(true);
     expect(save.data.open).toMatchObject({ 1: true, 2: true, 3: true, ride: true, cave: true, kennel: true });
-    expect(JSON.parse(localStorage.getItem(key)).beaten).toEqual(save.data.beaten);
+    expect(JSON.parse(localStorage.getItem(PROGRESS_KEY)).beaten).toEqual(save.data.beaten);
   });
 
   it('merges Classic trial minima and gauntlet aliases including the payment flag', () => {

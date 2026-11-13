@@ -1,4 +1,10 @@
 import { hubError, sdk } from './sdkState.js';
+import { encodeSave } from '../vendor/hub-sdk/dist/save.js';
+import { SAVE_MAX_BYTES } from '../vendor/hub-sdk/dist/types.js';
+
+// The progress store is the vendored SDK's own code, so tests run what ships.
+export { createProgressStore, hubVisitStarting } from '../vendor/hub-sdk/dist/progress.js';
+export { SAVE_MAX_BYTES };
 
 export const HubEvent = {
   Ready: 'ready',
@@ -33,7 +39,7 @@ export function createHubSdk() {
       sdk.calls.init += 1;
       if (sdk.initError) throw take('initError', 'initErrorOnce');
       return {
-        playerId: 'player-1',
+        playerId: sdk.playerId,
         ranked: true,
         relics: [...sdk.relics],
         effects: {},
@@ -131,6 +137,19 @@ export function createHubSdk() {
         ? await sdk.ticketBalance()
         : (sdk.ticketBalance || {});
       return { ...base, ...serverTimeField() };
+    },
+
+    // Cloud save of the player init answered, like save.get / save.put (one JSON object per player).
+    async loadSave() {
+      if (sdk.saveError) throw sdk.saveError;
+      const data = sdk.cloudSaves.get(sdk.playerId);
+      return { data: data ? JSON.parse(data) : null, updatedAt: data ? 1 : null };
+    },
+    async writeSave(data) {
+      if (sdk.saveError) throw sdk.saveError;
+      const body = encodeSave(data);
+      sdk.cloudSaves.set(sdk.playerId, body);
+      return { ok: true };
     },
 
     exit() {},

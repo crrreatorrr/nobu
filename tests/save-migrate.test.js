@@ -9,7 +9,9 @@ import { Player } from '../src/player/player.js';
 import { hub } from '../src/hub/hubBridge.js';
 import { resetWorld } from './helpers.js';
 
+// A browser that has only the save from before progress moved to the store.
 const load = (value) => {
+  localStorage.clear();
   localStorage.setItem(SAVE_KEY, JSON.stringify(value));
   return save.load();
 };

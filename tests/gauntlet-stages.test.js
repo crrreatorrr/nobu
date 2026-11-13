@@ -60,11 +60,11 @@ test('all three routes build their actual procedural decor without media or game
 });
 
 const {Session}=await import('../src/game/session.js');
-const {save,SAVE_KEY}=await import('../src/core/save.js');
+const {save,SAVE_KEY,PROGRESS_KEY,LOCAL_KEY}=await import('../src/core/save.js');
 const {hub}=await import('../src/hub/hubBridge.js');
 const {advanceBeatClocks}=await import('../src/entities/boxes.js');
 function sessionFixture(id='g1'){
- localStorage.setItem(SAVE_KEY,JSON.stringify({v:3}));save.load();
+ localStorage.removeItem(PROGRESS_KEY);localStorage.removeItem(LOCAL_KEY);localStorage.setItem(SAVE_KEY,JSON.stringify({v:3}));save.load();
  const f=fixture(id),{g,s,t,info}=f,session=new Session(g,id);g.session=session;
  Object.assign(session,{def:{...GAUNTLET_INFO[id],gauntlet:true,bonus:true},stage:s,tickets:t,projectiles:{clear:vi.fn()},_pushHud:vi.fn(),_undoLifeLinesAbove:vi.fn(),setMask:vi.fn(),attemptId:'gauntlet-proof',attemptDurable:true});
  Object.assign(g.player,{facing:info.facing,spawnAt(pos){this.pos.copy(pos);}});g.player.pos.copy(info.spawn);

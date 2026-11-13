@@ -40,6 +40,10 @@ function fresh() {
     // Epoch ms from the hub, or 0 for the SDK's no-clock sentinel. Null omits serverTime.
     // This is not Date.now. Carry expiry reads only this clock.
     serverNow: null,
+    // Cloud saves (save.get / save.put) per `${playerId}`; the mock's init answers `playerId`.
+    playerId: 'player-1',
+    cloudSaves: new Map(),
+    saveError: null,
   };
 }
 
