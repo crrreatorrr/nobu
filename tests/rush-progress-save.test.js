@@ -1,10 +1,11 @@
 import { beforeEach, expect, it } from 'vitest';
-import { save, SAVE_KEY } from '../src/core/save.js';
+import { save, LOCAL_KEY, PROGRESS_KEY } from '../src/core/save.js';
 import { save as otherTab } from '../src/core/save.js?rush-second-tab';
-beforeEach(() => { localStorage.clear(); save.reset(); otherTab.load(); });
+beforeEach(() => { localStorage.clear(); save.load(); otherTab.load(); });
+const disk = (key) => JSON.parse(localStorage.getItem(key));
 
 it.each([3, 123])('refreshes another tab’s durable wallet %i while keeping the current run lives', spent => {
-  save.data.tickets = 77; save.data.lives = 8; save.write({ merge: false }); otherTab.load();
+  save.data.tickets = 77; save.data.lives = 8; save.write(); otherTab.load();
   otherTab.data.tickets = spent;
   otherTab.data.beaten[6] = true;
   otherTab.data.dogsFreed['1:shiba-a'] = true;
@@ -15,18 +16,17 @@ it.each([3, 123])('refreshes another tab’s durable wallet %i while keeping the
   save.write({ progressOnly: true });
   expect(save.data.tickets).toBe(spent); expect(save.data.lives).toBe(8);
   expect(save.data.beaten[6]).toBe(true); expect(save.data.dogsFreed['1:shiba-a']).toBe(true);
-  const disk = JSON.parse(localStorage.getItem(SAVE_KEY));
-  expect(disk.tickets).toBe(spent);
-  expect(disk.rush).toEqual({ clear: true, noHit: true, bestMs: 10000 });
+  expect(disk(LOCAL_KEY).tickets).toBe(spent);
+  expect(disk(PROGRESS_KEY).rush).toEqual({ clear: true, noHit: true, bestMs: 10000 });
 });
 it('keeps legacy write semantics unchanged when progressOnly is absent', () => {
-  save.data.tickets = 77; save.write({ merge: false }); otherTab.load();
+  save.data.tickets = 77; save.write(); otherTab.load();
   otherTab.data.tickets = 3; otherTab.write();
   save.write();
-  expect(JSON.parse(localStorage.getItem(SAVE_KEY)).tickets).toBe(77);
+  expect(disk(LOCAL_KEY).tickets).toBe(77);
 });
-it('still merges monotone progress when progressOnly is requested with merge:false', () => {
+it('still merges monotone progress when progressOnly is requested', () => {
   otherTab.data.tickets = 9; otherTab.data.beaten[4] = true; otherTab.write();
-  save.write({ progressOnly: true, merge: false });
+  save.write({ progressOnly: true });
   expect(save.data.beaten[4]).toBe(true); expect(save.data.tickets).toBe(9);
 });

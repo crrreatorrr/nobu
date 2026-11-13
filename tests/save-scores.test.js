@@ -1,14 +1,16 @@
 // Classic regression fixtures; active layout2 migration/upload gating is checked separately.
 vi.mock('../src/config/trialLayouts.js',()=>({LAYOUT:{1:1,2:1,3:1},HUB_LAYOUT:{1:1,2:1,3:1}}));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CORRUPT_KEY, SAVE_KEY, save } from '../src/core/save.js';
+import { CORRUPT_KEY, LOCAL_KEY, PROGRESS_KEY, SAVE_KEY, save } from '../src/core/save.js';
 import { resetWorld } from './helpers.js';
 
 beforeEach(() => {
   resetWorld();
 });
 
-const disk = () => JSON.parse(localStorage.getItem(SAVE_KEY));
+// Progress and the local wallet/lives live under their own keys (src/core/save.js).
+const disk = () => JSON.parse(localStorage.getItem(PROGRESS_KEY));
+const local = () => JSON.parse(localStorage.getItem(LOCAL_KEY));
 
 describe('save: trial scores', () => {
   it('migrates a float-seconds best to integer ms', () => {
@@ -53,7 +55,7 @@ describe('save: trial scores', () => {
     other.trials[2] = { best: 60, ms: 60000, medal: 'silver', pid: 'p' };
     other.bestDogs = { '1': 1, '2': 5 };
     other.bonus = { ride: { beaten: true, best: 35 }, cave: { found: true } };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(other));
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(other));
 
     // This tab still holds the older state and writes.
     save.data.lives = 2;
@@ -64,7 +66,7 @@ describe('save: trial scores', () => {
     expect(now.bestDogs).toEqual({ '1': 3, '2': 5 });
     expect(now.bonus.ride.best).toBe(35);
     expect(now.bonus.cave.found).toBe(true);
-    expect(now.lives).toBe(2);
+    expect(local().lives).toBe(2);
     // The merged values are live in this tab too.
     expect(save.data.trials[1].ms).toBe(44000);
   });

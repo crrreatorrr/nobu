@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Game } from '../src/game/game.js';
 import { LEVELS } from '../src/levels/registry.js';
 import { CHAPTER2 } from '../src/story/script.js';
-import { save, SAVE_KEY } from '../src/core/save.js';
+import { save, PROGRESS_KEY } from '../src/core/save.js';
 import { resetWorld } from './helpers.js';
 import { audio } from '../src/audio/audio.js';
 import { input } from '../src/core/input.js';
@@ -25,7 +25,7 @@ it('gives an older completed save the newly shipped chapter and plays its story 
 it('retains the chapter acknowledgement across old-tab merges and clears it for New Game',()=>{
  save.data.seenCh2=true;save.write({merge:false});save.data.seenCh2=false;save.write();save.load();expect(save.data.seenCh2).toBe(true);
  save.reset();expect(save.data.seenCh2).toBe(false);
- const disk=JSON.parse(localStorage.getItem(SAVE_KEY));disk.seenCh2='false';localStorage.setItem(SAVE_KEY,JSON.stringify(disk));save.load();expect(save.data.seenCh2).toBe(false);
+ const disk=JSON.parse(localStorage.getItem(PROGRESS_KEY));disk.seenCh2='false';localStorage.setItem(PROGRESS_KEY,JSON.stringify(disk));save.load();expect(save.data.seenCh2).toBe(false);
 });
 it.each([[4,[1,2,3,4]],[6,[1,2,3,4,5,6]],[5,[1,2,3,4,5]]])('Continue puts the map cursor on level %i when it was the last one played',(last,open)=>{
  for(const id of open)save.data.open[id]=true;

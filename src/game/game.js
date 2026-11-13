@@ -27,6 +27,7 @@ import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RE
 import { damp } from '../core/util.js';
 import { crashGuard } from '../core/crashGuard.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
+import { hubVisitStarting } from '@metaverse/hub-sdk';
 
 import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
 import { bankChain } from './rewards.js';
@@ -41,6 +42,8 @@ import { trialTargetLine, eligibleTrialLine, bossMedalPanel, perfectPaw } from '
 import { applyFurTint } from '../player/furTint.js';
 import { fullscreen } from '../ui/fullscreen.js';
 import { MENU_METHODS, MAIN_MENU, CONTROLS, exitHub, fullscreenItems, menuHtml, ensureMenuTip } from './menus.js';
+
+const HUB_GAME_ID = 'nobu'; // hub SDK game id (src/hub/hubBridge.js)
 
 const MEDAL = { gold: '🥇', silver: '🥈', bronze: '🥉', platinum: '💎' };
 function esc(text) {
@@ -129,10 +132,19 @@ export class Game {
     /** Feedback handle (src/hub/feedback.js), set by main.js. Absent in tests. */
     this.feedback = null;
     window.addEventListener('resize', () => this.resize());
+    // Another tab saved progress; a hidden page pushes account progress before it may close.
+    window.addEventListener('storage', (e) => save.storageChanged(e.key));
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void save.flush(); });
     window.addEventListener('beforeunload', (e) => {
       if (this.hubExit) return;
       if (this.state === 'play') { e.preventDefault(); e.returnValue = ''; }
     });
+  }
+
+  _redrawProgress() {
+    if (!this.ui) return;
+    if (this.state === 'map') this._drawMap();
+    else if (this.state === 'title' && this.titleMenu) this._drawTitleMenu();
   }
 
   resize() {
@@ -150,8 +162,10 @@ export class Game {
 
   async boot() {
     save.load();
+    // A hub visit holds progress in memory until hub.init() knows the account (src/core/save.js).
+    if (hubVisitStarting(HUB_GAME_ID)) save.hold();
     input.loadBindings(); // CONTROLLER SETTINGS (src/core/controls.js)
-    const hubReady = hub.init();
+    const hubReady = hub.init().catch((err) => { save.release(); throw err; });
     audio.setVolumes(save.data.musicVol, save.data.sfxVol);
     this.uiRoot.innerHTML = '<div class="loading"><div class="big-title" style="font-size:52px">NOBU</div><div class="bar"><div class="fill"></div></div><div class="hint">Loading Higgsfield art...</div></div>';
     const fill = this.uiRoot.querySelector('.fill');
@@ -171,9 +185,10 @@ export class Game {
     this.accessories = { flashCollar: (charged) => setCollarGlow(this.player?.model, charged) };
     hubReady.then(() => {
       this._applyHubGear();
-      if (this.state === 'map') this._drawMap();
-      else if (this.state === 'title' && this.titleMenu) this._drawTitleMenu();
-    });
+      this._redrawProgress();
+    }, () => {});
+    // Progress that arrives later (the account's cloud save, another tab) shows on the open menu.
+    save.subscribe(() => this._redrawProgress());
     if (unavailable.length) this.ui.banner('Gear unavailable', unavailable.join(', '), 2.4);
     this.mask = new SprotoMask(this);
     this.resize();

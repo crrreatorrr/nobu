@@ -7,7 +7,7 @@ import { Buddy, addBuddy } from '../src/entities/buddy.js';
 import { noticeKennelMilestones } from '../src/game/progress.js';
 import { resetWorld } from './helpers.js';
 import { Assets } from '../src/art/assets.js';
-import { save, SAVE_KEY } from '../src/core/save.js';
+import { save, PROGRESS_KEY, SAVE_KEY } from '../src/core/save.js';
 
 const current = Object.fromEntries(Object.entries(LEVEL_DOGS).map(([id, dogs]) => [id, { id, shipped: true, bonus: ['ride', 'cave'].includes(id), name: id, dogs, hidden: { section: 'Secret', move: null } }]));
 const legacyCounts={1:5,2:3,3:5,ride:2,cave:2};
@@ -99,7 +99,7 @@ describe('cosmetic transforms and persistence', () => {
   });
   it('persists one-time Golden scene across reload and merges another tabsseen without replacing choices', () => {
     save.data.kennel = { seen: 3, buddy: 'pug', tint: 'cream', goldenSeen: true }; save.write(); save.load(); expect(save.data.kennel.goldenSeen).toBe(true);
-    const disk = JSON.parse(localStorage.getItem(SAVE_KEY)); save.data.kennel.goldenSeen = false; save.data.kennel.buddy = 'shiba'; disk.kennel.goldenSeen = true; localStorage.setItem(SAVE_KEY, JSON.stringify(disk)); save.write();
+    const disk = JSON.parse(localStorage.getItem(PROGRESS_KEY)); save.data.kennel.goldenSeen = false; save.data.kennel.buddy = 'shiba'; disk.kennel.goldenSeen = true; localStorage.setItem(PROGRESS_KEY, JSON.stringify(disk)); save.write();
     expect(save.data.kennel).toMatchObject({ goldenSeen: true, buddy: 'shiba', tint: 'cream' });
   });
 });
@@ -117,10 +117,10 @@ it('migrates count-only milestones only from earned current unlocks, idempotentl
   localStorage.setItem(SAVE_KEY, JSON.stringify(d)); save.load();
   expect(save.data.kennel.seenMilestones).toEqual({ jukebox: true, buddy: true, fur: true, gallery: true, sniffer: true, golden: true });
   save.write(); save.load(); expect(save.data.kennel.seenMilestones.golden).toBe(true);
-  const disk = JSON.parse(localStorage.getItem(SAVE_KEY)); disk.kennel.seenMilestones.fur = true; localStorage.setItem(SAVE_KEY, JSON.stringify(disk));
+  const disk = JSON.parse(localStorage.getItem(PROGRESS_KEY)); disk.kennel.seenMilestones.fur = true; localStorage.setItem(PROGRESS_KEY, JSON.stringify(disk));
   save.data.kennel.seenMilestones.gallery = true; save.write();
   expect(save.data.kennel.seenMilestones).toMatchObject({ jukebox: true, buddy: true, golden: true, fur: true, gallery: true });
-  localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 3, dogsFreed: {}, kennel: { seen: 6 } })); save.load();
+  localStorage.clear(); localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 3, dogsFreed: {}, kennel: { seen: 6 } })); save.load();
   expect(save.data.kennel.seenMilestones).toEqual({});
 });
 

@@ -238,15 +238,28 @@ The map can show Classic records and a total of all six current trial bests once
 
 ## Saves and New Game
 
-The local save is **version 3**, under the existing `nobu-saviour-dog-save-v1` key. Older saves migrate
-without renaming released dog IDs; previous trial layouts are archived as Classic. Unreadable data is
-backed up at `nobu-saviour-dog-save-v1.corrupt`. Cross-tab writes merge durable records rather than
-replacing faster times or earned progress with older copies.
+Progress belongs to whoever earned it (`src/core/save.js`):
+
+- **Progress** (unlocks, clears, dogs, bones, trials, medals, Gauntlet claims) is kept by the hub SDK's
+  progress store. Play outside the hub keeps it in this browser (`nobu-saviour-dog-progress-v1`). In a
+  hub session it belongs to the hub account (`nobu-saviour-dog-progress-v1@<playerId>` plus the account's
+  cloud save), so it loads on any device and a new account starts empty. Every copy (tabs, devices,
+  the cloud) merges and only keeps or improves records.
+- **Settings** (volumes, rumble, model, pixels, God Mode) stay with this browser
+  (`nobu-saviour-dog-settings-v1`).
+- **Wallet and run state** (local Tickets, lives, last level and its misses, equipped gear, the Kennel
+  buddy and fur) can go down, so they never sync. Each owner keeps its own copy in this browser
+  (`nobu-saviour-dog-local-v1`, or `...@<playerId>` for an account).
+
+The single save from before (`nobu-saviour-dog-save-v1`, version 3) is now only read: its progress stays
+with this browser and never moves into an account, and it seeds this browser's settings and wallet once.
+Older saves migrate without renaming released dog IDs; previous trial layouts are archived as Classic.
+Unreadable data is backed up at `nobu-saviour-dog-save-v1.corrupt`.
 
 **New Game resets story unlocks, rescues, ordinary bone boards, colors and Remix progress.** It keeps
 current/Classic trial records, boss medals, Perfect Runs, Rush records and Gauntlet progress, including
 its one-time reward claims. Model/render/audio preferences, God Mode and equipped-item choices also
-remain. Start with God Mode off when pursuing eligible records.
+remain. In a hub account, New Game starts a new playthrough on every device the account plays on. Start with God Mode off when pursuing eligible records.
 
 ## Wardrobe and hub items
 
