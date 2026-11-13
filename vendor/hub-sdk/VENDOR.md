@@ -1,8 +1,8 @@
 # Vendored @metaverse/hub-sdk
 
 - repo: https://github.com/crrreatorrr/metaverse-hub
-- branch: claude/account-progress
-- sha: c9d01b3
+- branch: main
+- sha: b7921f2
 - package: packages/hub-sdk @ 0.8.0
 - built with: `node scripts/vendor-sdk.mjs`
 - iife: dist/hub-sdk.iife.js (global HubSDK; classic script, not a CDN import)
@@ -51,4 +51,4 @@ Re-sync this tree to hub main whenever packages/hub-sdk changes. Hub main includ
 
 0.7.2 fixes the feedback screenshot, which used to copy only the game canvas, so reports showed the 3D scene without the menus, HUD or pause panel. The window now draws the page's HTML over the canvases (`dist/pageShot.js`, using modern-screenshot 4.7.0, MIT, vendored as `dist/third_party/modern-screenshot.js` and loaded on demand). NOBU's adapter keeps `canvases: () => [game.canvas]` and passes no `overlay`, so the HTML is drawn. From the canvas copy until the window opens, the game draws no new frame (`game.still`): in a software renderer a frame took about a second and starved the HTML's font and image fetches, which the SDK limits to 1 s each. `index.html` loads the Google Fonts stylesheet with `crossorigin="anonymous"`, or the screenshot's text falls back to a system font. This tree was vendored from hub main `c6627e5` (`c6627e51585a7c0e8006122af54e0e413ca91876`) after metaverse-hub#183 merged as `bb0017c`. Hub #185 is on that main and does not change `packages/hub-sdk`, so the built files match the earlier 5099cb5 pin apart from this header.
 
-0.8.0 adds `createProgressStore` and `hubVisitStarting` (progress per hub account, synced through the cloud save) and raises the cloud save limit to 16384 bytes. NOBU keeps its progress in one store (`src/core/save.js`). This tree comes from hub branch `claude/account-progress` at `c9d01b3`, before that branch merged: re-vendor from hub main once it merges, and update the pins in `tests/sdk-vendor.test.js`.
+0.8.0 adds `createProgressStore` and `hubVisitStarting` (progress per hub account, synced through the cloud save) and raises the cloud save limit to 16384 bytes. NOBU keeps its progress in one store (`src/core/save.js`). This tree was vendored from hub main `b7921f2` after metaverse-hub#187 merged, running `scripts/vendor-sdk.mjs` from the hub checkout so the IIFE matches `SOURCE.pin.json`. The built files are the same as the earlier `c9d01b3` branch vendor; only this header moved.

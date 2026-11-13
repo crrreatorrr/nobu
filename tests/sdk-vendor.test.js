@@ -51,11 +51,10 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 // files match 5099cb5 and only the provenance header moved):
 //   84545f29559ddb89e4390e43f35e12bbd73619c3ae1174e91f26642e387e9e07
 //   iife 770e8e1b41ad1abef33eb0d04ef9c7eec8fda723336e5149a7809d902042013c
-// 0.8.0 / hub branch claude/account-progress at c9d01b3 (createProgressStore, hubVisitStarting,
-// cloud save limit 16384 bytes), run from the hub worktree so the IIFE matches its pin.
-// Re-vendor from hub main once that branch merges.
+// 0.8.0 / hub main b7921f2 (metaverse-hub#187: createProgressStore, hubVisitStarting, cloud save
+// limit 16384 bytes), vendored from the hub checkout so the IIFE matches its pin.
 // File sha256 of dist/hub-sdk.iife.js:
-const CONTENT_MANIFEST_SHA256 = 'b049383fa56d12886127e048e1f60ad35374227e2b9db7032af9f5b85729d7db';
+const CONTENT_MANIFEST_SHA256 = 'fdee4cf06b989119fe91393e5cf83f2415d033a3a8529e91d2ada422a8a2f59e';
 const IIFE_SHA256 = '833ce281696f9769bd13d284b9d9262957838181cf1ac308358c6b602b21f309';
 
 function listFiles(dir) {
@@ -128,7 +127,7 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: claude/account-progress\n- sha: c9d01b3\n- package: packages/hub-sdk @ 0.8.0');
+    expect(note).toContain('- branch: main\n- sha: b7921f2\n- package: packages/hub-sdk @ 0.8.0');
     expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
     const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
     const iife = fs.readFileSync(iifePath);
