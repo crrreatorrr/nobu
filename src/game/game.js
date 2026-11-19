@@ -177,7 +177,9 @@ export class Game {
     // A hub visit holds progress in memory until hub.init() knows the account (src/core/save.js).
     if (hubVisitStarting(HUB_GAME_ID)) save.hold();
     input.loadBindings(); // CONTROLLER SETTINGS (src/core/controls.js)
-    const hubReady = hub.init().catch((err) => { save.release(); throw err; });
+    const hubInit = hub.init().catch((err) => { save.release(); throw err; });
+    // The account, not the outbox / ticket / score flushes that init runs after it, gates the title.
+    const hubReady = hub.authReady ? hub.authReady() : hubInit;
     audio.setVolumes(save.data.musicVol, save.data.sfxVol);
     this.uiRoot.innerHTML = '<div class="loading"><div class="big-title" style="font-size:52px">NOBU</div><div class="bar"><div class="fill"></div></div><div class="hint">Loading Higgsfield art...</div></div>';
     const fill = this.uiRoot.querySelector('.fill');
@@ -202,6 +204,8 @@ export class Game {
       this._applyHubGear();
       this._redrawProgress();
     }, () => {});
+    // The wallet sync and flushes finish later: show their balance on the open menu too.
+    if (hubInit !== hubReady) hubInit.then(() => this._redrawProgress(), () => {});
     // Progress that arrives later (the account's cloud save, another tab) shows on the open menu.
     save.subscribe(() => this._redrawProgress());
     if (unavailable.length) this.ui.banner('Gear unavailable', unavailable.join(', '), 2.4);

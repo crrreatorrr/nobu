@@ -750,12 +750,30 @@ class HubBridge {
     return this._sdk;
   }
 
+  // Resolves once init has fully finished, including the outbox, carry and score flushes.
+  // Every hub write waits for this.
   init() {
     if (!this._initing) {
       this.reach = 'pending';
+      let authed, failed;
+      this._authReady = new Promise((resolve, reject) => { authed = resolve; failed = reject; });
+      this._authReady.catch(() => {});
+      this._authed = authed;
       this._initing = this._doInit();
+      // A failure after the account is known (a flush) leaves authReady resolved.
+      this._initing.then(() => authed(), failed);
     }
     return this._initing;
+  }
+
+  /**
+   * Resolves as soon as init knows the account (reach, inSession, profile and the progress owner),
+   * before the ticket sync and the outbox / score flushes that follow it. Boot waits for this only,
+   * so the title is not held by those writes. Rejects only if init fails before that point.
+   */
+  authReady() {
+    this.init().catch(() => {});
+    return this._authReady;
   }
 
   _noteServerDay(source) {
@@ -818,6 +836,7 @@ class HubBridge {
       this.inSession = hasSession();
     }
     this._claimProgress();
+    this._authed?.();
     if (this.reach === 'ready' && this.inSession) {
       await this._syncTicketAccount();
       await this.flush();
