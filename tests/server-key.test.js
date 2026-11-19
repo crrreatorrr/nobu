@@ -25,3 +25,40 @@ describe('Nakama server key', () => {
     }
   });
 });
+
+describe('missing server key warning', () => {
+  it('warns only for a portal visit (#t=) in a build without a key', async () => {
+    const { missingServerKeyWarning } = await import('../src/hub/hubBridge.js');
+    expect(missingServerKeyWarning({ serverKey: '', hash: '#t=abc' })).toMatch(/VITE_NAKAMA_SERVER_KEY/);
+    expect(missingServerKeyWarning({ serverKey: '', hash: '#from=hub&t=abc' })).toMatch(/offline/);
+    expect(missingServerKeyWarning({ serverKey: 'k', hash: '#t=abc' })).toBeNull();
+    expect(missingServerKeyWarning({ serverKey: '', hash: '' })).toBeNull();
+    expect(missingServerKeyWarning({ serverKey: '', hash: '#from=hub' })).toBeNull();
+  });
+});
+
+describe('hub init with no server key', () => {
+  it('shows the warning when a #t= visit ends without a session, and not when a saved session works', async () => {
+    const { hub, KEY_WARNING_STATUS } = await import('../src/hub/hubBridge.js');
+    const { resetHub, resetWorld, grantSession } = await import('./helpers.js');
+    const { sdk, hubError } = await import('./sdkState.js');
+    const { vi } = await import('vitest');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const key = hub.serverKey;
+    try {
+      resetWorld(); resetHub(); hub.serverKey = ''; window.location.hash = '#t=abc';
+      sdk.initError = hubError('auth_failed');
+      await hub.init().catch(() => {});
+      expect(hub.view().status).toBe(KEY_WARNING_STATUS);
+      hub.status = 'Open this game from the hub to exchange.';
+      expect(hub.view().status).toBe(KEY_WARNING_STATUS);
+
+      resetWorld(); grantSession(); resetHub(); hub.serverKey = ''; window.location.hash = '#t=abc';
+      await hub.init();
+      expect(hub.inSession).toBe(true);
+      expect(hub.view().status).not.toBe(KEY_WARNING_STATUS);
+    } finally {
+      hub.serverKey = key; window.location.hash = ''; warn.mockRestore();
+    }
+  });
+});

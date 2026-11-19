@@ -48,6 +48,20 @@ const NAKAMA_SERVER_KEY = nakamaServerKey({
   hostname: typeof location !== 'undefined' ? location.hostname : '',
 });
 
+/**
+ * The warning for a portal visit (a `#t=` ticket in the URL) that this build cannot redeem
+ * because it was built without VITE_NAKAMA_SERVER_KEY, or null. Without it the visit silently
+ * plays standalone: no Tickets banked, no Relic sent, no Relic gear.
+ */
+export function missingServerKeyWarning({ serverKey, hash } = {}) {
+  if (serverKey) return null;
+  const raw = String(hash || '').replace(/^#/, '');
+  if (!raw || !new URLSearchParams(raw).get('t')) return null;
+  return 'This build has no VITE_NAKAMA_SERVER_KEY: the hub ticket cannot be redeemed, so this visit plays offline (no Tickets, Relics or Relic gear).';
+}
+
+export const KEY_WARNING_STATUS = 'Hub sign-in unavailable in this build';
+
 // Sent in trial score meta so the board can tell builds apart. Optional at build time.
 const BUILD_ID = import.meta.env.VITE_BUILD_ID || import.meta.env.MODE || 'unknown';
 // The map screen asks the hub for each level's world record at most once a minute.
@@ -718,6 +732,8 @@ class HubBridge {
     this.serverBalance = null;
     this.serverDay = null;
     this.status = '';
+    this.keyWarning = null; // shown instead of status: see missingServerKeyWarning
+    this.serverKey = NAKAMA_SERVER_KEY;
     this._sdk = null;
     this._initing = null;
     this._carryJob = null;
@@ -746,16 +762,34 @@ class HubBridge {
   get sdk() {
     // Same-origin /v2. The SDK redeems #t= with custom auth (server key only) and then
     // sends only the session token.
-    if (!this._sdk) this._sdk = createHubSdk({ serverUrl: '', serverKey: NAKAMA_SERVER_KEY, hubUrl: HUB_URL });
+    if (!this._sdk) this._sdk = createHubSdk({ serverUrl: '', serverKey: this.serverKey, hubUrl: HUB_URL });
     return this._sdk;
   }
 
+  // Resolves once init has fully finished, including the outbox, carry and score flushes.
+  // Every hub write waits for this.
   init() {
     if (!this._initing) {
       this.reach = 'pending';
+      let authed, failed;
+      this._authReady = new Promise((resolve, reject) => { authed = resolve; failed = reject; });
+      this._authReady.catch(() => {});
+      this._authed = authed;
       this._initing = this._doInit();
+      // A failure after the account is known (a flush) leaves authReady resolved.
+      this._initing.then(() => authed(), failed);
     }
     return this._initing;
+  }
+
+  /**
+   * Resolves as soon as init knows the account (reach, inSession, profile and the progress owner),
+   * before the ticket sync and the outbox / score flushes that follow it. Boot waits for this only,
+   * so the title is not held by those writes. Rejects only if init fails before that point.
+   */
+  authReady() {
+    this.init().catch(() => {});
+    return this._authReady;
   }
 
   _noteServerDay(source) {
@@ -776,6 +810,13 @@ class HubBridge {
   }
 
   async _doInit() {
+    // Read before sdk.init, which strips the ticket from the URL. init still runs: a session saved
+    // earlier in this tab needs no server key.
+    const keyWarning = missingServerKeyWarning({
+      serverKey: this.serverKey,
+      hash: typeof location !== 'undefined' ? location.hash : '',
+    });
+    this.keyWarning = null;
     this.sessionCapLeft = null;
     this.dailyCapLeft = null;
     this.rejectionRemaining = null;
@@ -817,7 +858,12 @@ class HubBridge {
       this.reach = 'offline';
       this.inSession = hasSession();
     }
+    if (keyWarning && !(this.reach === 'ready' && this.inSession)) {
+      console.warn(`[hub] ${keyWarning}`);
+      this.keyWarning = KEY_WARNING_STATUS;
+    }
     this._claimProgress();
+    this._authed?.();
     if (this.reach === 'ready' && this.inSession) {
       await this._syncTicketAccount();
       await this.flush();
@@ -838,9 +884,10 @@ class HubBridge {
     }
   }
 
-  async _syncTicketAccount(payload, { applyBalance = true } = {}) {
+  // `query: false` reads only `payload` (an earnTickets result), with no tickets.balance RPC.
+  async _syncTicketAccount(payload, { applyBalance = true, query = true } = {}) {
     const live = this.reach === 'ready' && this.inSession;
-    const account = await readTicketAccount(live ? this._sdk : null, payload, { query: live });
+    const account = await readTicketAccount(live ? this._sdk : null, payload, { query: live && query });
     this._noteServerDay(account);
     this._noteServerDay(payload);
     if (account.capsFromHook) this.rejectionRemaining = null;
@@ -867,7 +914,7 @@ class HubBridge {
     const pending = pendingExchange();
     return {
       pending,
-      status: pending ? 'Exchange pending' : this.status,
+      status: pending ? 'Exchange pending' : this.keyWarning || this.status,
       verseCapLeft: this.verseCapLeft,
       reach: this.reach,
       inSession: this.inSession,
@@ -1444,6 +1491,20 @@ class HubBridge {
     if (rec.dropped || this.reach !== 'ready' || !this.inSession) return { queued: !rec.dropped, accepted: rec.dropped ? 0 : rec.amount };
     const chunks = earnChunks(rec.amount, rec.chunkSize);
     let credited = Math.min(rec.amount, paidTickets(rec.credited));
+    // Each chunk's earnTickets result updates the wallet and caps; tickets.balance is read once,
+    // after the last chunk this call sent (it was one RPC per chunk: 20 for a 200-Ticket clear).
+    let lastPaid = null, res = null;
+    try {
+      res = await this._sendEarnChunks(id, rec, chunks, credited, (result) => { lastPaid = result; });
+      return res;
+    } finally {
+      // After a cap refusal _noteCap holds the newer caps: the last paid result would undo them.
+      const capped = typeof res?.code === 'string' && res.code.endsWith('_cap');
+      if (lastPaid && !capped) await this._syncTicketAccount(lastPaid);
+    }
+  }
+
+  async _sendEarnChunks(id, rec, chunks, credited, paid) {
     for (const chunk of chunks) {
       if (credited >= chunk.offset + chunk.amount) continue;
       const key = chunkKey(id, chunk.index, chunks.length);
@@ -1457,8 +1518,11 @@ class HubBridge {
         // count the tickets twice. A retry that lost `credited` resends `key`.
         credited = chunk.offset + chunk.amount;
         await this._markEarn(id, { credited });
-        const account = await this._syncTicketAccount(result);
-        if (!account.capsFromHook) this._spendAllowance(chunk.amount);
+        paid(result);
+        const account = await this._syncTicketAccount(result, { query: false });
+        // Caps the earn result carries are already net of this chunk.
+        const capsInPayload = account.sessionCapLeft != null || account.dailyCapLeft != null;
+        if (!account.capsFromHook && !capsInPayload) this._spendAllowance(chunk.amount);
       } catch (err) {
         const info = errorInfo(err);
         const cap = typeof info.code === 'string' && info.code.endsWith('_cap');

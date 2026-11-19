@@ -6,7 +6,11 @@
     <title>NOBU: Saviour Dog</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" crossorigin="anonymous" />
+    <!-- Not render-blocking: the page (and its fallback fonts) draws while the font CSS loads.
+         src/main.js switches media to all (no inline handler, so a strict CSP cannot leave it off). -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Baloo+2:wght@600;800&display=swap" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" crossorigin="anonymous" media="print" data-nobu-fonts />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Baloo+2:wght@600;800&display=swap" rel="stylesheet" crossorigin="anonymous" /></noscript>
     <link rel="stylesheet" href="./src/ui/style.css" />
   </head>
   <body>

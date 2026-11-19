@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv } from 'vite';
 import fs from 'node:fs';
+import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { UNUSED } from './src/art/assetTiers.js';
 
 // Shown in feedback notes (src/hub/feedback.js): package.json version plus the short commit.
 function buildVersion() {
@@ -30,6 +32,23 @@ const devShot = {
   },
 };
 
+// Build-only: dist/ gets a runtime manifest (id -> file; the authoring prompts and job ids stay in
+// public/assets/manifest.json) and none of the authoring-only files in src/art/assetTiers.js UNUSED.
+const shipAssets = {
+  name: 'ship-assets',
+  apply: 'build',
+  writeBundle(options) {
+    const out = path.join(options.dir || 'dist', 'assets');
+    const src = JSON.parse(fs.readFileSync(new URL('./public/assets/manifest.json', import.meta.url), 'utf8'));
+    const assets = {};
+    for (const [id, a] of Object.entries(src.assets || {})) {
+      if (UNUSED.has(id)) { fs.rmSync(path.join(out, a.file), { force: true }); continue; }
+      assets[id] = { file: a.file };
+    }
+    fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify({ assets }));
+  },
+};
+
 // Production is served at /nobu/. Local `vite` dev is mounted at /play/nobu/.
 // VITE_BASE overrides either one. It is not applied to VITE_HUB_URL: Exit to Hub
 // stays on the hub origin path (default /hub/#from=nobu).
@@ -42,8 +61,23 @@ function viteBase(command, mode) {
 
 export default defineConfig(({ command, mode }) => ({
   base: viteBase(command, mode),
-  plugins: [devShot],
+  plugins: [devShot, shipAssets],
   define: { __NOBU_VERSION__: JSON.stringify(buildVersion()) },
+  build: {
+    rollupOptions: {
+      output: {
+        // three and the hub SDK change far less often than the game: separate chunks stay cached
+        // across game releases.
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/]three[\\/]/.test(id)) return 'three';
+          // third_party/ (modern-screenshot) stays the lazy chunk the feedback screenshot imports.
+          if (/[\\/]third_party[\\/]/.test(id)) return undefined;
+          if (/[\\/](vendor[\\/]hub-sdk|node_modules[\\/]@metaverse[\\/]hub-sdk)[\\/]/.test(id)) return 'hub-sdk';
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     // Same-origin /v2 in dev. Production Caddy proxies Nakama; serverUrl stays ''.
     proxy: {

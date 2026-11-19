@@ -7,6 +7,9 @@ import { installGameFeedback } from './hub/feedback.js';
 // Crash safety net: uncaught errors and rejections feed the crash guard; when it halts the game
 // (a streak of failing frames, or a failed boot) the "Something broke" panel offers a reload.
 // crashGuard.onCrash(fn) is where an opt-in crash reporter can attach later. Nothing is sent.
+// index.html loads the web fonts' stylesheet as media="print" so it does not block the first paint.
+for (const link of document.querySelectorAll('link[data-nobu-fonts]')) link.media = 'all';
+
 const crashPanel = new CrashPanel(document, () => window.location.reload());
 crashGuard.installGlobal(window);
 // Errors while the tab was hidden (no frames ran) must not count toward a halt once it is back.

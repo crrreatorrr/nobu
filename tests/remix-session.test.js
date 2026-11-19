@@ -47,7 +47,9 @@ it('awards only its own bone after retained boss defeat, banks once, and ignores
 });
 it.each([{broken:false},{god:true}])('keeps a partial or sticky-God clear out of mastery: %j',async options=>{
  vi.useFakeTimers();const s=fixture(options);await s.reachBossGate();s.phase='boss';s.onBossDefeated(s.boss);await vi.runAllTimersAsync();
- expect(save.data.remix[1]).toBeUndefined();expect(hub.bank).toHaveBeenCalledOnce();expect(s.game.remixCleared.mock.calls[0][1].golden).toBe(false);
+ expect(save.data.remix[1]).toBeUndefined();
+ // A God-assisted clear sends no Hub Tickets (src/game/hubRewards.js); a partial clean one does.
+ expect(hub.bank).toHaveBeenCalledTimes(options.god?0:1);expect(s.game.remixCleared.mock.calls[0][1].golden).toBe(false);
 });
 it('does not let a delayed boss callback award or change UI after quitting',async()=>{
  vi.useFakeTimers();const s=fixture();await s.reachBossGate();s.onBossDefeated(s.boss);s.dispose();s.game.session=null;

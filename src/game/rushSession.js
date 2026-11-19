@@ -1,3 +1,4 @@
+import { Assets } from '../art/assets.js';
 import { Session } from './session.js';
 import { createRush, tickRush, hurtRush, defeatRushBoss, rushResult } from './rush.js';
 import { RUSH_ARENAS, RushTickets, rushAvailable } from './rushArenas.js';
@@ -88,6 +89,10 @@ export class RushSession extends Session {
     g.ui.showLoading(this.def.name, this.def.name);
     g.ui.loadingProgress(.1);
     if (!await this._delay(0, epoch)) return;
+    if (Assets.isReady?.() === false) {
+      await Assets.whenReady((p) => { if (this._alive(epoch)) g.ui.loadingProgress(0.1 + 0.05 * p, 'Loading art...'); });
+      if (!this._alive(epoch)) return;
+    }
     const stage = this._newStage(this.def.bossTheme);
     this.info = this.def.arena(g, stage, this.tickets);
     stage.finalize();

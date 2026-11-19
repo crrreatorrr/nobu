@@ -27,6 +27,7 @@ import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RE
 import { damp } from '../core/util.js';
 import { crashGuard } from '../core/crashGuard.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
+import { bankAttempt } from './hubRewards.js';
 import { hubVisitStarting } from '@metaverse/hub-sdk';
 
 import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
@@ -101,6 +102,17 @@ function updateBossBar(game, s) {
   ui.bossGhost(ok, x, y, top, Math.abs((_bossProbe.x + 1) / 2 - x));
 }
 
+// Exit to Hub waits this long at most for the cloud save before leaving the page.
+export const EXIT_FLUSH_MS = 800;
+
+/** Resolves when `flush()` settles or after `ms`, whichever is first. Never rejects. */
+export function flushBeforeExit(flush, ms = EXIT_FLUSH_MS) {
+  let timer;
+  const sent = Promise.resolve().then(flush).catch((err) => console.warn('[save] flush before exit failed', err));
+  const timeout = new Promise((resolve) => { timer = setTimeout(resolve, ms); });
+  return Promise.race([sent, timeout]).finally(() => clearTimeout(timer));
+}
+
 export class Game {
   constructor(canvas, uiRoot) {
     this.canvas = canvas;
@@ -143,6 +155,7 @@ export class Game {
 
   _redrawProgress() {
     if (!this.ui) return;
+    this.ui.godBadge?.(save.data.godMode, hub.inSession);
     if (this.state === 'map') this._drawMap();
     else if (this.state === 'title' && this.titleMenu) this._drawTitleMenu();
   }
@@ -165,11 +178,15 @@ export class Game {
     // A hub visit holds progress in memory until hub.init() knows the account (src/core/save.js).
     if (hubVisitStarting(HUB_GAME_ID)) save.hold();
     input.loadBindings(); // CONTROLLER SETTINGS (src/core/controls.js)
-    const hubReady = hub.init().catch((err) => { save.release(); throw err; });
+    const hubInit = hub.init().catch((err) => { save.release(); throw err; });
+    // The account, not the outbox / ticket / score flushes that init runs after it, gates the title.
+    const hubReady = hub.authReady ? hub.authReady() : hubInit;
     audio.setVolumes(save.data.musicVol, save.data.sfxVol);
     this.uiRoot.innerHTML = '<div class="loading"><div class="big-title" style="font-size:52px">NOBU</div><div class="bar"><div class="fill"></div></div><div class="hint">Loading Higgsfield art...</div></div>';
     const fill = this.uiRoot.querySelector('.fill');
-    await Assets.init((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
+    // Only the title screen's art blocks boot; the rest loads behind the title (src/art/assetTiers.js).
+    await Assets.initBoot((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
+    Assets.loadRest().then(() => this._restAssetsLoaded());
     await Promise.race([hubReady, new Promise((r) => setTimeout(r, 6000))]);
     this.uiRoot.innerHTML = '';
     this.ui = new UI(this.uiRoot);
@@ -178,15 +195,18 @@ export class Game {
     // FULL SCREEN labels follow the browser, including Esc or F11 leaving full screen.
     fullscreen.onChange(() => { if (this.ui) this.refreshPrompts(); });
     fullscreen.onRefused = () => this.ui?.banner('FULL SCREEN', input.prompt('Press ENTER, click it, or press F11', 'Click it with the mouse, or press F11'), 2.2);
-    this.ui.godBadge(save.data.godMode);
+    this.ui.godBadge(save.data.godMode, hub.inSession);
     this.loadout = new Loadout();
     const unavailable = this.loadout.resync();
     this.player = new Player(this);
     this.accessories = { flashCollar: (charged) => setCollarGlow(this.player?.model, charged) };
     hubReady.then(() => {
+      this.ui.godBadge(save.data.godMode, hub.inSession);
       this._applyHubGear();
       this._redrawProgress();
     }, () => {});
+    // The wallet sync and flushes finish later: show their balance on the open menu too.
+    if (hubInit !== hubReady) hubInit.then(() => this._redrawProgress(), () => {});
     // Progress that arrives later (the account's cloud save, another tab) shows on the open menu.
     save.subscribe(() => this._redrawProgress());
     if (unavailable.length) this.ui.banner('Gear unavailable', unavailable.join(', '), 2.4);
@@ -207,7 +227,7 @@ export class Game {
         const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
         this.last = now;
         input.poll();
-        if (this.held || this.still) {
+        if (this.held || this.still || this._hubExiting) {
           // Feedback window open: keep the picture, drop every press, advance nothing. While its
           // screenshot is taken the canvas keeps the frame already on it, so draw nothing at all.
           input.clear();
@@ -329,6 +349,22 @@ export class Game {
     this._dressTitleNobuGear();
   }
 
+  // Gear GLBs (the Champions Crown) arrive with the background load: dress Nobu again with them.
+  _restAssetsLoaded() {
+    if (this.player?.model) dressNobuModel(this.player.model, this.loadout);
+    this._dressTitleNobuGear();
+  }
+
+  // Run `fn` now if the background art is in, else behind the loading screen once it is.
+  _afterAssets(kicker, title, fn) {
+    if (Assets.isReady?.() !== false || !this.ui?.showLoading) return fn();
+    const token = this.ui.showLoading(kicker, title);
+    this.ui.loadingProgress(0, 'Loading art...');
+    return Assets.whenReady((p) => { if (this.ui._loadEpoch === token) this.ui.loadingProgress(p, 'Loading art...'); })
+      .then(() => this.ui.hideLoading(undefined, token))
+      .then((shown) => (shown ? fn() : undefined));
+  }
+
   _dressTitleNobuGear() {
     if (this.titleNobu) { dressNobuModel(this.titleNobu, this.loadout); this.applyKennelTint(this.titleNobu, {}); }
   }
@@ -358,8 +394,9 @@ export class Game {
   }
 
   openKennel(mode = null) {
-    this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (!isOpen('kennel', save.data)) return false;
+    if (Assets.isReady?.() === false) return this._afterAssets('THE KENNEL', 'THE KENNEL', () => this.openKennel(mode));
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.kennel?.dispose();
     this.session?.dispose(); this.session = null; this.ui.godTally?.(null);
     this.ui.trialTime(null); this.ui.hideHud(); this.ui.bossHide(); this.ui.clearScreen();
@@ -746,14 +783,22 @@ export class Game {
     if (this.exchangeOpen && this.state === 'map') this._drawMap();
   }
 
+  // The cloud save debounces its push (createProgressStore, 1.5 s), so progress from the last moment
+  // of play would be lost if hub.exit navigated at once. Flush it first, waiting at most
+  // EXIT_FLUSH_MS so an unreachable hub never holds the player here. While it runs the loop only
+  // renders (like the feedback hold): no menu or key can start something the navigation would cut
+  // off. A second press returns the same exit.
   exitToHub() {
+    if (this._hubExiting) return this._hubExiting;
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (retiresOnLeave(this.session)) {
       if (!this.session.disposed) this.session.dispose();
       this.session = null;
     }
     this.hubExit = true;
-    hub.exit('exit_to_hub');
+    const exiting = this._hubExiting = flushBeforeExit(() => save.flush()).then(() => { hub.exit('exit_to_hub'); });
+    exiting.finally(() => { if (this._hubExiting === exiting) this._hubExiting = null; });
+    return exiting;
   }
 
   updateMap() {
@@ -815,7 +860,7 @@ export class Game {
   toggleGod() {
     save.data.godMode = !save.data.godMode;
     save.write();
-    this.ui.godBadge(save.data.godMode);
+    this.ui.godBadge(save.data.godMode, hub.inSession);
     if (save.data.godMode) this.session?.markGodUsed?.();
     return save.data.godMode;
   }
@@ -1049,6 +1094,7 @@ export class Game {
   // Head and neck only. Back and body stay in the save until an item exists for them.
   // Neck cycles None, Golden Collar, Clown-Nose Collar, and holds one of those ids.
   openWardrobe(from) {
+    if (Assets.isReady?.() === false) return this._afterAssets('WARDROBE', 'WARDROBE', () => this.openWardrobe(from));
     this.wardrobeReturn = from;
     this.wardSlot = 0;
     this.state = 'wardrobe';
@@ -1163,7 +1209,7 @@ export class Game {
     save.setBestDogs(n, st.dogs);
     st.goldenEarned = save.boneOf(n);
     save.write();
-    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(session);
     // rescue scene first, then the results screen
     this.playCutscene(RESCUE[n], () => { if (current()) this._showComplete(n, st, fresh); }, 'victory', isPipelineSession(session) ? current : null);
   }
@@ -1177,7 +1223,7 @@ export class Game {
     this._unlockMainChapters();
     const fresh = bankBoneResults(session, st);
     save.write();
-    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(session);
     this._showComplete(n, st, fresh);
   }
 
@@ -1249,7 +1295,7 @@ export class Game {
     d.bonus[n] = { beaten: true, best: Math.max(d.bonus[n]?.best || 0, st.tickets) };
     d.open[n] = true;
     save.write();
-    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(session);
     this._showComplete(n, st, fresh, true);
   }
 

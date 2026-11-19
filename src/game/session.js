@@ -34,6 +34,8 @@ import { input } from '../core/input.js';
 import { DEATH_FLOW, DEATH_CLOCK_SEC } from '../config/difficulty.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
+import { Assets } from '../art/assets.js';
+import { bankAttempt, reportConeRelic } from './hubRewards.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
 import { TRIAL_TARGETS, trialMedal, fmtTime, trialLayout, trialVariant } from '../config/trials.js';
 
@@ -249,6 +251,12 @@ export class Session {
     // Never wait on the hub here: a slow or unreachable hub used to leave this
     // transition on a black screen. bank() at the level end waits for this job.
     hub.startCarry();
+    // The level's art loads behind the title; on a slow link the rest of it finishes here.
+    if (Assets.isReady?.() === false) {
+      await Assets.whenReady((p) => { if (!abandoned() && this.game.session === this) ui.loadingProgress(0.05 + 0.1 * p, 'Loading art...'); });
+      // Quit (pause -> title/map) during this wait: the level must not build behind the new screen.
+      if (abandoned() || this.disposed || g.session !== this) return false;
+    }
     ui.loadingProgress(0.15, `Building ${this.def.name}...`);
     await nextFrame();
     if (abandoned()) return false;
@@ -276,7 +284,7 @@ export class Session {
     audio.setRate(this.def.gauntlet ? 1.08 : 1);
     audio.playMusic(stage.gauntletInfo?.music || stage.theme.music);
     ui.fade(0, 0);
-    await (mainGoal ? ui.hideLoading(700, this._goalLoadingToken) : ui.hideLoading());
+    await (mainGoal ? ui.hideLoading(undefined, this._goalLoadingToken) : ui.hideLoading());
     if (abandoned()) return false;
     this._goalLoadingToken = null;
     ui.showHud(4);
@@ -438,7 +446,7 @@ export class Session {
     const merged = mergeTrialMastery(variant, prev, incoming);
     if (merged) d.trials[this.level] = merged;
     save.write();
-    hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(this);
     if (incoming && !godUsed && pid) {
       // A local god/practice best never replaces the integer time this clean run posts.
       const rec = d.trials[this.level];
@@ -532,7 +540,7 @@ export class Session {
     }, { shouldCommit: () => !this.disposed && this.game.session === this });
     if (result.cancelled) return result;
     // The same level_end bank used by other stages; this amount is already whole Tickets.
-    if (this.attemptDurable && result.claimDurable) hub.bank(this.attemptId, this.levelTickets, true).catch(err => console.warn('[hub] bank failed', err));
+    if (this.attemptDurable && result.claimDurable) bankAttempt(this, { durable: true });
     // A committed claim still settles after leaving, but must never change the new screen.
     if (this.disposed || this.game.session !== this) return result;
     this.game.player.frozen = true;
@@ -551,7 +559,7 @@ export class Session {
     const fresh = applyRemixResult(save.data, this.level, this.remixGate,
       { ...boneContext(this), godUsed: this.godUsed, completed: true });
     save.write();
-    hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch(err => console.warn('[hub] bank failed', err));
+    bankAttempt(this);
     this.game.remixCleared(this, { id: this.def.id, fresh, golden: !!save.data.remix?.[this.level]?.golden });
     return true;
   }
@@ -710,7 +718,7 @@ export class Session {
     g.camera.cinematic(new THREE.Vector3(bp.x + 3, Math.max(3, bp.y + 1.5), bp.z + 9), new THREE.Vector3(bp.x, bp.y + 1, bp.z), 2.5);
     g.camera.pos.set(bp.x + 6, bp.y + 4, bp.z + 16);
     g.ui.fade(0, 0);
-    await (isPipelineSession(this) || this.remix ? g.ui.hideLoading(700, loadToken) : g.ui.hideLoading());
+    await (isPipelineSession(this) || this.remix ? g.ui.hideLoading(undefined, loadToken) : g.ui.hideLoading());
     if (!current()) return false;
     this._goalLoadingToken = null;
     audio.play('bossRoar');
@@ -800,7 +808,7 @@ export class Session {
     g.feedback?.breadcrumb('boss_defeated', { level: String(this.level), deaths: this.deaths });
     if (this.remix) this._remixClearReached = { stage, epoch };
     this._awardBossMedals(boss);
-    if (!this.remix && this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
+    if (!this.remix && this.def.bossKey === 'cone') reportConeRelic(this);
     this.busy = true;
     this.projectiles.clear();
     g.player.frozen = true;
