@@ -102,6 +102,17 @@ function updateBossBar(game, s) {
   ui.bossGhost(ok, x, y, top, Math.abs((_bossProbe.x + 1) / 2 - x));
 }
 
+// Exit to Hub waits this long at most for the cloud save before leaving the page.
+export const EXIT_FLUSH_MS = 800;
+
+/** Resolves when `flush()` settles or after `ms`, whichever is first. Never rejects. */
+export function flushBeforeExit(flush, ms = EXIT_FLUSH_MS) {
+  let timer;
+  const sent = Promise.resolve().then(flush).catch((err) => console.warn('[save] flush before exit failed', err));
+  const timeout = new Promise((resolve) => { timer = setTimeout(resolve, ms); });
+  return Promise.race([sent, timeout]).finally(() => clearTimeout(timer));
+}
+
 export class Game {
   constructor(canvas, uiRoot) {
     this.canvas = canvas;
@@ -748,14 +759,21 @@ export class Game {
     if (this.exchangeOpen && this.state === 'map') this._drawMap();
   }
 
+  // The cloud save debounces its push (createProgressStore, 1.5 s), so progress from the last moment
+  // of play would be lost if hub.exit navigated at once. Flush it first, waiting at most
+  // EXIT_FLUSH_MS so an unreachable hub never holds the player here. A second press while the
+  // flush runs returns the same exit.
   exitToHub() {
+    if (this._hubExiting) return this._hubExiting;
     this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (retiresOnLeave(this.session)) {
       if (!this.session.disposed) this.session.dispose();
       this.session = null;
     }
     this.hubExit = true;
-    hub.exit('exit_to_hub');
+    const exiting = this._hubExiting = flushBeforeExit(() => save.flush()).then(() => { hub.exit('exit_to_hub'); });
+    exiting.finally(() => { if (this._hubExiting === exiting) this._hubExiting = null; });
+    return exiting;
   }
 
   updateMap() {
