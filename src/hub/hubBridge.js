@@ -48,6 +48,18 @@ const NAKAMA_SERVER_KEY = nakamaServerKey({
   hostname: typeof location !== 'undefined' ? location.hostname : '',
 });
 
+/**
+ * The warning for a portal visit (a `#t=` ticket in the URL) that this build cannot redeem
+ * because it was built without VITE_NAKAMA_SERVER_KEY, or null. Without it the visit silently
+ * plays standalone: no Tickets banked, no Relic sent, no Relic gear.
+ */
+export function missingServerKeyWarning({ serverKey, hash } = {}) {
+  if (serverKey) return null;
+  const raw = String(hash || '').replace(/^#/, '');
+  if (!raw || !new URLSearchParams(raw).get('t')) return null;
+  return 'This build has no VITE_NAKAMA_SERVER_KEY: the hub ticket cannot be redeemed, so this visit plays offline (no Tickets, Relics or Relic gear).';
+}
+
 // Sent in trial score meta so the board can tell builds apart. Optional at build time.
 const BUILD_ID = import.meta.env.VITE_BUILD_ID || import.meta.env.MODE || 'unknown';
 // The map screen asks the hub for each level's world record at most once a minute.
@@ -794,6 +806,14 @@ class HubBridge {
   }
 
   async _doInit() {
+    const keyWarning = missingServerKeyWarning({
+      serverKey: NAKAMA_SERVER_KEY,
+      hash: typeof location !== 'undefined' ? location.hash : '',
+    });
+    if (keyWarning) {
+      console.warn(`[hub] ${keyWarning}`);
+      this.status = 'Hub sign-in unavailable in this build';
+    }
     this.sessionCapLeft = null;
     this.dailyCapLeft = null;
     this.rejectionRemaining = null;

@@ -25,3 +25,14 @@ describe('Nakama server key', () => {
     }
   });
 });
+
+describe('missing server key warning', () => {
+  it('warns only for a portal visit (#t=) in a build without a key', async () => {
+    const { missingServerKeyWarning } = await import('../src/hub/hubBridge.js');
+    expect(missingServerKeyWarning({ serverKey: '', hash: '#t=abc' })).toMatch(/VITE_NAKAMA_SERVER_KEY/);
+    expect(missingServerKeyWarning({ serverKey: '', hash: '#from=hub&t=abc' })).toMatch(/offline/);
+    expect(missingServerKeyWarning({ serverKey: 'k', hash: '#t=abc' })).toBeNull();
+    expect(missingServerKeyWarning({ serverKey: '', hash: '' })).toBeNull();
+    expect(missingServerKeyWarning({ serverKey: '', hash: '#from=hub' })).toBeNull();
+  });
+});
