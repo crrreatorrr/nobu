@@ -16,6 +16,21 @@ Each item: **done** (commit), **partial** (what remains), **skipped** (why) or *
 | §1.3.3 `initBoot` / level loading | **partial** `26d28d7` — `initBoot()` (title files only) + `loadRest()` in the background, awaited by `Session.startLevel`, Boss Rush, Kennel and wardrobe. **Remaining:** per-level `loadLevelAssets` / `disposeLevelAssets`. Not done because placeholders and several levels share most models and textures, ids are built dynamically (`dog_${breed}_free`, `bg_level${host}`), and a missed id would silently switch a level to procedural fallback art. Image memory is instead bounded by §1.4. |
 | §1.3.4 `victoryPreload` now meaningful | **done** `26d28d7` — the panels it preloads are no longer already decoded at boot. |
 
+## Phase 1 — assets and cold boot
+
+| Item | Status |
+| --- | --- |
+| §1.4.1 Bake `nobu_tex_fixed.jpg` into `nobu.glb`, drop the runtime swap | **done** `13c3f2c` — swap removed from `src/player/nobuGlb.js`; the jpg is kept as the source (not loaded, not shipped). |
+| §1.4.2 Crown: strip NormalGL + ORM, 512² albedo | **done** `13c3f2c` — 3018 KB → 101 KB. |
+| §1.4.3 Batch meshopt + WebP + resize, `MeshoptDecoder` wired | **done** `13c3f2c` — `tools/optimize_glbs.mjs` (idempotent). 512² props/enemies/dogs, 1024² Nobu, bosses, `vacuum`/`pill_bot` (Titan/Queen sources) and `sproto_mask` (title close-up). `mecha_bird`, `big_cat`, `evil_cone`, `pill_bot` keep float geometry with no meshopt filters: bosses re-rig them at runtime and int8 normals turned the Pump Queen black (caught in screenshots; `tests/queen-real-model.test.js` now asserts it). 26 GLBs 28.25 MiB → 4.81 MiB. |
+| §1.4.4 Combined impact | **done** — `public/assets` 38.35 → 14.90 MiB; `dist/` 39.98 → 15.72 MiB. |
+| §2.1 Boot not blocked by hub flushes | **done** `f69d0a1` — `hub.authReady()` resolves once the account is known; boot waits for it, `hub.init()` (which all writes await) still includes the sync and flushes. **Not changed:** the 6 s outer cap stays (the handoff suggested 1.5 s); with the flushes out of the wait only the auth RPC is left, and a shorter cap would let NEW GAME / CONTINUE be chosen before the account's progress is attached. |
+| §2.2 Ticket RPC storm | **done** `7915dd4` — one `tickets.balance` read after the chunks instead of one per chunk: a 200-Ticket clear 11 → 2 reads (`tests/earn-balance-reads.test.js`). |
+| §2.3.1 Loading-screen floor | **done** `81197ff` — 700 ms floor + 300 ms fade → 150 + 150 ms. |
+| §2.3.2 Vendor chunks | **done** `f693374` — `three` (706 KB) and `hub-sdk` (69 KB) chunks; `modern-screenshot` stays lazy. |
+| §2.3.2 Lazy `import()` of level/boss modules | **skipped** — `LEVELS` is read synchronously by the map, Kennel, save and goal code, and ~100 tests call `def.build` directly; making builders async is a wide refactor for ~0.3 MB gzip of game code that every player needs within a minute anyway. |
+| §2.3.3 Fonts | **done** `08d5371` — stylesheet no longer render-blocking (media switch in `src/main.js`, `crossorigin` kept). Self-hosting not done: it adds third-party font binaries and their licences to the repo; proposed to the owner instead. |
+
 ## Measurements
 
 `npm run build && node tools/measure_boot.mjs --mbps 20 --after-ms 60000` (headless Chromium, SwiftShader, cache disabled,
@@ -25,17 +40,22 @@ Each item: **done** (commit), **partial** (what remains), **skipped** (why) or *
 | --- | --- | --- | --- | --- | --- |
 | `main` (`780436f`) | 109 | 40.37 MiB | 100 / 675.8 MiB | 18.5 s | same |
 | Phase 0 (`26d28d7`) | 12 | 7.10 MiB | 8 / 63.6 MiB | 5.4 s | 77 req / 35.40 MiB / 565.9 MiB |
+| Phase 1 (`08d5371`) | 33 | 5.89 MiB | 22 / 38.6 MiB | 3.2 s | 78 req / 11.37 MiB / 148.9 MiB |
 
-Visual check (`26d28d7` vs `main`): title, map, all 8 levels and 5 bosses screenshotted in the dev build with a seeded
+Phase 1 "before the title" includes background-tier files that finished before the title appeared (the boot tier itself is
+smaller); the JS is ~1.7 MB of it. GPU texture uploads at the title: 56.1 → 24.1 MiB.
+
+Visual check (`13c3f2c` vs `26d28d7`): same screenshots; levels within 0.3 % of pixels, title Nobu unchanged, bosses differ by
+attack timing only. Visual check (`26d28d7` vs `main`): title, map, all 8 levels and 5 bosses screenshotted in the dev build with a seeded
 `Math.random`; L2–L6, cave and map are pixel-identical, the rest differ only by camera/animation timing.
 
 ## Checks
 
 | Command | Result |
 | --- | --- |
-| `npm test` | pass — 161 files, 1713 tests (baseline on `main`: 1685) |
+| `npm test` | pass — 164 files, 1719 tests (baseline on `main`: 1685) |
 | `npm run build` | pass |
-| `npm run lint` | 0 errors, 66 warnings (all pre-existing) |
+| `npm run lint` | 0 errors; warnings all pre-existing |
 
 ## Cross-repo follow-ups
 
@@ -43,6 +63,9 @@ Visual check (`26d28d7` vs `main`): title, map, all 8 levels and 5 bosses screen
   800 ms bounded wait stays as the fallback.
 
 ## Repo hygiene (proposed deletions for the owner; nothing deleted)
+
+- `public/assets/models/nobu_tex_fixed.jpg` — now baked into `nobu.glb`; kept as the texture's source, excluded from `dist/`.
+- Optional: self-host WOFF2 subsets of Luckiest Guy (Apache-2.0) and Baloo 2 (OFL) to drop the Google Fonts dependency.
 
 - `public/assets/nobu/nobu_master.webp`, `public/assets/nobu/nobu_sheet.jpg` — authoring references, no runtime use; now excluded from `dist/`.
 - Root `backpack.webp`, `mask.avif` — the owner's source art for `items/backpack*` and `ui/sproto_mask` (README "Your files"); not in the build. Recommend keeping them (or moving them under `tools/` with the README updated), not deleting.
