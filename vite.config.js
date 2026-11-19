@@ -63,6 +63,21 @@ export default defineConfig(({ command, mode }) => ({
   base: viteBase(command, mode),
   plugins: [devShot, shipAssets],
   define: { __NOBU_VERSION__: JSON.stringify(buildVersion()) },
+  build: {
+    rollupOptions: {
+      output: {
+        // three and the hub SDK change far less often than the game: separate chunks stay cached
+        // across game releases.
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/]three[\\/]/.test(id)) return 'three';
+          // third_party/ (modern-screenshot) stays the lazy chunk the feedback screenshot imports.
+          if (/[\\/]third_party[\\/]/.test(id)) return undefined;
+          if (/[\\/](vendor[\\/]hub-sdk|node_modules[\\/]@metaverse[\\/]hub-sdk)[\\/]/.test(id)) return 'hub-sdk';
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     // Same-origin /v2 in dev. Production Caddy proxies Nakama; serverUrl stays ''.
     proxy: {
