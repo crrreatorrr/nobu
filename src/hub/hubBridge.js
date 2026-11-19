@@ -1493,11 +1493,14 @@ class HubBridge {
     let credited = Math.min(rec.amount, paidTickets(rec.credited));
     // Each chunk's earnTickets result updates the wallet and caps; tickets.balance is read once,
     // after the last chunk this call sent (it was one RPC per chunk: 20 for a 200-Ticket clear).
-    let lastPaid = null;
+    let lastPaid = null, res = null;
     try {
-      return await this._sendEarnChunks(id, rec, chunks, credited, (result) => { lastPaid = result; });
+      res = await this._sendEarnChunks(id, rec, chunks, credited, (result) => { lastPaid = result; });
+      return res;
     } finally {
-      if (lastPaid) await this._syncTicketAccount(lastPaid);
+      // After a cap refusal _noteCap holds the newer caps: the last paid result would undo them.
+      const capped = typeof res?.code === 'string' && res.code.endsWith('_cap');
+      if (lastPaid && !capped) await this._syncTicketAccount(lastPaid);
     }
   }
 

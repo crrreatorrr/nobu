@@ -46,3 +46,19 @@ it('caps an earn result carries are not spent a second time', async () => {
   expect(sdk.calls.earn).toHaveLength(3);
   expect(hub.sessionCapLeft).toBe(440);
 });
+
+it('a cap refusal mid-sequence keeps the refused caps, not the last paid result', async () => {
+  const { hubError } = await import('./sdkState.js');
+  const attempt = await hub.beginAttempt(1);
+  let n = 0;
+  sdk.earnImpl = (amount, reason, key) => {
+    n += 1;
+    if (n === 2) throw hubError('session_ticket_cap');
+    const result = { balance: amount, capped: false, sessionCapLeft: 15 };
+    sdk.earnLedger.set(key, { amount, reason, result });
+    return result;
+  };
+  sdk.ticketBalance = () => { throw new Error('balance down'); };
+  await hub.bank(attempt.id, 40, true);
+  expect(hub.sessionCapLeft === 15 && hub.rejectionRemaining === 15).toBe(false);
+});

@@ -254,7 +254,8 @@ export class Session {
     // The level's art loads behind the title; on a slow link the rest of it finishes here.
     if (Assets.isReady?.() === false) {
       await Assets.whenReady((p) => { if (!abandoned() && this.game.session === this) ui.loadingProgress(0.05 + 0.1 * p, 'Loading art...'); });
-      if (abandoned()) return false;
+      // Quit (pause -> title/map) during this wait: the level must not build behind the new screen.
+      if (abandoned() || this.disposed || g.session !== this) return false;
     }
     ui.loadingProgress(0.15, `Building ${this.def.name}...`);
     await nextFrame();
