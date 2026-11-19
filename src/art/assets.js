@@ -1,10 +1,13 @@
 // Art loader: reads assets/manifest.json (Higgsfield-generated art), loads textures + the Nobu GLB,
 // and supplies procedural canvas fallbacks for anything missing so the game always runs.
+// Loading is tiered (src/art/assetTiers.js): initBoot() loads the title screen's few files,
+// loadRest() the rest in the background, and DOM-only pictures load only when first shown.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { drawFallback } from './fallbacks.js';
 import { placeholderFor } from './placeholders.js';
+import { BOOT_TEXTURES, BOOT_MODELS, LAZY, UNUSED } from './assetTiers.js';
 
 const BASE = `${import.meta.env.BASE_URL}assets/`;
 
@@ -24,24 +27,75 @@ export class AssetStore {
     this.placeholderLogs = new Set();
   }
 
+  // Everything at once (the old boot): the boot tier, then the rest. Used by tools and tests.
   async init(onProgress = () => {}) {
+    await this.initBoot((p) => onProgress(p / 2));
+    await this.loadRest((p) => onProgress(0.5 + p / 2));
+  }
+
+  async _loadManifest() {
     try {
       const r = await fetch(BASE + 'manifest.json', { cache: 'no-cache' });
       if (r.ok) this.manifest = await r.json();
     } catch (e) {
       console.warn('[assets] manifest missing, using fallbacks');
     }
-    const entries = Object.entries(this.manifest.assets || {}).filter(([, a]) => !a.file.endsWith('.glb'));
-    const models = Object.entries(this.manifest.assets || {}).filter(([id, a]) => a.file.endsWith('.glb') && id.startsWith('model_'));
-    const total = entries.length + models.length + 1;
+    this.manifest.assets ||= {};
+  }
+
+  _entry(id) {
+    const a = this.manifest.assets?.[id];
+    return a && !UNUSED.has(id) ? a : null;
+  }
+
+  // The title screen's files only: the manifest, the Nobu GLB and the BOOT_* tiers.
+  async initBoot(onProgress = () => {}) {
+    await this._loadManifest();
+    const tex = BOOT_TEXTURES.filter((id) => this._entry(id));
+    const models = BOOT_MODELS.filter((id) => this._entry(id));
+    const total = tex.length + models.length + 1;
     let done = 0;
     const tick = () => onProgress(++done / total);
-
     await Promise.all([
-      ...entries.map(([id, a]) => this._loadTex(id, BASE + a.file).then(tick, tick)),
+      ...tex.map((id) => this._loadTex(id, BASE + this._entry(id).file).then(tick, tick)),
       this._loadGlb().then(tick, tick),
-      ...models.map(([id, a]) => this._loadModel(id, BASE + a.file).then(tick, tick)),
+      ...models.map((id) => this._loadModel(id, BASE + this._entry(id).file).then(tick, tick)),
     ]);
+  }
+
+  // Every other runtime texture and model, except the lazy tier. Safe to call more than once.
+  loadRest(onProgress = () => {}) {
+    if (!this._rest) {
+      const all = Object.entries(this.manifest.assets || {}).filter(([id]) => this._entry(id) && !LAZY.has(id));
+      const tex = all.filter(([id, a]) => !a.file.endsWith('.glb') && !this.textures.has(id));
+      const models = all.filter(([id, a]) => a.file.endsWith('.glb') && id.startsWith('model_') && !this.models.has(id));
+      const total = tex.length + models.length;
+      let done = 0;
+      this.restProgress = total ? 0 : 1;
+      this._restListeners = new Set();
+      const tick = () => {
+        this.restProgress = ++done / total;
+        for (const fn of this._restListeners) fn(this.restProgress);
+      };
+      this._rest = Promise.all([
+        // A texture already taken on demand (Assets.tex) keeps that load.
+        ...tex.map(([id, a]) => (this.textures.has(id) ? Promise.resolve() : this._loadTex(id, BASE + a.file)).then(tick, tick)),
+        ...models.map(([id, a]) => this._loadModel(id, BASE + a.file).then(tick, tick)),
+      ]).then(() => { this.restReady = true; this._restListeners.clear(); });
+    }
+    if (this.restReady) onProgress(1);
+    else this._restListeners.add(onProgress);
+    return this._rest;
+  }
+
+  /** True unless the background load has started and not finished yet. */
+  isReady() { return !this._rest || !!this.restReady; }
+
+  /** Resolves once the background load is done (at once when none is running). */
+  whenReady(onProgress = () => {}) {
+    if (this.isReady()) return Promise.resolve();
+    onProgress(this.restProgress || 0);
+    return this.loadRest(onProgress);
   }
 
   async _loadModel(id, url) {
@@ -139,9 +193,43 @@ export class AssetStore {
         t.anisotropy = 4;
         this.textures.set(id, t);
         this.urls.set(id, url);
+        this._loaded(id);
         resolve(t);
-      }, undefined, () => reject(new Error('load fail ' + url)));
+      }, undefined, () => { this._loaded(id); reject(new Error('load fail ' + url)); });
     });
+  }
+
+  // First use of a lazy picture as a texture: returned at once, its pixels arrive when loaded
+  // (a failed load draws the procedural fallback into it).
+  _lazyTex(id, url) {
+    const t = this.loader.load(url, () => { this._loaded(id); }, undefined, () => {
+      t.image = drawFallback(id);
+      t.needsUpdate = true;
+      this._loaded(id);
+    });
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    this.textures.set(id, t);
+    this.urls.set(id, url);
+    return t;
+  }
+
+  _imageReady(t) {
+    const img = t?.image;
+    return !!img && (img.width > 0 || img.naturalWidth > 0) && img.complete !== false;
+  }
+
+  _afterLoad(id, fn) {
+    (this._pending ||= new Map());
+    if (!this._pending.has(id)) this._pending.set(id, []);
+    this._pending.get(id).push(fn);
+  }
+
+  _loaded(id) {
+    const fns = this._pending?.get(id);
+    if (!fns) return;
+    this._pending.delete(id);
+    for (const fn of fns) fn();
   }
 
   async _loadGlb() {
@@ -159,8 +247,23 @@ export class AssetStore {
   // THREE texture (generated art, or a procedural fallback canvas).
   tex(id) {
     if (!this.textures.has(id)) {
-      const fallback = placeholderFor(id);
-      if (fallback && !id.startsWith('model_')) {
+      const entry = this._entry(id);
+      const fallback = !entry && placeholderFor(id);
+      if (entry && !entry.file.endsWith('.glb')) {
+        this._lazyTex(id, BASE + entry.file);
+      } else if (fallback && !id.startsWith('model_') && !this._imageReady(this.tex(fallback.from))) {
+        // The source is still loading (lazy tier): build the alias once it arrives.
+        const t = new THREE.Texture();
+        t.colorSpace = THREE.SRGBColorSpace;
+        this.textures.set(id, t);
+        this._afterLoad(fallback.from, () => {
+          this.textures.delete(id);
+          const built = this.tex(id);
+          t.image = built.image;
+          t.needsUpdate = true;
+          this.textures.set(id, t);
+        });
+      } else if (fallback && !id.startsWith('model_')) {
         const source = this.tex(fallback.from);
         this._placeholderUsed(id, fallback.from);
         // Even untransformed aliases get their own Texture: tiled() must not
@@ -208,7 +311,13 @@ export class AssetStore {
 
   // URL usable by <img> / CSS.
   url(id) {
-    if (!this.urls.has(id)) this.tex(id);
+    if (this.urls.has(id)) return this.urls.get(id);
+    // A manifest picture's URL is its file: no texture is decoded for an <img>.
+    const entry = this._entry(id);
+    if (entry && !entry.file.endsWith('.glb')) return BASE + entry.file;
+    const fallback = placeholderFor(id);
+    if (fallback && !id.startsWith('model_') && fallback.tint === undefined && fallback.hue === undefined && fallback.opacity === undefined) return this.url(fallback.from);
+    this.tex(id);
     return this.urls.get(id);
   }
 

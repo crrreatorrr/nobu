@@ -181,7 +181,9 @@ export class Game {
     audio.setVolumes(save.data.musicVol, save.data.sfxVol);
     this.uiRoot.innerHTML = '<div class="loading"><div class="big-title" style="font-size:52px">NOBU</div><div class="bar"><div class="fill"></div></div><div class="hint">Loading Higgsfield art...</div></div>';
     const fill = this.uiRoot.querySelector('.fill');
-    await Assets.init((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
+    // Only the title screen's art blocks boot; the rest loads behind the title (src/art/assetTiers.js).
+    await Assets.initBoot((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
+    Assets.loadRest().then(() => this._restAssetsLoaded());
     await Promise.race([hubReady, new Promise((r) => setTimeout(r, 6000))]);
     this.uiRoot.innerHTML = '';
     this.ui = new UI(this.uiRoot);
@@ -342,6 +344,22 @@ export class Game {
     this._dressTitleNobuGear();
   }
 
+  // Gear GLBs (the Champions Crown) arrive with the background load: dress Nobu again with them.
+  _restAssetsLoaded() {
+    if (this.player?.model) dressNobuModel(this.player.model, this.loadout);
+    this._dressTitleNobuGear();
+  }
+
+  // Run `fn` now if the background art is in, else behind the loading screen once it is.
+  _afterAssets(kicker, title, fn) {
+    if (Assets.isReady?.() !== false || !this.ui?.showLoading) return fn();
+    const token = this.ui.showLoading(kicker, title);
+    this.ui.loadingProgress(0, 'Loading art...');
+    return Assets.whenReady((p) => this.ui.loadingProgress(p, 'Loading art...'))
+      .then(() => this.ui.hideLoading(150, token))
+      .then((shown) => (shown ? fn() : undefined));
+  }
+
   _dressTitleNobuGear() {
     if (this.titleNobu) { dressNobuModel(this.titleNobu, this.loadout); this.applyKennelTint(this.titleNobu, {}); }
   }
@@ -371,8 +389,9 @@ export class Game {
   }
 
   openKennel(mode = null) {
-    this._launchEpoch = (this._launchEpoch || 0) + 1;
     if (!isOpen('kennel', save.data)) return false;
+    if (Assets.isReady?.() === false) return this._afterAssets('THE KENNEL', 'THE KENNEL', () => this.openKennel(mode));
+    this._launchEpoch = (this._launchEpoch || 0) + 1;
     this.kennel?.dispose();
     this.session?.dispose(); this.session = null; this.ui.godTally?.(null);
     this.ui.trialTime(null); this.ui.hideHud(); this.ui.bossHide(); this.ui.clearScreen();
@@ -1069,6 +1088,7 @@ export class Game {
   // Head and neck only. Back and body stay in the save until an item exists for them.
   // Neck cycles None, Golden Collar, Clown-Nose Collar, and holds one of those ids.
   openWardrobe(from) {
+    if (Assets.isReady?.() === false) return this._afterAssets('WARDROBE', 'WARDROBE', () => this.openWardrobe(from));
     this.wardrobeReturn = from;
     this.wardSlot = 0;
     this.state = 'wardrobe';

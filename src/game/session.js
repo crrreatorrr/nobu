@@ -34,6 +34,7 @@ import { input } from '../core/input.js';
 import { DEATH_FLOW, DEATH_CLOCK_SEC } from '../config/difficulty.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
+import { Assets } from '../art/assets.js';
 import { bankAttempt, reportConeRelic } from './hubRewards.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
 import { TRIAL_TARGETS, trialMedal, fmtTime, trialLayout, trialVariant } from '../config/trials.js';
@@ -250,6 +251,11 @@ export class Session {
     // Never wait on the hub here: a slow or unreachable hub used to leave this
     // transition on a black screen. bank() at the level end waits for this job.
     hub.startCarry();
+    // The level's art loads behind the title; on a slow link the rest of it finishes here.
+    if (Assets.isReady?.() === false) {
+      await Assets.whenReady((p) => ui.loadingProgress(0.05 + 0.1 * p, 'Loading art...'));
+      if (abandoned()) return false;
+    }
     ui.loadingProgress(0.15, `Building ${this.def.name}...`);
     await nextFrame();
     if (abandoned()) return false;
