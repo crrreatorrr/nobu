@@ -1,0 +1,48 @@
+# Handoff status — `nobu` (branch `claude/happy-pasteur-0dhfzp`)
+
+Implementation of `CLAUDE_HANDOFF_OPTIMIZATION.md`, following `CLAUDE_SESSION_BRIEF.md`.
+Each item: **done** (commit), **partial** (what remains), **skipped** (why) or **blocked** (on what).
+
+## Phase 0 — P0 security, data loss, boot
+
+| Item | Status |
+| --- | --- |
+| §1.1.1 Gate every `hub.bank` / `hub.reportCone` on God Mode | **done** `c0c027e` — all 7 call sites (`game.js` level/goal/bonus clear, `session.js` trial, gauntlet, remix, Cone defeat) go through `src/game/hubRewards.js`; blocked when `save.data.godMode`, `session.godUsed` or God-assisted stats. `hub.submitScore` was already gated. |
+| §1.1.2 HUD note in hub sessions | **done** `c0c027e` — GOD MODE badge shows "Hub Tickets & Relics disabled" when `hub.inSession`. |
+| §1.1.3 Tests | **done** `c0c027e` — `tests/god-hub-rewards.test.js` (every call site, on/used/stats states, trial score). `tests/remix-session.test.js` updated: it asserted the old behaviour (God-assisted Remix clear banked Tickets). |
+| §1.2 `exitToHub()` flushes the cloud save first | **done** `b6ed031` — awaits `save.flush()` raced against 800 ms, then `hub.exit`; double press reuses the same exit. Does not depend on the unmerged SDK keepalive. Tests: `tests/exit-to-hub-flush.test.js`. |
+| §1.3.1 Drop `nobu_master` / `nobu_sheet` | **done** `26d28d7` — not loaded and not shipped in `dist/` (`UNUSED` in `src/art/assetTiers.js`, `shipAssets` plugin in `vite.config.js`). Files kept in git: they are the Higgsfield Element source / authoring references (see Repo hygiene). |
+| §1.3.2 DOM-only assets URL-only | **done** `26d28d7` — `LAZY` tier: story panels, gallery concepts, map, results/death cards, and character portraits whose picture is only a model's sprite fallback. Verified by instrumenting every `Assets.*` call across title, map, all levels and bosses. Characters used as 3D sprites or as tinted placeholder sources (`small_cat`, `dog_*_free`, `vacuum`, `pill_bot`, `rug`) stay loaded. |
+| §1.3.3 `initBoot` / level loading | **partial** `26d28d7` — `initBoot()` (title files only) + `loadRest()` in the background, awaited by `Session.startLevel`, Boss Rush, Kennel and wardrobe. **Remaining:** per-level `loadLevelAssets` / `disposeLevelAssets`. Not done because placeholders and several levels share most models and textures, ids are built dynamically (`dog_${breed}_free`, `bg_level${host}`), and a missed id would silently switch a level to procedural fallback art. Image memory is instead bounded by §1.4. |
+| §1.3.4 `victoryPreload` now meaningful | **done** `26d28d7` — the panels it preloads are no longer already decoded at boot. |
+
+## Measurements
+
+`npm run build && node tools/measure_boot.mjs --mbps 20 --after-ms 60000` (headless Chromium, SwiftShader, cache disabled,
+20 Mbit/s + 40 ms; Google Fonts request counted but not fetched). "Decoded images" = w×h×4 of every image/ImageBitmap decoded.
+
+| Build | Before the title: requests | bytes | decoded images | time to title | After background load |
+| --- | --- | --- | --- | --- | --- |
+| `main` (`780436f`) | 109 | 40.37 MiB | 100 / 675.8 MiB | 18.5 s | same |
+| Phase 0 (`26d28d7`) | 12 | 7.10 MiB | 8 / 63.6 MiB | 5.4 s | 77 req / 35.40 MiB / 565.9 MiB |
+
+Visual check (`26d28d7` vs `main`): title, map, all 8 levels and 5 bosses screenshotted in the dev build with a seeded
+`Math.random`; L2–L6, cave and map are pixel-identical, the rest differ only by camera/animation timing.
+
+## Checks
+
+| Command | Result |
+| --- | --- |
+| `npm test` | pass — 161 files, 1713 tests (baseline on `main`: 1685) |
+| `npm run build` | pass |
+| `npm run lint` | 0 errors, 66 warnings (all pre-existing) |
+
+## Cross-repo follow-ups
+
+- **hub-sdk keepalive flush (metaverse-hub, unmerged):** once re-vendored, `exitToHub()` can pass/feature-detect it; the
+  800 ms bounded wait stays as the fallback.
+
+## Repo hygiene (proposed deletions for the owner; nothing deleted)
+
+- `public/assets/nobu/nobu_master.webp`, `public/assets/nobu/nobu_sheet.jpg` — authoring references, no runtime use; now excluded from `dist/`.
+- Root `backpack.webp`, `mask.avif` — the owner's source art for `items/backpack*` and `ui/sproto_mask` (README "Your files"); not in the build. Recommend keeping them (or moving them under `tools/` with the README updated), not deleting.
