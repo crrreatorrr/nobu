@@ -139,7 +139,7 @@ export const MENU_METHODS = {
   // ---------------- mouse ----------------
   /** A click on a menu item selects and activates it, the same as moving there and confirming. */
   _onMenuClick(e) {
-    if (this.held) return;
+    if (this.held || this._hubExiting) return;
     if (this.controlsScreen) { if (this.controlsScreen.click(e)) input.clear(); return; }
     const el = e.target?.closest?.('[data-mi]');
     const kind = el?.closest('[data-menu]')?.dataset.menu;

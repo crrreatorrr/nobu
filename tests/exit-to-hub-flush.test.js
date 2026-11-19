@@ -66,3 +66,12 @@ it('flushBeforeExit resolves on a throwing flush', async () => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   await expect(flushBeforeExit(() => { throw new Error('x'); }, 10)).resolves.toBeUndefined();
 });
+
+it('menu clicks do nothing while the exit flush runs', async () => {
+  vi.spyOn(save, 'flush').mockReturnValue(new Promise(() => {}));
+  const g = game();
+  g.exitToHub();
+  expect(g._hubExiting).toBeTruthy();
+  const el = { closest: () => { throw new Error('click handled'); } };
+  expect(() => g._onMenuClick({ target: el })).not.toThrow();
+});

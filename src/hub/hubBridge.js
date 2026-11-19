@@ -1517,7 +1517,9 @@ class HubBridge {
         await this._markEarn(id, { credited });
         paid(result);
         const account = await this._syncTicketAccount(result, { query: false });
-        if (!account.capsFromHook) this._spendAllowance(chunk.amount);
+        // Caps the earn result carries are already net of this chunk.
+        const capsInPayload = account.sessionCapLeft != null || account.dailyCapLeft != null;
+        if (!account.capsFromHook && !capsInPayload) this._spendAllowance(chunk.amount);
       } catch (err) {
         const info = errorInfo(err);
         const cap = typeof info.code === 'string' && info.code.endsWith('_cap');

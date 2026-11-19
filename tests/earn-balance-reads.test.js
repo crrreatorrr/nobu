@@ -30,3 +30,19 @@ it('a one-chunk clear reads it twice as before', async () => {
   expect(sdk.calls.earn).toHaveLength(1);
   expect(reads).toBe(2);
 });
+
+it('caps an earn result carries are not spent a second time', async () => {
+  const attempt = await hub.beginAttempt(1);
+  sdk.earnImpl = (amount, reason, key) => {
+    const prev = sdk.earnLedger.get(key);
+    if (prev) return prev.result;
+    const spent = [...sdk.earnLedger.values()].reduce((n, r) => n + r.amount, 0) + amount;
+    const result = { balance: spent, capped: false, sessionCapLeft: 500 - spent };
+    sdk.earnLedger.set(key, { amount, reason, result });
+    return result;
+  };
+  sdk.ticketBalance = () => { throw new Error('balance down'); };
+  await hub.bank(attempt.id, 60, true);
+  expect(sdk.calls.earn).toHaveLength(3);
+  expect(hub.sessionCapLeft).toBe(440);
+});

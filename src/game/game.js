@@ -155,6 +155,7 @@ export class Game {
 
   _redrawProgress() {
     if (!this.ui) return;
+    this.ui.godBadge?.(save.data.godMode, hub.inSession);
     if (this.state === 'map') this._drawMap();
     else if (this.state === 'title' && this.titleMenu) this._drawTitleMenu();
   }
@@ -226,7 +227,7 @@ export class Game {
         const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
         this.last = now;
         input.poll();
-        if (this.held || this.still) {
+        if (this.held || this.still || this._hubExiting) {
           // Feedback window open: keep the picture, drop every press, advance nothing. While its
           // screenshot is taken the canvas keeps the frame already on it, so draw nothing at all.
           input.clear();
@@ -359,7 +360,7 @@ export class Game {
     if (Assets.isReady?.() !== false || !this.ui?.showLoading) return fn();
     const token = this.ui.showLoading(kicker, title);
     this.ui.loadingProgress(0, 'Loading art...');
-    return Assets.whenReady((p) => this.ui.loadingProgress(p, 'Loading art...'))
+    return Assets.whenReady((p) => { if (this.ui._loadEpoch === token) this.ui.loadingProgress(p, 'Loading art...'); })
       .then(() => this.ui.hideLoading(undefined, token))
       .then((shown) => (shown ? fn() : undefined));
   }
@@ -784,8 +785,9 @@ export class Game {
 
   // The cloud save debounces its push (createProgressStore, 1.5 s), so progress from the last moment
   // of play would be lost if hub.exit navigated at once. Flush it first, waiting at most
-  // EXIT_FLUSH_MS so an unreachable hub never holds the player here. A second press while the
-  // flush runs returns the same exit.
+  // EXIT_FLUSH_MS so an unreachable hub never holds the player here. While it runs the loop only
+  // renders (like the feedback hold): no menu or key can start something the navigation would cut
+  // off. A second press returns the same exit.
   exitToHub() {
     if (this._hubExiting) return this._hubExiting;
     this._launchEpoch = (this._launchEpoch || 0) + 1;

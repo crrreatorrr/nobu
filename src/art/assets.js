@@ -31,6 +31,7 @@ export class AssetStore {
     this.models = new Map();   // id -> normalized THREE.Group template (static item GLBs)
     this.loader = new THREE.TextureLoader();
     this.placeholderLogs = new Set();
+    this._failed = new Set(); // manifest files that did not load: the procedural fallback stands in
   }
 
   // Everything at once (the old boot): the boot tier, then the rest. Used by tools and tests.
@@ -86,12 +87,20 @@ export class AssetStore {
       this._rest = Promise.all([
         // A texture already taken on demand (Assets.tex) keeps that load.
         ...tex.map(([id, a]) => (this.textures.has(id) ? Promise.resolve() : this._loadTex(id, BASE + a.file)).then(tick, tick)),
-        ...models.map(([id, a]) => this._loadModel(id, BASE + a.file).then(tick, tick)),
+        // A model that fails falls back to a sprite of its picture (src/entities/dogs.js), which
+        // then needs its real size: load that lazy picture here, before any level is built.
+        ...models.map(([id, a]) => this._loadModel(id, BASE + a.file).then(tick, () => this._spriteFallback(id).then(tick, tick))),
       ]).then(() => { this.restReady = true; this._restListeners.clear(); });
     }
     if (this.restReady) onProgress(1);
     else this._restListeners.add(onProgress);
     return this._rest;
+  }
+
+  _spriteFallback(modelId) {
+    const pic = modelId.replace(/^model_/, '');
+    const entry = LAZY.has(pic) && !this.textures.has(pic) && this._entry(pic);
+    return entry ? this._loadTex(pic, BASE + entry.file) : Promise.resolve();
   }
 
   /** True unless the background load has started and not finished yet. */
@@ -201,7 +210,7 @@ export class AssetStore {
         this.urls.set(id, url);
         this._loaded(id);
         resolve(t);
-      }, undefined, () => { this._loaded(id); reject(new Error('load fail ' + url)); });
+      }, undefined, () => { this._failed.add(id); this._loaded(id); reject(new Error('load fail ' + url)); });
     });
   }
 
@@ -209,8 +218,10 @@ export class AssetStore {
   // (a failed load draws the procedural fallback into it).
   _lazyTex(id, url) {
     const t = this.loader.load(url, () => { this._loaded(id); }, undefined, () => {
+      this._failed.add(id);
       t.image = drawFallback(id);
       t.needsUpdate = true;
+      this.urls.set(id, t.image.toDataURL());
       this._loaded(id);
     });
     t.colorSpace = THREE.SRGBColorSpace;
@@ -253,7 +264,7 @@ export class AssetStore {
   // THREE texture (generated art, or a procedural fallback canvas).
   tex(id) {
     if (!this.textures.has(id)) {
-      const entry = this._entry(id);
+      const entry = this._failed.has(id) ? null : this._entry(id);
       const fallback = !entry && placeholderFor(id);
       if (entry && !entry.file.endsWith('.glb')) {
         this._lazyTex(id, BASE + entry.file);
@@ -263,9 +274,11 @@ export class AssetStore {
         t.colorSpace = THREE.SRGBColorSpace;
         this.textures.set(id, t);
         this._afterLoad(fallback.from, () => {
+          // The source has loaded (or failed, and now draws its fallback): build the alias as usual
+          // and move it into the texture callers already hold.
           this.textures.delete(id);
           const built = this.tex(id);
-          t.image = built.image;
+          t.copy(built);
           t.needsUpdate = true;
           this.textures.set(id, t);
         });
@@ -318,8 +331,9 @@ export class AssetStore {
   // URL usable by <img> / CSS.
   url(id) {
     if (this.urls.has(id)) return this.urls.get(id);
-    // A manifest picture's URL is its file: no texture is decoded for an <img>.
-    const entry = this._entry(id);
+    // A manifest picture's URL is its file: no texture is decoded for an <img>. One that failed to
+    // load falls through to tex(), which draws its procedural fallback.
+    const entry = this._failed.has(id) ? null : this._entry(id);
     if (entry && !entry.file.endsWith('.glb')) return BASE + entry.file;
     const fallback = placeholderFor(id);
     if (fallback && !id.startsWith('model_') && fallback.tint === undefined && fallback.hue === undefined && fallback.opacity === undefined) return this.url(fallback.from);

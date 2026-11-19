@@ -253,7 +253,7 @@ export class Session {
     hub.startCarry();
     // The level's art loads behind the title; on a slow link the rest of it finishes here.
     if (Assets.isReady?.() === false) {
-      await Assets.whenReady((p) => ui.loadingProgress(0.05 + 0.1 * p, 'Loading art...'));
+      await Assets.whenReady((p) => { if (!abandoned() && this.game.session === this) ui.loadingProgress(0.05 + 0.1 * p, 'Loading art...'); });
       if (abandoned()) return false;
     }
     ui.loadingProgress(0.15, `Building ${this.def.name}...`);
