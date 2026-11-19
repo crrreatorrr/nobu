@@ -785,7 +785,9 @@ export class Game {
 
   // The cloud save debounces its push (createProgressStore, 1.5 s), so progress from the last moment
   // of play would be lost if hub.exit navigated at once. Flush it first, waiting at most
-  // EXIT_FLUSH_MS so an unreachable hub never holds the player here. While it runs the loop only
+  // EXIT_FLUSH_MS so an unreachable hub never holds the player here. Whatever is still unsynced
+  // then (the cap ran out, or the push failed) goes as a keepalive write that outlives the page;
+  // after a flush that landed there is nothing left and no second write is sent. While it runs the loop only
   // renders (like the feedback hold): no menu or key can start something the navigation would cut
   // off. A second press returns the same exit.
   exitToHub() {
@@ -796,7 +798,10 @@ export class Game {
       this.session = null;
     }
     this.hubExit = true;
-    const exiting = this._hubExiting = flushBeforeExit(() => save.flush()).then(() => { hub.exit('exit_to_hub'); });
+    const exiting = this._hubExiting = flushBeforeExit(() => save.flush()).then(() => {
+      save.flushKeepalive();
+      hub.exit('exit_to_hub');
+    });
     exiting.finally(() => { if (this._hubExiting === exiting) this._hubExiting = null; });
     return exiting;
   }

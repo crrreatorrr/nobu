@@ -6,6 +6,8 @@ import {
   createHubSdk, createNakamaClient, memoryKeyValue, mintMockTicket,
   NOBU_TRIAL_FLOOR_MS, NOBU_TRIAL_CEIL_MS, HUB_OUTBOX_DB, HubEvent,
 } from '../vendor/hub-sdk/dist/index.js';
+// 0.9.0 keeps one outbox handle per page; each case gets a fresh fake IndexedDB, so drop it.
+import { resetOutboxHandle } from '../vendor/hub-sdk/dist/live.js';
 import { TRIAL_FLOOR_MS, TRIAL_CEIL_MS, TRIAL_LEVELS, HUB_LAYOUT, canUploadTrial } from '../src/config/trials.js';
 import { enqueue, flushQueue, readQueue } from '../src/hub/scoreQueue.js';
 
@@ -14,6 +16,7 @@ const FLOORS = { 1: 15000, 2: 15000, 3: 12000, '1v2': 25700, '2v2': 26000, '3v2'
 const variants = Object.entries(FLOORS);
 beforeEach(() => {
   vi.stubGlobal('crypto', webcrypto);
+  resetOutboxHandle();
   vi.stubGlobal('indexedDB', new IDBFactory());
   localStorage.clear();
 });

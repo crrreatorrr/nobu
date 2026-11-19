@@ -604,6 +604,14 @@ export const save = {
   },
   /** Pushes unsynced account progress to the cloud now. */
   flush() { return store.flush(); },
+  /**
+   * For page exit: sends unsynced account progress as one keepalive cloud write that outlives
+   * the page (hub-sdk 0.9.0). False when nothing was sent or the SDK predates it. Never throws.
+   */
+  flushKeepalive() {
+    if (typeof store.flushKeepalive !== 'function') return false;
+    try { return store.flushKeepalive() === true; } catch (err) { console.warn('[save] keepalive flush failed', err); return false; }
+  },
   owner() { return store.owner(); },
   sync() { return store.sync(); },
   /** Another tab changed localStorage. */
