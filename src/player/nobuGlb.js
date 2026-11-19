@@ -2,9 +2,6 @@
 // Rotations are expressed in model space (X right, Y up, Z forward) and converted to each bone's parent frame.
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { Assets } from '../art/assets.js';
-
-let fixedTex = null;
 
 const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
@@ -40,11 +37,8 @@ export class NobuGlb {
         o.frustumCulled = false;
         o.material = o.material.clone();
         const m = o.material;
-        // retouched texture (the generated one had a third pupil)
-        if (Assets.has('nobu_tex_fixed')) {
-          if (!fixedTex) { fixedTex = Assets.tex('nobu_tex_fixed').clone(); fixedTex.flipY = false; fixedTex.colorSpace = THREE.SRGBColorSpace; fixedTex.needsUpdate = true; }
-          m.map = fixedTex;
-        }
+        // The retouched texture (the generated one had a third pupil) is baked into nobu.glb
+        // (tools/optimize_glbs.mjs); it used to be swapped in here from models/nobu_tex_fixed.jpg.
         // Soften the PBR look toward the cartoon style: matte, slightly brighter.
         if (m.isMeshStandardMaterial) { m.roughness = 0.85; m.metalness = 0; m.envMapIntensity = 0; }
         this.allMeshes.push(o);

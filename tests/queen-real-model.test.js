@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { readFile } from 'node:fs/promises';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { expect, it, vi } from 'vitest';
 import { Assets } from '../src/art/assets.js';
 import { Stage } from '../src/world/stage.js';
@@ -23,9 +24,15 @@ it('bakes the checked-in skinned pill GLB through actual AssetStore aliases befo
   vi.spyOn(Assets, 'tex').mockReturnValue(new THREE.Texture());
   vi.spyOn(Assets, 'tiled').mockReturnValue(new THREE.Texture());
   try {
-    const loader = new GLTFLoader();
+    // The checked-in GLBs are meshopt-compressed (tools/optimize_glbs.mjs), as Assets loads them.
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     loader.register(() => ({
       name: 'queenGeometryOnlyTextures',
+      loadTexture: () => Promise.resolve(new THREE.Texture())
+    }));
+    // Their textures are WebP; three's WebP plugin probes support with an Image that never loads in jsdom.
+    loader.register(() => ({
+      name: 'EXT_texture_webp',
       loadTexture: () => Promise.resolve(new THREE.Texture())
     }));
     const load = vi.spyOn(GLTFLoader.prototype, 'loadAsync');
@@ -65,6 +72,10 @@ it('bakes the checked-in skinned pill GLB through actual AssetStore aliases befo
     expect(mesh.boundingBox.getSize(new THREE.Vector3()).y).toBeCloseTo(5.5, 4);
     expect(mesh.boundingBox.min.y).toBeCloseTo(0, 4);
     expect(boss.crownPosition().y).toBeCloseTo(8.2, 4);
+    // Baked normals must stay float unit vectors: int8 normals clamp in computeVertexNormals (black Queen).
+    const normals = mesh.geometry.attributes.normal, n = new THREE.Vector3();
+    expect(normals.array).toBeInstanceOf(Float32Array);
+    for (let i = 0; i < normals.count; i += 97) expect(n.fromBufferAttribute(normals, i).length()).toBeCloseTo(1, 3);
     for (const phase of [1, 2, 3]) {
       boss.resetToPhase(phase);
       boss.setPump(1);

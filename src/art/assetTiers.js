@@ -8,10 +8,10 @@
 //         the gallery) or only as the sprite fallback for a model that failed to load. They are
 //         never decoded into a THREE texture up front; Assets.url() gives their file and
 //         Assets.tex() loads one on first use.
-// unused: authoring references kept in the repo but not used at runtime (not loaded, not shipped
+// unused: authoring references and sources kept in the repo but not used at runtime (not loaded, not shipped
 //         in dist/, see vite.config.js).
 
-export const BOOT_TEXTURES = ['bg_title', 'logo', 'textbox', 'sproto_mask', 'tex_l1_ground', 'nobu_tex_fixed'];
+export const BOOT_TEXTURES = ['bg_title', 'logo', 'textbox', 'sproto_mask', 'tex_l1_ground'];
 export const BOOT_MODELS = ['model_sproto_mask'];
 
 export const LAZY = new Set([
@@ -27,4 +27,5 @@ export const LAZY = new Set([
   'dog_shiba_coned', 'dog_corgi_coned', 'dog_pug_coned', 'dog_dalmatian_coned',
 ]);
 
-export const UNUSED = new Set(['nobu_master', 'nobu_sheet']);
+// nobu_tex_fixed is baked into nobu.glb (tools/optimize_glbs.mjs) and kept as its source.
+export const UNUSED = new Set(['nobu_master', 'nobu_sheet', 'nobu_tex_fixed']);

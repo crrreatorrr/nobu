@@ -4,12 +4,18 @@
 // loadRest() the rest in the background, and DOM-only pictures load only when first shown.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { drawFallback } from './fallbacks.js';
 import { placeholderFor } from './placeholders.js';
 import { BOOT_TEXTURES, BOOT_MODELS, LAZY, UNUSED } from './assetTiers.js';
 
 const BASE = `${import.meta.env.BASE_URL}assets/`;
+
+// The model GLBs are meshopt-compressed with WebP textures (tools/optimize_glbs.mjs).
+function gltfLoader() {
+  return new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+}
 
 if (typeof document !== 'undefined') {
   const textbox = new URL(`${BASE}ui/textbox.webp`, document.baseURI).href;
@@ -99,7 +105,7 @@ export class AssetStore {
   }
 
   async _loadModel(id, url) {
-    const gltf = await new GLTFLoader().loadAsync(url);
+    const gltf = await gltfLoader().loadAsync(url);
     const root = gltf.scene;
     let skinned = false;
     root.traverse((o) => {
@@ -234,7 +240,7 @@ export class AssetStore {
 
   async _loadGlb() {
     try {
-      const gltf = await new GLTFLoader().loadAsync(BASE + 'models/nobu.glb');
+      const gltf = await gltfLoader().loadAsync(BASE + 'models/nobu.glb');
       this.glb = gltf;
     } catch (e) {
       console.warn('[assets] nobu.glb unavailable, using primitive Nobu');
