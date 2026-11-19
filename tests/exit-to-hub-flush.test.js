@@ -75,3 +75,17 @@ it('menu clicks do nothing while the exit flush runs', async () => {
   const el = { closest: () => { throw new Error('click handled'); } };
   expect(() => g._onMenuClick({ target: el })).not.toThrow();
 });
+
+// hub-sdk 0.9.0: whatever is still unsynced when the wait ends goes as a keepalive write.
+it('sends the keepalive save after the bounded wait, right before exit', async () => {
+  vi.spyOn(save, 'flush').mockReturnValue(new Promise(() => {}));
+  vi.spyOn(save, 'flushKeepalive').mockImplementation(() => { order.push('keepalive'); return true; });
+  const p = game().exitToHub();
+  await vi.advanceTimersByTimeAsync(EXIT_FLUSH_MS);
+  await p;
+  expect(order).toEqual(['keepalive', 'exit']);
+});
+
+it('save.flushKeepalive is false when the store predates it, and never throws', () => {
+  expect(typeof save.flushKeepalive()).toBe('boolean');
+});

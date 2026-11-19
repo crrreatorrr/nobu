@@ -39,8 +39,8 @@ No items: the `nobu` handoff has no multiplayer section.
 
 | Item | Status |
 | --- | --- |
-| §3.1 Drop the private `hub-outbox` IndexedDB coupling (`openWrites`, `firstOutboxKey`, `forgetOutbox`) | **blocked** — needs the public outbox API of hub-sdk v0.9 (metaverse-hub, unmerged); the brief forbids re-vendoring in this pass. |
-| §3.1 Strip `hub-sdk.iife.js` and `dist/realtime/` when re-vendoring | **blocked** — same re-vendor. Neither is bundled today (nothing imports them), so `dist/` is unaffected. |
+| §3.1 Drop the private `hub-outbox` IndexedDB coupling (`openWrites`, `firstOutboxKey`, `forgetOutbox`) | **blocked** — hub-sdk 0.9.0 (vendored from hub `a3d94f9`) still has no public outbox read or delete call; it exports only `HUB_OUTBOX_DB` (and caches one handle per page). NOBU's own reader opens without a version, so it does not trip the SDK's `versionchange` reopen. Needs an SDK call that lists/forgets a game's own rows. |
+| §3.1 Strip `hub-sdk.iife.js` and `dist/realtime/` when re-vendoring | **skipped** — 0.9.0's lean sub-paths (`/core`, `/progress`, `/feedback`) build the same `hub-sdk` chunk (70.11 kB against 70.12 kB; Vite already tree-shakes the root), and the root entry imports `realtime/`, tests import `dist/index.js`, and `scripts/vendor-sdk.mjs` regenerates both files. Neither reaches `dist/`. |
 | §3.2 Warn on a `#t=` visit to a build without `VITE_NAKAMA_SERVER_KEY` | **done** `df14cc0`, `5ddd0e7` — console warning, and the hub status line shows "Hub sign-in unavailable in this build" when init ends without a session (a session saved in the tab still works without a key). Tests in `tests/server-key.test.js`. |
 | §3.3 Git LFS for GLBs/textures | **skipped** — an owner decision: it needs LFS on the remote and every clone, and moving existing history would rewrite it. After §1.4 the models are 4.8 MiB. Proposed below. |
 
@@ -96,8 +96,8 @@ installed with `npm i --no-save` (not dependencies, like Playwright for `tools/p
 
 ## Cross-repo follow-ups
 
-- **hub-sdk keepalive flush (metaverse-hub, unmerged):** once re-vendored, `exitToHub()` can pass/feature-detect it; the
-  800 ms bounded wait stays as the fallback.
+- **hub-sdk keepalive flush:** done with the 0.9.0 re-vendor — `exitToHub()` waits at most 800 ms for `save.flush()`, then
+  calls `save.flushKeepalive()` (feature-detected) right before `hub.exit`.
 - **hub-sdk v0.9 re-vendor:** then move `src/hub/hubBridge.js` off the private `hub-outbox` store (§3.1) and drop
   `hub-sdk.iife.js` / `dist/realtime/` from `vendor/hub-sdk` (follow `vendor/hub-sdk/VENDOR.md`).
 - **Production server (deploy repo):** the font stylesheet now loads as `media=print` switched from `src/main.js`; no inline

@@ -53,9 +53,13 @@ const REFERENCE_TARBALL_SHA256 = '634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a6
 //   iife 770e8e1b41ad1abef33eb0d04ef9c7eec8fda723336e5149a7809d902042013c
 // 0.8.0 / hub main b7921f2 (metaverse-hub#187: createProgressStore, hubVisitStarting, cloud save
 // limit 16384 bytes), vendored from the hub checkout so the IIFE matches its pin.
+//   fdee4cf06b989119fe91393e5cf83f2415d033a3a8529e91d2ada422a8a2f59e
+//   iife 833ce281696f9769bd13d284b9d9262957838181cf1ac308358c6b602b21f309
+// 0.9.0 / hub main a3d94f9 (metaverse-hub#196: granted_items, otherRelics, keepalive saves,
+// one outbox handle, lean sub-path entries), vendored from the hub checkout.
 // File sha256 of dist/hub-sdk.iife.js:
-const CONTENT_MANIFEST_SHA256 = 'fdee4cf06b989119fe91393e5cf83f2415d033a3a8529e91d2ada422a8a2f59e';
-const IIFE_SHA256 = '833ce281696f9769bd13d284b9d9262957838181cf1ac308358c6b602b21f309';
+const CONTENT_MANIFEST_SHA256 = '7ab851a9f1314e6bce313818f0fe804c378ca226bb75e99f26114123c9f310bf';
+const IIFE_SHA256 = 'd74ffe49c3a59390040e57ad0016d25db194bd68410fbcf5a0e199a1acbe17be';
 
 function listFiles(dir) {
   const out = [];
@@ -102,9 +106,9 @@ function contentManifestSha256(sourceRoot) {
 }
 
 describe('vendored hub SDK', () => {
-  it('package.json is SDK 0.8.0', () => {
+  it('package.json is SDK 0.9.0', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
-    expect(pkg.version).toBe('0.8.0');
+    expect(pkg.version).toBe('0.9.0');
     const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
     const index = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/index.d.ts'), 'utf8');
     expect(types).toContain('getTicketBalance()');
@@ -127,14 +131,14 @@ describe('vendored hub SDK', () => {
 
   it('pins generated provenance and has no source maps or mapping URLs', () => {
     const note = fs.readFileSync(path.resolve('vendor/hub-sdk/VENDOR.md'), 'utf8');
-    expect(note).toContain('- branch: main\n- sha: b7921f2\n- package: packages/hub-sdk @ 0.8.0');
+    expect(note).toContain('- branch: main\n- sha: a3d94f9\n- package: packages/hub-sdk @ 0.9.0');
     expect(note).toContain(`- iife sha256: ${IIFE_SHA256}`);
     const iifePath = path.resolve('vendor/hub-sdk/dist/hub-sdk.iife.js');
     const iife = fs.readFileSync(iifePath);
     expect(createHash('sha256').update(iife).digest('hex')).toBe(IIFE_SHA256);
     expect(iife.toString('utf8')).toContain('global HubSDK');
     const pin = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/SOURCE.pin.json'), 'utf8'));
-    expect(pin).toMatchObject({ version: '0.8.0', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
+    expect(pin).toMatchObject({ version: '0.9.0', format: 'iife', global: 'HubSDK', iifeSha256: IIFE_SHA256 });
     const files = listFiles(path.resolve('vendor/hub-sdk'));
     expect(files.some(file => file.endsWith('.map'))).toBe(false);
     for (const file of files) expect(fs.readFileSync(file, 'utf8')).not.toContain('sourceMappingURL=');
@@ -221,7 +225,20 @@ describe('vendored hub SDK', () => {
     expect(sdk.SAVE_MAX_BYTES).toBe(16384);
   });
 
-  it('content manifest matches SDK 0.8.0 after maps and sourceMappingURL are removed', () => {
+  // 0.9.0: exitToHub sends what is still unsynced as a keepalive write (src/game/game.js).
+  it('has the keepalive cloud save and the lean sub-path entries', async () => {
+    const progress = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/progress.d.ts'), 'utf8');
+    expect(progress).toContain('flushKeepalive(): boolean;');
+    const types = fs.readFileSync(path.resolve('vendor/hub-sdk/dist/types.d.ts'), 'utf8');
+    expect(types).toContain('keepalive');
+    const pkg = JSON.parse(fs.readFileSync(path.resolve('vendor/hub-sdk/package.json'), 'utf8'));
+    for (const sub of ['./core', './realtime', './mock', './feedback', './progress', './pb-shop']) expect(pkg.exports[sub]).toBeTruthy();
+    const core = await import('../vendor/hub-sdk/dist/entry/core.js');
+    expect(typeof core.createHubSdk).toBe('function');
+    expect(core.HUB_OUTBOX_DB).toBe('hub-outbox');
+  });
+
+  it('content manifest matches SDK 0.9.0 after maps and sourceMappingURL are removed', () => {
     expect(REFERENCE_TARBALL_SHA256).toBe('634de052798c2b3036bb5644df45ab3c29c43b6a4ef2a66328bd8d3371909681');
     const hash = contentManifestSha256(path.resolve('vendor/hub-sdk'));
     expect(hash).toBe(CONTENT_MANIFEST_SHA256);
