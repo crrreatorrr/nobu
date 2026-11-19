@@ -60,6 +60,8 @@ export function missingServerKeyWarning({ serverKey, hash } = {}) {
   return 'This build has no VITE_NAKAMA_SERVER_KEY: the hub ticket cannot be redeemed, so this visit plays offline (no Tickets, Relics or Relic gear).';
 }
 
+export const KEY_WARNING_STATUS = 'Hub sign-in unavailable in this build';
+
 // Sent in trial score meta so the board can tell builds apart. Optional at build time.
 const BUILD_ID = import.meta.env.VITE_BUILD_ID || import.meta.env.MODE || 'unknown';
 // The map screen asks the hub for each level's world record at most once a minute.
@@ -730,6 +732,8 @@ class HubBridge {
     this.serverBalance = null;
     this.serverDay = null;
     this.status = '';
+    this.keyWarning = null; // shown instead of status: see missingServerKeyWarning
+    this.serverKey = NAKAMA_SERVER_KEY;
     this._sdk = null;
     this._initing = null;
     this._carryJob = null;
@@ -758,7 +762,7 @@ class HubBridge {
   get sdk() {
     // Same-origin /v2. The SDK redeems #t= with custom auth (server key only) and then
     // sends only the session token.
-    if (!this._sdk) this._sdk = createHubSdk({ serverUrl: '', serverKey: NAKAMA_SERVER_KEY, hubUrl: HUB_URL });
+    if (!this._sdk) this._sdk = createHubSdk({ serverUrl: '', serverKey: this.serverKey, hubUrl: HUB_URL });
     return this._sdk;
   }
 
@@ -806,14 +810,13 @@ class HubBridge {
   }
 
   async _doInit() {
+    // Read before sdk.init, which strips the ticket from the URL. init still runs: a session saved
+    // earlier in this tab needs no server key.
     const keyWarning = missingServerKeyWarning({
-      serverKey: NAKAMA_SERVER_KEY,
+      serverKey: this.serverKey,
       hash: typeof location !== 'undefined' ? location.hash : '',
     });
-    if (keyWarning) {
-      console.warn(`[hub] ${keyWarning}`);
-      this.status = 'Hub sign-in unavailable in this build';
-    }
+    this.keyWarning = null;
     this.sessionCapLeft = null;
     this.dailyCapLeft = null;
     this.rejectionRemaining = null;
@@ -854,6 +857,10 @@ class HubBridge {
     if (this.reach !== 'ready') {
       this.reach = 'offline';
       this.inSession = hasSession();
+    }
+    if (keyWarning && !(this.reach === 'ready' && this.inSession)) {
+      console.warn(`[hub] ${keyWarning}`);
+      this.keyWarning = KEY_WARNING_STATUS;
     }
     this._claimProgress();
     this._authed?.();
@@ -907,7 +914,7 @@ class HubBridge {
     const pending = pendingExchange();
     return {
       pending,
-      status: pending ? 'Exchange pending' : this.status,
+      status: pending ? 'Exchange pending' : this.keyWarning || this.status,
       verseCapLeft: this.verseCapLeft,
       reach: this.reach,
       inSession: this.inSession,
