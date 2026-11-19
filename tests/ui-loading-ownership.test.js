@@ -26,3 +26,15 @@ it('cancels its own pending hide and retains normal successful loading',async()=
   await vi.runAllTimersAsync();expect(await normal).toBe(true);
   expect(ui.loadEl.classList.contains('show')).toBe(false);
 });
+it('a level that built quickly leaves its loading screen after 300 ms, not a second', async () => {
+  const ui = new UI(document.createElement('div'));
+  const token = ui.showLoading('LEVEL1', 'BARK JUNGLE');
+  let done = false;
+  ui.hideLoading(undefined, token).then(() => { done = true; });
+  await vi.advanceTimersByTimeAsync(149);
+  expect(ui.loadEl.classList.contains('show')).toBe(true);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(ui.loadEl.classList.contains('show')).toBe(false);
+  await vi.advanceTimersByTimeAsync(150);
+  expect(done).toBe(true);
+});

@@ -36,6 +36,8 @@ export function scrollMenuToSel(root) {
   }
 }
 
+export const LOADING_MIN_MS = 150;
+export const LOADING_FADE_MS = 150;
 export const GOD_HUB_NOTE = 'Hub Tickets & Relics disabled';
 
 export class UI {
@@ -150,15 +152,17 @@ export class UI {
     this.loadEl.setAttribute('aria-valuenow', String(pct));
     if (step != null) this.loadEl.querySelector('.ll-step').textContent = step;
   }
-  // Fill the bar, keep the screen up for at least `minMs` so it never just flashes, then fade it out.
-  async hideLoading(minMs = 700, token = this._loadEpoch) {
+  // Fill the bar, keep the screen up for at least `minMs` so it never just flashes, then fade it out
+  // (LOADING_FADE_MS matches .level-load's opacity transition). It was a 700 ms floor + 300 ms fade:
+  // a second of waiting on every level entry, however fast the level built.
+  async hideLoading(minMs = LOADING_MIN_MS, token = this._loadEpoch) {
     if (token !== this._loadEpoch) return false;
     this.loadingProgress(1, 'Ready!');
     const left = minMs - (performance.now() - this.loadShownAt);
-    await new Promise((r) => setTimeout(r, Math.max(250, left)));
+    await new Promise((r) => setTimeout(r, Math.max(LOADING_MIN_MS, left)));
     if (token !== this._loadEpoch) return false;
     this.loadEl.classList.remove('show');
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, LOADING_FADE_MS));
     return token === this._loadEpoch;
   }
   cancelLoading(token) {

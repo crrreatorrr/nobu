@@ -360,7 +360,7 @@ export class Game {
     const token = this.ui.showLoading(kicker, title);
     this.ui.loadingProgress(0, 'Loading art...');
     return Assets.whenReady((p) => this.ui.loadingProgress(p, 'Loading art...'))
-      .then(() => this.ui.hideLoading(150, token))
+      .then(() => this.ui.hideLoading(undefined, token))
       .then((shown) => (shown ? fn() : undefined));
   }
 

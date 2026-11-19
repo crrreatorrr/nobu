@@ -283,7 +283,7 @@ export class Session {
     audio.setRate(this.def.gauntlet ? 1.08 : 1);
     audio.playMusic(stage.gauntletInfo?.music || stage.theme.music);
     ui.fade(0, 0);
-    await (mainGoal ? ui.hideLoading(700, this._goalLoadingToken) : ui.hideLoading());
+    await (mainGoal ? ui.hideLoading(undefined, this._goalLoadingToken) : ui.hideLoading());
     if (abandoned()) return false;
     this._goalLoadingToken = null;
     ui.showHud(4);
@@ -717,7 +717,7 @@ export class Session {
     g.camera.cinematic(new THREE.Vector3(bp.x + 3, Math.max(3, bp.y + 1.5), bp.z + 9), new THREE.Vector3(bp.x, bp.y + 1, bp.z), 2.5);
     g.camera.pos.set(bp.x + 6, bp.y + 4, bp.z + 16);
     g.ui.fade(0, 0);
-    await (isPipelineSession(this) || this.remix ? g.ui.hideLoading(700, loadToken) : g.ui.hideLoading());
+    await (isPipelineSession(this) || this.remix ? g.ui.hideLoading(undefined, loadToken) : g.ui.hideLoading());
     if (!current()) return false;
     this._goalLoadingToken = null;
     audio.play('bossRoar');
