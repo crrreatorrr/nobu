@@ -857,9 +857,10 @@ class HubBridge {
     }
   }
 
-  async _syncTicketAccount(payload, { applyBalance = true } = {}) {
+  // `query: false` reads only `payload` (an earnTickets result), with no tickets.balance RPC.
+  async _syncTicketAccount(payload, { applyBalance = true, query = true } = {}) {
     const live = this.reach === 'ready' && this.inSession;
-    const account = await readTicketAccount(live ? this._sdk : null, payload, { query: live });
+    const account = await readTicketAccount(live ? this._sdk : null, payload, { query: live && query });
     this._noteServerDay(account);
     this._noteServerDay(payload);
     if (account.capsFromHook) this.rejectionRemaining = null;
@@ -1463,6 +1464,17 @@ class HubBridge {
     if (rec.dropped || this.reach !== 'ready' || !this.inSession) return { queued: !rec.dropped, accepted: rec.dropped ? 0 : rec.amount };
     const chunks = earnChunks(rec.amount, rec.chunkSize);
     let credited = Math.min(rec.amount, paidTickets(rec.credited));
+    // Each chunk's earnTickets result updates the wallet and caps; tickets.balance is read once,
+    // after the last chunk this call sent (it was one RPC per chunk: 20 for a 200-Ticket clear).
+    let lastPaid = null;
+    try {
+      return await this._sendEarnChunks(id, rec, chunks, credited, (result) => { lastPaid = result; });
+    } finally {
+      if (lastPaid) await this._syncTicketAccount(lastPaid);
+    }
+  }
+
+  async _sendEarnChunks(id, rec, chunks, credited, paid) {
     for (const chunk of chunks) {
       if (credited >= chunk.offset + chunk.amount) continue;
       const key = chunkKey(id, chunk.index, chunks.length);
@@ -1476,7 +1488,8 @@ class HubBridge {
         // count the tickets twice. A retry that lost `credited` resends `key`.
         credited = chunk.offset + chunk.amount;
         await this._markEarn(id, { credited });
-        const account = await this._syncTicketAccount(result);
+        paid(result);
+        const account = await this._syncTicketAccount(result, { query: false });
         if (!account.capsFromHook) this._spendAllowance(chunk.amount);
       } catch (err) {
         const info = errorInfo(err);
