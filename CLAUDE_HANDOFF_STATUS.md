@@ -53,6 +53,13 @@ was drawn square; the God badge note did not follow `hub.inSession`. Earlier fix
 before init knew the outcome and was overwritten by the exchange flow. Not changed: when the key is missing, init still
 redeems the `#t=` ticket (it fails with `auth_failed`); skipping it would break a session saved earlier in the tab.
 
+Independent review (fresh subagent, not told these conclusions) on `main...HEAD`. Fixed in `3a791e8`: after a cap refusal
+mid-sequence the final sync re-applied the last paid chunk's caps over `_noteCap`'s; quitting a level during the art wait let it
+build behind the title. Not changed (low impact, recorded): hub writes started right after the title opens can overlap init's
+own carry/outbox flush (writes are idempotent per key, so this means duplicate requests, not lost Tickets); the HUD's
+`ticket` / `nobu_head` / `dog_shiba_free` images now use the file URL, so a 404 there shows a broken image instead of the
+procedural fallback.
+
 ## Measurements
 
 `npm run build && node tools/measure_boot.mjs --mbps 20 --after-ms 60000` (headless Chromium, SwiftShader, cache disabled,
@@ -76,11 +83,15 @@ attack timing only. Visual check (`26d28d7` vs `main`): title, map, all 8 levels
 
 | Command | Result |
 | --- | --- |
-| `npm test` | pass — 164 files, 1726 tests (baseline on `main`: 1685) |
+| `npm test` | pass — 164 files, 1727 tests (baseline on `main`: 1685) |
 | `npm run build` | pass |
 | `npm run lint` | 0 errors; no warnings in files this branch touched |
 
-Everything ran here; no check was skipped. `tools/optimize_glbs.mjs` needs `@gltf-transform/*`, `meshoptimizer` and `sharp`
+Everything ran here; no check was skipped. Handoff §4 checklist: God Mode tests (`tests/god-hub-rewards.test.js`) pass; cold boot
+measured above (the boot tier alone is under 10 requests; the ≤1.5 MB target is not met at 5.9 MiB before the title, of which
+~1.7 MB is JavaScript and the rest is background-tier art that finished first); decoded image memory 37.6 MiB at the title and
+148.9 MiB after everything loads (the <150 MiB peak target is met); `exitToHub()` awaits `save.flush()` before `hub.exit`
+(`tests/exit-to-hub-flush.test.js`). `tools/optimize_glbs.mjs` needs `@gltf-transform/*`, `meshoptimizer` and `sharp`
 installed with `npm i --no-save` (not dependencies, like Playwright for `tools/playtest.mjs`).
 
 ## Cross-repo follow-ups
