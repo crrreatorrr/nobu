@@ -27,6 +27,7 @@ import { RUSH_TEXT, MASTERY_TEXT, KENNEL_TEXT, REWARD_TEXT, BONE_TEXT, INTRO, RE
 import { damp } from '../core/util.js';
 import { crashGuard } from '../core/crashGuard.js';
 import { hub, TICKETS_PER_VERSE, maxExchangeTickets } from '../hub/hubBridge.js';
+import { bankAttempt } from './hubRewards.js';
 import { hubVisitStarting } from '@metaverse/hub-sdk';
 
 import { applyRunResults, runBones, boneContext, savedBoard } from './bones.js';
@@ -178,12 +179,13 @@ export class Game {
     // FULL SCREEN labels follow the browser, including Esc or F11 leaving full screen.
     fullscreen.onChange(() => { if (this.ui) this.refreshPrompts(); });
     fullscreen.onRefused = () => this.ui?.banner('FULL SCREEN', input.prompt('Press ENTER, click it, or press F11', 'Click it with the mouse, or press F11'), 2.2);
-    this.ui.godBadge(save.data.godMode);
+    this.ui.godBadge(save.data.godMode, hub.inSession);
     this.loadout = new Loadout();
     const unavailable = this.loadout.resync();
     this.player = new Player(this);
     this.accessories = { flashCollar: (charged) => setCollarGlow(this.player?.model, charged) };
     hubReady.then(() => {
+      this.ui.godBadge(save.data.godMode, hub.inSession);
       this._applyHubGear();
       this._redrawProgress();
     }, () => {});
@@ -815,7 +817,7 @@ export class Game {
   toggleGod() {
     save.data.godMode = !save.data.godMode;
     save.write();
-    this.ui.godBadge(save.data.godMode);
+    this.ui.godBadge(save.data.godMode, hub.inSession);
     if (save.data.godMode) this.session?.markGodUsed?.();
     return save.data.godMode;
   }
@@ -1163,7 +1165,7 @@ export class Game {
     save.setBestDogs(n, st.dogs);
     st.goldenEarned = save.boneOf(n);
     save.write();
-    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(session);
     // rescue scene first, then the results screen
     this.playCutscene(RESCUE[n], () => { if (current()) this._showComplete(n, st, fresh); }, 'victory', isPipelineSession(session) ? current : null);
   }
@@ -1177,7 +1179,7 @@ export class Game {
     this._unlockMainChapters();
     const fresh = bankBoneResults(session, st);
     save.write();
-    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(session);
     this._showComplete(n, st, fresh);
   }
 
@@ -1249,7 +1251,7 @@ export class Game {
     d.bonus[n] = { beaten: true, best: Math.max(d.bonus[n]?.best || 0, st.tickets) };
     d.open[n] = true;
     save.write();
-    hub.bank(session.attemptId, session.levelTickets, session.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(session);
     this._showComplete(n, st, fresh, true);
   }
 

@@ -36,6 +36,8 @@ export function scrollMenuToSel(root) {
   }
 }
 
+export const GOD_HUB_NOTE = 'Hub Tickets & Relics disabled';
+
 export class UI {
   boneBoard(id, { bonus = false, run = null, fresh = [] } = {}) {
     const saved = savedBoard(save.data, id);
@@ -78,8 +80,9 @@ export class UI {
     this.hud.appendChild(m);
     this.slots.mask = { el: m, v: null, timer: 0 };
     root.appendChild(this.hud);
-    this.god = h('div', 'god-badge', 'GOD MODE<div class="god-tally"></div>');
+    this.god = h('div', 'god-badge', 'GOD MODE<div class="god-hub"></div><div class="god-tally"></div>');
     this.godTallyEl = this.god.querySelector('.god-tally');
+    this.godHubEl = this.god.querySelector('.god-hub');
     root.appendChild(this.god);
     this.trialEl = h('div', 'trial-timer');
     root.appendChild(this.trialEl);
@@ -180,7 +183,11 @@ export class UI {
       if (bump && s.v) { s.v.classList.remove('hud-bump'); void s.v.offsetWidth; s.v.classList.add('hud-bump'); }
     }
   }
-  godBadge(on) { this.god.classList.toggle('on', !!on); }
+  // `hubNote`: in a hub session, say that God-assisted runs send no Hub Tickets or Relics (src/game/hubRewards.js).
+  godBadge(on, hubNote = false) {
+    this.god.classList.toggle('on', !!on);
+    this.godHubEl.textContent = on && hubNote ? GOD_HUB_NOTE : '';
+  }
   // hits and deaths God Mode absorbed this level, or null to hide (outside a level)
   godTally(t) { this.godTallyEl.textContent = t ? godTallyText(t) : ''; }
   setConed(on) { this.conedVignette.style.display = on ? 'block' : 'none'; }

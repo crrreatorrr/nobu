@@ -34,6 +34,7 @@ import { input } from '../core/input.js';
 import { DEATH_FLOW, DEATH_CLOCK_SEC } from '../config/difficulty.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
+import { bankAttempt, reportConeRelic } from './hubRewards.js';
 import { COCONUT_CAP_PER_CLEAR, rawTicketsForWhole, wholeTicketsFromRaw } from '../config/tickets.js';
 import { TRIAL_TARGETS, trialMedal, fmtTime, trialLayout, trialVariant } from '../config/trials.js';
 
@@ -438,7 +439,7 @@ export class Session {
     const merged = mergeTrialMastery(variant, prev, incoming);
     if (merged) d.trials[this.level] = merged;
     save.write();
-    hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch((err) => console.warn('[hub] bank failed', err));
+    bankAttempt(this);
     if (incoming && !godUsed && pid) {
       // A local god/practice best never replaces the integer time this clean run posts.
       const rec = d.trials[this.level];
@@ -532,7 +533,7 @@ export class Session {
     }, { shouldCommit: () => !this.disposed && this.game.session === this });
     if (result.cancelled) return result;
     // The same level_end bank used by other stages; this amount is already whole Tickets.
-    if (this.attemptDurable && result.claimDurable) hub.bank(this.attemptId, this.levelTickets, true).catch(err => console.warn('[hub] bank failed', err));
+    if (this.attemptDurable && result.claimDurable) bankAttempt(this, { durable: true });
     // A committed claim still settles after leaving, but must never change the new screen.
     if (this.disposed || this.game.session !== this) return result;
     this.game.player.frozen = true;
@@ -551,7 +552,7 @@ export class Session {
     const fresh = applyRemixResult(save.data, this.level, this.remixGate,
       { ...boneContext(this), godUsed: this.godUsed, completed: true });
     save.write();
-    hub.bank(this.attemptId, this.levelTickets, this.attemptDurable).catch(err => console.warn('[hub] bank failed', err));
+    bankAttempt(this);
     this.game.remixCleared(this, { id: this.def.id, fresh, golden: !!save.data.remix?.[this.level]?.golden });
     return true;
   }
@@ -800,7 +801,7 @@ export class Session {
     g.feedback?.breadcrumb('boss_defeated', { level: String(this.level), deaths: this.deaths });
     if (this.remix) this._remixClearReached = { stage, epoch };
     this._awardBossMedals(boss);
-    if (!this.remix && this.def.bossKey === 'cone') hub.reportCone(this.attemptId, this.attemptDurable).catch((err) => console.warn('[hub] relic failed', err));
+    if (!this.remix && this.def.bossKey === 'cone') reportConeRelic(this);
     this.busy = true;
     this.projectiles.clear();
     g.player.frozen = true;

@@ -36,10 +36,10 @@ describe('toggleGod', () => {
     const g = game(session);
     save.data.godMode = false;
     expect(g.toggleGod()).toBe(true);
-    expect(g.ui.godBadge).toHaveBeenLastCalledWith(true);
+    expect(g.ui.godBadge).toHaveBeenLastCalledWith(true, false);
     expect(session).toMatchObject({ godUsed: true, bossRun: { void: true } });
     expect(g.toggleGod()).toBe(false);
-    expect(g.ui.godBadge).toHaveBeenLastCalledWith(false);
+    expect(g.ui.godBadge).toHaveBeenLastCalledWith(false, false);
     expect(session.godUsed).toBe(true);
   });
 

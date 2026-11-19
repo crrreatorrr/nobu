@@ -375,6 +375,8 @@ html, body {
 .god-badge { text-align: center; }
 .god-tally { font-size: 15px; letter-spacing: 1px; -webkit-text-stroke: 1px var(--ink); }
 .god-tally:empty { display: none; }
+.god-hub { font-size: 13px; letter-spacing: 1px; -webkit-text-stroke: 1px var(--ink); color: #ffd0d0; }
+.god-hub:empty { display: none; }
 .god-badge.on { opacity: 1; animation: god-pulse 1.6s ease-in-out infinite; }
 @keyframes god-pulse { 50% { text-shadow: 0 0 18px rgba(255, 214, 90, 1); } }
 
