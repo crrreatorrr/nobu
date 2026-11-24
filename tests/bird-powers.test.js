@@ -75,6 +75,11 @@ describe('Bird powers use actual boss states and projectiles',()=>{
     const f=fixture(3);f.b.beginPhase();f.b.nextAction();const plan=[f.b.state,...f.b.plan];expect(plan.filter(s=>s==='aim').length).toBeGreaterThanOrEqual(2);
     expect(f.b.phaseCheckpoints).toBe(true);f.b.resetToPhase(2);expect(f.b.phase).toBe(2);expect(f.b.hp).toBe(4);expect(f.b.drones).toHaveLength(0);f.b.resetToPhase(1);expect(f.b.phase).toBe(1);expect(f.b.hp).toBe(6);expect(f.b.drones).toHaveLength(0);expect(f.b.marker.visible).toBe(false);expect(f.b.eggCraters.craters).toHaveLength(0);
   });
+  it('a landed hit is not punished by the body Nobu had to touch: no touch damage for the 0.6 s hit cooldown',()=>{
+    const f=fixture(1);f.b.pos.y=0;f.b.vulnerable=true;f.b.damage(f.p);expect(f.b.hp).toBe(5);expect(f.b.vulnerable).toBe(false);
+    f.b.onTouch(f.p);expect(f.p.hurt).not.toHaveBeenCalled();
+    f.b.hitCool=0;f.b.onTouch(f.p);expect(f.p.hurt).toHaveBeenCalledOnce();
+  });
   it('consumes DDA through every newly active tell and the shared punish window',()=>{
     const f=fixture(2);f.b.dda={tele:1.15,window:.3};expect(f.b.tele(.9)).toBeCloseTo(.9*.88*1.15);expect(f.b.W).toBeCloseTo(2.7);
     f.b.beginAttack('cage');expect(f.b.cageDrop.delay).toBeCloseTo(.9*.88*1.15+.35);

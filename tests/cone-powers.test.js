@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../src/art/assets.js',()=>({Assets:{model:()=>null,tex:()=>new THREE.Texture(),tiled:()=>new THREE.Texture(),has:()=>false,aspect:()=>1}}));
 vi.mock('../src/audio/audio.js',()=>({audio:{play:vi.fn()}}));
-import { ConeArena, ConeTiles, CONE_PEDESTALS, RUG_PATTERNS, buildConeArena } from '../src/bosses/coneArena.js';
-import { EvilCone, CONE_PLANS, CONE_CHAINS } from '../src/bosses/evilCone.js';
+import { ConeArena, ConeTiles, CONE_PEDESTALS, RUG_PATTERNS, buildConeArena, PEDESTAL_RADIUS, PEDESTAL_MINION_GAP } from '../src/bosses/coneArena.js';
+import { EvilCone, CONE_PLANS, CONE_CHAINS, CONE_HIT_RING_GRACE } from '../src/bosses/evilCone.js';
 import { Projectiles, pullToward } from '../src/bosses/common.js';
 import { World, moveBody } from '../src/world/physics.js';
 import { Stage } from '../src/world/stage.js';
@@ -159,5 +159,31 @@ describe('authored Cone attacks, tells and chains',()=>{
     expect(player.pushX).toBeCloseTo(-3/5*force);expect(player.pushZ).toBeCloseTo(-4/5*force);
     player.pushX=0;player.pushZ=0;player.dead=true;expect(pullToward(boss,3.6,.1)).toBe(5);expect(player.pushX).toBe(0);
     player.dead=false;pullToward(player,{x:6,z:8},4);expect(player.pushX).toBeCloseTo(2.4);expect(player.pushZ).toBeCloseTo(3.2);
+  });
+});
+
+describe('Cone fairness fixes found by playing the fight with real input',()=>{
+  it('a landed hit is not punished at once: no touch damage in the hit cooldown, and its ring arms after it has passed bite range',()=>{
+    const {boss,player,game}=fixture(),proj=game.session.projectiles,ring=vi.spyOn(proj,'shockwave');
+    boss.pos.set(0,1,0);player.pos.set(1.5,0,0);boss.vulnerable=true;boss.damage(player);
+    expect(boss.hp).toBe(8);expect(ring).toHaveBeenCalledWith(0,boss.ground,0,9,8,{grace:CONE_HIT_RING_GRACE});expect(CONE_HIT_RING_GRACE).toBe(.25);
+    boss.onTouch(player);expect(player.hurt).not.toHaveBeenCalled();
+    // Nobu stays on the floor a bite's length away: the ring passes him while it is still unarmed.
+    for(let t=0;t<.24;t+=1/120)proj.update(1/120);expect(player.hurt).not.toHaveBeenCalled();
+    // Three metres out it is armed by the time it arrives, and must be jumped.
+    player.pos.set(3.5,0,0);for(let t=0;t<.3;t+=1/120)proj.update(1/120);expect(player.hurt).toHaveBeenCalled();
+    player.hurt.mockClear();boss.hitCool=0;boss.vulnerable=false;boss.onTouch(player);expect(player.hurt).toHaveBeenCalledOnce();
+  });
+  it('a raised pedestal is solid to the floor minions, so nothing reaches Nobu on it from inside during Smog Tide',()=>{
+    const {stage,coneArena}=fixture(),ped=coneArena.pedestals[0],rim=PEDESTAL_RADIUS+PEDESTAL_MINION_GAP;
+    const minion={alive:true,dead:false,home:new THREE.Vector3(),pos:new THREE.Vector3(ped.pos.x+.3,0,ped.pos.z+.4),vx:2,vz:1,obj:new THREE.Group()};
+    stage.entities.push(minion);
+    ped.setPhase(2);ped.update(.1);expect(minion.pos.x).toBeCloseTo(ped.pos.x+.3); // lowered: no wall
+    ped.setPhase(3);for(let i=0;i<70;i++)ped.update(1/60);expect(ped.top).toBeCloseTo(1.2);
+    expect(Math.hypot(minion.pos.x-ped.pos.x,minion.pos.z-ped.pos.z)).toBeCloseTo(rim);expect(minion.vx).toBe(0);
+    // rim is outside a pill's 2.4 m dump blast measured from the pedestal centre
+    expect(rim).toBeGreaterThan(2.4);
+    const onTop={alive:true,dead:false,home:new THREE.Vector3(),pos:new THREE.Vector3(ped.pos.x,1.2,ped.pos.z),obj:new THREE.Group()};
+    stage.entities.push(onTop);ped.update(1/60);expect(onTop.pos.x).toBe(ped.pos.x); // something standing on it is left alone
   });
 });

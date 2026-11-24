@@ -206,14 +206,15 @@ export class Projectiles {
     return this._add({ kind: 'drop', mesh, marker, vel: new THREE.Vector3(0, 0, 0), life: delay + 1.6, delay, r: radius, death: 'cone', groundY: y, t: 0 });
   }
 
-  shockwave(x, y, z, speed = 8, maxR = 14) {
+  // grace: seconds before the ring can hit, for a ring that starts under a boss Nobu has just bitten.
+  shockwave(x, y, z, speed = 8, maxR = 14, { grace = 0 } = {}) {
     const G = pgeo();
     const mesh = new THREE.Mesh(G.ring, G.mRing);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(x, y + 0.25, z);
     addOutline(mesh, G.ringHull);
     audio.play('stomp');
-    return this._add({ kind: 'wave', mesh, vel: new THREE.Vector3(), life: maxR / speed, r: 0.2, speed, R: 0.3, cx: x, cz: z, groundY: y, death: 'angel' });
+    return this._add({ kind: 'wave', mesh, vel: new THREE.Vector3(), life: maxR / speed, r: 0.2, speed, R: 0.3, cx: x, cz: z, groundY: y, death: 'angel', grace });
   }
 
   // Homing rocket: steers after Nobu, explodes on contact or on the ground. Bite it to pop it.
@@ -381,7 +382,8 @@ export class Projectiles {
         // The ring is a thin band at its own height: jump it, or stand more than Nobu's height
         // below it (the Queen's dump ring starts 3 m above the arena floor and used to hit there).
         const above = p.pos.y - pr.groundY;
-        if (Math.abs(d - pr.R) < 0.55 && above < 0.7 && above > -WAVE_REACH_BELOW) hit = true;
+        if (pr.grace > 0) pr.grace -= dt;
+        else if (Math.abs(d - pr.R) < 0.55 && above < 0.7 && above > -WAVE_REACH_BELOW) hit = true;
       } else if (pr.kind === 'drop') {
         pr.t += dt;
         const k = Math.min(1, pr.t / pr.delay);

@@ -664,6 +664,9 @@ export class MechaBird extends Boss {
 
   onTouch(p) {
     if (this.vulnerable || !this.active || this.defeated) return;
+    // A bite needs Nobu against the body: for the 0.6 s after a landed hit it does not hurt back,
+    // so the hit itself is never punished (the Queen already worked this way).
+    if (this.hitCool > 0) return;
     if (this.state === 'dive' || this.pos.y < 3) p.hurt('angel', this.pos.x, this.pos.z);
   }
 

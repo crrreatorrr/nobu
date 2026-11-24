@@ -57,6 +57,7 @@ function weighCone(x, y, z) {
   return w;
 }
 
+export const CONE_HIT_RING_GRACE = 0.25;
 export class EvilCone extends Boss {
   constructor(stage, x, y, z) {
     super(stage, x, y, z, { name: 'THE EVIL CONE', portrait: 'portrait_cone', key: 'cone' }); // Old hp 9, phaseHp 3.
@@ -861,13 +862,17 @@ export class EvilCone extends Boss {
     this.hideBeams();
     this._removeDecoys(true);
     this.plan = this.plan.filter((s) => s !== 'overheat');
-    this.proj.shockwave(this.pos.x, this.ground, this.pos.z, 9, 8);
+    // The hit ring starts under the Cone, a bite's length from Nobu: it reached him 0.1 s after every
+    // landed hit, before the hit's own bounce had lifted him clear. It now arms after 0.25 s, by
+    // which time it has passed the spot a bite is made from; further out it must still be jumped.
+    this.proj.shockwave(this.pos.x, this.ground, this.pos.z, 9, 8, { grace: CONE_HIT_RING_GRACE });
     if (this.phase !== this.lastPhase) { this.lastPhase = this.phase; this.pendingRage = true; this.setState('rage'); this.did = false; }
     else this.toHover(0.8);
   }
 
   onTouch(p) {
     if (this.vulnerable || !this.active || this.defeated) return;
+    if (this.hitCool > 0) return; // as the Bird: a landed hit is not punished by the body it touched
     if (this.pos.y - this.ground < 3.5) p.hurt('cone', this.pos.x, this.pos.z);
   }
 
