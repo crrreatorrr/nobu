@@ -148,6 +148,20 @@ describe('session boss retries and awards', () => {
   it('resumes every story boss at the stage Nobu died in, Bird and Cat included', () => {
     expect(BOSS_PHASE_CHECKPOINTS).toEqual({ bird: true, cat: true, cone: true, titan: true, queen: true });
   });
+  it.each(['bird', 'cat', 'cone', 'titan', 'queen'])('a %s retry after a death in stage 2 or 3 starts that stage again', (key) => {
+    vi.useFakeTimers();
+    for (const phase of [2, 3]) {
+      const f = fixture();
+      f.session.boss = new Boss(f.stage, 0, 0, 0, { key }); f.session.boss.active = true;
+      prepareRespawn(f);
+      const s = f.session;
+      s.bossPhaseCp = phase; s.boss.phase = phase; s.dying = false; s.onPlayerDeath('fall');
+      vi.clearAllTimers(); s.dying = false;
+      s.respawn();
+      expect(s.boss.resetToPhase).toHaveBeenLastCalledWith(phase);
+      expect(s.boss.phase).toBe(phase);
+    }
+  });
   it('counts deaths once per stage, then helps on the third retry and permanently voids medals', () => {
     vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
     const s = f.session; s.boss.phaseCheckpoints = true; s.boss.phase = 2;
