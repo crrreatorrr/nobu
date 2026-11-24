@@ -49,6 +49,9 @@ export class QueenPill extends PumpPill {
     const scale = this.size0 ?? 1;
     this.setBox(0.8 * scale, 1.5 * scale, 0.8 * scale);
   }
+  // Mega Bark is how the stage-3 bubble is popped, and the pill is the only way up to the crown:
+  // it stands between Nobu and the Queen, so a bark that knocked it away would undo its own window.
+  onBark() {}
   reset() {
     this.dead = true;
     this.visible = false;

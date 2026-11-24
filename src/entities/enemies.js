@@ -833,6 +833,9 @@ export class PumpPill extends PillBot {
     this.squash();
     p.bounce(11 + 2 * this.pump);
   }
+  // The launch beam is the warning: a pill still rising out of the floor cannot be bitten and does
+  // not hurt, so one that beams in under Nobu (the Queen's Market Crash safe candle) is not a free hit.
+  onTouch(p) { if (this.mode !== 'launch') super.onTouch(p); }
 }
 
 

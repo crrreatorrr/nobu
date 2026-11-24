@@ -138,6 +138,8 @@ export const CONE_SCALE = 1.25;
 // Kinds that fly above the floor get a shadow ring on the floor under them, the size of their hit radius.
 const AIRBORNE = new Set(['feather', 'cone', 'hairball', 'missile', 'egg']);
 
+// How far below its own height a shockwave ring still hits: Nobu's standing height.
+export const WAVE_REACH_BELOW = 1.3;
 export class Projectiles {
   constructor(game, stage) {
     this.game = game;
@@ -376,7 +378,10 @@ export class Projectiles {
         pr.mesh.scale.set(pr.R, pr.R, 1);
         pr.mesh.material.opacity = Math.min(0.85, pr.life * 2);
         const d = Math.hypot(p.pos.x - pr.cx, p.pos.z - pr.cz);
-        if (Math.abs(d - pr.R) < 0.55 && p.pos.y - pr.groundY < 0.7) hit = true;
+        // The ring is a thin band at its own height: jump it, or stand more than Nobu's height
+        // below it (the Queen's dump ring starts 3 m above the arena floor and used to hit there).
+        const above = p.pos.y - pr.groundY;
+        if (Math.abs(d - pr.R) < 0.55 && above < 0.7 && above > -WAVE_REACH_BELOW) hit = true;
       } else if (pr.kind === 'drop') {
         pr.t += dt;
         const k = Math.min(1, pr.t / pr.delay);
