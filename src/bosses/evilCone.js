@@ -871,8 +871,13 @@ export class EvilCone extends Boss {
     if (this.pos.y - this.ground < 3.5) p.hurt('cone', this.pos.x, this.pos.z);
   }
 
+  // Retired minions leave the stage as well. Session.respawn() resets every Enemy still in it, and
+  // that brought the pills and broccoli of earlier attempts back to life at their launch spots:
+  // they piled up with every death and stood on the respawn point.
   killMinions() {
-    for (const m of this.minions) if (!m.dead) { m.dead = true; m.obj.visible = false; }
+    const old = this.minions;
+    for (const m of old) { m.dead = true; m.obj.visible = false; m.obj.removeFromParent(); }
+    if (old.length) this.stage.entities = this.stage.entities.filter((e) => !old.includes(e));
     this.minions = [];
   }
 

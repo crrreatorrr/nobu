@@ -14,7 +14,8 @@ export const EXTENDED_CHASE_ITEMS = [
   item('pack',-3.4,SF+20),item('pack',3.4,SF+22),item('snacks',-2.8,SF+30),
   item('snacks',0,SF+51),item('snacks',-2.6,SF+53,{resetChase:true}),
   item('stack',2.6,SF+58,{height:2}),item('pack',0,SF+75),item('pack',-3.4,SF+85),item('pack',3.4,SF+87.5),
-  item('snacks',0,YA-1),item('pack',2.6,YA+12),item('pack',0,YA+30),item('pack',-2.6,YA+33),item('pack',2.6,YA+46),
+  // On the Yarn Avalanche floor, past the pit at D(262)..YA: a checkpoint hanging over the pit respawned Nobu into the fall.
+  item('snacks',0,YA+2),item('pack',2.6,YA+12),item('pack',0,YA+30),item('pack',-2.6,YA+33),item('pack',2.6,YA+46),
 ];
 export const EXTENDED_DOGS = [
   {id:'2:corgi-a',breed:'corgi',x:-3.6,d:extendedD(60.5)}, {id:'2:pug-a',breed:'pug',x:3.6,d:extendedD(146)},

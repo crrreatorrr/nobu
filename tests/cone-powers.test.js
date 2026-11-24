@@ -108,6 +108,20 @@ describe('Cone tiled arena fairness and rollback',()=>{
   });
 });
 
+describe('Cone minions and the respawn reset',()=>{
+  it('keeps retired pump and broccoli minions out of the generic Enemy reset of a respawn',async()=>{
+    const {Enemy}=await import('../src/entities/enemies.js'),{stage,boss}=fixture();
+    boss.launchPumps(2);boss.phase=2;boss.setState('summon');boss.did=false;boss.stateT=5;boss.ai(.016);
+    const first=boss.minions.slice();expect(first.length).toBeGreaterThanOrEqual(3);
+    boss.killMinions();boss.launchPumps(2);const second=boss.minions.slice();
+    // Session.respawn(): every Enemy in the stage is reset, then the boss retires its minions.
+    for(const e of stage.entities)if(e instanceof Enemy)e.reset();
+    boss.killMinions();
+    expect(stage.entities.filter(e=>e instanceof Enemy)).toHaveLength(0);
+    expect([...first,...second].every(m=>m.obj.parent===null)).toBe(true);expect(boss.minions).toHaveLength(0);
+  });
+});
+
 describe('authored Cone attacks, tells and chains',()=>{
   it('has exact stage plans and chains, with full DDA tells on actual Shame firing',()=>{
     const {boss,game}=fixture();expect(CONE_PLANS[3]).toContain('tide');expect(CONE_CHAINS[3][0]).toEqual(['vortex','grab','spiral']);

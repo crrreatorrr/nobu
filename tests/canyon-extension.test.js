@@ -60,6 +60,11 @@ test('candidate measures every authored payer at the approved 17 whole Ticket ce
 test('extended countable data is placed at final coordinates with reset Snacks options',()=>{
  const{stage}=fixture({corrections:false});for(const item of EXTENDED_CHASE_ITEMS){if(item.kind==='stack')continue;const p=stage.track.toWorld(item.d,item.x,item.y);expect(stage.entities.some(e=>e.pos.distanceTo(p)<.05)).toBe(true);}
 });
+test('every Snacks checkpoint stands on ground, so a respawn there never starts in a pit',async()=>{
+ const{Snacks}=await import('../src/entities/breakables.js'),{stage}=fixture(),snacks=stage.entities.filter(e=>e instanceof Snacks);
+ expect(snacks.length).toBeGreaterThan(10);
+ for(const e of snacks){const q=stage.track.project(e.pos.x,e.pos.z),ground=stage.world.groundBelow(e.pos.x,e.pos.y+.3,e.pos.z,.2);expect([Math.round(q.s),Math.abs(e.pos.y-ground)<.6]).toEqual([Math.round(q.s),true]);}
+});
 test('corner cuts skip unsafe landings, isolated catch requires rear/height, and hold is harmless',()=>{
  const{stage,built,game}=fixture(),cat=built.chase;cat.begin(207.5,0);cat.state='run';game.player.body.s=214;game.player.pos.copy(stage.track.toWorld(214));cat.afterAdvance(214);expect(cat.leap).toBeNull();
  cat.begin(207.5,0);cat.state='run';cat.afterAdvance(220);expect(cat.leap.s1).toBe(212.5);
