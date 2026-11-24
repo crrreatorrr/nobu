@@ -233,3 +233,13 @@ test('later-move Dust Wall pickups retain the jackpot source for shared Snack-po
  const{staticSnackPotential}=await import('../src/game/bones.js');
  const{game}=fixture(),extras=game.tickets.list.filter(t=>t.source==='jackpot');expect(extras).toHaveLength(3);expect(extras.every(t=>t.y>90)).toBe(true);expect(staticSnackPotential(game.tickets.list)).toBe(17);
 });
+test('a falling post only hits under its own footprint, not its world-aligned box on a turning track',()=>{
+ const{stage,game}=fixture();const post=stage.entities.filter(e=>e instanceof TopplingPost).find(e=>Math.abs(Math.sin(e.obj.rotation.y))>.25);expect(post).toBeTruthy();
+ post.t=Math.max(post.period*.5+.8,post.period*.72)+.01;post.update(0);expect(post.dangerous).toBe(true);
+ const c=Math.cos(post.obj.rotation.y),s=Math.sin(post.obj.rotation.y),at=(lx,lz)=>new THREE.Vector3(post.pos.x+c*lx+s*lz,post.pos.y,post.pos.z-s*lx+c*lz);
+ const p=game.player;
+ // 1 m off the post's long side: inside the old world-aligned box, clear of the post
+ p.pos.copy(at(0,post.d/2+1));const hx=(Math.abs(c)*post.w+Math.abs(s)*post.d)/2,hz=(Math.abs(s)*post.w+Math.abs(c)*post.d)/2;expect(Math.abs(p.pos.x-post.pos.x)<hx&&Math.abs(p.pos.z-post.pos.z)<hz).toBe(true);
+ post.onTouch(p);expect(p.die).not.toHaveBeenCalled();
+ p.pos.copy(at(post.w/2-.5,0));post.onTouch(p);expect(p.die).toHaveBeenCalledWith('flat');
+});
