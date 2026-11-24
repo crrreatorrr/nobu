@@ -620,7 +620,13 @@ export class Crusher extends Entity {
     this.box.min.y = this.pos.y + y; this.box.max.y = this.pos.y + y + 1.2;
     this.interactive = this.dangerous;
   }
-  onTouch(p) { if (this.dangerous && p.pos.y < this.pos.y + this.head.position.y + 0.3) p.die('flat'); }
+  // The entity box is world-aligned, so on a turning track its corner reached 2 m in front of a
+  // head that stands at an angle. Only the head's own footprint (plus Nobu's half width) crushes.
+  onTouch(p) { if (this.dangerous && p.pos.y < this.pos.y + this.head.position.y + 0.3 && this.covers(p.pos)) p.die('flat'); }
+  covers(pos, margin = 0.36) {
+    const dx = pos.x - this.pos.x, dz = pos.z - this.pos.z, c = Math.cos(this.obj.rotation.y), s = Math.sin(this.obj.rotation.y);
+    return Math.abs(c * dx - s * dz) <= this.w * 0.45 + margin && Math.abs(s * dx + c * dz) <= this.d * 0.45 + margin;
+  }
   onStomp(p) { this.onTouch(p); }
   onBite() {}
 }
