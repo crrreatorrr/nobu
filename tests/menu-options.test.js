@@ -56,6 +56,28 @@ describe('menu option sets', () => {
     expect(g._titleItems().find((i) => i.id === 'hub').label).toBe('RETURN TO HUB');
   });
 
+  it('NEW GAME starts at once on a fresh save and asks for a second press when there is progress', () => {
+    const fresh = game({ titleMenu: true, titleSel: 0, playCutscene: vi.fn() });
+    fresh._titleActivate(fresh._titleItems().find((i) => i.id === 'new'));
+    expect(fresh.playCutscene).toHaveBeenCalledTimes(1);
+
+    save.data.seenIntro = true; save.setBeaten(1); save.write();
+    const g = game({ titleMenu: true, titleSel: 1, playCutscene: vi.fn(), _drawTitleMenu: vi.fn() });
+    const reset = vi.spyOn(save, 'reset');
+    g._titleActivate(g._titleItems().find((i) => i.id === 'new'));
+    expect(reset).not.toHaveBeenCalled(); expect(g.playCutscene).not.toHaveBeenCalled();
+    expect(g._titleItems().find((i) => i.id === 'new').label).toMatch(/ERASE/);
+    // moving the cursor disarms it
+    press('down'); g.titleMenu = true; g.titleAnim = { update: () => ({}) }; g.titleNobu = { apply() {} }; g.titleMask = { position: {}, rotation: {} }; g.titleIdle = 0;
+    g.updateTitle(0.016); input.clear();
+    expect(g._titleItems().find((i) => i.id === 'new').label).toBe('NEW GAME');
+    g._titleActivate(g._titleItems().find((i) => i.id === 'new'));
+    expect(reset).not.toHaveBeenCalled();
+    g._titleActivate(g._titleItems().find((i) => i.id === 'new'));
+    expect(reset).toHaveBeenCalledTimes(1); expect(g.playCutscene).toHaveBeenCalledTimes(1);
+    expect(save.beatenOf(1)).toBe(false);
+  });
+
   it('pause, game over and every system menu have the full set plus what they had', () => {
     const g = game();
     expect(ids(g._pauseItems())).toEqual(expect.arrayContaining([...STANDARD, 'resume', 'moves', 'wardrobe', 'model', 'pixel', 'music', 'sfx', 'rumble', 'feedback', 'quit']));

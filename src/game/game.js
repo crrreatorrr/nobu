@@ -418,6 +418,7 @@ export class Game {
     this.applyKennelTint(this.titleNobu, {});
     this.titleScene.background = Assets.tex('bg_title');
     this.titleMenu = null;
+    this.newGameArmed = false;
     this.ui.hideHud();
     this.ui.bossHide();
     this.ui.setScreen(`
@@ -431,7 +432,8 @@ export class Game {
   _titleItems() {
     const items = [];
     if (save.hasProgress()) items.push({ id: 'continue', label: 'CONTINUE' });
-    items.push({ id: 'new', label: 'NEW GAME' });
+    // With progress in the save, NEW GAME asks first: the same item, pressed a second time (see _titleActivate).
+    items.push({ id: 'new', label: this.newGameArmed ? 'ERASE STORY PROGRESS? PRESS AGAIN' : 'NEW GAME' });
     items.push({ id: 'wardrobe', label: 'WARDROBE' });
     items.push({ id: 'model', label: `NOBU: ${save.data.nobuModel === 'glb' ? '3D SCAN' : 'CLASSIC'}` });
     items.push({ id: 'pixel', label: `PS1 PIXELS: ${save.data.pixelated ? 'ON' : 'OFF'}` });
@@ -467,16 +469,26 @@ export class Game {
     }
     const items = this._titleItems();
     if (this.titleSel >= items.length) this.titleSel = items.length - 1;
-    if (input.pressed('up')) { this.titleSel = (this.titleSel + items.length - 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
-    if (input.pressed('down')) { this.titleSel = (this.titleSel + 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
+    if (input.pressed('up')) { this.newGameArmed = false; this.titleSel = (this.titleSel + items.length - 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
+    if (input.pressed('down')) { this.newGameArmed = false; this.titleSel = (this.titleSel + 1) % items.length; audio.play('menu'); this._drawTitleMenu(); }
     if (input.confirmPressed() || input.pressed('bite')) {
       this._titleActivate(items[this.titleSel]);
       return; // pad Start is confirm as well as pause: it must not also leave the menu
     }
-    if (input.pressed('pause') || input.pressed('back')) { this.titleMenu = null; this.toTitle(); }
+    if (input.pressed('pause') || input.pressed('back')) { this.titleMenu = null; this.newGameArmed = false; this.toTitle(); }
   }
 
   _titleActivate(it) {
+    // NEW GAME wipes the story save (levels, dogs, bones, Tickets): one stray press or click next to
+    // CONTINUE must not do that. Any other item, or moving the cursor, disarms it.
+    const armed = this.newGameArmed;
+    this.newGameArmed = false;
+    if (it.id === 'new' && save.hasProgress() && !armed) {
+      this.newGameArmed = true;
+      audio.play('menu');
+      this._drawTitleMenu();
+      return;
+    }
     if (it.id === 'controls') { this.openControls(() => this._drawTitleMenu()); return; }
     if (it.id === 'fullscreen') { this._toggleFullscreen(); return; }
     audio.play('select');
