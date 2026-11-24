@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../src/art/assets.js',()=>({Assets:{model:()=>null,tex:()=>new THREE.Texture(),tiled:()=>new THREE.Texture(),has:()=>false,aspect:()=>1}}));
 vi.mock('../src/audio/audio.js',()=>({audio:{play:vi.fn()}}));
 import { ConeArena, ConeTiles, CONE_PEDESTALS, RUG_PATTERNS, buildConeArena, PEDESTAL_RADIUS, PEDESTAL_MINION_GAP } from '../src/bosses/coneArena.js';
-import { EvilCone, CONE_PLANS, CONE_CHAINS, CONE_HIT_RING_GRACE } from '../src/bosses/evilCone.js';
+import { EvilCone, CONE_PLANS, CONE_CHAINS, CONE_HIT_RING_GRACE, CONE_CLONE_LOCK } from '../src/bosses/evilCone.js';
 import { Projectiles, pullToward } from '../src/bosses/common.js';
 import { World, moveBody } from '../src/world/physics.js';
 import { Stage } from '../src/world/stage.js';
@@ -129,6 +129,23 @@ describe('authored Cone attacks, tells and chains',()=>{
     boss.beginAttack('shame');boss.stateT=.7;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(1);
     game.session.projectiles.clear();boss.beginAttack('shame');boss.dda.tele=1.15;boss.stateT=.7;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(0);
     boss.stateT=.76;boss.ai(.01);expect(game.session.projectiles.list).toHaveLength(1);
+  });
+  it('S3 Clones: the marker locks before the real cone falls, so Nobu running from the locked marker gets clear',()=>{
+    const {boss,player}=fixture();boss.phase=3;player.pos.set(0,0,6);boss.beginAttack('clones');
+    const track=boss.tele(1.1),dt=1/120;let locked=null,reach=null;
+    for(let i=0;i<240&&reach===null;i++){
+      if(boss.stateT>=track){locked??=boss.grabT.clone();player.pos.x+=8*dt;}
+      boss.ai(dt);boss.stateT+=dt;
+      if(locked&&boss.pos.y-boss.ground<3.5)reach={t:boss.stateT-track,x:boss.pos.x,z:boss.pos.z};
+    }
+    expect(CONE_CLONE_LOCK).toBe(.35);expect(boss.grabT.distanceTo(locked)).toBe(0);
+    expect(reach.t).toBeGreaterThan(CONE_CLONE_LOCK);
+    // the cone's box is 2.6 m wide and Nobu's 0.72 m: clear once 1.66 m away on either axis
+    expect(Math.max(Math.abs(player.pos.x-reach.x),Math.abs(player.pos.z-reach.z))).toBeGreaterThan(1.66+.5);
+  });
+  it('S3 overheats right after the Smog Tide, before the spiral and the first chain',()=>{
+    const plan=CONE_PLANS[3];expect(plan.slice(0,5)).toEqual(['summon','clones','tide','overheat','spiral']);
+    expect(plan.filter(s=>s==='overheat')).toHaveLength(3);expect(plan).toHaveLength(16);
   });
   it('fires S3 Shame homers exactly.6seconds apart and they can be outrun without biting',()=>{
     const {boss,player,game}=fixture();boss.phase=3;boss.beginAttack('shame');boss.stateT=.56;boss.ai(.01);

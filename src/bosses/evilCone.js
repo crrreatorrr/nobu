@@ -18,10 +18,12 @@ import { RUG_PATTERNS } from './coneArena.js';
 import { CONE_STAGE_POWERS } from '../story/script.js';
 
 const ARENA_R = 12.5;
+// Stage 3 used to reach its first overheat 28 s after a retry, after a Supernova (spiral and a chain
+// came before it). It now overheats right after the Smog Tide, ~10 s in; the plan has the same moves.
 export const CONE_PLANS = Object.freeze({
   1: ['summon','barrage','chain','shame','spiral','overheat','drops','chain','barrage','overheat'],
   2: ['summon','sweep','lasers','overheat','rugpull','grab','chain','vortex','shame','spiral','shock','overheat'],
-  3: ['summon','clones','tide','spiral','chain','overheat','lasers','grab','sweep','rugpull','overheat','drops','chain','barrage','grab','overheat'],
+  3: ['summon','clones','tide','overheat','spiral','chain','lasers','grab','sweep','rugpull','overheat','drops','chain','barrage','grab','overheat'],
 });
 export const CONE_CHAINS = Object.freeze({ 1: [['barrage','shock'],['drops','spiral']],
   2: [['barrage','shame'],['shock','rugpull']],
@@ -58,6 +60,9 @@ function weighCone(x, y, z) {
 }
 
 export const CONE_HIT_RING_GRACE = 0.25;
+// Stage 3 Clones: the marker stops following Nobu this long before the real cone falls, as Grab's
+// does. It followed him until the slam, and the falling body reaches him 0.1 s later.
+export const CONE_CLONE_LOCK = 0.35;
 export class EvilCone extends Boss {
   constructor(stage, x, y, z) {
     super(stage, x, y, z, { name: 'THE EVIL CONE', portrait: 'portrait_cone', key: 'cone' }); // Old hp 9, phaseHp 3.
@@ -576,7 +581,7 @@ export class EvilCone extends Boss {
       case 'clones': {
         // phase 3: two ghost clones appear; all three flip and track, then slam one after another
         if (!this.did) { this.did = true; this._spawnDecoys(); audio.play('laugh'); }
-        const track = this.tele(1.1), gap = 0.3;
+        const track = this.tele(1.1), lock = CONE_CLONE_LOCK, gap = 0.3;
         const tgt = (i) => {
           const c = new THREE.Vector3(clamp(p.pos.x, -ARENA_R + 1, ARENA_R - 1), 0, clamp(p.pos.z, -ARENA_R + 1, ARENA_R - 1));
           if (i === 0) return c;
@@ -591,7 +596,7 @@ export class EvilCone extends Boss {
         const order = [this, ...this.decoys];
         order.forEach((o, i) => {
           const isMe = o === this;
-          const t0 = track + i * gap;
+          const t0 = track + lock + i * gap;
           const pos = isMe ? this.pos : o.pos;
           const T = isMe ? this.grabT : o.target;
           const body = isMe ? this.coneBody : o.body;
@@ -600,7 +605,7 @@ export class EvilCone extends Boss {
             body.rotation.x = damp(body.rotation.x, Math.PI, 6, dt);
             pos.x = damp(pos.x, T.x, 7, dt); pos.z = damp(pos.z, T.z, 7, dt); pos.y = damp(pos.y, ground + 7, 4, dt);
             mk.visible = true; mk.position.set(T.x, ground + 0.06, T.z);
-            mk.scale.setScalar(this.stateT > track - 0.2 ? 1.15 : 1 + Math.sin(this.stateT * 14) * 0.06);
+            mk.scale.setScalar(this.stateT > track ? 1.15 : 1 + Math.sin(this.stateT * 14) * 0.06);
             setMarkerRim(mk, this.stateT / t0);
           } else if (!(isMe ? this.slammed : o.slammed)) {
             pos.y -= 34 * dt;
@@ -625,7 +630,7 @@ export class EvilCone extends Boss {
           this.coneBody.rotation.z = Math.sin(this.stuckT * 25) * 0.06;
         }
         this.anim(dt, { armL: [0, 0, -1.2], armR: [0, 0, 1.4] });
-        if (this.stateT > track + gap * 2 + 0.6) this._removeDecoys(true);
+        if (this.stateT > track + lock + gap * 2 + 0.6) this._removeDecoys(true);
         if (this.slammed && this.stuckT > (this.grabHit ? 0.6 : 1.4)) {
           this.vulnerable = false; this.stars.visible = false;
           this._removeDecoys(true);
