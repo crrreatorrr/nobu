@@ -139,8 +139,8 @@ describe('session boss retries and awards', () => {
     save.data.godMode = false; s.update(0.1);
     expect(s.bossRun.void).toBe(true);
   });
-  it('uses the owner-selected Bird/Cat stage-1 restart policy', () => {
-    expect(BOSS_PHASE_CHECKPOINTS).toMatchObject({ bird: false, cat: false, cone: true });
+  it('resumes every story boss at the stage Nobu died in, Bird and Cat included', () => {
+    expect(BOSS_PHASE_CHECKPOINTS).toEqual({ bird: true, cat: true, cone: true, titan: true, queen: true });
   });
   it('counts deaths once per stage, then helps on the third retry and permanently voids medals', () => {
     vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
@@ -152,7 +152,7 @@ describe('session boss retries and awards', () => {
     s.bossDeaths[2] = 0; s.respawn(); expect(s.boss.dda).toEqual({ tele: 1, window: 0 });
     expect(s.bossRun.void).toBe(true);
   });
-  it.each(['bird', 'cat'])('counts deaths across the whole fight for %s, which restarts at stage 1', async (key) => {
+  it.each(['bird', 'cat'])('counts deaths across the whole fight for %s when its fight is set to restart at stage 1', async (key) => {
     vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
     const { session: s, game, p } = f;
     s.def = { ...s.def, bossKey: key };

@@ -1,9 +1,10 @@
 // H21–H23 have activated all three existing bosses with their authored powers.
 export const M2_ON = true;
 
-// The owner chose stage-1 retries for Bird/Cat in H20.
-// Session also honors an explicit per-instance phaseCheckpoints override.
-export const BOSS_PHASE_CHECKPOINTS = { bird: false, cat: false, cone: true, titan: true, queen: true };
+// Every story boss resumes at the stage Nobu died in. Bird and Cat used to restart at stage 1
+// (H20), which made the first two fights the harshest; the owner reversed that.
+// Session also honors an explicit per-instance phaseCheckpoints override (Boss Rush sets false).
+export const BOSS_PHASE_CHECKPOINTS = { bird: true, cat: true, cone: true, titan: true, queen: true };
 
 export const LEVEL_TIER = { 1: 1, ride: 1.5, 2: 2, cave: 2.5, 3: 3, 4: 4, 6: 4.5, 5: 5 };
 // Authored level hazards do not read these multipliers yet: applying them to the

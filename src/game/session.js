@@ -790,8 +790,8 @@ export class Session {
     // a little help: a fresh Blue Sphere each phase
     const sp = this.info.spheres?.[phase - 1];
     if (sp) { const s = new BlueSphere(this.stage, sp.x, sp.y, sp.z); s.countable = false; this.stage.add(s); }
-    // Bird/Cat retry from stage 1, so later stages must restore their own help
-    // when reached again rather than losing it at the earlier restart.
+    // A fight that retries from stage 1 (Boss Rush) must restore its help when a later stage is
+    // reached again rather than losing it at the earlier restart.
     this._applyBossDda(phase);
     boss.stateT = 0; // the phase-change reaction (rage/roar) starts now, after the dialogue
     boss.active = true;
@@ -840,7 +840,7 @@ export class Session {
 
   _applyBossDda(phase, resetMask = false) {
     this.bossStageDeaths = this.bossDeaths[phase] || 0;
-    // A boss that restarts at stage 1 (Bird, Cat) counts deaths across the whole fight: per-stage
+    // A fight that restarts at stage 1 (phaseCheckpoints false) counts deaths across the whole fight: per-stage
     // counting would need three deaths in stage 3, each after clearing stages 1 and 2 again.
     const counted = this.boss.phaseCheckpoints === false
       ? Object.values(this.bossDeaths).reduce((sum, n) => sum + (n || 0), 0)
