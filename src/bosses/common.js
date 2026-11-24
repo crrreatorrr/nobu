@@ -138,6 +138,8 @@ export const CONE_SCALE = 1.25;
 // Kinds that fly above the floor get a shadow ring on the floor under them, the size of their hit radius.
 const AIRBORNE = new Set(['feather', 'cone', 'hairball', 'missile', 'egg']);
 
+// How far below its own height a shockwave ring still hits: Nobu's standing height.
+export const WAVE_REACH_BELOW = 1.3;
 export class Projectiles {
   constructor(game, stage) {
     this.game = game;
@@ -204,14 +206,15 @@ export class Projectiles {
     return this._add({ kind: 'drop', mesh, marker, vel: new THREE.Vector3(0, 0, 0), life: delay + 1.6, delay, r: radius, death: 'cone', groundY: y, t: 0 });
   }
 
-  shockwave(x, y, z, speed = 8, maxR = 14) {
+  // grace: seconds before the ring can hit, for a ring that starts under a boss Nobu has just bitten.
+  shockwave(x, y, z, speed = 8, maxR = 14, { grace = 0 } = {}) {
     const G = pgeo();
     const mesh = new THREE.Mesh(G.ring, G.mRing);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(x, y + 0.25, z);
     addOutline(mesh, G.ringHull);
     audio.play('stomp');
-    return this._add({ kind: 'wave', mesh, vel: new THREE.Vector3(), life: maxR / speed, r: 0.2, speed, R: 0.3, cx: x, cz: z, groundY: y, death: 'angel' });
+    return this._add({ kind: 'wave', mesh, vel: new THREE.Vector3(), life: maxR / speed, r: 0.2, speed, R: 0.3, cx: x, cz: z, groundY: y, death: 'angel', grace });
   }
 
   // Homing rocket: steers after Nobu, explodes on contact or on the ground. Bite it to pop it.
@@ -376,7 +379,11 @@ export class Projectiles {
         pr.mesh.scale.set(pr.R, pr.R, 1);
         pr.mesh.material.opacity = Math.min(0.85, pr.life * 2);
         const d = Math.hypot(p.pos.x - pr.cx, p.pos.z - pr.cz);
-        if (Math.abs(d - pr.R) < 0.55 && p.pos.y - pr.groundY < 0.7) hit = true;
+        // The ring is a thin band at its own height: jump it, or stand more than Nobu's height
+        // below it (the Queen's dump ring starts 3 m above the arena floor and used to hit there).
+        const above = p.pos.y - pr.groundY;
+        if (pr.grace > 0) pr.grace -= dt;
+        else if (Math.abs(d - pr.R) < 0.55 && above < 0.7 && above > -WAVE_REACH_BELOW) hit = true;
       } else if (pr.kind === 'drop') {
         pr.t += dt;
         const k = Math.min(1, pr.t / pr.delay);

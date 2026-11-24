@@ -710,7 +710,9 @@ export class PillBot extends Enemy {
     if (this.state === 'knocked' && this.halves) this.obj.visible = false;
   }
 
-  onReset() { this.mode = 'walk'; this.cool = 1; this.pill.rotation.set(0, 0, 0); }
+  // A respawn puts the bot back on patrol; the wait before its first tumble outlasts the respawn
+  // blink (RESPAWN_INVULN_SEC), so the player can read it and it cannot hit a standing Nobu inside 3 s.
+  onReset() { this.mode = 'walk'; this.cool = 2.5; this.pill.rotation.set(0, 0, 0); }
 }
 
 // ---------------- Pump.fun minion (the Evil Cone's summons) ----------------
@@ -831,6 +833,9 @@ export class PumpPill extends PillBot {
     this.squash();
     p.bounce(11 + 2 * this.pump);
   }
+  // The launch beam is the warning: a pill still rising out of the floor cannot be bitten and does
+  // not hurt, so one that beams in under Nobu (the Queen's Market Crash safe candle) is not a free hit.
+  onTouch(p) { if (this.mode !== 'launch') super.onTouch(p); }
 }
 
 

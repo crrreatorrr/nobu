@@ -114,14 +114,13 @@ The story order is **1 → 2 → 3 → 4 → 6 → 5**. Smog Rapids has a level 
 | 5 | Pump & Dump Pipeline | Pump Queen |
 
 Bird, Cat, Cone and Titan each have three evolving stages; the Queen has four. Attacks use
-animation, sound and arena tells rather than on-screen attack countdowns. Bird/Cat retries restart
-at stage 1; ordinary Cone/Titan/Queen fights resume at the current stage. Earned Mega Bark still
+animation, sound and arena tells rather than on-screen attack countdowns. A retry in any ordinary
+boss fight resumes at the stage Nobu died in. Earned Mega Bark still
 works on bosses that explicitly accept it, including while wearing a Wizard Hat.
 
 Deaths inside a boss fight cost no lives. After three deaths the fight gives quiet help (one Sproto
-Mask, slightly longer tells and punish windows), which voids that attempt's medals. Cone, Titan and
-Queen count the three deaths per stage; Bird and Cat, which restart at stage 1, count them across
-the whole fight.
+Mask, slightly longer tells and punish windows), which voids that attempt's medals. The three
+deaths are counted per stage.
 
 Two optional bonus stages open after the first two bosses: **Roomba Rush** after Bird, and
 **Glowworm Grotto** after Cat. Roomba Rush's vacuum drives itself: steer, hop, ram backpacks and
@@ -255,6 +254,10 @@ The single save from before (`nobu-saviour-dog-save-v1`, version 3) is now only 
 with this browser and never moves into an account, and it seeds this browser's settings and wallet once.
 Older saves migrate without renaming released dog IDs; previous trial layouts are archived as Classic.
 Unreadable data is backed up at `nobu-saviour-dog-save-v1.corrupt`.
+
+On a save that has progress, NEW GAME asks first: the item turns into **ERASE STORY PROGRESS? PRESS
+AGAIN** and only a second press on it starts over; moving the cursor, picking another item or leaving
+the menu cancels it. A fresh save starts at once.
 
 **New Game resets story unlocks, rescues, ordinary bone boards, colors and Remix progress.** It keeps
 current/Classic trial records, boss medals, Perfect Runs, Rush records and Gauntlet progress, including

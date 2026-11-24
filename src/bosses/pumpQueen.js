@@ -10,6 +10,10 @@ import { QUEEN_STAGE_POWERS, QUEEN_TICKER_TEXT } from '../story/script.js';
 import { materialSet, modelSkeletons } from './catResources.js';
 import { queenCleanup, queenHazardsPaused, queenProceduralCleanup } from './queenResources.js';
 
+// Stage 3 only: after Mega Bark pops the bubble the crown stays open this much longer than W. The
+// climb is the same as in stages 1-2 plus the bark; measured with real input, bark -> pill bounce ->
+// bite takes 0.8 s at best, which left 0.25 s of slack in the 1.05 s stage-3 window.
+export const QUEEN_BUBBLE_EXTRA = 0.35;
 export const QUEEN_PLANS = Object.freeze({
   1: ['mint', 'wave', 'chain', 'pump', 'wave', 'mint', 'chain', 'pump'],
   2: ['mint', 'airdrop', 'fomo', 'pump', 'chain', 'mint', 'pump'],
@@ -619,6 +623,8 @@ export class PumpQueen extends Boss {
       this.active &&
       !this.defeated &&
       !this.vulnerable &&
+      // Bubbled (stage 3) she is pumped above the safe candle Nobu stands on after a Market Crash.
+      !this.shielded &&
       Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z) < 1.8
     )
       p.hurt('angel', this.pos.x, this.pos.z);
@@ -630,7 +636,7 @@ export class PumpQueen extends Boss {
       this.vulnerable = true;
       this.crownGlow.visible = true;
       this.stateT = 0;
-      this.pumpedFor = this.W + this.windowExtra;
+      this.pumpedFor = this.W + this.windowExtra + QUEEN_BUBBLE_EXTRA;
       audio.play('conePop');
       return true;
     }

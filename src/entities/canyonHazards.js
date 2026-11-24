@@ -35,7 +35,11 @@ export class TopplingPost extends Entity {
     this.wasDangerous=this.dangerous;
   }
   onRespawn(){this.t=this.phase;this.wasDangerous=false;this.update(0);}
-  onTouch(p){if(this.dangerous&&p.pos.y<this.pos.y+1.2)p.die('flat');}
+  // The entity box is world-aligned, so on a turning track it reached up to 2.5 m past a post that
+  // stands at an angle. Only the post's own w x d footprint (plus Nobu's half width) is deadly.
+  onTouch(p){if(this.dangerous&&p.pos.y<this.pos.y+1.2&&this.covers(p.pos))p.die('flat');}
+  covers(pos,margin=.36){const dx=pos.x-this.pos.x,dz=pos.z-this.pos.z,c=Math.cos(this.obj.rotation.y),s=Math.sin(this.obj.rotation.y);
+    return Math.abs(c*dx-s*dz)<=this.w/2+margin&&Math.abs(s*dx+c*dz)<=this.d/2+margin;}
   onStomp(p){this.onTouch(p);}
   onBite(){}
 }

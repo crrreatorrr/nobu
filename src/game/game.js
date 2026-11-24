@@ -113,6 +113,16 @@ export function flushBeforeExit(flush, ms = EXIT_FLUSH_MS) {
   return Promise.race([sent, timeout]).finally(() => clearTimeout(timer));
 }
 
+// Where the title stage (Nobu, mound, mask) stands, as [x, y] in the title scene. The title camera
+// has a 40 degree lens 6.2 m back, so half the view at the stage is tan(20 deg) * 6.2 * aspect wide.
+export const TITLE_STAGE_SIDE = 0.69;
+export function titleStageSpot(state, aspect) {
+  if (state === 'wardrobe') return [1.1, 0];
+  const half = Math.tan(Math.PI / 9) * 6.2 * aspect;
+  const x = Math.min(3.2, Math.max(1.1, 0.2 + TITLE_STAGE_SIDE * half));
+  return [x, state === 'credits' ? -0.55 : 0];
+}
+
 export class Game {
   constructor(canvas, uiRoot) {
     this.canvas = canvas;
@@ -310,6 +320,7 @@ export class Game {
 
   render() {
     if (this.state === 'title' || this.state === 'credits' || this.state === 'wardrobe') {
+      this._placeTitleStage();
       this.renderer.render(this.titleScene, this.titleCam);
     } else if (this.state === 'kennel') {
       this.renderer.render(this.kennel.yard.scene, this.kennel.yard.camera);
@@ -332,20 +343,24 @@ export class Game {
     this.titleNobu = createNobuModel(save.data.nobuModel);
     this.titleNobuKind = save.data.nobuModel;
     this.titleAnim = new NobuAnimator();
-    this.titleNobu.root.position.set(1.1, -0.2, 0);
+    // Nobu, his mound and the mask stand on one stage group, so a screen can move all three together.
+    this.titleStage = new THREE.Group();
+    s.add(this.titleStage);
+    this.titleNobu.root.position.set(0, -0.2, 0);
     this.titleNobu.root.rotation.y = -0.35;
-    s.add(this.titleNobu.root);
+    this.titleStage.add(this.titleNobu.root);
     const mound = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 0.4, 20), new THREE.MeshLambertMaterial({ map: Assets.tiled('tex_l1_ground') }));
-    mound.position.set(1.1, -0.4, 0);
-    s.add(mound);
+    mound.position.set(0, -0.4, 0);
+    this.titleStage.add(mound);
     this.titleMask = maskMesh(0.5);
-    this.titleMask.position.set(1.85, 1.55, 0.2);
-    s.add(this.titleMask);
+    this.titleMask.position.set(0.75, 1.55, 0.2);
+    this.titleStage.add(this.titleMask);
     this.titleScene = s;
     this.titleCam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
     this.titleCam.position.set(0, 1.0, 6.2);
     this.titleCam.lookAt(0.2, 1.0, 0);
     this.titleIdle = 0;
+    this._placeTitleStage();
     this._dressTitleNobuGear();
   }
 
@@ -378,14 +393,23 @@ export class Game {
     if (this.state === 'wardrobe') this._drawWardrobe();
   }
 
+  // The title menu and the credits text sit in the middle of the screen, so Nobu's mound stands to
+  // the right of them: a fixed share of the way to the screen edge, whatever the window's shape.
+  // (He used to stand at x 1.1, behind the menu items at 16:9.) The wardrobe keeps its own spot.
+  _placeTitleStage() {
+    if (!this.titleStage || !this.titleCam) return;
+    const [x, y] = titleStageSpot(this.state, this.titleCam.aspect);
+    this.titleStage.position.set(x, y, 0);
+  }
+
   _refreshTitleNobu() {
     if (this.titleNobuKind === save.data.nobuModel) return;
-    this.titleScene.remove(this.titleNobu.root);
+    this.titleStage.remove(this.titleNobu.root);
     this.titleNobu = createNobuModel(save.data.nobuModel);
     this.titleNobuKind = save.data.nobuModel;
-    this.titleNobu.root.position.set(1.1, -0.2, 0);
+    this.titleNobu.root.position.set(0, -0.2, 0);
     this.titleNobu.root.rotation.y = -0.35;
-    this.titleScene.add(this.titleNobu.root);
+    this.titleStage.add(this.titleNobu.root);
     this._dressTitleNobuGear();
   }
 
@@ -1426,11 +1450,11 @@ export class Game {
     this.titleScene.background = Assets.tex('story_ending');
     this.creditsT = 0;
     audio.playMusic('victory');
-    this.ui.setScreen(`<div style="position:absolute;top:6vh;width:100%;text-align:center"><div class="big-title">THE END</div>
-      <div class="credits" style="margin:2vh auto 0">Nobu saved every dog on the island.<br>
+    this.ui.setScreen(`<div class="credits-screen"><div class="big-title">THE END</div>
+      <div class="credits credits-panel">Nobu saved every dog on the island.<br>
       Art generated with Higgsfield · Code in Three.js · All sound synthesized live<br>
       Thanks for playing! ${BONE_TEXT.goodBoyPercent(goodBoyPercent(save.data, LEVELS).total)}</div></div>
-      <div class="press-start" style="bottom:6vh">PRESS ANY KEY</div>`);
+      <div class="press-start credits-press">PRESS ANY KEY</div>`);
     this.ui.fade(0);
   }
 

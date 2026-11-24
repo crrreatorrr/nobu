@@ -1,9 +1,10 @@
 // H21–H23 have activated all three existing bosses with their authored powers.
 export const M2_ON = true;
 
-// The owner chose stage-1 retries for Bird/Cat in H20.
-// Session also honors an explicit per-instance phaseCheckpoints override.
-export const BOSS_PHASE_CHECKPOINTS = { bird: false, cat: false, cone: true, titan: true, queen: true };
+// Every story boss resumes at the stage Nobu died in. Bird and Cat used to restart at stage 1
+// (H20), which made the first two fights the harshest; the owner reversed that.
+// Session also honors an explicit per-instance phaseCheckpoints override (Boss Rush sets false).
+export const BOSS_PHASE_CHECKPOINTS = { bird: true, cat: true, cone: true, titan: true, queen: true };
 
 export const LEVEL_TIER = { 1: 1, ride: 1.5, 2: 2, cave: 2.5, 3: 3, 4: 4, 6: 4.5, 5: 5 };
 // Authored level hazards do not read these multipliers yet: applying them to the
@@ -48,4 +49,8 @@ export const ULT_CHARGE = [0, 26, 20, 15, 12]; // 1-based; the Queen has a fourt
 // (old wait + 1.7 s card + fade), so records set before and after the change compare like for like and
 // skipping the card gains nothing.
 export const DEATH_CLOCK_SEC = Object.freeze({ fall: 3.05, other: 3.55 });
+// After a respawn Nobu blinks and takes no hits for this long (the same timer a lost mask starts),
+// so a patrol or hazard that happens to cover the checkpoint cannot take the life straight back.
+// Pits, crushers and chasers still count. Off in time trials and Box Gauntlets (recorded clocks).
+export const RESPAWN_INVULN_SEC = 2;
 export const DEATH_FLOW = Object.freeze({ waitFall: 600, waitOther: 900, card: 900, cardSkipAfter: 250, fade: 200 });

@@ -124,6 +124,12 @@ describe('session boss retries and awards', () => {
     expect(f.session.boss.resetToPhase).toHaveBeenCalledWith(policy ? 2 : 1);
     expect(f.session.bossRun.t).toBe(27); expect(f.session.bossRun.noHit).toBe(false);
   });
+  it('a respawn blinks Nobu for two seconds, except in a time trial or a Box Gauntlet', () => {
+    const f = fixture(); prepareRespawn(f); const { session: s, p } = f;
+    p.invulnT = 0; s.respawn(); expect(p.invulnT).toBe(2);
+    p.invulnT = 0; s.trial = true; s.respawn(); expect(p.invulnT).toBe(0);
+    s.trial = false; s.def = { ...s.def, gauntlet: true }; s.respawn(); expect(p.invulnT).toBe(0);
+  });
   it('counts actual Session fight updates across death, pauses busy/pause time and stops at defeat', () => {
     const { session: s, game, stage, p } = fixture();
     Object.assign(stage, { update: vi.fn(), followSky: vi.fn() });
@@ -139,8 +145,22 @@ describe('session boss retries and awards', () => {
     save.data.godMode = false; s.update(0.1);
     expect(s.bossRun.void).toBe(true);
   });
-  it('uses the owner-selected Bird/Cat stage-1 restart policy', () => {
-    expect(BOSS_PHASE_CHECKPOINTS).toMatchObject({ bird: false, cat: false, cone: true });
+  it('resumes every story boss at the stage Nobu died in, Bird and Cat included', () => {
+    expect(BOSS_PHASE_CHECKPOINTS).toEqual({ bird: true, cat: true, cone: true, titan: true, queen: true });
+  });
+  it.each(['bird', 'cat', 'cone', 'titan', 'queen'])('a %s retry after a death in stage 2 or 3 starts that stage again', (key) => {
+    vi.useFakeTimers();
+    for (const phase of [2, 3]) {
+      const f = fixture();
+      f.session.boss = new Boss(f.stage, 0, 0, 0, { key }); f.session.boss.active = true;
+      prepareRespawn(f);
+      const s = f.session;
+      s.bossPhaseCp = phase; s.boss.phase = phase; s.dying = false; s.onPlayerDeath('fall');
+      vi.clearAllTimers(); s.dying = false;
+      s.respawn();
+      expect(s.boss.resetToPhase).toHaveBeenLastCalledWith(phase);
+      expect(s.boss.phase).toBe(phase);
+    }
   });
   it('counts deaths once per stage, then helps on the third retry and permanently voids medals', () => {
     vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
@@ -152,7 +172,7 @@ describe('session boss retries and awards', () => {
     s.bossDeaths[2] = 0; s.respawn(); expect(s.boss.dda).toEqual({ tele: 1, window: 0 });
     expect(s.bossRun.void).toBe(true);
   });
-  it.each(['bird', 'cat'])('counts deaths across the whole fight for %s, which restarts at stage 1', async (key) => {
+  it.each(['bird', 'cat'])('counts deaths across the whole fight for %s when its fight is set to restart at stage 1', async (key) => {
     vi.useFakeTimers(); const f = fixture(); prepareRespawn(f);
     const { session: s, game, p } = f;
     s.def = { ...s.def, bossKey: key };

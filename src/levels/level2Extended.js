@@ -54,7 +54,8 @@ export function buildLevel2Extended(game, stage, tickets, {corrections = true} =
   k.tix(2.5, 0, D(90), 2.5, 0, D(94), 3);
   k.barkRock(-3.3, 0, D(100), { prize: 'tickets', tickets: 3 });
   k.tix(-2.6, 0, D(103), -2.6, 0, D(112), 5);
-  k.pill(0, 0, D(118), { range: 2.8 });
+  // Patrols 148.8-153.2 m, under the Ticket arc and clear of the two Snacks at 146 and 147.5 m.
+  k.pill(0, 0, D(121), { range: 2.2 });
   k.tixArc(0, 0, D(119), 0, D(127), 3.6, 7);
   F(126, 160);
   // blue bone path (the blue bone is up on the fan catwalk in the Cone Factory)
@@ -82,7 +83,8 @@ export function buildLevel2Extended(game, stage, tickets, {corrections = true} =
   k.tixArc(0, 2, D(221), 0, D(229), 3.5, 7);
   k.floor(D(228), 334, { w: W });
   F(230, 262);
-  k.pill(0, 0, D(242), { range: 3 });
+  // Patrols 437.3-441.7 m, clear of the Snacks at 432 and 435 m.
+  k.pill(0, 0, D(245.5), { range: 2.2 });
   log(256);
   k.tixArc(0, 0, D(261), 0, D(261) + 7, 2.6, 6);
   F(267, 316);

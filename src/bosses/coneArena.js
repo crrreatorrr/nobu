@@ -5,6 +5,7 @@ import { Beam } from './common.js';
 import { Assets } from '../art/assets.js';
 import { audio } from '../audio/audio.js';
 
+export const PEDESTAL_RADIUS = 1.6, PEDESTAL_MINION_GAP = 1.2, PEDESTAL_BLOCK_TOP = .5;
 export const CONE_PEDESTALS = Object.freeze([[4.2, 0], [0, 4.2], [-4.2, 0], [0, -4.2]].map(Object.freeze));
 export const RUG_PATTERNS = Object.freeze(['rows', 'checker', 'ring', 'cross']);
 
@@ -80,6 +81,22 @@ export class ConePedestal extends Pedestal {
   update(dt) {
     const step = 1.2 * Math.max(0,dt), delta = this.destination - this.top;
     this.top += Math.sign(delta) * Math.min(Math.abs(delta),step); this._place();
+    this._blockMinions();
+  }
+  // The Cone's minions walk and hop along the floor and nothing else stops them, so they went
+  // through a raised pedestal and hurt Nobu standing on it from inside (the spiky Broccoli of
+  // stage 3 cannot even be bitten). A raised pedestal is solid to them: they stop at its rim.
+  _blockMinions() {
+    if (!this.enabled || this.top < PEDESTAL_BLOCK_TOP) return;
+    const rim = PEDESTAL_RADIUS + PEDESTAL_MINION_GAP;
+    for (const e of this.stage.entities) {
+      if (e.alive !== true || e.dead || !e.home || e.pos.y > this.top - .2) continue;
+      const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.hypot(dx,dz);
+      if (d >= rim) continue;
+      const k = d > 1e-4 ? rim/d : 0;
+      e.pos.x = this.pos.x + (k ? dx*k : rim); e.pos.z = this.pos.z + dz*k;
+      if (e.vx !== undefined) { e.vx = 0; e.vz = 0; } // a hopping pill drops straight down at the rim
+    }
   }
   reset() { this.top = 0; this.destination = this.enabled ? 1.2 : 0; this.safe = true; this._place(); }
 }

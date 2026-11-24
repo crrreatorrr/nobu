@@ -10,11 +10,11 @@ vi.mock('../src/art/assets.js', () => ({
   }
 }));
 vi.mock('../src/audio/audio.js', () => ({ audio: { play: vi.fn() } }));
-import { PumpQueen, QUEEN_PLANS, QUEEN_CHAINS, fitQueenModel } from '../src/bosses/pumpQueen.js';
+import { PumpQueen, QUEEN_PLANS, QUEEN_CHAINS, fitQueenModel, QUEEN_BUBBLE_EXTRA } from '../src/bosses/pumpQueen.js';
 import { QueenArena, QUEEN_OUTER, QUEEN_INNER } from '../src/bosses/queenArena.js';
 import { QueenPill, QueenAirdrop } from '../src/bosses/queenHelpers.js';
 import { PumpPill } from '../src/entities/enemies.js';
-import { Projectiles } from '../src/bosses/common.js';
+import { Projectiles, WAVE_REACH_BELOW } from '../src/bosses/common.js';
 import { World } from '../src/world/physics.js';
 import { Player } from '../src/player/player.js';
 import { BOSS } from '../src/config/difficulty.js';
@@ -254,7 +254,8 @@ it('opens a fresh full crown window after S3 bubble pop and refuses body bites',
   expect(boss.vulnerable).toBe(false);
   boss.onBark();
   expect(boss.vulnerable).toBe(true);
-  expect(boss.pumpedFor).toBe(boss.W);
+  expect(boss.pumpedFor).toBeCloseTo(boss.W + QUEEN_BUBBLE_EXTRA);
+  expect(QUEEN_BUBBLE_EXTRA).toBe(0.35);
   const before = boss.hp;
   player.pos.copy(boss.pos);
   boss.onBite(player);
@@ -614,4 +615,46 @@ it('preserves the earned base bark with a Spell Hat using only base range/cone/h
   p._bark();
   expect(spell).toHaveBeenCalledTimes(1);
   expect(earned).not.toHaveBeenCalled();
+});
+
+// Fairness fixes found by playing the fight with real input (no God Mode).
+it('the dump shockwave is a band at its own height: the ring floor 3 m below is safe, a candle at its level is not', () => {
+  const { game, player } = fixture();
+  const proj = game.session.projectiles;
+  const passes = (y) => {
+    player.hurt.mockClear(); player.pos.set(0, y, 6);
+    proj.shockwave(0, 3, 0, 10, 12);
+    for (let t = 0; t < 1.2; t += 1 / 120) proj.update(1 / 120);
+    proj.clear();
+    return player.hurt.mock.calls.length > 0;
+  };
+  expect(WAVE_REACH_BELOW).toBe(1.3);
+  expect(passes(0)).toBe(false); // the arena ring, 3 m under the wave
+  expect(passes(1.6)).toBe(false); // a low candle: the ring passes over Nobu's head
+  expect(passes(2.5)).toBe(true); // a candle near her dump height
+  expect(passes(3)).toBe(true);
+  expect(passes(3.8)).toBe(false); // jumped over it
+});
+it('a pill still rising on its launch beam does not hurt, so the Market Crash pill cannot hit Nobu on the safe candle', () => {
+  const { stage, player } = fixture();
+  const pill = new PumpPill(stage, 0, 0, 0);
+  expect(pill.mode).toBe('launch');
+  pill.onTouch(player); expect(player.hurt).not.toHaveBeenCalled();
+  pill.mode = 'wait'; pill.onTouch(player); expect(player.hurt).toHaveBeenCalledOnce();
+});
+it('Mega Bark pops the bubble without knocking away the pill that leads to the crown', () => {
+  const f = fixture(), { boss, arena, stage } = f;
+  const pill = stage.add(new QueenPill(stage, arena.pillars[12], boss, { pump: 3 }));
+  expect(typeof pill.onBark).toBe('function'); // Player._bark calls onBark instead of onExplosion
+  pill.onBark(f.player);
+  expect(pill.alive).toBe(true);
+});
+it('bubbled above the safe candle she does not hurt on touch; out of the bubble and closed she does', () => {
+  const { boss, player } = fixture();
+  boss.resetToPhase(3); boss.openWindow();
+  player.pos.set(boss.pos.x + 1, boss.pos.y, boss.pos.z);
+  expect(boss.shielded).toBe(true);
+  boss.onTouch(player); expect(player.hurt).not.toHaveBeenCalled();
+  boss.dump(); boss.hitCool = 0;
+  boss.onTouch(player); expect(player.hurt).toHaveBeenCalledOnce();
 });

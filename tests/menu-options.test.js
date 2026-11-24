@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { input } from '../src/core/input.js';
-import { Game } from '../src/game/game.js';
+import { Game, titleStageSpot } from '../src/game/game.js';
 import { save } from '../src/core/save.js';
 import { audio } from '../src/audio/audio.js';
 import { fullscreen } from '../src/ui/fullscreen.js';
@@ -78,6 +78,20 @@ describe('menu option sets', () => {
     expect(save.beatenOf(1)).toBe(false);
   });
 
+  it('the title Nobu stands to the right of the menu, and lower on the credits; the wardrobe keeps its spot', () => {
+    // Half the title view at Nobu's depth is tan(20 deg) * 6.2 * aspect wide; the menu's widest item
+    // (CONTROLLER SETTINGS) reaches 0.127 of the screen width right of centre at 960x540.
+    for (const aspect of [4 / 3, 16 / 10, 16 / 9, 21 / 9]) {
+      const half = Math.tan(Math.PI / 9) * 6.2 * aspect, menuRight = 0.2 + 0.127 * 2 * half * (16 / 9) / aspect;
+      const [x, y] = titleStageSpot('title', aspect);
+      expect(x - 0.45).toBeGreaterThan(menuRight); // Nobu is about 0.9 m wide
+      expect(x + 0.45).toBeLessThan(0.2 + half); // and still on screen
+      expect(y).toBe(0);
+    }
+    expect(titleStageSpot('title', 16 / 9)[0]).toBeGreaterThan(2.5); // he stood at 1.1, behind the items
+    expect(titleStageSpot('credits', 16 / 9)).toEqual([titleStageSpot('title', 16 / 9)[0], -0.55]);
+    expect(titleStageSpot('wardrobe', 16 / 9)).toEqual([1.1, 0]);
+  });
   it('pause, game over and every system menu have the full set plus what they had', () => {
     const g = game();
     expect(ids(g._pauseItems())).toEqual(expect.arrayContaining([...STANDARD, 'resume', 'moves', 'wardrobe', 'model', 'pixel', 'music', 'sfx', 'rumble', 'feedback', 'quit']));

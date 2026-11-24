@@ -357,6 +357,11 @@ html, body {
 .level-load .ll-step { min-height: 1.4em; }
 
 .credits { max-width: 900px; text-align: center; font-size: 24px; font-weight: 800; line-height: 1.5; text-shadow: 0 2px 0 #000; }
+/* Ending credits: the lines sit on a panel in the menu style, so they read over the ending picture,
+   and the whole block keeps to the top while Nobu dances at the lower right. */
+.credits-screen { position: absolute; top: 4vh; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1.5vh; }
+.credits-panel { box-sizing: border-box; max-width: min(900px, 92vw); font-size: clamp(15px, 3.2vh, 24px); background: rgba(40, 10, 70, 0.86); border: 4px solid var(--orange); border-radius: 18px; padding: 8px 22px; box-shadow: 0 5px 0 var(--ink); }
+.press-start.credits-press { bottom: 4vh; left: 0; width: auto; padding: 0 4vw; text-align: left; font-size: clamp(26px, 6vh, 48px); }
 
 @media (max-width: 900px) {
   .hud-slot { font-size: 32px; }
