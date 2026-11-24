@@ -124,6 +124,12 @@ describe('session boss retries and awards', () => {
     expect(f.session.boss.resetToPhase).toHaveBeenCalledWith(policy ? 2 : 1);
     expect(f.session.bossRun.t).toBe(27); expect(f.session.bossRun.noHit).toBe(false);
   });
+  it('a respawn blinks Nobu for two seconds, except in a time trial or a Box Gauntlet', () => {
+    const f = fixture(); prepareRespawn(f); const { session: s, p } = f;
+    p.invulnT = 0; s.respawn(); expect(p.invulnT).toBe(2);
+    p.invulnT = 0; s.trial = true; s.respawn(); expect(p.invulnT).toBe(0);
+    s.trial = false; s.def = { ...s.def, gauntlet: true }; s.respawn(); expect(p.invulnT).toBe(0);
+  });
   it('counts actual Session fight updates across death, pauses busy/pause time and stops at defeat', () => {
     const { session: s, game, stage, p } = fixture();
     Object.assign(stage, { update: vi.fn(), followSky: vi.fn() });

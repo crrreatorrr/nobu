@@ -710,7 +710,9 @@ export class PillBot extends Enemy {
     if (this.state === 'knocked' && this.halves) this.obj.visible = false;
   }
 
-  onReset() { this.mode = 'walk'; this.cool = 1; this.pill.rotation.set(0, 0, 0); }
+  // A respawn puts the bot back on patrol; the wait before its first tumble outlasts the respawn
+  // blink (RESPAWN_INVULN_SEC), so the player can read it and it cannot hit a standing Nobu inside 3 s.
+  onReset() { this.mode = 'walk'; this.cool = 2.5; this.pill.rotation.set(0, 0, 0); }
 }
 
 // ---------------- Pump.fun minion (the Evil Cone's summons) ----------------

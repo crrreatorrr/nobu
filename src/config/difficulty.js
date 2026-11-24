@@ -49,4 +49,8 @@ export const ULT_CHARGE = [0, 26, 20, 15, 12]; // 1-based; the Queen has a fourt
 // (old wait + 1.7 s card + fade), so records set before and after the change compare like for like and
 // skipping the card gains nothing.
 export const DEATH_CLOCK_SEC = Object.freeze({ fall: 3.05, other: 3.55 });
+// After a respawn Nobu blinks and takes no hits for this long (the same timer a lost mask starts),
+// so a patrol or hazard that happens to cover the checkpoint cannot take the life straight back.
+// Pits, crushers and chasers still count. Off in time trials and Box Gauntlets (recorded clocks).
+export const RESPAWN_INVULN_SEC = 2;
 export const DEATH_FLOW = Object.freeze({ waitFall: 600, waitOther: 900, card: 900, cardSkipAfter: 250, fade: 200 });

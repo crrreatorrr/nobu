@@ -31,7 +31,7 @@ import { SNACK_EXCLUDED, staticSnackPotential, applyRunResults, boneContext, sna
 import { audio } from '../audio/audio.js';
 import { save, START_LIVES } from '../core/save.js';
 import { input } from '../core/input.js';
-import { DEATH_FLOW, DEATH_CLOCK_SEC } from '../config/difficulty.js';
+import { DEATH_FLOW, DEATH_CLOCK_SEC, RESPAWN_INVULN_SEC } from '../config/difficulty.js';
 import { rand } from '../core/util.js';
 import { hub } from '../hub/hubBridge.js';
 import { Assets } from '../art/assets.js';
@@ -1076,6 +1076,7 @@ export class Session {
     this.projectiles.clear();
     g.fx.clear();
     g.player.spawnAt(cp.pos, cp.facing);
+    if (!this.trial && !this.def?.gauntlet) g.player.invulnT = RESPAWN_INVULN_SEC;
     if (g.player.ride) g.player.ride.speedK = 0;
     this.stage.raftController?.restoreAtCheckpoint(cp.pos);
     if ((isPipelineSession(this) || this.remix) && this.phase === 'boss') { g.camera.endCinematic(); this.busy = false; }
