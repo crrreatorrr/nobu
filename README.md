@@ -255,6 +255,10 @@ with this browser and never moves into an account, and it seeds this browser's s
 Older saves migrate without renaming released dog IDs; previous trial layouts are archived as Classic.
 Unreadable data is backed up at `nobu-saviour-dog-save-v1.corrupt`.
 
+On a save that has progress, NEW GAME asks first: the item turns into **ERASE STORY PROGRESS? PRESS
+AGAIN** and only a second press on it starts over; moving the cursor, picking another item or leaving
+the menu cancels it. A fresh save starts at once.
+
 **New Game resets story unlocks, rescues, ordinary bone boards, colors and Remix progress.** It keeps
 current/Classic trial records, boss medals, Perfect Runs, Rush records and Gauntlet progress, including
 its one-time reward claims. Model/render/audio preferences, God Mode and equipped-item choices also
