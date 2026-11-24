@@ -73,6 +73,16 @@ describe.each(STAGES)('checkpoints of stage %s', (level) => {
     expect(floating).toEqual([]);
   });
 
+  it('has headroom: nothing solid over the spot Nobu respawns on', () => {
+    const p = f.game.player, hw = p.body.hw ?? 0.36, h = p.body.h ?? 1.3, covered = [];
+    for (const { e, d } of snacks) for (const sol of f.stage.world.all) {
+      if (!sol.enabled || sol.kind === 'hazard' || sol.ref === e) continue;
+      const over = sol.min.x < e.pos.x + hw && sol.max.x > e.pos.x - hw && sol.min.z < e.pos.z + hw && sol.max.z > e.pos.z - hw;
+      if (over && sol.min.y > e.pos.y + 0.05 && sol.min.y < e.pos.y + h + 0.3) covered.push(`${d} m: ${sol.ref?.constructor.name ?? sol.kind} ${(sol.min.y - e.pos.y).toFixed(2)} m up`);
+    }
+    expect(covered).toEqual([]);
+  });
+
   it('no enemy patrol walks over one', () => {
     const crossed = [];
     for (const { e, d } of snacks) for (const foe of f.stage.entities) {

@@ -10,7 +10,7 @@ export const EXTENDED_CHASE_ITEMS = [
   item('snacks',0,extendedD(116)), item('snacks',-2.6,extendedD(117.5),{resetChase:true}),
   item('snacks',0,SB+2), ...wall(SB+22,1.8), item('rug',1.8,SB+22),
   item('snacks',-2.6,SB+33), ...wall(SB+42,-1.8), item('rug',-1.8,SB+42),item('cat',-2.8,SB+50),
-  item('snacks',0,CF+4), item('mystery',-1.8,CF+8,{slot:'l2-fort'}),
+  item('snacks',0,CF+5.5), item('mystery',-1.8,CF+8,{slot:'l2-fort'}),
   item('pack',-3.4,SF+20),item('pack',3.4,SF+22),item('snacks',-2.8,SF+30),
   item('snacks',0,SF+51),item('snacks',-2.6,SF+53,{resetChase:true}),
   item('stack',2.6,SF+58,{height:2}),item('pack',0,SF+75),item('pack',-3.4,SF+85),item('pack',3.4,SF+87.5),
